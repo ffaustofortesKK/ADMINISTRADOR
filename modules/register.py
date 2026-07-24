@@ -1,5 +1,5 @@
 import streamlit as st
-from utils.db_manager import create_provider_link
+from utils.db_manager import create_provider_request
 
 def show_register_page():
     st.title("🎤 FFKaraoke - Registo de Prestador")
@@ -14,7 +14,6 @@ def show_register_page():
             
         telefone = st.text_input("Número de Telefone")
         
-        # Opção de duração solicitada pelo utilizador
         duracao_opcao = st.selectbox(
             "Duração Pretendida",
             options=[2, 4],
@@ -27,12 +26,9 @@ def show_register_page():
             if nome.strip() and sobrenome.strip() and telefone.strip():
                 nome_completo = f"{nome.strip()} {sobrenome.strip()} ({telefone.strip()})"
                 
-                # Cria o registo na base de dados com a duração escolhida (2 ou 4 horas)
-                token = create_provider_link(nome_completo, duracao_opcao)
+                create_provider_request(nome_completo, duracao_opcao)
                 
                 st.success("Pedido de permissão enviado com sucesso!")
-                st.markdown("### O seu Token de Acesso:")
-                st.code(token, language="text")
-                st.info("Guarde este token num local seguro para conseguir aceder à plataforma quando aprovado.")
+                st.info("O administrador irá analisar e aprovar o seu acesso em breve. Assim que for aprovado, poderá entrar no programa.")
             else:
                 st.error("Por favor, preencha todos os campos obrigatórios (Nome, Sobrenome e Telefone).")
