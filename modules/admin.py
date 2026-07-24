@@ -15,8 +15,8 @@ def show_admin_panel():
         st.subheader("Link e Código QR para Auto-Registo dos Prestadores")
         st.write("Partilhe este link ou o Código QR com os prestadores para que possam preencher o Nome, Sobrenome, Telefone e escolher o tempo (2h ou 4h).")
 
-        # URL do link de registo público (ajustado para o seu domínio do Streamlit Cloud)
-        register_link = "https://appistrador-8rwwfsyycbappznjx9skot.streamlit.app/?page=register"
+        # URL oficial correto e atualizado do link de registo público
+        register_link = "https://appadm.streamlit.app/?page=register"
 
         st.markdown("### 📌 Link Direto:")
         st.code(register_link, language="text")
