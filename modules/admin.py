@@ -1,43 +1,44 @@
 import streamlit as st
 from utils.db_manager import create_provider_link, get_all_providers
 from datetime import datetime
+import qrcode
+from io import BytesIO
 
 def show_admin_panel():
     st.title("👑 FFKaraoke - Painel de Administração")
     st.write("Gerencie os prestadores de serviço, controle os prazos de validade e gere os acessos.")
 
     # Menu Interno do Admin em separadores
-    tab1, tab2, tab3 = st.tabs(["➕ Criar Prestador", "📋 Prestadores Ativos", "⚙️ Definições Gerais"])
+    tab1, tab2, tab3 = st.tabs(["🔗 Link e QR Code de Registo", "📋 Prestadores Ativos", "⚙️ Definições Gerais"])
 
     with tab1:
-        st.subheader("Gerar Novo Link de Acesso com Validade")
+        st.subheader("Link e Código QR para Auto-Registo dos Prestadores")
+        st.write("Partilhe este link ou o Código QR com os prestadores para que possam preencher o Nome, Sobrenome, Telefone e escolher o tempo (2h ou 4h).")
 
-        with st.form("form_novo_prestador"):
-            provider_name = st.text_input("Nome do Estabelecimento / Prestador (ex: Espaço VIP)")
+        # URL do link de registo público (ajustado para o seu domínio do Streamlit Cloud)
+        register_link = "https://appistrador-8rwwfsyycbappznjx9skot.streamlit.app/?page=register"
 
-            # Seleção rápida ou personalizada de horas de acesso
-            col_d1, col_d2 = st.columns(2)
-            with col_d1:
-                duration_hours = st.number_input("Tempo de Acesso (em horas)", min_value=1, max_value=8760, value=24)
-            with col_d2:
-                st.info(f"Equivalente a aproximadamente {round(duration_hours / 24, 1)} dias de uso contínuo.")
+        st.markdown("### 📌 Link Direto:")
+        st.code(register_link, language="text")
 
-            submitted = st.form_submit_button("Gerar Link e Token Exclusivo")
-
-            if submitted:
-                if provider_name.strip():
-                    token = create_provider_link(provider_name.strip(), duration_hours)
-                    st.success(f"Prestador **{provider_name}** criado com sucesso!")
-
-                    # URL base do seu app no Streamlit Cloud
-                    access_link = f"https://appistrador-8rwwfsyycbappznjx9skot.streamlit.app/?token={token}"
-
-                    st.markdown("### 📌 Dados de Acesso Gerados:")
-                    st.write("Envie o seguinte link ou token diretamente para o prestador:")
-                    st.code(access_link, language="text")
-                    st.text(f"Token Isolado: {token}")
-                else:
-                    st.error("Por favor, introduza um nome válido para o prestador.")
+        st.markdown("### 📱 Código QR de Acesso:")
+        
+        # Gerar a imagem do QR Code em memória
+        qr = qrcode.QRCode(version=1, box_size=10, border=4)
+        qr.add_data(register_link)
+        qr.make(fit=True)
+        img = qr.make_image(fill_color="black", back_color="white")
+        
+        # Converter a imagem para formato compatível com Streamlit
+        buffered = BytesIO()
+        img.save(buffered, format="PNG")
+        
+        # Mostrar o QR Code no painel
+        col_qr1, col_qr2 = st.columns([1, 2])
+        with col_qr1:
+            st.image(buffered.getvalue(), caption="QR Code de Registo", width=250)
+        with col_qr2:
+            st.info("Pode tirar uma captura de ecrã deste QR Code, guardá-lo ou copiá-lo diretamente para enviar por WhatsApp ou outras mensagens aos prestadores.")
 
     with tab2:
         st.subheader("Monitorização de Prestadores")
