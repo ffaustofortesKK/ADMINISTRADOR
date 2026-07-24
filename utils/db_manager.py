@@ -8,7 +8,9 @@ DB_NAME = "database.db"
 def init_db():
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
-    # Criar tabela de prestadores com coluna de aprovação
+    # Apagar a tabela antiga para garantir que assume a nova estrutura com 'approved'
+    cursor.execute('DROP TABLE IF EXISTS providers')
+    
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS providers (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -42,7 +44,6 @@ def approve_provider(provider_id):
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
     
-    # Obter a duração do prestador
     cursor.execute('SELECT duration_hours FROM providers WHERE id = ?', (provider_id,))
     res = cursor.fetchone()
     if res:
@@ -51,7 +52,6 @@ def approve_provider(provider_id):
         expires_at = (now + timedelta(hours=duration_hours)).strftime("%Y-%m-%d %H:%M:%S")
         created_at = now.strftime("%Y-%m-%d %H:%M:%S")
         
-        # Ativa, define a hora de início real e calcula a expiração
         cursor.execute('''
             UPDATE providers 
             SET approved = 1, created_at = ?, expires_at = ? 
