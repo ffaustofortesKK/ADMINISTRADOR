@@ -11,6 +11,9 @@ def init_db():
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
     
+    # Recriar a tabela para garantir que assume a nova coluna payment_ref sem falhas
+    cursor.execute('DROP TABLE IF EXISTS providers')
+    
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS providers (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -53,7 +56,6 @@ def approve_provider(provider_id, payment_ref=""):
         expires_at = (now + timedelta(hours=duration_hours)).strftime("%Y-%m-%d %H:%M:%S")
         created_at = now.strftime("%Y-%m-%d %H:%M:%S")
         
-        # Atualiza o estado, tempos e opcionalmente a referência de pagamento
         if payment_ref.strip():
             cursor.execute('''
                 UPDATE providers 
