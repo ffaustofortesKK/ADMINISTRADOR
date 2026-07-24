@@ -4,15 +4,13 @@ import secrets
 import os
 from datetime import datetime, timedelta
 
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-DB_NAME = os.path.join(os.path.dirname(BASE_DIR), "database.db")
+# Garantir que a base de dados fica sempre na raiz do projeto
+BASE_DIR = os.getcwd()
+DB_NAME = os.path.join(BASE_DIR, "database.db")
 
 def init_db():
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
-    
-    # Recriar a tabela para garantir que assume a nova coluna payment_ref sem falhas
-    cursor.execute('DROP TABLE IF EXISTS providers')
     
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS providers (
