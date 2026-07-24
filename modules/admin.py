@@ -1,59 +1,72 @@
-import sqlite3
-from datetime import datetime, timedelta
-import uuid
-import pandas as pd
+import streamlit as st
+from utils.db_manager import create_provider_link, get_all_providers
+from datetime import datetime
 
-DB_NAME = "database.db"
+def show_admin_panel():
+    st.title("👑 FFKaraoke - Painel de Administração")
+    st.write("Gerencie os prestadores de serviço, controle os prazos de validade e gere os acessos.")
 
-def init_db():
-    conn = sqlite3.connect(DB_NAME, check_same_thread=False)
-    cursor = conn.cursor()
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS providers (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            name TEXT NOT NULL,
-            token TEXT UNIQUE NOT NULL,
-            duration_hours INTEGER NOT NULL,
-            created_at TEXT NOT NULL,
-            expires_at TEXT NOT NULL,
-            is_active BOOLEAN DEFAULT 1
-        )
-    """)
-    conn.commit()
-    conn.close()
+    # Menu Interno do Admin em separadores
+    tab1, tab2, tab3 = st.tabs(["➕ Criar Prestador", "📋 Prestadores Ativos", "⚙️ Definições Gerais"])
 
-def create_provider_link(name, duration_hours):
-    conn = sqlite3.connect(DB_NAME, check_same_thread=False)
-    cursor = conn.cursor()
-    
-    token = str(uuid.uuid4())[:8].upper()
-    created_at = datetime.now()
-    expires_at = created_at + timedelta(hours=duration_hours)
-    
-    cursor.execute("""
-        INSERT INTO providers (name, token, duration_hours, created_at, expires_at, is_active)
-        VALUES (?, ?, ?, ?, ?, 1)
-    """, (name, token, duration_hours, created_at.strftime("%Y-%m-%d %H:%M:%S"), expires_at.strftime("%Y-%m-%d %H:%M:%S")))
-    
-    conn.commit()
-    conn.close()
-    return token
+    with tab1:
+        st.subheader("Gerar Novo Link de Acesso com Validade")
 
-def get_all_providers():
-    conn = sqlite3.connect(DB_NAME, check_same_thread=False)
-    df = pd.read_sql("SELECT * FROM providers", conn)
-    conn.close()
-    return df
+        with st.form("form_novo_prestador"):
+            provider_name = st.text_input("Nome do Estabelecimento / Prestador (ex: Espaço VIP)")
 
-def check_provider_token(token):
-    conn = sqlite3.connect(DB_NAME, check_same_thread=False)
-    cursor = conn.cursor()
-    cursor.execute("SELECT * FROM providers WHERE token = ? AND is_active = 1", (token,))
-    provider = cursor.fetchone()
-    conn.close()
-    
-    if provider:
-        expires_at = datetime.strptime(provider[5], "%Y-%m-%d %H:%M:%S")
-        if datetime.now() <= expires_at:
-            return provider
-    return None
+            # Seleção rápida ou personalizada de horas de acesso
+            col_d1, col_d2 = st.columns(2)
+            with col_d1:
+                duration_hours = st.number_input("Tempo de Acesso (em horas)", min_value=1, max_value=8760, value=24)
+            with col_d2:
+                st.info(f"Equivalente a aproximadamente {round(duration_hours / 24, 1)} dias de uso contínuo.")
+
+            submitted = st.form_submit_button("Gerar Link e Token Exclusivo")
+
+            if submitted:
+                if provider_name.strip():
+                    token = create_provider_link(provider_name.strip(), duration_hours)
+                    st.success(f"Prestador **{provider_name}** criado com sucesso!")
+
+                    # URL base do seu app no Streamlit Cloud
+                    access_link = f"https://appistrador-8rwwfsyycbappznjx9skot.streamlit.app/?token={token}"
+
+                    st.markdown("### 📌 Dados de Acesso Gerados:")
+                    st.write("Envie o seguinte link ou token diretamente para o prestador:")
+                    st.code(access_link, language="text")
+                    st.text(f"Token Isolado: {token}")
+                else:
+                    st.error("Por favor, introduza um nome válido para o prestador.")
+
+    with tab2:
+        st.subheader("Monitorização de Prestadores")
+        df = get_all_providers()
+
+        if not df.empty:
+            # Calcular o estado atual (Ativo vs Expirado) com base na data do sistema
+            now = datetime.now()
+            df['Estado'] = df['expires_at'].apply(
+                lambda x: '🟢 Ativo' if datetime.strptime(x, "%Y-%m-%d %H:%M:%S") > now else '🔴 Expirado'
+            )
+
+            # Organizar colunas para melhor visualização
+            display_df = df[['id', 'name', 'token', 'duration_hours', 'created_at', 'expires_at', 'Estado']]
+            st.dataframe(display_df, use_container_width=True)
+
+            st.info("💡 Nota: Os prestadores com o estado 'Expirado' deixarão de conseguir autenticar-se automaticamente na plataforma.")
+        else:
+            st.info("Ainda nenhum prestador registado na base de dados.")
+
+    with tab3:
+        st.subheader("Configurações do Sistema Admin")
+        st.write("Aqui poderá gerir parâmetros globais do FFKaraoke no futuro.")
+
+        with st.form("form_admin_settings"):
+            nova_senha = st.text_input("Alterar Palavra-passe de Administrador", type="password")
+            salvar_pass = st.form_submit_button("Guardar Alterações")
+            if salvar_pass:
+                if nova_senha:
+                    st.success("Palavra-passe de administrador atualizada com sucesso!")
+                else:
+                    st.error("A palavra-passe não pode estar vazia.")
