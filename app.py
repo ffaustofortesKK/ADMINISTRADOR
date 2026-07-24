@@ -10,7 +10,6 @@ st.set_page_config(
     layout="wide"
 )
 
-# Inicializar a base de dados em segurança
 try:
     init_db()
 except Exception as e:
@@ -45,6 +44,10 @@ def main():
                             if now < exp_time:
                                 st.title(f"🎤 FFKaraoke - Bem-vindo(a), {row['name']}")
                                 st.success("Acesso autorizado pelo Administrador. O seu programa está pronto a ser utilizado!")
+                                
+                                # Mostrar Referência de Pagamento no perfil do prestador
+                                ref_pagamento = row.get('payment_ref', 'N/A')
+                                st.info(f"💳 **Referência de Pagamento Registada:** `{ref_pagamento}`")
                                 
                                 tempo_restante = exp_time - now
                                 horas, resto = divmod(int(tempo_restante.total_seconds()), 3600)
