@@ -1,17 +1,14 @@
 import sqlite3
 import pandas as pd
+import secrets
 from datetime import datetime, timedelta
-import uuid
-import os
 
 DB_NAME = "database.db"
 
-def get_connection():
-    return sqlite3.connect(DB_NAME)
-
 def init_db():
-    conn = get_connection()
+    conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
+    # Criar tabela de prestadores com coluna de aprovação
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS providers (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -19,36 +16,52 @@ def init_db():
             token TEXT UNIQUE NOT NULL,
             duration_hours INTEGER NOT NULL,
             created_at TEXT NOT NULL,
-            expires_at TEXT NOT NULL
+            expires_at TEXT,
+            approved INTEGER DEFAULT 0
         )
     ''')
     conn.commit()
     conn.close()
 
-def create_provider_link(name, duration_hours):
-    init_db()
-    conn = get_connection()
+def create_provider_request(name, duration_hours):
+    conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
-    
-    token = str(uuid.uuid4())[:8]
+    token = secrets.token_hex(16)
     created_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    expires_at = (datetime.now() + timedelta(hours=int(duration_hours))).strftime("%Y-%m-%d %H:%M:%S")
     
     cursor.execute('''
-        INSERT INTO providers (name, token, duration_hours, created_at, expires_at)
-        VALUES (?, ?, ?, ?, ?)
-    ''', (name, token, duration_hours, created_at, expires_at))
+        INSERT INTO providers (name, token, duration_hours, created_at, approved)
+        VALUES (?, ?, ?, ?, 0)
+    ''', (name, token, duration_hours, created_at))
     
     conn.commit()
     conn.close()
     return token
 
+def approve_provider(provider_id):
+    conn = sqlite3.connect(DB_NAME)
+    cursor = conn.cursor()
+    
+    # Obter a duração do prestador
+    cursor.execute('SELECT duration_hours FROM providers WHERE id = ?', (provider_id,))
+    res = cursor.fetchone()
+    if res:
+        duration_hours = res[0]
+        now = datetime.now()
+        expires_at = (now + timedelta(hours=duration_hours)).strftime("%Y-%m-%d %H:%M:%S")
+        created_at = now.strftime("%Y-%m-%d %H:%M:%S")
+        
+        # Ativa, define a hora de início real e calcula a expiração
+        cursor.execute('''
+            UPDATE providers 
+            SET approved = 1, created_at = ?, expires_at = ? 
+            WHERE id = ?
+        ''', (created_at, expires_at, provider_id))
+        conn.commit()
+    conn.close()
+
 def get_all_providers():
-    init_db()
-    conn = get_connection()
-    try:
-        df = pd.read_sql_query("SELECT * FROM providers ORDER BY id DESC", conn)
-    except Exception as e:
-        df = pd.DataFrame(columns=['id', 'name', 'token', 'duration_hours', 'created_at', 'expires_at'])
+    conn = sqlite3.connect(DB_NAME)
+    df = pd.read_sql_query("SELECT * FROM providers", conn)
     conn.close()
     return df
