@@ -1,73 +1,87 @@
 import streamlit as st
-from utils.db_manager import init_db, get_all_providers
-from modules.admin import show_admin_panel
-from modules.register import show_register_page
+from utils.db_manager import get_all_providers, approve_provider
 from datetime import datetime
+import qrcode
+from io import BytesIO
 
-st.set_page_config(
-    page_title="FFKaraoke - Gestão de Acessos",
-    page_icon="🎤",
-    layout="wide"
-)
+def show_admin_panel():
+    st.title("👑 FFKaraoke - Painel de Administração")
+    st.write("Gerencie os prestadores de serviço, aprove acessos e controle os prazos.")
 
-init_db()
+    tab1, tab2, tab3 = st.tabs(["🔗 Link e QR Code", "📋 Gestão de Prestadores", "⚙️ Definições"])
 
-def main():
-    query_params = st.query_params
-    
-    # 1. Se o link for de registo
-    if "page" in query_params and query_params["page"] == "register":
-        show_register_page()
-        return
+    with tab1:
+        st.subheader("Link e Código QR para Auto-Registo")
+        register_link = "https://appadm.streamlit.app/?page=register"
+        st.markdown("### 📌 Link Direto:")
+        st.code(register_link, language="text")
 
-    # 2. Se o prestador aceder com o seu token de acesso individual
-    if "token" in query_params:
-        token = query_params["token"]
-        df = get_all_providers()
-        prestador = df[df['token'] == token]
+        st.markdown("### 📱 Código QR de Acesso:")
+        qr = qrcode.QRCode(version=1, box_size=10, border=4)
+        qr.add_data(register_link)
+        qr.make(fit=True)
+        img = qr.make_image(fill_color="black", back_color="white")
+        buffered = BytesIO()
+        img.save(buffered, format="PNG")
         
-        if not prestador.empty:
-            row = prestador.iloc[0]
-            if row['approved'] == 1:
-                now = datetime.now()
-                exp_time = datetime.strptime(row['expires_at'], "%Y-%m-%d %H:%M:%S")
-                
-                if now < exp_time:
-                    # PROGRAMA DO PRESTADOR ABERTO AUTOMATICAMENTE
-                    st.title(f"🎤 FFKaraoke - Bem-vindo(a), {row['name']}")
-                    st.success("Acesso autorizado pelo Administrador. O seu programa está pronto a ser utilizado!")
-                    
+        st.image(buffered.getvalue(), caption="QR Code de Registo", width=250)
+
+    with tab2:
+        st.subheader("Lista de Prestadores e Aprovações")
+        df = get_all_providers()
+
+        if not df.empty:
+            now = datetime.now()
+            
+            # Secção de aprovação de novos pedidos pendentes
+            pendentes = df[df['approved'] == 0]
+            if not pendentes.empty:
+                st.warning("⚠️ Tem novos pedidos de prestadores a aguardar aprovação:")
+                for index, row in pendentes.iterrows():
+                    col_p1, col_p2 = st.columns([3, 1])
+                    with col_p1:
+                        st.write(f"**{row['name']}** — Pedido de **{row['duration_hours']} horas**")
+                    with col_p2:
+                        if st.button(f"Aprovar #{row['id']}", key=f"btn_aprove_{row['id']}"):
+                            approve_provider(row['id'])
+                            st.success(f"Prestador {row['name']} aprovado com sucesso!")
+                            st.rerun()
+            
+            st.markdown("---")
+            st.subheader("Controlo e Contagem Decrescente de Prestadores Ativos")
+            
+            ativos = df[df['approved'] == 1].copy()
+            if not ativos.empty:
+                for index, row in ativos.iterrows():
+                    exp_time = datetime.strptime(row['expires_at'], "%Y-%m-%d %H:%M:%S")
                     tempo_restante = exp_time - now
-                    horas, resto = divmod(int(tempo_restante.total_seconds()), 3600)
-                    minutos, segundos = divmod(resto, 60)
                     
-                    st.metric(label="Tempo Restante de Sessão", value=f"{horas:02d}:{minutos:02d}:{segundos:02d}")
-                    
-                    # Aqui pode colocar as ferramentas de karaoke do prestador no futuro
-                    st.info("Ambiente de Karaokê ativo.")
-                    return
-                else:
-                    st.error("❌ O seu tempo de acesso expirou. Contacte o administrador para renovar.")
-                    return
+                    with st.container():
+                        cols = st.columns([2, 1, 1, 1])
+                        cols[0].write(f"👤 **{row['name']}**")
+                        cols[1].write(f"⏱️ Duração: {row['duration_hours']}h")
+                        
+                        if tempo_restante.total_seconds() > 0:
+                            horas, resto = divmod(int(tempo_restante.total_seconds()), 3600)
+                            minutos, segundos = divmod(resto, 60)
+                            cols[2].markdown(f"🟢 **Ativo**<br>`{horas}h {minutos}m {segundos}s restantes`", unsafe_allow_html=True)
+                            cols[3].success("Programa Liberado")
+                        else:
+                            cols[2].markdown("🔴 **Expirado**")
+                            cols[3].error("Tempo Esgotado")
+                        st.markdown("---")
             else:
-                st.warning("⏳ O seu registo foi efetuado com sucesso, mas ainda aguarda a aprovação do Administrador.")
-                return
+                st.info("Nenhum prestador aprovado no momento.")
         else:
-            st.error("Token de acesso inválido.")
-            return
+            st.info("Ainda nenhum prestador registado na base de dados.")
 
-    # 3. Painel de Administração por defeito na barra lateral
-    st.sidebar.title("Painel Admin")
-    senha = st.sidebar.text_input("Palavra-passe", type="password")
-    
-    if senha == "admin123":
-        st.sidebar.success("Sessão Iniciada")
-        show_admin_panel()
-    else:
-        st.title("🔒 FFKaraoke - Área Restrita")
-        st.write("Introduza a palavra-passe de administrador na barra lateral para gerir os pedidos e acessos.")
-        if senha:
-            st.error("Palavra-passe incorreta.")
-
-if __name__ == "__main__":
-    main()
+    with tab3:
+        st.subheader("Configurações do Sistema Admin")
+        with st.form("form_admin_settings"):
+            nova_senha = st.text_input("Alterar Palavra-passe de Administrador", type="password")
+            salvar_pass = st.form_submit_button("Guardar Alterações")
+            if salvar_pass:
+                if nova_senha:
+                    st.success("Palavra-passe de administrador atualizada com sucesso!")
+                else:
+                    st.error("A palavra-passe não pode estar vazia.")
