@@ -76,7 +76,7 @@ def main():
                 st.error("Palavra-passe incorreta.")
                 
     except Exception as e:
-        st.error(fOcorreu um erro ao carregar a aplicação: {e})
+        st.error(f"Ocorreu um erro ao carregar a aplicação: {e}")
 
 if __name__ == "__main__":
     main()
