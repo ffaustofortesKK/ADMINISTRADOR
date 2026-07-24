@@ -1,15 +1,16 @@
 import sqlite3
 import pandas as pd
 import secrets
+import os
 from datetime import datetime, timedelta
 
-DB_NAME = "database.db"
+# Obter o caminho absoluto para a pasta atual, garantindo que aponta sempre ao mesmo sítio
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+DB_NAME = os.path.join(os.path.dirname(BASE_DIR), "database.db")
 
 def init_db():
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
-    # Apagar a tabela antiga para garantir que assume a nova estrutura com 'approved'
-    cursor.execute('DROP TABLE IF EXISTS providers')
     
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS providers (
@@ -62,6 +63,9 @@ def approve_provider(provider_id):
 
 def get_all_providers():
     conn = sqlite3.connect(DB_NAME)
-    df = pd.read_sql_query("SELECT * FROM providers", conn)
+    try:
+        df = pd.read_sql_query("SELECT * FROM providers", conn)
+    except Exception:
+        df = pd.DataFrame(columns=['id', 'name', 'token', 'duration_hours', 'created_at', 'expires_at', 'approved'])
     conn.close()
     return df
