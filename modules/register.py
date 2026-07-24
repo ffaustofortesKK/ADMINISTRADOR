@@ -3,7 +3,7 @@ from utils.db_manager import create_provider_request
 
 def show_register_page():
     st.title("🎤 FFKaraoke - Registo de Prestador")
-    st.write("Preencha os seus dados e escolha o tempo pretendido para solicitar o seu acesso à plataforma.")
+    st.write("Preencha os seus dados, a referência de pagamento e escolha o tempo pretendido para solicitar o seu acesso.")
 
     with st.form("form_auto_registo"):
         col1, col2 = st.columns(2)
@@ -14,6 +14,9 @@ def show_register_page():
             
         telefone = st.text_input("Número de Telefone")
         
+        # Novo campo de Referência de Pagamento
+        payment_ref = st.text_input("Referência de Pagamento / Nº de Comprovativo")
+        
         duracao_opcao = st.selectbox(
             "Duração Pretendida",
             options=[2, 4],
@@ -23,12 +26,12 @@ def show_register_page():
         submitted = st.form_submit_button("Enviar Permissão")
 
         if submitted:
-            if nome.strip() and sobrenome.strip() and telefone.strip():
+            if nome.strip() and sobrenome.strip() and telefone.strip() and payment_ref.strip():
                 nome_completo = f"{nome.strip()} {sobrenome.strip()} ({telefone.strip()})"
                 
-                create_provider_request(nome_completo, duracao_opcao)
+                create_provider_request(nome_completo, duracao_opcao, payment_ref.strip())
                 
                 st.success("Pedido de permissão enviado com sucesso!")
-                st.info("O administrador irá analisar e aprovar o seu acesso em breve. Assim que for aprovado, poderá entrar no programa.")
+                st.info("O administrador irá analisar e aprovar o seu acesso em breve após validação do pagamento.")
             else:
-                st.error("Por favor, preencha todos os campos obrigatórios (Nome, Sobrenome e Telefone).")
+                st.error("Por favor, preencha todos os campos obrigatórios (Nome, Sobrenome, Telefone e Referência de Pagamento).")
