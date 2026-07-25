@@ -2,7 +2,6 @@ import streamlit as st
 from utils.db_manager import get_all_providers, approve_provider
 
 def show_admin_panel():
-    # Estilização visual integrada para o ADM
     st.markdown("""
     <style>
     .adm-card {
@@ -13,29 +12,19 @@ def show_admin_panel():
         margin-bottom: 15px;
         box-shadow: 0px 0px 15px rgba(212,175,55,0.15);
     }
-    .stButton button {
-        background: linear-gradient(180deg, #D4AF37, #AA8C2C);
-        color: black;
-        font-weight: bold;
-        border-radius: 10px;
-        width: 100%;
-        padding: 8px;
-        border: none;
-    }
     </style>
     """, unsafe_allow_html=True)
 
-    st.markdown("### 🛠️ Painel de Gestão e Aprovação de Prestadores")
-    st.write("Gerencie os pedidos de acesso e verifique os comprovativos de pagamento dos prestadores.")
+    st.subheader("📋 Gestão e Aprovação de Prestadores")
+    st.write("Aqui pode visualizar todos os prestadores registados e gerir os respetivos acessos.")
     st.markdown("---")
 
     df = get_all_providers()
 
     if df.empty:
-        st.info("Nenhum prestador registado na base de dados.")
+        st.info("Nenhum prestador registado na base de dados até ao momento.")
         return
 
-    # Listar todos os prestadores registados
     for index, row in df.iterrows():
         nome = row.get('name', 'Desconhecido')
         telefone = row.get('phone', 'N/A')
@@ -54,12 +43,11 @@ def show_admin_panel():
                 <span style="background-color: {status_color}; color: black; padding: 4px 12px; border-radius: 20px; font-weight: bold; font-size: 14px;">{status_badge}</span>
             </div>
             <p style="margin: 4px 0; color: #ccc;"><b>📞 Telefone:</b> {telefone}</p>
-            <p style="margin: 4px 0; color: #ccc;"><b>💳 Ref. de Pagamento:</b> <code>{payment_ref}</code></p>
+            <p style="margin: 4px 0; color: #ccc;"><b>💳 Referência de Pagamento:</b> <code>{payment_ref}</code></p>
             <p style="margin: 4px 0; color: #ccc;"><b>⏱️ Duração/Expira em:</b> {expires_at}</p>
         </div>
         """, unsafe_allow_html=True)
 
-        # Botão de aprovação fora do HTML para manter a interatividade do Streamlit
         if aprovado == 0:
             col_b1, col_b2 = st.columns([1, 3])
             with col_b1:
@@ -68,6 +56,6 @@ def show_admin_panel():
                     st.success(f"Prestador {nome} aprovado com sucesso!")
                     st.rerun()
         else:
-            st.markdown("<p style='color: #4CAF50; font-size: 13px; margin-top: -10px;'>Acesso liberado para este prestador.</p>", unsafe_allow_html=True)
+            st.markdown("<p style='color: #4CAF50; font-size: 13px; margin-top: -10px;'>Acesso ativo.</p>", unsafe_allow_html=True)
 
         st.markdown("---")
