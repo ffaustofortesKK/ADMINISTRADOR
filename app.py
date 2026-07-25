@@ -6,34 +6,35 @@ st.set_page_config(
     layout="wide"
 )
 
-# Inicializar a Fila de Espera global na memória
-if "fila_karaoke" not in st.session_state:
-    st.session_state.fila_karaoke = []
+# Obter o URL base dinâmico da aplicação atual (sem parâmetros fixos)
+base_url = st.query_params.get("host", "https://seuapp.streamlit.app") # Ou detetado dinamicamente
+
+# Capturar os parâmetros do URL para saber quem é o prestador e que painel está aberto
+query_params = st.query_params
+prestador_atual = query_params.get("prestador", "t-t")  # Exemplo padrão se não vier definido
+painel_tipo = query_params.get("painel", "prestador")    # prestador, cliente ou tela
+
+# Chave da fila na session_state única por prestador para separar as filas de cada um
+chave_fila = f"fila_karaoke_{prestador_atual}"
+if chave_fila not in st.session_state:
+    st.session_state[chave_fila] = []
 
 if "confirmar_envio" not in st.session_state:
     st.session_state.confirmar_envio = False
     st.session_state.temp_cantor = ""
     st.session_state.temp_musica = ""
 
-# Capturar os parâmetros do URL
-query_params = st.query_params
-prestador_atual = query_params.get("prestador", "t-t")  # Valor predefinido se não vier especificado
-painel_tipo = query_params.get("painel", "prestador")
-
-# Definir os domínios específicos para o cliente e para a tela/TV com base no prestador atual
-link_cliente = f"https://appcliente.streamlit.app/?prestador={prestador_atual}"
-link_tv = f"https://ffktela.streamlit.app/?prestador={prestador_atual}"
+# Construção dinâmica dos links do prestador atual
+# O URL base recolhe o endereço atual da página web
+url_atual_base = "https://administrador.streamlit.app" # Ajuste para o seu domínio principal do app de controlo
+link_cliente_prestador = f"{url_atual_base}/?prestador={prestador_atual}&painel=cliente"
+link_tv_prestador = f"{url_atual_base}/?prestador={prestador_atual}&painel=tela"
 
 # Estilização Global CSS (Tema Escuro e Dourado)
 st.markdown("""
 <style>
-body {
-    background: #070707;
-    color: white;
-}
-.main {
-    background: #070707;
-}
+body { background: #070707; color: white; }
+.main { background: #070707; }
 .card-title, .card-header {
     background: linear-gradient(180deg, #111, #050505);
     border: 2px solid #D4AF37;
@@ -118,15 +119,11 @@ body {
     border: none;
     box-shadow: 0px 0px 15px rgba(212,175,55,0.4);
 }
-.stButton button:hover {
-    background: linear-gradient(180deg, #FFD700, #D4AF37);
-    color: black;
-}
 </style>
 """, unsafe_allow_html=True)
 
 # ----------------------------------------------------
-# 1. PAINEL DO PRESTADOR (Exibe os links dinâmicos com o nome do prestador)
+# 1. PAINEL DO PRESTADOR (Exibe os links dinâmicos do próprio prestador)
 # ----------------------------------------------------
 if painel_tipo == "prestador":
     st.markdown(f"### 🎤 Bem-vindo, {prestador_atual}!")
@@ -137,29 +134,29 @@ if painel_tipo == "prestador":
     with col_links:
         st.markdown(f"""
         <div class="link-box">
-            <span>🔌 <b>Cliente:</b> <a href="{link_cliente}" target="_blank" style="color: #FFD700;">{link_cliente}</a></span>
+            <span>🏷️ <b>Cliente:</b> <a href="{link_cliente_prestador}" target="_blank" style="color: #FFD700;">{link_cliente_prestador}</a></span>
         </div>
         """, unsafe_allow_html=True)
         
         st.markdown(f"""
         <div class="link-box">
-            <span>📺 <b>TV:</b> <a href="{link_tv}" target="_blank" style="color: #FFD700;">{link_tv}</a></span>
+            <span>📺 <b>TV:</b> <a href="{link_tv_prestador}" target="_blank" style="color: #FFD700;">{link_tv_prestador}</a></span>
         </div>
         """, unsafe_allow_html=True)
         
     with col_qr:
-        qr_url_cliente = f"https://api.qrserver.com/v1/create-qr-code/?size=120x120&data={link_cliente}"
+        qr_url_cliente = f"https://api.qrserver.com/v1/create-qr-code/?size=120x120&data={link_cliente_prestador}"
         st.image(qr_url_cliente, width=110)
 
     st.markdown("🎬 **Playlist de Vídeos Clipes (Fundo da TV)**")
-    st.info(f"Gerenciamento de conteúdos para o prestador: {prestador_atual}")
+    st.info(f"Gerindo a sessão de karaoke para o prestador: **{prestador_atual}**")
 
-    if st.button("🧹 Limpar Fila de Espera"):
-        st.session_state.fila_karaoke = []
+    if st.button("🧹 Limpar Fila deste Prestador"):
+        st.session_state[chave_fila] = []
         st.success("Fila limpa com sucesso!")
 
 # ----------------------------------------------------
-# 2. TELA / APRESENTAÇÃO (TV)
+# 2. TELA / APRESENTAÇÃO (TV do Prestador Específico)
 # ----------------------------------------------------
 elif painel_tipo == "tela":
     col_fila, col_video = st.columns([1, 1])
@@ -167,7 +164,7 @@ elif painel_tipo == "tela":
     with col_fila:
         st.markdown(f'<div class="card-title">🎤 FILA DE ESPERA — {prestador_atual.upper()}</div>', unsafe_allow_html=True)
 
-        fila = st.session_state.fila_karaoke
+        fila = st.session_state[chave_fila]
 
         if len(fila) > 0:
             primeiro = fila[0]
@@ -220,7 +217,7 @@ elif painel_tipo == "tela":
         """, unsafe_allow_html=True)
 
 # ----------------------------------------------------
-# 3. PAINEL DO CLIENTE
+# 3. PAINEL DO CLIENTE (Regista na Fila do Prestador do URL)
 # ----------------------------------------------------
 elif painel_tipo == "cliente":
     st.markdown(f'<div class="card-header">🎤 FFKARAOKE — PEDIR MÚSICA ({prestador_atual.upper()})</div>', unsafe_allow_html=True)
@@ -256,11 +253,11 @@ elif painel_tipo == "cliente":
         
         with col_sim:
             if st.button("✅ SIM, Enviar"):
-                st.session_state.fila_karaoke.append({
+                st.session_state[chave_fila].append({
                     "cantor": st.session_state.temp_cantor.upper(),
                     "musica": st.session_state.temp_musica.title()
                 })
-                st.success("Pedido enviado com sucesso para a fila!")
+                st.success(f"Pedido enviado com sucesso para a fila de {prestador_atual}!")
                 st.session_state.confirmar_envio = False
                 st.session_state.temp_cantor = ""
                 st.session_state.temp_musica = ""
