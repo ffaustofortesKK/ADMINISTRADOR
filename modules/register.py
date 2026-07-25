@@ -7,11 +7,9 @@ def show_register_page():
     st.title("🎤 FFKaraoke - Registo de Prestador")
     st.write("Preencha os seus dados, a referência de pagamento e escolha o tempo pretendido para solicitar o seu acesso.")
 
-    # Se já submeteu anteriormente nesta sessão, guarda o token
     if "token_gerado" not in st.session_state:
         st.session_state["token_gerado"] = None
 
-    # Se ainda não submeteu, mostra o formulário de registo
     if not st.session_state["token_gerado"]:
         with st.form("form_register"):
             col1, col2 = st.columns(2)
@@ -44,7 +42,6 @@ def show_register_page():
                 else:
                     st.warning("Por favor, preencha todos os campos obrigatórios.")
     
-    # Se já tem um token gerado, verifica na base de dados se foi aprovado pelo ADM
     if st.session_state["token_gerado"]:
         token_atual = st.session_state["token_gerado"]
         df = get_all_providers()
@@ -59,15 +56,17 @@ def show_register_page():
         st.markdown("---")
         
         if aprovado:
-            # SÓ APARECE ESTE LINK/BOTÃO QUANDO O ADM APROVAR
-            link_painel = f"https://appadm.streamlit.app/?token={token_atual}"
             st.success("🎉 O seu perfil foi aprovado pelo Administrador!")
-            st.markdown(f"👉 **[Clique aqui para abrir o seu Painel de Prestador]({link_painel})**")
-        else:
-            # Enquanto não for aprovado, fica apenas a aguardar
-            st.warning("⏳ O seu registo foi enviado com sucesso e está a aguardar a aprovação do Administrador.")
-            st.info("Assim que o Administrador aprovar, o link de acesso aparecerá automaticamente aqui nesta página.")
             
-            # Recarrega a página automaticamente a cada 3 segundos para detetar a aprovação sem precisar de refresh manual
+            # Botão interativo que abre o painel na MESMA página/aba instantaneamente
+            if st.button("🚀 Clique aqui para abrir o seu Painel de Prestador", type="primary"):
+                st.query_params["token"] = token_atual
+                if "page" in st.query_params:
+                    del st.query_params["page"]
+                st.rerun()
+        else:
+            st.warning("⏳ O seu registo foi enviado com sucesso e está a aguardar a aprovação do Administrador.")
+            st.info("Assim que o Administrador aprovar, o botão de acesso aparecerá automaticamente aqui nesta mesma página.")
+            
             time.sleep(3)
             st.rerun()
