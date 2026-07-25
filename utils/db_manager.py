@@ -3,7 +3,6 @@ from datetime import datetime, timedelta
 import pandas as pd
 import os
 
-# Caminho absoluto fixo na raiz do projeto para evitar duplicação da base de dados
 BASE_DIR = os.path.abspath(os.path.dirname(os.path.dirname(__file__)))
 DB_PATH = os.path.join(BASE_DIR, 'karaoke_database.db')
 
@@ -26,7 +25,8 @@ def init_db():
     conn.close()
 
 def add_provider(name, phone, payment_ref, hours, token, amount_paid=0.0):
-    conn = sqlite3.connect(DB_PATH)
+    # check_same_thread=False garante escrita imediata independentemente da origem da thread
+    conn = sqlite3.connect(DB_PATH, check_same_thread=False)
     cursor = conn.cursor()
     
     expires_at = (datetime.now() + timedelta(hours=hours)).strftime("%Y-%m-%d %H:%M:%S")
@@ -40,23 +40,24 @@ def add_provider(name, phone, payment_ref, hours, token, amount_paid=0.0):
     conn.close()
 
 def get_all_providers():
-    conn = sqlite3.connect(DB_PATH)
+    # Abre e fecha conexão fresca instantaneamente para evitar dados em cache
+    conn = sqlite3.connect(DB_PATH, check_same_thread=False)
     try:
-        df = pd.read_sql_query("SELECT * FROM providers", conn)
+        df = pd.read_sql_query("SELECT * FROM providers ORDER BY id DESC", conn)
     except Exception:
         df = pd.DataFrame(columns=['id', 'name', 'phone', 'payment_ref', 'expires_at', 'token', 'approved', 'amount_paid'])
     conn.close()
     return df
 
 def approve_provider(token):
-    conn = sqlite3.connect(DB_PATH)
+    conn = sqlite3.connect(DB_PATH, check_same_thread=False)
     cursor = conn.cursor()
     cursor.execute("UPDATE providers SET approved = 1 WHERE token = ?", (token,))
     conn.commit()
     conn.close()
 
 def get_total_revenue():
-    conn = sqlite3.connect(DB_PATH)
+    conn = sqlite3.connect(DB_PATH, check_same_thread=False)
     cursor = conn.cursor()
     try:
         cursor.execute("SELECT SUM(amount_paid) FROM providers WHERE approved = 1")
