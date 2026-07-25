@@ -1,39 +1,35 @@
 import streamlit as st
 
 st.set_page_config(
-    page_title="FF Karaoke",
+    page_title="FF Karaoke — Sistema de Prestadores",
     page_icon="🎤",
     layout="wide"
 )
 
-# Inicializar a Fila de Espera global na memória
-if "fila_karaoke" not in st.session_state:
-    st.session_state.fila_karaoke = []
+# Inicializar bases de dados na memória do Streamlit
+if "filas_por_prestador" not in st.session_state:
+    st.session_state.filas_por_prestador = {}
 
 if "confirmar_envio" not in st.session_state:
     st.session_state.confirmar_envio = False
     st.session_state.temp_cantor = ""
     st.session_state.temp_musica = ""
 
-# Capturar o parâmetro do URL (ex: ?painel=cliente ou ?painel=tela)
+# Capturar parâmetros do URL
 query_params = st.query_params
-painel_atual = query_params.get("painel", "prestador")
+prestador_url = query_params.get("prestador", None)
+painel_cliente_ativo = query_params.get("cliente", None)
+painel_tv_ativo = query_params.get("tv", None)
 
-# Obter automaticamente o URL base atual da aplicação no Streamlit
-base_url = "https://administrador.streamlit.app"  # Se necessário, confirme se o seu link do Streamlit é este exato
-link_cliente = f"{base_url}/?painel=cliente"
-link_tv = f"{base_url}/?painel=tela"
+# URLs base das aplicações (substitua pelos seus links reais do Streamlit se forem apps separadas, 
+# ou mantenha o mesmo domínio se estiver tudo na mesma aplicação)
+base_cliente = "https://appcliente.streamlit.app"
+base_tv = "https://ffktela.streamlit.app"
 
-# Estilização Global CSS (Tema Escuro e Dourado)
+# Estilização CSS Global
 st.markdown("""
 <style>
-body {
-    background: #070707;
-    color: white;
-}
-.main {
-    background: #070707;
-}
+body { background: #070707; color: white; }
 .card-title, .card-header {
     background: linear-gradient(180deg, #111, #050505);
     border: 2px solid #D4AF37;
@@ -118,120 +114,24 @@ body {
     border: none;
     box-shadow: 0px 0px 15px rgba(212,175,55,0.4);
 }
-.stButton button:hover {
-    background: linear-gradient(180deg, #FFD700, #D4AF37);
-    color: black;
-}
 </style>
 """, unsafe_allow_html=True)
 
 # ----------------------------------------------------
-# 1. PAINEL DO PRESTADOR (Com os Links e QR Codes)
+# 1. MODO CLIENTE (Acedido através do link com ?prestador=nome)
 # ----------------------------------------------------
-if painel_atual == "prestador":
-    st.markdown("### 🎤 Bem-vindo, t t!")
-    st.markdown("---")
-    
-    col_links, col_qr = st.columns([4, 1])
-    
-    with col_links:
-        st.markdown(f"""
-        <div class="link-box">
-            <span>🏷️ <b>Cliente:</b> <a href="{link_cliente}" target="_blank" style="color: #FFD700;">{link_cliente}</a></span>
-        </div>
-        """, unsafe_allow_html=True)
-        
-        st.markdown(f"""
-        <div class="link-box">
-            <span>📺 <b>TV:</b> <a href="{link_tv}" target="_blank" style="color: #FFD700;">{link_tv}</a></span>
-        </div>
-        """, unsafe_allow_html=True)
-        
-    with col_qr:
-        qr_url_cliente = f"https://api.qrserver.com/v1/create-qr-code/?size=120x120&data={link_cliente}"
-        st.image(qr_url_cliente, width=110)
+if prestador_url and not painel_tv_ativo:
+    prestador_nome = prestador_url.strip()
+    st.markdown(f'<div class="card-header">🎤 FFKARAOKE — PEDIR MÚSICA ({prestador_nome.upper()})</div>', unsafe_allow_html=True)
 
-    st.markdown("🎬 **Playlist de Vídeos Clipes (Fundo da TV)**")
-    st.info("Aqui poderá gerir os vídeos para a TV.")
-
-    if st.button("🧹 Limpar Fila de Espera"):
-        st.session_state.fila_karaoke = []
-        st.success("Fila limpa com sucesso!")
-
-# ----------------------------------------------------
-# 2. TELA / APRESENTAÇÃO (TV)
-# ----------------------------------------------------
-elif painel_atual == "tela":
-    col_fila, col_video = st.columns([1, 1])
-
-    with col_fila:
-        st.markdown('<div class="card-title">🎤 FILA DE ESPERA</div>', unsafe_allow_html=True)
-
-        fila = st.session_state.fila_karaoke
-
-        if len(fila) > 0:
-            primeiro = fila[0]
-            st.markdown(f"""
-            <div class="card-next">
-                <div style="display: flex; align-items: center; justify-content: center; margin-bottom: 10px;">
-                    <span style="background: #D4AF37; color: black; font-weight: bold; border-radius: 50%; width: 30px; height: 30px; display: inline-flex; align-items: center; justify-content: center; margin-right: 10px;">1</span>
-                    <span style="color: #D4AF37; letter-spacing: 3px; font-weight: bold;">— Á Seguir —</span>
-                </div>
-                <h1 style="color: #FFD700; margin: 0; font-size: 32px; text-shadow: 0px 0px 10px rgba(255,215,0,0.5);">{primeiro['cantor']}</h1>
-                <p style="color: #ccc; margin-top: 5px; font-size: 16px;">🎵 {primeiro['musica']}</p>
-            </div>
-            """, unsafe_allow_html=True)
-        else:
-            st.markdown("""
-            <div class="card-next">
-                <div style="color: #D4AF37; letter-spacing: 3px; font-weight: bold; margin-bottom: 5px;">— Á Seguir —</div>
-                <h3 style="color: #777; margin: 0;">Aguardando cantor...</h3>
-            </div>
-            """, unsafe_allow_html=True)
-
-        posicoes_restantes = fila[1:6]
-        for i in range(2, 7):
-            idx = i - 2
-            if idx < len(posicoes_restantes):
-                item = posicoes_restantes[idx]
-                st.markdown(f"""
-                <div class="item-fila">
-                    <div class="badge-num">{i}</div>
-                    <div style="font-size: 18px; font-weight: bold; color: white;">👤 {item['cantor']} <span style="font-size: 14px; color: #aaa; font-weight: normal;">({item['musica']})</span></div>
-                </div>
-                """, unsafe_allow_html=True)
-            else:
-                st.markdown(f"""
-                <div class="item-fila" style="opacity: 0.3;">
-                    <div class="badge-num">{i}</div>
-                    <div style="font-size: 18px; color: #555;">— Vazio —</div>
-                </div>
-                """, unsafe_allow_html=True)
-
-    with col_video:
-        st.markdown('<div class="card-title">📺 VÍDEO CLIPE (FUNDO)</div>', unsafe_allow_html=True)
-        st.markdown("""
-        <div class="player-box">
-            <div style="font-size: 50px; margin-bottom: 15px;">📺</div>
-            <p style="color: #ccc; font-size: 18px; max-width: 350px; line-height: 1.5;">
-                Aguardando o prestador selecionar um vídeo clipe no painel de controle...
-            </p>
-        </div>
-        """, unsafe_allow_html=True)
-
-# ----------------------------------------------------
-# 3. PAINEL DO CLIENTE
-# ----------------------------------------------------
-elif painel_atual == "cliente":
-    st.markdown('<div class="card-header">🎤 FFKARAOKE — PEDIR MÚSICA</div>', unsafe_allow_html=True)
+    if "fila_karaoke" not in st.session_state.filas_por_prestador:
+        st.session_state.filas_por_prestador[prestador_nome] = []
 
     if not st.session_state.confirmar_envio:
         with st.form("form_cliente"):
             st.subheader("Insira os seus dados para participar")
-            
             nome_cantor = st.text_input("O seu Nome / Alcunha:")
             nome_musica = st.text_input("Nome da Música ou Artista pretendido:")
-            
             botao_avancar = st.form_submit_button("Continuar ➡️")
             
             if botao_avancar:
@@ -253,20 +153,127 @@ elif painel_atual == "cliente":
         """, unsafe_allow_html=True)
 
         col_sim, col_nao = st.columns(2)
-        
         with col_sim:
             if st.button("✅ SIM, Enviar"):
-                st.session_state.fila_karaoke.append({
+                if prestador_nome not in st.session_state.filas_por_prestador:
+                    st.session_state.filas_por_prestador[prestador_nome] = []
+                st.session_state.filas_por_prestador[prestador_nome].append({
                     "cantor": st.session_state.temp_cantor.upper(),
                     "musica": st.session_state.temp_musica.title()
                 })
-                st.success("Pedido enviado com sucesso para a fila!")
+                st.success("Pedido enviado com sucesso para a fila do prestador!")
                 st.session_state.confirmar_envio = False
                 st.session_state.temp_cantor = ""
                 st.session_state.temp_musica = ""
                 st.rerun()
-                
         with col_nao:
-            if st.button("❌ NÃO, Voltar e Escolher Outra"):
+            if st.button("❌ NÃO, Voltar"):
                 st.session_state.confirmar_envio = False
                 st.rerun()
+
+# ----------------------------------------------------
+# 2. MODO TELA / TV (Acedido através do link com ?tv=1&prestador=nome)
+# ----------------------------------------------------
+elif prestador_url and painel_tv_ativo:
+    prestador_nome = prestador_url.strip()
+    if prestador_nome not in st.session_state.filas_por_prestador:
+        st.session_state.filas_por_prestador[prestador_nome] = []
+    
+    fila = st.session_state.filas_por_prestador[prestador_nome]
+
+    col_fila, col_video = st.columns([1, 1])
+
+    with col_fila:
+        st.markdown(f'<div class="card-title">🎤 FILA DE ESPERA — {prestador_nome.upper()}</div>', unsafe_allow_html=True)
+
+        if len(fila) > 0:
+            primeiro = fila[0]
+            st.markdown(f"""
+            <div class="card-next">
+                <div style="display: flex; align-items: center; justify-content: center; margin-bottom: 10px;">
+                    <span style="background: #D4AF37; color: black; font-weight: bold; border-radius: 50%; width: 30px; height: 30px; display: inline-flex; align-items: center; justify-content: center; margin-right: 10px;">1</span>
+                    <span style="color: #D4AF37; letter-spacing: 3px; font-weight: bold;">— Á Seguir —</span>
+                </div>
+                <h1 style="color: #FFD700; margin: 0; font-size: 32px;">{primeiro['cantor']}</h1>
+                <p style="color: #ccc; margin-top: 5px; font-size: 16px;">🎵 {primeiro['musica']}</p>
+            </div>
+            """, unsafe_allow_html=True)
+        else:
+            st.markdown("""
+            <div class="card-next">
+                <div style="color: #D4AF37; letter-spacing: 3px; font-weight: bold; margin-bottom: 5px;">— Á Seguir —</div>
+                <h3 style="color: #777; margin: 0;">Aguardando cantor...</h3>
+            </div>
+            """, unsafe_allow_html=True)
+
+        posicoes_restantes = fila[1:6]
+        for i in range(2, 7):
+            idx = i - 2
+            if idx < len(posicoes_restantes):
+                item = posicoes_restantes[idx]
+                st.markdown(f"""
+                <div class="item-fila">
+                    <div class="badge-num">{i}</div>
+                    <div style="font-size: 18px; font-weight: bold; color: white;">👤 {item['cantor']} <span style="font-size: 14px; color: #aaa;">({item['musica']})</span></div>
+                </div>
+                """, unsafe_allow_html=True)
+            else:
+                st.markdown(f"""
+                <div class="item-fila" style="opacity: 0.3;">
+                    <div class="badge-num">{i}</div>
+                    <div style="font-size: 18px; color: #555;">— Vazio —</div>
+                </div>
+                """, unsafe_allow_html=True)
+
+    with col_video:
+        st.markdown('<div class="card-title">📺 VÍDEO CLIPE (FUNDO)</div>', unsafe_allow_html=True)
+        st.markdown("""
+        <div class="player-box">
+            <div style="font-size: 50px; margin-bottom: 15px;">📺</div>
+            <p style="color: #ccc; font-size: 18px; max-width: 350px; line-height: 1.5;">
+                Aguardando o prestador selecionar um vídeo clipe...
+            </p>
+        </div>
+        """, unsafe_allow_html=True)
+
+# ----------------------------------------------------
+# 3. PAINEL DO PRESTADOR (Exibe os links personalizados com o nome dele)
+# ----------------------------------------------------
+else:
+    st.markdown("### 🎤 Painel de Registo / Identificação do Prestador")
+    st.info("Insira o seu nome ou alcunha para gerar automaticamente os seus links exclusivos de cliente e TV.")
+    
+    with st.form("form_prestador"):
+        nome_prestador_input = st.text_input("O seu Nome de Prestador (ex: artur, t-t):", value="t-t")
+        gerar_links = st.form_submit_button("Gerar Meus Links Exclusivos 🚀")
+        
+    if gerar_links and nome_prestador_input.strip():
+        p_limpo = nome_prestador_input.strip().lower().replace(" ", "-")
+        
+        link_cliente_prestador = f"{base_cliente}/?prestador={p_limpo}"
+        link_tv_prestador = f"{base_tv}/?tv=1&prestador={p_limpo}"
+        
+        st.markdown(f"### 🎤 Bem-vindo, {nome_prestador_input.strip()}!")
+        st.markdown("---")
+        
+        col_links, col_qr = st.columns([4, 1])
+        
+        with col_links:
+            st.markdown(f"""
+            <div class="link-box">
+                <span>🏷️ <b>Cliente:</b> <a href="{link_cliente_prestador}" target="_blank" style="color: #FFD700;">{link_cliente_prestador}</a></span>
+            </div>
+            """, unsafe_allow_html=True)
+            
+            st.markdown(f"""
+            <div class="link-box">
+                <span>📺 <b>TV:</b> <a href="{link_tv_prestador}" target="_blank" style="color: #FFD700;">{link_tv_prestador}</a></span>
+            </div>
+            """, unsafe_allow_html=True)
+            
+        with col_qr:
+            qr_url = f"https://api.qrserver.com/v1/create-qr-code/?size=120x120&data={link_cliente_prestador}"
+            st.image(qr_url, width=110)
+
+        st.markdown("🎬 **Playlist de Vídeos Clipes (Fundo da TV)**")
+        st.info("Gerencie aqui os seus vídeos.")
