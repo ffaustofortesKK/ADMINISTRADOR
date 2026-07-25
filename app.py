@@ -1,12 +1,12 @@
 import streamlit as st
 
 st.set_page_config(
-    page_title="FF Karaoke - Sistema Completo",
+    page_title="FF Karaoke",
     page_icon="🎤",
     layout="wide"
 )
 
-# Inicializar a Fila de Espera na memória da aplicação
+# Inicializar a Fila de Espera global na memória
 if "fila_karaoke" not in st.session_state:
     st.session_state.fila_karaoke = []
 
@@ -15,8 +15,12 @@ if "confirmar_envio" not in st.session_state:
     st.session_state.temp_cantor = ""
     st.session_state.temp_musica = ""
 
-# Obter o URL atual da aplicação (ou usar um URL base de exemplo)
-base_url = "https://ffkaraoke.streamlit.app"
+# Capturar o parâmetro do URL (ex: ?painel=cliente ou ?painel=tela)
+query_params = st.query_params
+painel_atual = query_params.get("painel", "prestador")
+
+# Obter o URL base atual da aplicação no Streamlit Cloud
+base_url = "https://administrador.streamlit.app"  # Ajuste se necessário para o seu domínio exato
 link_cliente = f"{base_url}/?painel=cliente"
 link_tv = f"{base_url}/?painel=tela"
 
@@ -121,20 +125,14 @@ body {
 </style>
 """, unsafe_allow_html=True)
 
-# Menu Lateral de Controlo
-st.sidebar.title("🎛️ Gestão FF Karaoke")
-modo = st.sidebar.selectbox("Selecionar Vista:", ["Painel do Prestador", "Tela / Apresentação (TV)", "Painel do Cliente"])
-
-st.sidebar.markdown("---")
-if st.sidebar.button("🧹 Limpar Fila de Espera"):
-    st.session_state.fila_karaoke = []
-    st.rerun()
-
-# 1. PAINEL DO PRESTADOR (Com os Links e QR Codes conforme a imagem)
-if modo == "Painel do Prestador":
-    st.markdown('<div class="card-header">🎤 Bem-vindo, Prestador!</div>', unsafe_allow_html=True)
+# ----------------------------------------------------
+# 1. PAINEL DO PRESTADOR (Exatamente como na Imagem 1)
+# ----------------------------------------------------
+if painel_atual == "prestador":
+    st.markdown("### 🎤 Bem-vindo, t t!")
+    st.markdown("---")
     
-    col_links, col_qr = st.columns([3, 1])
+    col_links, col_qr = st.columns([4, 1])
     
     with col_links:
         st.markdown(f"""
@@ -150,16 +148,22 @@ if modo == "Painel do Prestador":
         """, unsafe_allow_html=True)
         
     with col_qr:
-        # Gerar QR Code visual para o link do cliente usando uma API pública de QR Code
+        # QR Code para o link do cliente
         qr_url_cliente = f"https://api.qrserver.com/v1/create-qr-code/?size=120x120&data={link_cliente}"
-        st.image(qr_url_cliente, width=110, caption="QR Code Cliente")
+        st.image(qr_url_cliente, width=110)
 
-    st.markdown("---")
-    st.subheader("🎬 Playlist de Vídeos Clipes (Fundo da TV)")
-    st.info("Aqui poderá gerir e selecionar os vídeos que passam em segundo plano na TV.")
+    st.markdown("🎬 **Playlist de Vídeos Clipes (Fundo da TV)**")
+    st.info("Aqui poderá gerir os vídeos para a TV.")
 
-# 2. TELA / APRESENTAÇÃO (TV)
-elif modo == "Tela / Apresentação (TV)":
+    # Opção no painel de controlo do prestador para limpar a fila se necessário
+    if st.button("🧹 Limpar Fila de Espera"):
+        st.session_state.fila_karaoke = []
+        st.success("Fila limpa com sucesso!")
+
+# ----------------------------------------------------
+# 2. TELA / APRESENTAÇÃO (TV) (Exatamente como na Imagem 3)
+# ----------------------------------------------------
+elif painel_atual == "tela":
     col_fila, col_video = st.columns([1, 1])
 
     with col_fila:
@@ -217,8 +221,10 @@ elif modo == "Tela / Apresentação (TV)":
         </div>
         """, unsafe_allow_html=True)
 
-# 3. PAINEL DO CLIENTE (Com Confirmação Sim / Não)
-elif modo == "Painel do Cliente":
+# ----------------------------------------------------
+# 3. PAINEL DO CLIENTE (Exatamente como na Imagem 2)
+# ----------------------------------------------------
+elif painel_atual == "cliente":
     st.markdown('<div class="card-header">🎤 FFKARAOKE — PEDIR MÚSICA</div>', unsafe_allow_html=True)
 
     if not st.session_state.confirmar_envio:
