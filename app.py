@@ -1,6 +1,6 @@
-import streamlit as st
-import requests
 import time
+import requests
+import streamlit as st
 from datetime import datetime
 from utils.db_manager import init_db, get_all_providers
 from modules.admin import show_admin_panel
@@ -92,7 +92,7 @@ def show_client_screen():
                     
                     st.markdown(f"""
                         <div class="card-next">
-                            <div style="font-size: 14px; color: #e0b0ff; margin-bottom: 5px;">— Á Seguir —</div>
+                            <div style="font-size: 14px; color: #e0b0ff; margin-bottom: 5px;">— A Seguir —</div>
                             <div style="font-size: 22px; font-weight: bold; color: #ffeb3b;">{str(titulo).upper()}</div>
                             <div style="font-size: 12px; color: #ccc; margin-top: 5px;">Cliente: {cliente}</div>
                         </div>
@@ -124,25 +124,45 @@ def show_client_screen():
             with col_direita:
                 st.markdown('<div class="box-header">📺 VÍDEO CLIPE (FUNDO)</div>', unsafe_allow_html=True)
                 
-                st.markdown("""
-                    <div style="border: 2px solid #d4af37; border-radius: 10px; padding: 20px; text-align: center; background-color: #0d0d0d; min-height: 280px; display: flex; flex-direction: column; justify-content: center; align-items: center;">
-                """, unsafe_allow_html=True)
-
                 if tocando_agora:
+                    pedido_id_atual = tocando_agora.get("id")
                     musica = tocando_agora.get("musica", {})
-                    url_cloudinary = musica.get("url_cloudinary") if isinstance(musica, dict) else None
+                    
+                    # Leitura robusta para garantir que extraímos corretamente o link do Cloudinary
+                    if isinstance(musica, dict):
+                        url_cloudinary = musica.get("url_cloudinary") or musica.get("url") or musica.get("link")
+                    else:
+                        url_cloudinary = str(musica)
                     
                     if url_cloudinary and str(url_cloudinary).startswith("http"):
+                        # Contagem decrescente controlada por sessão (executa apenas 1 vez por música nova)
+                        if "ultimo_pedido_tocando" not in st.session_state:
+                            st.session_state.ultimo_pedido_tocando = None
+
+                        if st.session_state.ultimo_pedido_tocando != pedido_id_atual:
+                            placeholder_contagem = st.empty()
+                            for i in [3, 2, 1]:
+                                placeholder_contagem.markdown(f"""
+                                    <div style="border: 2px solid #d4af37; border-radius: 10px; padding: 40px; text-align: center; background-color: #0d0d0d; min-height: 280px; display: flex; flex-direction: column; justify-content: center; align-items: center;">
+                                        <h2 style="color: #ffeb3b; margin-bottom: 10px;">A PREPARAR PALCO...</h2>
+                                        <h1 style="color: #d4af37; font-size: 80px; margin: 0;">{i}</h1>
+                                    </div>
+                                """, unsafe_allow_html=True)
+                                time.sleep(1)
+                            placeholder_contagem.empty()
+                            st.session_state.ultimo_pedido_tocando = pedido_id_atual
+
                         st.video(url_cloudinary)
                     else:
                         st.warning("O link do vídeo do Cloudinary não foi encontrado para esta música.")
                 else:
+                    st.session_state.ultimo_pedido_tocando = None
                     st.markdown("""
-                        <div style="color: #d4af37; font-size: 35px; margin-bottom: 10px;">📺</div>
-                        <span style='color: #aaa;'>Aguardando o prestador selecionar um vídeo clipe no painel de controle...</span>
+                        <div style="border: 2px solid #d4af37; border-radius: 10px; padding: 20px; text-align: center; background-color: #0d0d0d; min-height: 280px; display: flex; flex-direction: column; justify-content: center; align-items: center;">
+                            <div style="color: #d4af37; font-size: 35px; margin-bottom: 10px;">📺</div>
+                            <span style='color: #aaa;'>Aguardando o prestador selecionar um vídeo clipe no painel de controle...</span>
+                        </div>
                     """, unsafe_allow_html=True)
-                    
-                st.markdown("</div>", unsafe_allow_html=True)
             
             time.sleep(5)
             st.rerun()
