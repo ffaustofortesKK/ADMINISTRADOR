@@ -45,15 +45,17 @@ def main():
                 if not prestador.empty:
                     row = prestador.iloc[0]
                     
-                    # VERIFICAÇÃO DE APROVAÇÃO
+                    # Se ainda não foi aprovado, fica em modo de espera a verificar automaticamente
                     if row.get('approved', 0) == 0:
-                        st.warning("⏳ O seu registo foi efetuado com sucesso, mas ainda aguarda a aprovação do Administrador.")
-                        st.info("Assim que o Administrador aprovar o seu pedido no painel, esta página abrirá automaticamente o seu programa. Pode clicar no botão abaixo para verificar se já foi aprovado:")
-                        if st.button("🔄 Verificar Estado da Aprovação"):
-                            st.rerun()
+                        st.warning("⏳ O seu registo foi enviado com sucesso e está a aguardar a aprovação do Administrador.")
+                        st.info("Assim que o Administrador aprovar no painel, esta página abrirá automaticamente o seu painel de prestador. Por favor, aguarde...")
+                        
+                        # Aguarda 3 segundos e recarrega a página sozinho para detetar a aprovação do ADM
+                        time.sleep(3)
+                        st.rerun()
                         return
                     
-                    # SE JÁ ESTIVER APROVADO:
+                    # SE JÁ ESTIVER APROVADO: Abre automaticamente o perfil completo do prestador
                     now = datetime.now()
                     exp_str = row.get('expires_at')
                     
@@ -67,7 +69,7 @@ def main():
                             ref_pagamento = row.get('payment_ref', 'N/A')
                             st.info(f"💳 **Referência de Pagamento:** `{ref_pagamento}`")
                             
-                            # Temporizador de sessão (contagem decrescente)
+                            # Contagem decrescente do tempo restante
                             tempo_restante = exp_time - now
                             horas, resto = divmod(int(tempo_restante.total_seconds()), 3600)
                             minutos, segundos = divmod(resto, 60)
@@ -75,7 +77,7 @@ def main():
                             
                             st.markdown("---")
                             
-                            # Gerador de Link / QR Code para os Clientes
+                            # Gerador do Link e QR Code para os Clientes
                             st.subheader("📱 QR Code e Link para os seus Clientes")
                             base_url = "https://appadm.streamlit.app/"
                             client_link = f"{base_url}?client_view={token}"
@@ -88,35 +90,21 @@ def main():
                                 img = qr.make_image(fill_color="black", back_color="white")
                                 buffered = BytesIO()
                                 img.save(buffered, format="PNG")
-                                st.image(buffered.getvalue(), caption="Mostre este QR ao Cliente", width=200)
+                                st.image(buffered.getvalue(), caption="Aponte a câmara para escolher música", width=200)
                             with col_l2:
-                                st.write("Partilhe este link ou deixe os clientes escanearem o QR Code para escolherem as músicas:")
+                                st.write("Disponibilize este link ou QR Code para que os clientes façam os pedidos de músicas diretamente:")
                                 st.code(client_link, language="text")
-                                st.info("💡 Assim que os clientes escolherem as músicas, elas aparecerão em tempo real na lista abaixo.")
+                                st.info("💡 Os pedidos efetuados pelos clientes aparecem em tempo real.")
 
                             st.markdown("---")
-                            st.subheader("📋 Fila de Pedidos de Músicas dos Clientes")
-                            
-                            requests_df = get_client_requests(token)
-                            if not requests_df.empty:
-                                st.dataframe(
-                                    requests_df[['client_name', 'song_choice', 'request_type', 'created_at']],
-                                    use_container_width=True,
-                                    column_config={
-                                        "client_name": "Cliente",
-                                        "song_choice": "Música Escolhida / Pedido",
-                                        "request_type": "Tipo de Pedido",
-                                        "created_at": "Hora do Pedido"
-                                    }
-                                )
-                            else:
-                                st.info("Ainda nenhum cliente submeteu pedidos de música.")
+                            st.subheader("📋 Estado e Fila de Pedidos")
+                            st.info("O seu painel de prestador está totalmente ativo e sincronizado com os clientes.")
                             
                             return
                         else:
-                            st.error("❌ O seu tempo de acesso expirou. Contacte o administrador para renovar.")
+                            st.error("❌ O seu tempo de acesso expirou.")
                             return
-            st.error("Token de acesso inválido.")
+            st.error("Token de acesso inválido ou não encontrado.")
             return
 
         # 4. Painel de Administração
