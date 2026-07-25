@@ -5,7 +5,6 @@ from datetime import datetime
 from utils.db_manager import init_db, get_all_providers
 from modules.admin import show_admin_panel
 from modules.register import show_register_page
-from modules.provider import show_provider_panel
 from modules.client import show_client_page
 
 FIREBASE_URL = "https://grupoffkaraoke-default-rtdb.firebaseio.com"
@@ -20,6 +19,85 @@ try:
     init_db()
 except Exception as e:
     st.error(f"Erro ao inicializar a base de dados: {e}")
+
+def atualizar_estado_pedido(provider_token, pedido_id, novo_estado):
+    """Atualiza o estado do pedido no Firebase (ex: pendente -> aprovado -> terminado)."""
+    try:
+        url = f"{FIREBASE_URL}/pedidos/{provider_token}/{pedido_id}/estado.json"
+        response = requests.put(url, json=novo_estado)
+        return response.status_code == 200
+    except Exception:
+        return False
+
+def show_provider_panel_custom(provider_token):
+    """Painel do prestador com filas numeradas em retângulos e botões de controlo por ordem de entrada."""
+    st.subheader("📺 Painel do Prestador — Fila de Pedidos")
+    
+    try:
+        response = requests.get(f"{FIREBASE_URL}/pedidos/{provider_token}.json")
+        if response.status_code == 200 and response.json():
+            data = response.json()
+            pedidos = [{"id": k, **v} for k, v in data.items()]
+            
+            # Apenas pedidos ativos (pendentes ou aprovados)
+            pedidos_ativos = [p for p in pedidos if p.get("estado") in ["pendente", "aprovado"]]
+            
+            # Ordenar por ordem de entrada (timestamp)
+            pedidos_ativos.sort(key=lambda x: x.get("timestamp", 0))
+            
+            tocando_agora = next((p for p in pedidos_ativos if p.get("estado") == "aprovado"), None)
+            pendentes = [p for p in pedidos_ativos if p.get("estado") == "pendente"]
+
+            if tocando_agora:
+                musica_obj = tocando_agora.get("musica", {})
+                titulo_tocando = musica_obj.get("titulo", "Karaoke") if isinstance(musica_obj, dict) else str(musica_obj)
+                st.success(f"🎵 **A Tocar no Palco:** {titulo_tocando} (Cliente: {tocando_agora.get('cliente')})")
+                
+                if st.button("⏹️ Terminar / Remover Música Atual", key=f"term_{tocando_agora.get('id')}"):
+                    atualizar_estado_pedido(provider_token, tocando_agora.get('id'), 'terminado')
+                    st.rerun()
+            else:
+                st.info("Nenhuma música em reprodução no momento. Selecione um pedido pendente abaixo.")
+
+            st.markdown("---")
+            st.markdown("### 📥 Fila de Espera (Ordem de Entrada)")
+
+            if not pendentes:
+                st.write("Não há pedidos pendentes na fila.")
+            else:
+                for idx, p in enumerate(pendentes, start=1):
+                    musica_obj = p.get("musica", {})
+                    titulo_musica = musica_obj.get("titulo", "Música") if isinstance(musica_obj, dict) else str(musica_obj)
+                    cliente_nome = p.get("cliente", "Convidado")
+                    
+                    # Exibição numerada dentro de um retângulo estilizado
+                    st.markdown(f"""
+                        <div style="border: 2px solid #d4af37; background-color: #121212; padding: 12px; border-radius: 8px; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center;">
+                            <div>
+                                <b style="color: #ffeb3b; font-size: 16px;">#{idx}</b> &nbsp;&nbsp; 
+                                <span style="color: white; font-size: 15px;"><b>{titulo_musica}</b></span> 
+                                <span style="color: #aaa; font-size: 13px;">(Cliente: {cliente_nome})</span>
+                            </div>
+                        </div>
+                    """, unsafe_allow_html=True)
+                    
+                    # Botão para colocar a música a tocar (aprovado)
+                    if st.button(f"▶️ Reproduzir #{idx}: {titulo_musica}", key=f"btn_play_{p.get('id')}"):
+                        # Se já houver uma a tocar, podemos terminá-la ou mudá-la diretamente
+                        if tocando_agora:
+                            atualizar_estado_pedido(provider_token, tocando_agora.get('id'), 'terminado')
+                        
+                        atualizar_estado_pedido(provider_token, p.get('id'), 'aprovado')
+                        st.rerun()
+
+        else:
+            st.info("A fila de pedidos está completamente vazia.")
+            
+    except Exception as e:
+        st.error(f"Erro ao carregar os pedidos: {e}")
+
+    time.sleep(4)
+    st.rerun()
 
 def show_client_screen():
     query_params = st.query_params
@@ -73,13 +151,12 @@ def show_client_screen():
             data = response.json()
             pedidos = [{"id": k, **v} for k, v in data.items()]
             
-            # Filtramos os pedidos ativos (pendentes e aprovados)
             pedidos_ativos = [p for p in pedidos if p.get("estado") in ["pendente", "aprovado"]]
+            pedidos_ativos.sort(key=lambda x: x.get("timestamp", 0))
             
             tocando_agora = next((p for p in pedidos_ativos if p.get("estado") == "aprovado"), None)
             pendentes = [p for p in pedidos_ativos if p.get("estado") == "pendente"]
 
-            # Divisão exata do layout solicitado (Esquerda: Fila de Espera / Direita: Vídeo Clipe de Fundo)
             col_esquerda, col_direita = st.columns([1.1, 0.9])
 
             with col_esquerda:
@@ -100,7 +177,7 @@ def show_client_screen():
                 else:
                     st.markdown("""
                         <div class="card-next">
-                            <div style="font-size: 16px; color: #888;">Nenhuma música de karaoke a tocar no momento.</div>
+                            <div style="font-size: 16px; color: #888;">Nenhuma música a tocar no momento.</div>
                         </div>
                     """, unsafe_allow_html=True)
 
@@ -128,14 +205,12 @@ def show_client_screen():
                     pedido_id_atual = tocando_agora.get("id")
                     musica = tocando_agora.get("musica", {})
                     
-                    # Leitura robusta para garantir que extraímos corretamente o link do Cloudinary
                     if isinstance(musica, dict):
                         url_cloudinary = musica.get("url_cloudinary") or musica.get("url") or musica.get("link")
                     else:
                         url_cloudinary = str(musica)
                     
                     if url_cloudinary and str(url_cloudinary).startswith("http"):
-                        # Contagem decrescente controlada por sessão (executa apenas 1 vez por música nova)
                         if "ultimo_pedido_tocando" not in st.session_state:
                             st.session_state.ultimo_pedido_tocando = None
 
@@ -179,22 +254,18 @@ def main():
     try:
         query_params = st.query_params
         
-        # 1. Página de Auto-Registo Pública do Prestador
         if "page" in query_params and query_params["page"] == "register":
             show_register_page()
             return
 
-        # 2. Página de Auto-Registo de Clientes (Gerada pelo Prestador)
         if "page" in query_params and query_params["page"] == "client_register":
             show_client_page()
             return
 
-        # 3. Tela de Apresentação de Vídeos / Pedidos do Cliente
         if "page" in query_params and query_params["page"] == "client_screen":
             show_client_screen()
             return
 
-        # 4. Acesso Individual do Prestador via Token
         if "token" in query_params:
             token = query_params["token"]
             df = get_all_providers()
@@ -210,15 +281,14 @@ def main():
                         
                         if exp_str:
                             exp_time = datetime.strptime(exp_str, "%Y-%m-%d %H:%M:%S")
-                            
                             if now < exp_time:
-                                show_provider_panel()
+                                show_provider_panel_custom(token)
                                 return
                             else:
                                 st.error("❌ O seu tempo de acesso expirou.")
                                 return
                         else:
-                            show_provider_panel()
+                            show_provider_panel_custom(token)
                             return
                     else:
                         st.warning("⏳ O seu registo foi efetuado, mas ainda aguarda a aprovação do Administrador.")
@@ -227,7 +297,6 @@ def main():
             st.error("Token de acesso inválido ou não encontrado.")
             return
 
-        # 5. Painel de Administração
         st.sidebar.title("Painel Admin")
         senha = st.sidebar.text_input("Palavra-passe", type="password")
         
