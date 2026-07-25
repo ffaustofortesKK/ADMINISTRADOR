@@ -29,13 +29,13 @@ def main():
             show_register_page()
             return
 
-        # 2. Portal do Cliente
+        # 2. Portal do Cliente (via QR Code / Link do Prestador)
         if "client_view" in query_params:
             token_prestador = query_params["client_view"]
             show_client_portal(token_prestador)
             return
 
-        # 3. Acesso Individual do Prestador via Token (Tudo na mesma página)
+        # 3. Acesso Individual do Prestador via Token
         if "token" in query_params:
             token = query_params["token"]
             df = get_all_providers()
@@ -46,17 +46,16 @@ def main():
                 if not prestador.empty:
                     row = prestador.iloc[0]
                     
-                    # Se ainda não foi aprovado pelo ADM
+                    # Se ainda não foi aprovado, fica em modo de espera a verificar automaticamente
                     if row.get('approved', 0) == 0:
-                        st.title("🎤 FFKaraoke - Estado do Registo")
                         st.warning("⏳ O seu registo foi enviado com sucesso e está a aguardar a aprovação do Administrador.")
-                        st.info("Assim que o Administrador aprovar, esta mesma página atualizar-se-á automaticamente para o seu painel de prestador. Por favor, aguarde...")
+                        st.info("Assim que o Administrador aprovar no painel, esta página abrirá automaticamente o seu painel de prestador. Por favor, aguarde...")
                         
                         time.sleep(3)
                         st.rerun()
                         return
                     
-                    # SE JÁ ESTIVER APROVADO: Carrega o painel completo na mesma página
+                    # SE JÁ ESTIVER APROVADO: Abre exatamente o layout da imagem fornecida
                     now = datetime.now()
                     exp_str = row.get('expires_at')
                     
@@ -65,10 +64,12 @@ def main():
                         
                         if now < exp_time:
                             nome_prestador = row['name']
-                            slug_prestador = token
+                            slug_prestador = token  # Usado para ligar ao Firebase correspondente
                             
+                            # Título idêntico à imagem
                             st.title(f"🎤 Bem-vindo, {nome_prestador}!")
                             
+                            # Temporizador de sessão discreto no topo
                             tempo_restante = exp_time - now
                             horas, resto = divmod(int(tempo_restante.total_seconds()), 3600)
                             minutos, segundos = divmod(resto, 60)
@@ -76,6 +77,7 @@ def main():
                             
                             st.markdown("---")
                             
+                            # Secção Superior: Links de Cliente, TV e QR Code (como na imagem)
                             col_links, col_qr = st.columns([4, 1])
                             
                             with col_links:
@@ -96,7 +98,10 @@ def main():
 
                             st.markdown("---")
                             
+                            # Secção: Playlist de Vídeos Clipes (Fundo da TV)
                             st.subheader("🎬 Playlist de Vídeos Clipes (Fundo da TV)")
+                            st.info("Espaço reservado para pesquisa e envio rápido de clipes para o fundo da TV.")
+                            
                             col_busca_cli, col_btn_cli = st.columns([3, 1])
                             with col_busca_cli:
                                 clipe_pesquisa = st.text_input("Pesquisar clipe na pasta:", placeholder="Digite o nome do clipe...")
@@ -111,6 +116,7 @@ def main():
 
                             st.markdown("---")
                             
+                            # Secção: Seleção Manual (Nome exato do ficheiro)
                             st.subheader("⚡ Seleção Manual (Nome exato do ficheiro)")
                             col_man, col_btn_man = st.columns([4, 1])
                             with col_man:
@@ -124,8 +130,10 @@ def main():
 
                             st.markdown("---")
                             
+                            # Secção: Gestão de Fila
                             st.subheader("📋 Gestão de Fila")
                             
+                            # Buscar pedidos do Firebase deste prestador específico
                             URL_PEDIDOS = f"https://grupoffkaraoke-default-rtdb.firebaseio.com/pedidos_{slug_prestador}.json"
                             try:
                                 res_pedidos = requests.get(f"{URL_PEDIDOS}?nocache={time.time()}", timeout=2).json()
@@ -154,7 +162,10 @@ def main():
 
                             st.markdown("---")
                             
+                            # Secção: Pedidos Manuais (Atenção)
                             st.subheader("⚠️ Pedidos Manuais (Atenção)")
+                            
+                            # Filtrar pedidos manuais (aqueles que começam por 'PEDIDO: ')
                             tem_manual = False
                             if res_pedidos and isinstance(res_pedidos, dict):
                                 for p_id, dados in res_pedidos.items():
@@ -165,8 +176,10 @@ def main():
                             if not tem_manual:
                                 st.success("Nenhum pedido manual pendente.")
 
+                            # Atualização automática para refletir pedidos em tempo real
                             time.sleep(3)
                             st.rerun()
+                            
                             return
                         else:
                             st.error("❌ O seu tempo de acesso expirou.")
