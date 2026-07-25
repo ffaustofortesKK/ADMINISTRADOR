@@ -1,5 +1,5 @@
 import streamlit as st
-from utils.db_manager import add_provider, get_all_providers
+from utils.db_manager import add_provider
 import uuid
 
 def show_register_page():
@@ -37,7 +37,6 @@ def show_register_page():
             else:
                 st.warning("Por favor, preencha todos os campos obrigatórios.")
 
-    # Se o registo foi submetido com sucesso, exibe apenas a mensagem limpa e o link de acesso direto
     if st.session_state.get("registado_sucesso", False):
         token_atual = st.session_state.get("token_gerado", "")
         link_painel = f"https://appadm.streamlit.app/?token={token_atual}"
