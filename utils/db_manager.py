@@ -45,7 +45,6 @@ def approve_provider(provider_id):
     conn = sqlite3.connect(DB_FILE)
     cursor = conn.cursor()
     
-    # Buscar a duração para calcular a data de expiração a partir do momento da aprovação
     cursor.execute("SELECT duration_hours FROM providers WHERE id = ?", (provider_id,))
     res = cursor.fetchone()
     hours = res[0] if res else 2
