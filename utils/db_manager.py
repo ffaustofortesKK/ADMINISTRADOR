@@ -48,16 +48,13 @@ def get_all_providers():
     return df
 
 def get_active_providers():
-    """Retorna apenas os prestadores aprovados cujo tempo ainda não expirou para a Gestão Total"""
     df = get_all_providers()
     if df.empty:
         return df
     
     now = datetime.now()
-    # Converte expires_at para datetime de forma segura
     df['expires_dt'] = pd.to_datetime(df['expires_at'], errors='coerce')
     
-    # Filtra apenas os que estão aprovados (approved == 1) e cujo tempo ainda é superior a agora
     ativos = df[(df['approved'].astype(int) == 1) & (df['expires_dt'] > now)].copy()
     return ativos
 
