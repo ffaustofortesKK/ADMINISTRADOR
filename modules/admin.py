@@ -1,6 +1,7 @@
 import streamlit as st
 import time
-from utils.db_manager import get_all_providers, approve_provider, get_total_revenue
+from datetime import datetime
+from utils.db_manager import get_all_providers, get_active_providers, approve_provider, get_total_revenue
 
 def show_admin_panel():
     st.markdown("""
@@ -21,7 +22,6 @@ def show_admin_panel():
         margin-bottom: 15px;
         color: white;
     }
-    /* Estilo de destaque altamente visível para o número de pendentes */
     .badge-pendente-global {
         background-color: #ff3333;
         color: #000000;
@@ -38,11 +38,12 @@ def show_admin_panel():
     placeholder = st.empty()
 
     with placeholder.container():
-        df = get_all_providers()
+        df_all = get_all_providers()
+        df_active = get_active_providers()
         
         pendentes_count = 0
-        if not df.empty and 'approved' in df.columns:
-            pendentes_count = len(df[df['approved'].astype(int) == 0])
+        if not df_all.empty and 'approved' in df_all.columns:
+            pendentes_count = len(df_all[df_all['approved'].astype(int) == 0])
 
         col_t1, col_t2 = st.columns([3, 1])
         with col_t1:
@@ -55,7 +56,6 @@ def show_admin_panel():
                 
         st.markdown("---")
 
-        # Criação das 4 abas limpas
         aba1, aba2, aba3, aba4 = st.tabs([
             "🔗 Link e QR Registo", 
             "⏳ Pedidos e Aprovação", 
@@ -93,10 +93,10 @@ def show_admin_panel():
             st.subheader("📋 Pedidos de Registo Pendentes")
             st.write("Analise as informações enviadas por cada prestador e aprove o acesso conforme a confirmação do pagamento.")
             
-            if df.empty:
+            if df_all.empty:
                 st.info("Nenhum prestador registado na base de dados.")
             else:
-                pendentes = df[df['approved'].astype(int) == 0]
+                pendentes = df_all[df_all['approved'].astype(int) == 0]
                 
                 if pendentes.empty:
                     st.success("Não existem pedidos de registo pendentes neste momento.")
@@ -124,41 +124,71 @@ def show_admin_panel():
                         st.markdown("---")
 
         # -------------------------------------------------------------
-        # ABA 3: Gestão Total (Registo completo: dia, valor, tempo)
+        # ABA 3: Gestão Total (Ativos com contagem decrescente de tempo)
         # -------------------------------------------------------------
         with aba3:
-            st.subheader("📑 Gestão Total de Prestadores Registados")
-            st.write("Histórico completo contendo a data de registo, valor pago, tempo solicitado e estado atual.")
+            st.subheader("📑 Gestão Total de Prestadores Ativos (Com Contagem Decrescente)")
+            st.write("Apenas prestadores com licença ativa. Assim que o tempo expirar, o prestador desaparece automaticamente daqui.")
             
-            if df.empty:
-                st.info("Nenhum registo encontrado na base de dados.")
+            if df_active.empty:
+                st.info("Nenhum prestador com sessão ativa no momento.")
             else:
-                tabela_exibicao = df[['id', 'name', 'phone', 'payment_ref', 'amount_paid', 'expires_at', 'approved']].copy()
-                tabela_exibicao.columns = ['ID', 'Nome', 'Telefone', 'Ref. Pagamento', 'Valor (Kz)', 'Expira em / Tempo', 'Estado']
-                tabela_exibicao['Estado'] = tabela_exibicao['Estado'].apply(lambda x: "✅ Aprovado" if int(x) == 1 else "⏳ Pendente")
+                agora = datetime.now()
+                lista_gestao = []
                 
-                st.dataframe(tabela_exibicao, use_container_width=True, hide_index=True)
+                for idx, row in df_active.iterrows():
+                    expira = pd.to_datetime(row['expires_at'])
+                    tempo_restante = expira - agora
+                    
+                    if tempo_restante.total_seconds() > 0:
+                        horas_restantes = int(tempo_restante.total_seconds() // 3600)
+                        minutos_restantes = int((tempo_restante.total_seconds() % 3600) // 60)
+                        contagem = f"⏳ {horas_restantes}h {minutos_restantes}m restantes"
+                    else:
+                        contagem = "⚠️ Expirado"
+                        
+                    lista_gestao.append({
+                        'Nome': row['name'],
+                        'Telefone': row['phone'],
+                        'Ref. Pagamento': row['payment_ref'],
+                        'Valor Pago (Kz)': row['amount_paid'],
+                        'Tempo Restante': contagem,
+                        'Expira em': row['expires_at']
+                    })
+                
+                df_gestao_view = pd.DataFrame(lista_gestao)
+                st.dataframe(df_gestao_view, use_container_width=True, hide_index=True)
 
         # -------------------------------------------------------------
-        # ABA 4: Relatórios e Estatísticas
+        # ABA 4: Relatórios e Estatísticas (Histórico Completo)
         # -------------------------------------------------------------
         with aba4:
-            st.subheader("📈 Relatórios Financeiros e Operacionais")
+            st.subheader("📈 Relatórios Financeiros e Histórico Completo")
+            st.write("Registo integral de todas as transações, valores e tempos solicitados (incluindo licenças expiradas).")
             
             total_recebido = get_total_revenue()
-            total_prestadores = len(df) if not df.empty else 0
-            aprovados_count = len(df[df['approved'].astype(int) == 1]) if not df.empty else 0
+            total_prestadores = len(df_all) if not df_all.empty else 0
+            aprovados_count = len(df_all[df_all['approved'].astype(int) == 1]) if not df_all.empty else 0
             
             col_m1, col_m2, col_m3 = st.columns(3)
             with col_m1:
                 st.metric(label="💳 Total Geral Faturado", value=f"{total_recebido:,.2f} Kz")
             with col_m2:
-                st.metric(label="🎤 Total de Prestadores", value=total_prestadores)
+                st.metric(label="🎤 Total de Prestadores Registados", value=total_prestadores)
             with col_m3:
                 st.metric(label="✅ Aprovados vs ⏳ Pendentes", value=f"{aprovados_count} / {pendentes_count}")
                 
             st.markdown("---")
-            st.info("Painel de controlo otimizado para monitorização de receitas e fluxo de ativações de prestadores de karaoke.")
+            st.subheader("📜 Histórico Geral de Registos")
+            
+            if df_all.empty:
+                st.info("Sem dados estatísticos registados.")
+            else:
+                tabela_relatorio = df_all[['id', 'name', 'phone', 'payment_ref', 'amount_paid', 'expires_at', 'approved']].copy()
+                tabela_relatorio.columns = ['ID', 'Nome', 'Telefone', 'Ref. Pagamento', 'Valor (Kz)', 'Data/Expiração', 'Estado']
+                tabela_relatorio['Estado'] = tabela_relatorio['Estado'].apply(lambda x: "✅ Aprovado" if int(x) == 1 else "⏳ Pendente")
+                
+                st.dataframe(tabela_relatorio, use_container_width=True, hide_index=True)
 
-    time.sleep(5)
+    time.sleep(10)
     st.rerun()
