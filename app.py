@@ -19,8 +19,8 @@ if "confirmar_envio" not in st.session_state:
 query_params = st.query_params
 painel_atual = query_params.get("painel", "prestador")
 
-# Obter o URL base atual da aplicação no Streamlit Cloud
-base_url = "https://administrador.streamlit.app"  # Ajuste se necessário para o seu domínio exato
+# Obter automaticamente o URL base atual da aplicação no Streamlit
+base_url = "https://administrador.streamlit.app"  # Se necessário, confirme se o seu link do Streamlit é este exato
 link_cliente = f"{base_url}/?painel=cliente"
 link_tv = f"{base_url}/?painel=tela"
 
@@ -126,7 +126,7 @@ body {
 """, unsafe_allow_html=True)
 
 # ----------------------------------------------------
-# 1. PAINEL DO PRESTADOR (Exatamente como na Imagem 1)
+# 1. PAINEL DO PRESTADOR (Com os Links e QR Codes)
 # ----------------------------------------------------
 if painel_atual == "prestador":
     st.markdown("### 🎤 Bem-vindo, t t!")
@@ -148,20 +148,18 @@ if painel_atual == "prestador":
         """, unsafe_allow_html=True)
         
     with col_qr:
-        # QR Code para o link do cliente
         qr_url_cliente = f"https://api.qrserver.com/v1/create-qr-code/?size=120x120&data={link_cliente}"
         st.image(qr_url_cliente, width=110)
 
     st.markdown("🎬 **Playlist de Vídeos Clipes (Fundo da TV)**")
     st.info("Aqui poderá gerir os vídeos para a TV.")
 
-    # Opção no painel de controlo do prestador para limpar a fila se necessário
     if st.button("🧹 Limpar Fila de Espera"):
         st.session_state.fila_karaoke = []
         st.success("Fila limpa com sucesso!")
 
 # ----------------------------------------------------
-# 2. TELA / APRESENTAÇÃO (TV) (Exatamente como na Imagem 3)
+# 2. TELA / APRESENTAÇÃO (TV)
 # ----------------------------------------------------
 elif painel_atual == "tela":
     col_fila, col_video = st.columns([1, 1])
@@ -222,7 +220,7 @@ elif painel_atual == "tela":
         """, unsafe_allow_html=True)
 
 # ----------------------------------------------------
-# 3. PAINEL DO CLIENTE (Exatamente como na Imagem 2)
+# 3. PAINEL DO CLIENTE
 # ----------------------------------------------------
 elif painel_atual == "cliente":
     st.markdown('<div class="card-header">🎤 FFKARAOKE — PEDIR MÚSICA</div>', unsafe_allow_html=True)
