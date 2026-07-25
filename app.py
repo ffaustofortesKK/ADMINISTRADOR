@@ -1,7 +1,7 @@
 import streamlit as st
 
 st.set_page_config(
-    page_title="FF Karaoke - Sistema",
+    page_title="FF Karaoke - Sistema Completo",
     page_icon="🎤",
     layout="wide"
 )
@@ -10,11 +10,15 @@ st.set_page_config(
 if "fila_karaoke" not in st.session_state:
     st.session_state.fila_karaoke = []
 
-# Inicializar o estado de confirmação do cliente
 if "confirmar_envio" not in st.session_state:
     st.session_state.confirmar_envio = False
     st.session_state.temp_cantor = ""
     st.session_state.temp_musica = ""
+
+# Obter o URL atual da aplicação (ou usar um URL base de exemplo)
+base_url = "https://ffkaraoke.streamlit.app"
+link_cliente = f"{base_url}/?painel=cliente"
+link_tv = f"{base_url}/?painel=tela"
 
 # Estilização Global CSS (Tema Escuro e Dourado)
 st.markdown("""
@@ -26,7 +30,7 @@ body {
 .main {
     background: #070707;
 }
-.card-title {
+.card-title, .card-header {
     background: linear-gradient(180deg, #111, #050505);
     border: 2px solid #D4AF37;
     border-radius: 15px;
@@ -37,6 +41,17 @@ body {
     font-size: 24px;
     box-shadow: 0px 0px 20px rgba(212,175,55,.25);
     margin-bottom: 20px;
+}
+.link-box {
+    background: #111;
+    border: 1px solid #D4AF37;
+    border-radius: 10px;
+    padding: 12px 20px;
+    margin-bottom: 15px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    box-shadow: 0px 0px 10px rgba(212,175,55,0.15);
 }
 .card-next {
     background: linear-gradient(180deg, #1a0b2e, #0a0412);
@@ -74,7 +89,7 @@ body {
     background: linear-gradient(180deg, #111, #050505);
     border: 2px solid #D4AF37;
     border-radius: 20px;
-    height: 600px;
+    height: 500px;
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -82,18 +97,6 @@ body {
     box-shadow: 0px 0px 25px rgba(212,175,55,.25);
     text-align: center;
     padding: 20px;
-}
-.card-header {
-    background: linear-gradient(180deg, #111, #050505);
-    border: 2px solid #D4AF37;
-    border-radius: 15px;
-    padding: 20px;
-    text-align: center;
-    color: #D4AF37;
-    font-weight: bold;
-    font-size: 26px;
-    box-shadow: 0px 0px 20px rgba(212,175,55,.25);
-    margin-bottom: 25px;
 }
 .stTextInput input {
     background-color: #111 !important;
@@ -107,7 +110,7 @@ body {
     font-weight: bold;
     border-radius: 10px;
     width: 100%;
-    padding: 12px;
+    padding: 10px;
     border: none;
     box-shadow: 0px 0px 15px rgba(212,175,55,0.4);
 }
@@ -118,17 +121,45 @@ body {
 </style>
 """, unsafe_allow_html=True)
 
-# Menu Lateral (Apenas para Controlo do Prestador e Acesso ao Link do Cliente)
-st.sidebar.title("🎛️ Painel do Prestador")
-modo = st.sidebar.radio("Modo de Visualização:", ["Tela / Apresentação", "Painel do Cliente (Smartphone)"])
+# Menu Lateral de Controlo
+st.sidebar.title("🎛️ Gestão FF Karaoke")
+modo = st.sidebar.selectbox("Selecionar Vista:", ["Painel do Prestador", "Tela / Apresentação (TV)", "Painel do Cliente"])
 
 st.sidebar.markdown("---")
 if st.sidebar.button("🧹 Limpar Fila de Espera"):
     st.session_state.fila_karaoke = []
     st.rerun()
 
-# 1. MODO TELA / APRESENTAÇÃO
-if modo == "Tela / Apresentação":
+# 1. PAINEL DO PRESTADOR (Com os Links e QR Codes conforme a imagem)
+if modo == "Painel do Prestador":
+    st.markdown('<div class="card-header">🎤 Bem-vindo, Prestador!</div>', unsafe_allow_html=True)
+    
+    col_links, col_qr = st.columns([3, 1])
+    
+    with col_links:
+        st.markdown(f"""
+        <div class="link-box">
+            <span>🏷️ <b>Cliente:</b> <a href="{link_cliente}" target="_blank" style="color: #FFD700;">{link_cliente}</a></span>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        st.markdown(f"""
+        <div class="link-box">
+            <span>📺 <b>TV:</b> <a href="{link_tv}" target="_blank" style="color: #FFD700;">{link_tv}</a></span>
+        </div>
+        """, unsafe_allow_html=True)
+        
+    with col_qr:
+        # Gerar QR Code visual para o link do cliente usando uma API pública de QR Code
+        qr_url_cliente = f"https://api.qrserver.com/v1/create-qr-code/?size=120x120&data={link_cliente}"
+        st.image(qr_url_cliente, width=110, caption="QR Code Cliente")
+
+    st.markdown("---")
+    st.subheader("🎬 Playlist de Vídeos Clipes (Fundo da TV)")
+    st.info("Aqui poderá gerir e selecionar os vídeos que passam em segundo plano na TV.")
+
+# 2. TELA / APRESENTAÇÃO (TV)
+elif modo == "Tela / Apresentação (TV)":
     col_fila, col_video = st.columns([1, 1])
 
     with col_fila:
@@ -136,7 +167,6 @@ if modo == "Tela / Apresentação":
 
         fila = st.session_state.fila_karaoke
 
-        # A "Á Seguir" (1º da lista)
         if len(fila) > 0:
             primeiro = fila[0]
             st.markdown(f"""
@@ -157,7 +187,6 @@ if modo == "Tela / Apresentação":
             </div>
             """, unsafe_allow_html=True)
 
-        # Restantes posições (2 a 6)
         posicoes_restantes = fila[1:6]
         for i in range(2, 7):
             idx = i - 2
@@ -188,11 +217,10 @@ if modo == "Tela / Apresentação":
         </div>
         """, unsafe_allow_html=True)
 
-# 2. MODO PAINEL DO CLIENTE (Ideal para abrir no Smartphone)
-elif modo == "Painel do Cliente (Smartphone)":
+# 3. PAINEL DO CLIENTE (Com Confirmação Sim / Não)
+elif modo == "Painel do Cliente":
     st.markdown('<div class="card-header">🎤 FFKARAOKE — PEDIR MÚSICA</div>', unsafe_allow_html=True)
 
-    # Se ainda não está no passo de confirmação
     if not st.session_state.confirmar_envio:
         with st.form("form_cliente"):
             st.subheader("Insira os seus dados para participar")
@@ -210,8 +238,6 @@ elif modo == "Painel do Cliente (Smartphone)":
                     st.rerun()
                 else:
                     st.error("Por favor, preencha o seu nome e o nome da música.")
-    
-    # Se estiver no passo de confirmação (Sim / Não)
     else:
         st.markdown(f"""
         <div style="background: #111; border: 2px solid #D4AF37; border-radius: 15px; padding: 20px; text-align: center; margin-bottom: 20px;">
@@ -231,7 +257,6 @@ elif modo == "Painel do Cliente (Smartphone)":
                     "musica": st.session_state.temp_musica.title()
                 })
                 st.success("Pedido enviado com sucesso para a fila!")
-                # Limpa temporários e volta ao formulário inicial
                 st.session_state.confirmar_envio = False
                 st.session_state.temp_cantor = ""
                 st.session_state.temp_musica = ""
