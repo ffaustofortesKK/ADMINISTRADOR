@@ -66,7 +66,7 @@ def show_client_screen():
                     
                     st.markdown(f"""
                         <div class="card-next">
-                            <div style="font-size: 14px; color: #e0b0ff; margin-bottom: 5px;">— Á Seguir —</div>
+                            <div style="font-size: 14px; color: #e0b0ff; margin-bottom: 5px;">— A Seguir —</div>
                             <div style="font-size: 22px; font-weight: bold; color: #ffeb3b;">{str(titulo).upper()}</div>
                             <div style="font-size: 12px; color: #ccc; margin-top: 5px;">Cliente: {cliente}</div>
                         </div>
@@ -99,28 +99,39 @@ def show_client_screen():
                 st.markdown('<div class="box-header">📺 TELA DE REPRODUÇÃO</div>', unsafe_allow_html=True)
                 
                 if tocando_agora:
+                    pedido_id_atual = tocando_agora.get("id")
                     musica = tocando_agora.get("musica", {})
                     url_cloudinary = musica.get("url_cloudinary") if isinstance(musica, dict) else None
                     
                     if url_cloudinary and str(url_cloudinary).startswith("http"):
-                        # Efeito visual de contagem antes de abrir o vídeo em grande
-                        placeholder_contagem = st.empty()
-                        for i in [3, 2, 1]:
-                            placeholder_contagem.markdown(f"""
-                                <div style="border: 2px solid #d4af37; border-radius: 10px; padding: 40px; text-align: center; background-color: #0d0d0d; min-height: 300px; display: flex; flex-direction: column; justify-content: center; align-items: center;">
-                                    <h2 style="color: #ffeb3b; margin-bottom: 10px;">A PREPARAR PALCO...</h2>
-                                    <h1 style="color: #d4af37; font-size: 80px; margin: 0;">{i}</h1>
-                                </div>
-                            """, unsafe_allow_html=True)
-                            time.sleep(1)
-                        placeholder_contagem.empty()
+                        # Inicializar memória de sessão se não existir
+                        if "ultimo_pedido_tocando" not in st.session_state:
+                            st.session_state.ultimo_pedido_tocando = None
 
-                        # Exibição do vídeo em tamanho grande ocupando a secção
+                        # Só faz a contagem se esta música/pedido for diferente da última reproduzida
+                        if st.session_state.ultimo_pedido_tocando != pedido_id_atual:
+                            placeholder_contagem = st.empty()
+                            for i in [3, 2, 1]:
+                                placeholder_contagem.markdown(f"""
+                                    <div style="border: 2px solid #d4af37; border-radius: 10px; padding: 40px; text-align: center; background-color: #0d0d0d; min-height: 300px; display: flex; flex-direction: column; justify-content: center; align-items: center;">
+                                        <h2 style="color: #ffeb3b; margin-bottom: 10px;">A PREPARAR PALCO...</h2>
+                                        <h1 style="color: #d4af37; font-size: 80px; margin: 0;">{i}</h1>
+                                    </div>
+                                """, unsafe_allow_html=True)
+                                time.sleep(1)
+                            placeholder_contagem.empty()
+                            
+                            # Atualiza o registo para não repetir a contagem nos próximos refreshes
+                            st.session_state.ultimo_pedido_tocando = pedido_id_atual
+
+                        # Exibição direta do vídeo em tamanho grande sem repetir a contagem
                         st.markdown("<h3 style='text-align: center; color: #ffeb3b;'>🎤 A CANTAR AGORA</h3>", unsafe_allow_html=True)
                         st.video(url_cloudinary, autoplay=True)
                     else:
                         st.warning("O link do vídeo do Cloudinary não foi encontrado para esta música.")
                 else:
+                    # Limpa a memória quando a música termina para permitir contagem na próxima
+                    st.session_state.ultimo_pedido_tocando = None
                     st.markdown("""
                         <div style="border: 2px solid #d4af37; border-radius: 10px; padding: 40px; text-align: center; background-color: #0d0d0d; min-height: 300px; display: flex; flex-direction: column; justify-content: center; align-items: center;">
                             <div style="color: #d4af37; font-size: 45px; margin-bottom: 10px;">📺</div>
