@@ -1,3 +1,4 @@
+import time
 import requests
 import streamlit as st
 
@@ -78,3 +79,49 @@ def atualizar_estado_pedido(provider_token, pedido_id, novo_estado):
         return response.status_code == 200
     except Exception:
         return False
+
+def painel_prestador(provider_token):
+    """Painel completo do prestador com atualização automática na tela."""
+    st.subheader("📺 Painel do Prestador — Fila de Reprodução")
+    
+    placeholder = st.empty()
+    auto_refresh = st.toggle("Ativar atualização automática na tela", value=True)
+    
+    while True:
+        with placeholder.container():
+            pedidos = buscar_pedidos_prestador(provider_token)
+            pedidos_ativos = [p for p in pedidos if p.get('estado') in ['pendente', 'aprovado']]
+            
+            if not pedidos_ativos:
+                st.info("A aguardar novos pedidos de músicas...")
+            else:
+                st.write(f"### Fila Atual ({len(pedidos_ativos)} pedidos)")
+                
+                tocando_agora = next((p for p in pedidos_ativos if p.get('estado') == 'aprovado'), None)
+                
+                if tocando_agora:
+                    st.success(f"🎵 **A Tocar Agora:** {tocando_agora.get('musica')} (Pedida por: {tocando_agora.get('cliente')})")
+                    if st.button("Marcar como Terminado", key=f"term_{tocando_agora.get('id')}"):
+                        atualizar_estado_pedido(provider_token, tocando_agora.get('id'), 'terminado')
+                        st.rerun()
+                
+                st.write("---")
+                st.write("**Próximos na Fila:**")
+                for p in pedidos_ativos:
+                    col1, col2, col3 = st.columns([3, 2, 1])
+                    with col1:
+                        st.text(f"{p.get('musica')} ({p.get('cliente')})")
+                    with col2:
+                        estado_atual = p.get('estado')
+                        st.text(f"Estado: {estado_atual}")
+                    with col3:
+                        if estado_atual == 'pendente':
+                            if st.button("Aprovar", key=f"apr_{p.get('id')}"):
+                                atualizar_estado_pedido(provider_token, p.get('id'), 'aprovado')
+                                st.rerun()
+                                
+        if not auto_refresh:
+            break
+            
+        time.sleep(4)
+        st.rerun()
