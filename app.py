@@ -1,139 +1,138 @@
 import streamlit as st
-import requests
-import time
-from utils.db_manager import get_all_providers
+from utils.db_manager import init_db, get_all_providers, get_client_requests
+from modules.admin import show_admin_panel
+from modules.register import show_register_page
+from modules.client_portal import show_client_portal
+from datetime import datetime
+import qrcode
+from io import BytesIO
 
-def show_client_portal(provider_token):
-    # Validar se o token do prestador existe e está ativo na base de dados local
-    df_prov = get_all_providers()
-    prestador = df_prov[df_prov['token'] == provider_token]
-    
-    if prestador.empty:
-        st.error("❌ Link de prestador inválido ou inexistente.")
-        return
+st.set_page_config(
+    page_title="FFKaraoke - Gestão de Acessos",
+    page_icon="🎤",
+    layout="wide"
+)
 
-    row_prov = prestador.iloc[0]
-    if row_prov.get('approved', 0) != 1:
-        st.warning("⏳ Este painel de prestador encontra-se temporariamente inativo ou expirado.")
-        return
+try:
+    init_db()
+except Exception as e:
+    st.error(f"Erro ao inicializar a base de dados: {e}")
 
-    # Usar o token como identificador único (slug) para as chaves do Firebase
-    prestador_slug = provider_token
-
-    if 'registado' not in st.session_state: st.session_state.registado = False
-    if 'musica_pendente_confirmacao' not in st.session_state: st.session_state.musica_pendente_confirmacao = None
-    if 'aviso_personalizado_ativo' not in st.session_state: st.session_state.aviso_personalizado_ativo = False
-    if 'texto_pedido_anterior' not in st.session_state: st.session_state.texto_pedido_anterior = ""
-
-    URL_STATUS = f"https://grupoffkaraoke-default-rtdb.firebaseio.com/status_{prestador_slug}.json"
-    URL_PEDIDOS = f"https://grupoffkaraoke-default-rtdb.firebaseio.com/pedidos_{prestador_slug}.json"
-    URL_CATALOGO = "https://grupoffkaraoke-default-rtdb.firebaseio.com/catalogo.json"
-
-    @st.cache_data(ttl=300)
-    def obter_catalogo():
-        try:
-            res = requests.get(URL_CATALOGO).json()
-            return list(res.values()) if isinstance(res, dict) else (res or [])
-        except: return []
-
-    if not st.session_state.registado:
-        st.title(f"🎤 FF Karaoke - {row_prov['name']}")
-        nome = st.text_input("Como quer ser chamado?")
-        if st.button("Entrar"):
-            if nome: 
-                st.session_state.nome = nome
-                st.session_state.registado = True
-                st.rerun()
-    else:
-        try:
-            status = requests.get(f"{URL_STATUS}?nocache={time.time()}", timeout=2).json() or {}
-            pedidos_json = requests.get(f"{URL_PEDIDOS}?nocache={time.time()}", timeout=2).json() or {}
-        except: 
-            status = {}
-            pedidos_json = {}
-
-        nome_firebase = str(status.get("cantor", "")).strip().lower()
-        meu_nome = str(st.session_state.nome).strip().lower()
+def main():
+    try:
+        query_params = st.query_params
         
-        fila = list(pedidos_json.items()) if pedidos_json else []
-        posicao = next((i for i, (p_id, p) in enumerate(fila) if str(p.get('cantor')).strip().lower() == meu_nome), -1)
+        # 1. Página de Auto-Registo Pública para Prestadores
+        if "page" in query_params and query_params["page"] == "register":
+            show_register_page()
+            return
 
-        tem_pedido_na_fila = posicao != -1
-        esta_a_cantar_ou_chamado = (nome_firebase == meu_nome)
-        comando_atual = status.get("comando")
+        # 2. Portal do Cliente (via QR Code / Link do Prestador)
+        if "client_view" in query_params:
+            token_prestador = query_params["client_view"]
+            show_client_portal(token_prestador)
+            return
 
-        if esta_a_cantar_ou_chamado:
-            if comando_atual == "aguardando_play":
-                st.success("🎉 É a tua vez! Prepara-te, o vídeo vai começar a tocar na tela...")
-            elif comando_atual == "play":
-                st.info("🎵 A tua música está a passar na tela!")
-        elif tem_pedido_na_fila:
-            st.warning("⚠️ O seu pedido foi enviado. Aguarde a sua vez.")
-            if posicao == 0:
-                st.info("📢 Estás quase lá, aguarde o sinal para começar.")
-            else:
-                st.write(f"🔢 Existem **{posicao}** músicas à sua frente.")
-        else:
-            st.success("✅ Já podes enviar a tua próxima música!")
-
-        st.divider()
-        st.subheader("🔍 Pesquisa de Música")
-        
-        termo = st.text_input("Pesquisar música no catálogo:")
-        resultados = [m for m in obter_catalogo() if termo.lower() in str(m).lower()] if termo else []
-        
-        if termo and resultados:
-            musica_sel = st.selectbox("Escolha a música:", resultados, key="select_busca_musica")
+        # 3. Acesso Individual do Prestador via Token
+        if "token" in query_params:
+            token = query_params["token"]
+            df = get_all_providers()
             
-            if st.button("➕ Enviar esta música para o DJ", use_container_width=True):
-                st.session_state.musica_pendente_confirmacao = musica_sel
-                st.rerun()
+            if not df.empty and 'token' in df.columns:
+                prestador = df[df['token'] == token]
+                
+                if not prestador.empty:
+                    row = prestador.iloc[0]
+                    
+                    # Verificação se o Administrador já aprovou (approved == 1)
+                    if row.get('approved', 0) == 0:
+                        st.warning("⏳ O seu registo foi efetuado, mas ainda aguarda a aprovação do Administrador.")
+                        st.info("Assim que o Administrador clicar em 'Sim' no painel, esta página abrirá automaticamente com o seu programa de karaoke.")
+                        if st.button("🔄 Verificar se já fui aprovado"):
+                            st.rerun()
+                        return
+                    
+                    # SE APROVADO: Abre o perfil completo do prestador com todas as ferramentas
+                    now = datetime.now()
+                    exp_str = row.get('expires_at')
+                    
+                    if exp_str:
+                        exp_time = datetime.strptime(exp_str, "%Y-%m-%d %H:%M:%S")
+                        
+                        if now < exp_time:
+                            st.title(f"🎤 FFKaraoke - Painel do Prestador: {row['name']}")
+                            st.success("Acesso autorizado pelo Administrador! O seu programa está pronto a ser utilizado.")
+                            
+                            ref_pagamento = row.get('payment_ref', 'N/A')
+                            st.info(f"💳 **Referência de Pagamento:** `{ref_pagamento}`")
+                            
+                            # Contagem decrescente do tempo restante
+                            tempo_restante = exp_time - now
+                            horas, resto = divmod(int(tempo_restante.total_seconds()), 3600)
+                            minutos, segundos = divmod(resto, 60)
+                            st.metric(label="Tempo Restante de Sessão", value=f"{horas:02d}:{minutos:02d}:{segundos:02d}")
+                            
+                            st.markdown("---")
+                            
+                            # Gerador do Link e QR Code para os Clientes escolherem as músicas
+                            st.subheader("📱 QR Code e Link para os Clientes")
+                            base_url = "https://appadm.streamlit.app/"
+                            client_link = f"{base_url}?client_view={token}"
+                            
+                            col_l1, col_l2 = st.columns([1, 2])
+                            with col_l1:
+                                qr = qrcode.QRCode(version=1, box_size=8, border=2)
+                                qr.add_data(client_link)
+                                qr.make(fit=True)
+                                img = qr.make_image(fill_color="black", back_color="white")
+                                buffered = BytesIO()
+                                img.save(buffered, format="PNG")
+                                st.image(buffered.getvalue(), caption="Aponte a câmara para escolher música", width=200)
+                            with col_l2:
+                                st.write("Disponibilize este link ou QR Code para que os clientes façam os pedidos de músicas diretamente:")
+                                st.code(client_link, language="text")
+                                st.info("💡 Os pedidos efetuados pelos clientes aparecem em tempo real na lista abaixo.")
 
-        # Bloco de Confirmação da Música Escolhida
-        if st.session_state.musica_pendente_confirmacao:
-            st.warning(f"⚠️ Tens a certeza que queres escolher a música: **{st.session_state.musica_pendente_confirmacao}**?")
-            col_sim, col_nao = st.columns(2)
-            with col_sim:
-                if st.button("Sim, enviar!", use_container_width=True):
-                    if tem_pedido_na_fila or esta_a_cantar_ou_chamado:
-                        st.error("⛔ Só podes enviar outra música assim que a tua atuação atual terminar!")
-                    else:
-                        requests.post(URL_PEDIDOS, json={"cantor": st.session_state.nome, "musica": st.session_state.musica_pendente_confirmacao})
-                        st.session_state.musica_pendente_confirmacao = None
-                        st.rerun()
-            with col_nao:
-                if st.button("Não, quero escolher outra", use_container_width=True):
-                    st.session_state.musica_pendente_confirmacao = None
-                    st.rerun()
+                            st.markdown("---")
+                            st.subheader("📋 Fila de Pedidos de Músicas dos Clientes")
+                            
+                            requests_df = get_client_requests(token)
+                            if not requests_df.empty:
+                                st.dataframe(
+                                    requests_df[['client_name', 'song_choice', 'request_type', 'created_at']],
+                                    use_container_width=True,
+                                    column_config={
+                                        "client_name": "Nome do Cliente",
+                                        "song_choice": "Música Escolhida / Pedido",
+                                        "request_type": "Tipo de Registo",
+                                        "created_at": "Hora do Pedido"
+                                    }
+                                )
+                            else:
+                                st.info("Ainda nenhum cliente submeteu pedidos de música.")
+                            
+                            return
+                        else:
+                            st.error("❌ O seu tempo de acesso expirou.")
+                            return
+            st.error("Token de acesso inválido ou não encontrado.")
+            return
 
-        st.divider()
-        st.subheader("📝 Pedido Personalizado")
+        # 4. Painel de Administração
+        st.sidebar.title("Painel Admin")
+        senha = st.sidebar.text_input("Palavra-passe", type="password")
         
-        if st.session_state.aviso_personalizado_ativo:
-            st.info("ℹ️ Seu pedido foi enviado com sucesso, mas nem todas as músicas estão disponíveis em karaoke.")
+        if senha == "admin123":
+            st.sidebar.success("Sessão Iniciada")
+            show_admin_panel()
+        else:
+            st.title("🔒 FFKaraoke - Área Restrita")
+            st.write("Introduza a palavra-passe de administrador na barra lateral para gerir os pedidos e acessos.")
+            if senha:
+                st.error("Palavra-passe incorreta.")
+                
+    except Exception as e:
+        st.error(f"Ocorreu um erro ao carregar a aplicação: {e}")
 
-        pedido_extra = st.text_input("Não encontrou? Escreva o seu pedido:", key="input_pedido_extra")
-        
-        if pedido_extra != st.session_state.texto_pedido_anterior:
-            st.session_state.aviso_personalizado_ativo = False
-            st.session_state.texto_pedido_anterior = pedido_extra
-
-        if st.button("🚀 Enviar Pedido Personalizado", use_container_width=True):
-            if tem_pedido_na_fila or esta_a_cantar_ou_chamado:
-                st.error("⛔ Só podes enviar outra música assim que a tua atuação atual terminar!")
-            elif not pedido_extra:
-                st.warning("Escreva um pedido personalizado antes de enviar.")
-            else:
-                requests.post(URL_PEDIDOS, json={"cantor": st.session_state.nome, "musica": f"PEDIDO: {pedido_extra}"})
-                st.session_state.aviso_personalizado_ativo = True
-                st.rerun()
-
-        st.divider()
-        if st.button("Sair"): 
-            st.session_state.registado = False
-            st.session_state.musica_pendente_confirmacao = None
-            st.session_state.aviso_personalizado_ativo = False
-            st.rerun()
-        
-        time.sleep(1.5)
-        st.rerun()
+if __name__ == "__main__":
+    main()
