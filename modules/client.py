@@ -1,8 +1,13 @@
 import streamlit as st
+from utils.firebase_db import get_musicas_cloudinary, enviar_pedido_cliente
 
 def show_client_page():
     query_params = st.query_params
-    provider_token = query_params.get("provider", "Desconhecido")
+    provider_token = query_params.get("provider", None)
+
+    if not provider_token:
+        st.error("Link de cliente inválido. Falta o identificador do prestador.")
+        return
 
     st.markdown("""
     <style>
@@ -25,7 +30,6 @@ def show_client_page():
     st.subheader("🎤 FFKaraoke — Registo e Pedido de Música")
     st.markdown("---")
 
-    # Inicializar o estado da sessão do cliente
     if "client_name" not in st.session_state:
         st.session_state.client_name = ""
     if "client_registered" not in st.session_state:
@@ -33,7 +37,7 @@ def show_client_page():
     if "can_request" not in st.session_state:
         st.session_state.can_request = True
 
-    # PASSO 1: Como gostaria de ser chamado?
+    # PASSO 1: Registo do Nome
     if not st.session_state.client_registered:
         with st.form("form_registo_cliente"):
             st.markdown("### Como gostaria de ser chamado?")
@@ -51,7 +55,7 @@ def show_client_page():
 
     st.success(f"Bem-vindo(a), **{st.session_state.client_name}**!")
 
-    # Controlo de fila / estado (só pode pedir outro após terminar)
+    # Controlo de estado (bloqueio até terminar de cantar)
     if not st.session_state.can_request:
         st.warning("⏳ O seu pedido anterior ainda está em reprodução ou na fila.")
         st.info("Assim que terminar de cantar, receberá a notificação: **'Já pode voltar a pedir outra música.'**")
@@ -61,27 +65,24 @@ def show_client_page():
             st.rerun()
         return
 
-    # PASSO 2: Pesquisar Música
+    # PASSO 2: Pesquisar Música no Firebase/Cloudinary
     st.markdown("### 🔍 Pesquisar Música")
     
-    # Lista de músicas de exemplo ligadas ao Cloudinary
-    musicas_disponiveis = [
-        {"titulo": "A Minha Terra — Artista Exemplo"},
-        {"titulo": "Amor Eterno — Kizomba Hits"},
-        {"titulo": "Festa no Bairro — Kuduro Style"},
-    ]
+    musicas_disponiveis = get_musicas_cloudinary()
 
     pesquisa = st.text_input("Escreva o título da música pretendida:")
     
     musica_escolhida = None
-    if pesquisa:
-        resultados = [m for m in musicas_disponiveis if pesquisa.lower() in m['titulo'].lower()]
+    if pesquisa and musicas_disponiveis:
+        resultados = [m for m in musicas_disponiveis if pesquisa.lower() in m.get('titulo', '').lower()]
         if resultados:
             opcoes_titulos = [m['titulo'] for m in resultados]
             escolha_titulo = st.selectbox("Selecione a música encontrada:", opcoes_titulos)
             musica_escolhida = next(m for m in resultados if m['titulo'] == escolha_titulo)
         else:
-            st.warning("Nenhuma música encontrada com esse título.")
+            st.warning("Nenhuma música encontrada com esse título na base de dados.")
+    elif pesquisa and not musicas_disponiveis:
+        st.info("Ainda não existem músicas registadas na base de dados do Firebase.")
 
     # PASSO 3: Enviar e Confirmação (Mudar ou Manter)
     if musica_escolhida:
@@ -91,6 +92,10 @@ def show_client_page():
         
         if confirmacao == "Manter":
             if st.button("🚀 Enviar Pedido"):
-                st.success("Seu pedido foi enviado.")
-                st.session_state.can_request = False
-                st.rerun()
+                sucesso = enviar_pedido_cliente(provider_token, st.session_state.client_name, musica_escolhida)
+                if sucesso:
+                    st.success("Seu pedido foi enviado.")
+                    st.session_state.can_request = False
+                    st.rerun()
+                else:
+                    st.error("Erro ao enviar o pedido. Tente novamente.")
