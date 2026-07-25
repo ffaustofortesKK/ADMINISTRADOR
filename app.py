@@ -32,6 +32,35 @@ def show_client_screen():
     st.markdown("""
     <style>
     .stApp { background-color: #000000; color: white; }
+    .box-header {
+        background: linear-gradient(90deg, #1a1a1a, #2c2c2c);
+        border: 2px solid #d4af37;
+        padding: 10px;
+        text-align: center;
+        border-radius: 8px;
+        color: #d4af37;
+        font-weight: bold;
+        font-size: 18px;
+        letter-spacing: 2px;
+        margin-bottom: 15px;
+    }
+    .card-next {
+        background: linear-gradient(135deg, #2b103a, #14081c);
+        border: 2px solid #9c27b0;
+        padding: 15px;
+        border-radius: 10px;
+        color: white;
+        text-align: center;
+        margin-bottom: 15px;
+    }
+    .card-fila {
+        background-color: #121212;
+        border: 1px solid #d4af37;
+        padding: 10px;
+        border-radius: 8px;
+        color: #ffffff;
+        margin-bottom: 8px;
+    }
     </style>
     """, unsafe_allow_html=True)
 
@@ -43,23 +72,80 @@ def show_client_screen():
         if response.status_code == 200 and response.json():
             data = response.json()
             pedidos = [{"id": k, **v} for k, v in data.items()]
-            aprovados = [p for p in pedidos if p.get("estado") == "aprovado"]
+            
+            # Filtramos os pedidos ativos (pendentes e aprovados)
+            pedidos_ativos = [p for p in pedidos if p.get("estado") in ["pendente", "aprovado"]]
+            
+            tocando_agora = next((p for p in pedidos_ativos if p.get("estado") == "aprovado"), None)
+            pendentes = [p for p in pedidos_ativos if p.get("estado") == "pendente"]
 
-            if aprovados:
-                pedido_atual = aprovados[0]
-                cliente = pedido_atual.get("cliente")
-                musica = pedido_atual.get("musica", {})
-                titulo = musica.get("titulo", "Karaoke")
-                url_cloudinary = musica.get("url_cloudinary")
+            # Divisão exata do layout solicitado (Esquerda: Fila de Espera / Direita: Vídeo Clipe de Fundo)
+            col_esquerda, col_direita = st.columns([1.1, 0.9])
 
-                st.markdown(f"### 🎤 A Cantar Agora: **{cliente}**")
-                st.markdown(f"🎵 **Música:** `{titulo}`")
-
-                if url_cloudinary:
-                    st.video(url_cloudinary)
+            with col_esquerda:
+                st.markdown('<div class="box-header">🎙️ FILA DE ESPERA</div>', unsafe_allow_html=True)
+                
+                if tocando_agora:
+                    cliente = tocando_agora.get("cliente", "Convidado")
+                    musica = tocando_agora.get("musica", {})
+                    titulo = musica.get("titulo", "Karaoke") if isinstance(musica, dict) else str(musica)
+                    
+                    st.markdown(f"""
+                        <div class="card-next">
+                            <div style="font-size: 14px; color: #e0b0ff; margin-bottom: 5px;">— Á Seguir —</div>
+                            <div style="font-size: 22px; font-weight: bold; color: #ffeb3b;">{str(titulo).upper()}</div>
+                            <div style="font-size: 12px; color: #ccc; margin-top: 5px;">Cliente: {cliente}</div>
+                        </div>
+                    """, unsafe_allow_html=True)
                 else:
-                    st.warning("O link do vídeo do Cloudinary não foi encontrado para esta música.")
-                return
+                    st.markdown("""
+                        <div class="card-next">
+                            <div style="font-size: 16px; color: #888;">Nenhuma música de karaoke a tocar no momento.</div>
+                        </div>
+                    """, unsafe_allow_html=True)
+
+                st.markdown("---")
+                st.markdown("**Próximos Pedidos na Fila:**")
+                
+                if not pendentes:
+                    st.info("A fila de karaoke está vazia.")
+                else:
+                    for idx, p in enumerate(pendentes, start=1):
+                        cliente_p = p.get("cliente", "Convidado")
+                        musica_p = p.get("musica", {})
+                        titulo_p = musica_p.get("titulo", "Música") if isinstance(musica_p, dict) else str(musica_p)
+                        
+                        st.markdown(f"""
+                            <div class="card-fila">
+                                <b>{idx}.</b> {titulo_p} <span style="font-size:11px; color:#aaa;">({cliente_p})</span>
+                            </div>
+                        """, unsafe_allow_html=True)
+
+            with col_direita:
+                st.markdown('<div class="box-header">📺 VÍDEO CLIPE (FUNDO)</div>', unsafe_allow_html=True)
+                
+                st.markdown("""
+                    <div style="border: 2px solid #d4af37; border-radius: 10px; padding: 20px; text-align: center; background-color: #0d0d0d; min-height: 280px; display: flex; flex-direction: column; justify-content: center; align-items: center;">
+                """, unsafe_allow_html=True)
+
+                if tocando_agora:
+                    musica = tocando_agora.get("musica", {})
+                    url_cloudinary = musica.get("url_cloudinary") if isinstance(musica, dict) else None
+                    
+                    if url_cloudinary and str(url_cloudinary).startswith("http"):
+                        st.video(url_cloudinary)
+                    else:
+                        st.warning("O link do vídeo do Cloudinary não foi encontrado para esta música.")
+                else:
+                    st.markdown("""
+                        <div style="color: #d4af37; font-size: 35px; margin-bottom: 10px;">📺</div>
+                        <span style='color: #aaa;'>Aguardando o prestador selecionar um vídeo clipe no painel de controle...</span>
+                    """, unsafe_allow_html=True)
+                    
+                st.markdown("</div>", unsafe_allow_html=True)
+            
+            time.sleep(5)
+            st.rerun()
 
         st.info("📺 A aguardar o próximo artista... O ecrã atualizará automaticamente assim que o prestador aprovar um pedido.")
         
@@ -111,6 +197,9 @@ def main():
                             else:
                                 st.error("❌ O seu tempo de acesso expirou.")
                                 return
+                        else:
+                            show_provider_panel()
+                            return
                     else:
                         st.warning("⏳ O seu registo foi efetuado, mas ainda aguarda a aprovação do Administrador.")
                         return
