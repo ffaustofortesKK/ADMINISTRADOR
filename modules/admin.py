@@ -21,24 +21,37 @@ def show_admin_panel():
         margin-bottom: 15px;
         color: white;
     }
+    /* Estilo para o crachá/badge vermelho de pendentes */
+    .badge-pendente {
+        background-color: #ff4d4d;
+        color: #000000;
+        padding: 2px 8px;
+        border-radius: 12px;
+        font-weight: 900;
+        font-size: 14px;
+        display: inline-block;
+        margin-left: 6px;
+    }
     </style>
     """, unsafe_allow_html=True)
 
     st.subheader("🛠️ Painel de Administração — FF Karaoke")
     st.markdown("---")
 
-    # Contentor dinâmico para atualização automática em tempo real
     placeholder = st.empty()
 
     with placeholder.container():
-        # Obter dados frescos da base de dados
         df = get_all_providers()
         
         pendentes_count = 0
         if not df.empty and 'approved' in df.columns:
             pendentes_count = len(df[df['approved'].astype(int) == 0])
 
-        label_aba2 = f"⏳ Pedidos e Aprovação ({pendentes_count})" if pendentes_count > 0 else "⏳ Pedidos e Aprovação"
+        # Rótulo dinâmico com HTML estilizado para a aba
+        if pendentes_count > 0:
+            label_aba2 = f"⏳ Pedidos e Aprovação <span class='badge-pendente'>{pendentes_count}</span>"
+        else:
+            label_aba2 = "⏳ Pedidos e Aprovação"
 
         aba1, aba2, aba3, aba4 = st.tabs([
             "🔗 Link e QR Registo", 
@@ -144,6 +157,5 @@ def show_admin_panel():
             st.markdown("---")
             st.info("Painel de controlo otimizado para monitorização de receitas e fluxo de ativações de prestadores de karaoke.")
 
-    # Pausa de 5 segundos e atualização automática silenciosa em segundo plano
     time.sleep(5)
     st.rerun()
