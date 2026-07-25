@@ -3,13 +3,15 @@ import requests
 FIREBASE_URL = "https://grupoffkaraoke-default-rtdb.firebaseio.com"
 
 def get_musicas_cloudinary():
-    """Busca o catálogo de músicas de forma flexível para detetar qualquer nome de campo."""
+    """Busca o catálogo de músicas e depura a resposta."""
     try:
         response = requests.get(f"{FIREBASE_URL}/catalogo.json")
+        print("STATUS CODE:", response.status_code)
+        print("DADOS BRUTOS DO FIREBASE:", response.json())
+        
         if response.status_code == 200 and response.json():
             data = response.json()
             
-            # Converter dados para uma lista de dicionários utilizáveis
             itens = []
             if isinstance(data, dict):
                 itens = [v for v in data.values() if isinstance(v, dict)]
@@ -18,16 +20,13 @@ def get_musicas_cloudinary():
             
             musicas_formatadas = []
             for item in itens:
-                # Tenta encontrar automaticamente o título em qualquer campo possível
                 titulo = (
                     item.get('titulo') or 
                     item.get('nome') or 
                     item.get('title') or 
                     item.get('musica') or 
-                    list(item.values())[0] if item else "Música sem título"
+                    "Música sem título"
                 )
-                
-                # Tenta encontrar o link do Cloudinary em qualquer campo possível
                 url = (
                     item.get('url_cloudinary') or 
                     item.get('url') or 
@@ -35,25 +34,25 @@ def get_musicas_cloudinary():
                     item.get('video') or 
                     ""
                 )
-                
                 musicas_formatadas.append({
                     "titulo": str(titulo),
                     "url_cloudinary": str(url)
                 })
-                
+            
+            print("MÚSICAS FORMATADAS:", musicas_formatadas)
             return musicas_formatadas
         return []
-    except Exception:
+    except Exception as e:
+        print("ERRO NA REQUISIÇÃO:", e)
         return []
 
 def enviar_pedido_cliente(provider_token, nome_cliente, musica):
-    """Envia o pedido do cliente para a base de dados do prestador correspondente."""
     try:
         url = f"{FIREBASE_URL}/pedidos/{provider_token}.json"
         dados_pedido = {
             "cliente": nome_cliente,
             "musica": musica,
-            "estado": "pendente", # pendente / aprovado / terminado
+            "estado": "pendente",
             "timestamp": requests.post(f"{FIREBASE_URL}/timestamp.json", json={".sv": "timestamp"}).json().get("name")
         }
         response = requests.post(url, json=dados_pedido)
