@@ -1,9 +1,13 @@
 import sqlite3
 from datetime import datetime, timedelta
 import pandas as pd
+import os
+
+# Garantir o caminho absoluto para a base de dados na raiz do projeto
+DB_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'karaoke_database.db')
 
 def init_db():
-    conn = sqlite3.connect('karaoke_database.db')
+    conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS providers (
@@ -20,7 +24,7 @@ def init_db():
     conn.close()
 
 def add_provider(name, phone, payment_ref, hours, token):
-    conn = sqlite3.connect('karaoke_database.db')
+    conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
     
     expires_at = (datetime.now() + timedelta(hours=hours)).strftime("%Y-%m-%d %H:%M:%S")
@@ -34,7 +38,7 @@ def add_provider(name, phone, payment_ref, hours, token):
     conn.close()
 
 def get_all_providers():
-    conn = sqlite3.connect('karaoke_database.db')
+    conn = sqlite3.connect(DB_PATH)
     try:
         df = pd.read_sql_query("SELECT * FROM providers", conn)
     except Exception:
@@ -43,7 +47,7 @@ def get_all_providers():
     return df
 
 def approve_provider(token):
-    conn = sqlite3.connect('karaoke_database.db')
+    conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
     cursor.execute("UPDATE providers SET approved = 1 WHERE token = ?", (token,))
     conn.commit()
