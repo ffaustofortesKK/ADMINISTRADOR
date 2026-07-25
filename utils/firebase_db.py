@@ -3,16 +3,45 @@ import requests
 FIREBASE_URL = "https://grupoffkaraoke-default-rtdb.firebaseio.com"
 
 def get_musicas_cloudinary():
-    """Busca a lista de músicas guardadas no Firebase (associadas ao Cloudinary)."""
+    """Busca o catálogo de músicas de forma flexível para detetar qualquer nome de campo."""
     try:
         response = requests.get(f"{FIREBASE_URL}/catalogo.json")
         if response.status_code == 200 and response.json():
             data = response.json()
-            # Se estiver guardado como dicionário ou lista
+            
+            # Converter dados para uma lista de dicionários utilizáveis
+            itens = []
             if isinstance(data, dict):
-                return [v for v in data.values() if isinstance(v, dict) and 'titulo' in v]
+                itens = [v for v in data.values() if isinstance(v, dict)]
             elif isinstance(data, list):
-                return [m for m in data if m is not None and isinstance(m, dict) and 'titulo' in m]
+                itens = [m for m in data if m is not None and isinstance(m, dict)]
+            
+            musicas_formatadas = []
+            for item in itens:
+                # Tenta encontrar automaticamente o título em qualquer campo possível
+                titulo = (
+                    item.get('titulo') or 
+                    item.get('nome') or 
+                    item.get('title') or 
+                    item.get('musica') or 
+                    list(item.values())[0] if item else "Música sem título"
+                )
+                
+                # Tenta encontrar o link do Cloudinary em qualquer campo possível
+                url = (
+                    item.get('url_cloudinary') or 
+                    item.get('url') or 
+                    item.get('link') or 
+                    item.get('video') or 
+                    ""
+                )
+                
+                musicas_formatadas.append({
+                    "titulo": str(titulo),
+                    "url_cloudinary": str(url)
+                })
+                
+            return musicas_formatadas
         return []
     except Exception:
         return []
