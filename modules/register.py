@@ -21,7 +21,15 @@ def show_register_page():
             telefone = st.text_input("Número de Telefone")
             payment_ref = st.text_input("Referência de Pagamento / Nº de Comprovativo")
             
-            duracao_opcoes = {"2 Horas": 2, "4 Horas": 4, "6 Horas": 6, "12 Horas": 12, "24 Horas": 24}
+            # Tabela de preços e durações
+            duracao_opcoes = {
+                "2 Horas": {"horas": 2, "valor": 5000.0},
+                "4 Horas": {"horas": 4, "valor": 9000.0},
+                "6 Horas": {"horas": 6, "valor": 12000.0},
+                "12 Horas": {"horas": 12, "valor": 20000.0},
+                "24 Horas": {"horas": 24, "valor": 35000.0}
+            }
+            
             duracao_escolhida = st.selectbox("Duração Pretendida", list(duracao_opcoes.keys()))
             
             submitted = st.form_submit_button("Enviar Permissão")
@@ -30,10 +38,14 @@ def show_register_page():
                 if nome and telefone and payment_ref:
                     nome_completo = f"{nome} {sobrenome}".strip()
                     token = str(uuid.uuid4()).replace("-", "")[:32]
-                    hours = duracao_opcoes[duracao_escolhida]
+                    
+                    dados_escolha = duracao_opcoes[duracao_escolhida]
+                    hours = dados_escolha["horas"]
+                    valor_pago = dados_escolha["valor"]
                     
                     try:
-                        add_provider(nome_completo, telefone, payment_ref, hours, token)
+                        # Grava incluindo o valor pago e as horas para aparecer na Gestão Total
+                        add_provider(nome_completo, telefone, payment_ref, hours, token, amount_paid=valor_pago)
                         st.session_state["token_gerado"] = token
                         st.success("Pedido de permissão enviado com sucesso!")
                         st.rerun()
@@ -58,7 +70,6 @@ def show_register_page():
         if aprovado:
             st.success("🎉 O seu perfil foi aprovado pelo Administrador!")
             
-            # Botão interativo que abre o painel na MESMA página/aba instantaneamente
             if st.button("🚀 Clique aqui para abrir o seu Painel de Prestador", type="primary"):
                 st.query_params["token"] = token_atual
                 if "page" in st.query_params:
