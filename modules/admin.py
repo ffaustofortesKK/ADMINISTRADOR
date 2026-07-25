@@ -1,5 +1,5 @@
 import streamlit as st
-from utils.db_manager import get_all_providers, approve_provider
+from utils.db_manager import get_all_providers, approve_provider, get_total_revenue
 
 def show_admin_panel():
     st.markdown("""
@@ -15,8 +15,11 @@ def show_admin_panel():
     </style>
     """, unsafe_allow_html=True)
 
-    st.subheader("📋 Gestão e Aprovação de Prestadores")
-    st.write("Aqui pode visualizar todos os prestadores registados e gerir os respetivos acessos.")
+    st.subheader("📋 Gestão, Aprovações e Estatísticas")
+    
+    # Métrica de Total de Pagamentos
+    total_recebido = get_total_revenue()
+    st.metric(label="💳 Total Geral de Pagamentos (Aprovados)", value=f"{total_recebido:,.2f} Kz")
     st.markdown("---")
 
     df = get_all_providers()
@@ -29,6 +32,7 @@ def show_admin_panel():
         nome = row.get('name', 'Desconhecido')
         telefone = row.get('phone', 'N/A')
         payment_ref = row.get('payment_ref', 'N/A')
+        valor = row.get('amount_paid', 0.0)
         expires_at = row.get('expires_at', 'N/A')
         token = row.get('token', '')
         aprovado = int(row.get('approved', 0))
@@ -43,8 +47,8 @@ def show_admin_panel():
                 <span style="background-color: {status_color}; color: black; padding: 4px 12px; border-radius: 20px; font-weight: bold; font-size: 14px;">{status_badge}</span>
             </div>
             <p style="margin: 4px 0; color: #ccc;"><b>📞 Telefone:</b> {telefone}</p>
-            <p style="margin: 4px 0; color: #ccc;"><b>💳 Referência de Pagamento:</b> <code>{payment_ref}</code></p>
-            <p style="margin: 4px 0; color: #ccc;"><b>⏱️ Duração/Expira em:</b> {expires_at}</p>
+            <p style="margin: 4px 0; color: #ccc;"><b>💳 Referência de Pagamento:</b> <code>{payment_ref}</code> | <b>Valor:</b> {valor:,.2f} Kz</p>
+            <p style="margin: 4px 0; color: #ccc;"><b>⏱️ Expira em:</b> {expires_at}</p>
         </div>
         """, unsafe_allow_html=True)
 
