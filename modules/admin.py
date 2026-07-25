@@ -23,22 +23,25 @@ def show_admin_panel():
     </style>
     """, unsafe_allow_html=True)
 
-    st.subheader("🛠️ Painel de Administração — FF Karaoke")
+    col_title, col_btn = st.columns([4, 1])
+    with col_title:
+        st.subheader("🛠️ Painel de Administração — FF Karaoke")
+    with col_btn:
+        # Botão para forçar a atualização imediata da base de dados sem fechar a página
+        if st.button("🔄 Atualizar Dados"):
+            st.rerun()
+            
     st.markdown("---")
 
-    # Obter dados atualizados da base de dados para contagem e listagem
+    # Obter dados frescos diretamente da base de dados
     df = get_all_providers()
     
-    # Calcular quantidade de pendentes para mostrar o sinal/número na aba
     pendentes_count = 0
     if not df.empty and 'approved' in df.columns:
-        # Garante conversão segura para inteiro comparando com 0
         pendentes_count = len(df[df['approved'].astype(int) == 0])
 
-    # Rótulo dinâmico com o sinalizador/número de pendentes
     label_aba2 = f"⏳ Pedidos e Aprovação ({pendentes_count})" if pendentes_count > 0 else "⏳ Pedidos e Aprovação"
 
-    # Criação das 4 abas solicitadas
     aba1, aba2, aba3, aba4 = st.tabs([
         "🔗 Link e QR Registo", 
         label_aba2, 
@@ -79,7 +82,6 @@ def show_admin_panel():
         if df.empty:
             st.info("Nenhum prestador registado na base de dados.")
         else:
-            # Filtro rigoroso para capturar os prestadores pendentes (approved == 0)
             pendentes = df[df['approved'].astype(int) == 0]
             
             if pendentes.empty:
