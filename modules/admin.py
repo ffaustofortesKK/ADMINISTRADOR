@@ -38,23 +38,17 @@ def show_admin_panel():
             if not pendentes.empty:
                 st.warning("⚠️ Tem novos pedidos de prestadores a aguardar aprovação:")
                 for index, row in pendentes.iterrows():
-                    with st.expander(f"Pedido #{row['id']} - {row['name']} ({row['duration_hours']}h)"):
-                        st.write(f"💳 **Referência submetida pelo prestador:** `{row['payment_ref'] if row['payment_ref'] else 'Nenhuma'}`")
+                    with st.container():
+                        st.write(f"👤 **{row['name']}** (Duração: {row['duration_hours']}h) — 💳 `Ref: {row['payment_ref'] if row['payment_ref'] else 'N/A'}`")
                         
-                        nova_ref = st.text_input("Confirmar/Ajustar Referência de Pagamento", value=row['payment_ref'], key=f"ref_{row['id']}")
-                        
-                        # Botão de aprovação que redireciona de imediato para o perfil do prestador
-                        if st.button(f"Aprovar e Abrir Perfil #{row['id']}", key=f"btn_aprove_{row['id']}", type="primary"):
-                            approve_provider(row['id'], nova_ref)
+                        # Botão Sim para aprovar diretamente
+                        if st.button(f"Sim, Aprovar Prestador #{row['id']}", key=f"btn_sim_{row['id']}", type="primary"):
+                            approve_provider(row['id'])
                             st.success(f"Prestador {row['name']} aprovado com sucesso!")
-                            
-                            # Redirecionar automaticamente para a página do prestador usando o seu token pessoal
-                            st.query_params["token"] = row['token']
                             st.rerun()
+                        st.markdown("---")
             
-            st.markdown("---")
-            st.subheader("Controlo de Prestadores Ativos e Atalhos")
-            
+            st.subheader("Controlo de Prestadores Ativos")
             ativos = df[df['approved'] == 1].copy()
             if not ativos.empty:
                 for index, row in ativos.iterrows():
@@ -62,7 +56,7 @@ def show_admin_panel():
                     tempo_restante = exp_time - now
                     
                     with st.container():
-                        cols = st.columns([2, 1, 1, 1.2])
+                        cols = st.columns([2, 1, 1, 1])
                         cols[0].write(f"👤 **{row['name']}**<br>💳 `Ref: {row['payment_ref']}`", unsafe_allow_html=True)
                         cols[1].write(f"⏱️ Duração: {row['duration_hours']}h")
                         
@@ -70,14 +64,10 @@ def show_admin_panel():
                             horas, resto = divmod(int(tempo_restante.total_seconds()), 3600)
                             minutos, segundos = divmod(resto, 60)
                             cols[2].markdown(f"🟢 **Ativo**<br>`{horas}h {minutos}m {segundos}s`", unsafe_allow_html=True)
+                            cols[3].success("Liberado")
                         else:
                             cols[2].markdown("🔴 **Expirado**")
-                            
-                        # Botão de atalho para abrir diretamente o perfil deste prestador ativo
-                        if cols[3].button("Abrir Painel", key=f"open_prov_{row['id']}"):
-                            st.query_params["token"] = row['token']
-                            st.rerun()
-                            
+                            cols[3].error("Esgotado")
                         st.markdown("---")
             else:
                 st.info("Nenhum prestador aprovado no momento.")
