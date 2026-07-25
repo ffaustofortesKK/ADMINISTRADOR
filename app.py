@@ -1,5 +1,5 @@
 import streamlit as st
-from utils.db_manager import init_db, get_all_providers, get_client_requests
+from utils.db_manager import init_db, get_all_providers
 from modules.admin import show_admin_panel
 from modules.register import show_register_page
 from modules.client_portal import show_client_portal
@@ -7,6 +7,7 @@ from datetime import datetime
 import qrcode
 from io import BytesIO
 import time
+import requests
 
 st.set_page_config(
     page_title="FFKaraoke - Gestão de Acessos",
@@ -50,7 +51,6 @@ def main():
                         st.warning("⏳ O seu registo foi enviado com sucesso e está a aguardar a aprovação do Administrador.")
                         st.info("Assim que o Administrador aprovar no painel, esta página abrirá automaticamente o seu painel de prestador. Por favor, aguarde...")
                         
-                        # Aguarda 3 segundos e recarrega a página sozinho para detetar a aprovação do ADM
                         time.sleep(3)
                         st.rerun()
                         return
@@ -94,11 +94,37 @@ def main():
                             with col_l2:
                                 st.write("Disponibilize este link ou QR Code para que os clientes façam os pedidos de músicas diretamente:")
                                 st.code(client_link, language="text")
-                                st.info("💡 Os pedidos efetuados pelos clientes aparecem em tempo real.")
+                                st.info("💡 Os pedidos efetuados pelos clientes aparecem em tempo real abaixo.")
 
                             st.markdown("---")
-                            st.subheader("📋 Estado e Fila de Pedidos")
-                            st.info("O seu painel de prestador está totalmente ativo e sincronizado com os clientes.")
+                            st.subheader("📋 Fila de Pedidos de Músicas dos Clientes")
+                            
+                            # Buscar pedidos em tempo real do Firebase deste prestador específico
+                            URL_PEDIDOS = f"https://grupoffkaraoke-default-rtdb.firebaseio.com/pedidos_{token}.json"
+                            try:
+                                res_pedidos = requests.get(f"{URL_PEDIDOS}?nocache={time.time()}", timeout=3).json()
+                            except:
+                                res_pedidos = None
+                            
+                            if res_pedidos and isinstance(res_pedidos, dict):
+                                lista_pedidos = []
+                                for p_id, dados in res_pedidos.items():
+                                    if isinstance(dados, dict):
+                                        lista_pedidos.append({
+                                            "Cliente": dados.get("cantor", "Desconhecido"),
+                                            "Música / Pedido": dados.get("musica", "N/A")
+                                        })
+                                
+                                if lista_pedidos:
+                                    st.dataframe(lista_pedidos, use_container_width=True)
+                                else:
+                                    st.info("Ainda nenhum cliente submeteu pedidos de música.")
+                            else:
+                                st.info("Ainda nenhum cliente submeteu pedidos de música.")
+                            
+                            # Atualiza a página automaticamente para mostrar novos clientes em tempo real
+                            time.sleep(3)
+                            st.rerun()
                             
                             return
                         else:
