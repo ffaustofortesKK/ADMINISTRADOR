@@ -1,14 +1,20 @@
 import streamlit as st
 
 st.set_page_config(
-    page_title="FF Karaoke - Sistema Completo",
+    page_title="FF Karaoke - Sistema",
     page_icon="🎤",
     layout="wide"
 )
 
-# Inicializar a Fila de Espera na memória da aplicação (se não existir)
+# Inicializar a Fila de Espera na memória da aplicação
 if "fila_karaoke" not in st.session_state:
     st.session_state.fila_karaoke = []
+
+# Inicializar o estado de confirmação do cliente
+if "confirmar_envio" not in st.session_state:
+    st.session_state.confirmar_envio = False
+    st.session_state.temp_cantor = ""
+    st.session_state.temp_musica = ""
 
 # Estilização Global CSS (Tema Escuro e Dourado)
 st.markdown("""
@@ -112,17 +118,17 @@ body {
 </style>
 """, unsafe_allow_html=True)
 
-# Menu Lateral de Navegação
-st.sidebar.title("🎛️ Navegação FF Karaoke")
-opcao = st.sidebar.selectbox("Escolha o Painel:", ["Tela (Pública/Fila)", "Painel do Cliente"])
+# Menu Lateral (Apenas para Controlo do Prestador e Acesso ao Link do Cliente)
+st.sidebar.title("🎛️ Painel do Prestador")
+modo = st.sidebar.radio("Modo de Visualização:", ["Tela / Apresentação", "Painel do Cliente (Smartphone)"])
 
 st.sidebar.markdown("---")
 if st.sidebar.button("🧹 Limpar Fila de Espera"):
     st.session_state.fila_karaoke = []
     st.rerun()
 
-# 1. TELA (PÚBLICA / FILA)
-if opcao == "Tela (Pública/Fila)":
+# 1. MODO TELA / APRESENTAÇÃO
+if modo == "Tela / Apresentação":
     col_fila, col_video = st.columns([1, 1])
 
     with col_fila:
@@ -130,7 +136,7 @@ if opcao == "Tela (Pública/Fila)":
 
         fila = st.session_state.fila_karaoke
 
-        # Se houver pelo menos um cantor, ele vai para o "Á Seguir"
+        # A "Á Seguir" (1º da lista)
         if len(fila) > 0:
             primeiro = fila[0]
             st.markdown(f"""
@@ -151,7 +157,7 @@ if opcao == "Tela (Pública/Fila)":
             </div>
             """, unsafe_allow_html=True)
 
-        # Mostrar os restantes nas posições de 2 a 6
+        # Restantes posições (2 a 6)
         posicoes_restantes = fila[1:6]
         for i in range(2, 7):
             idx = i - 2
@@ -182,25 +188,56 @@ if opcao == "Tela (Pública/Fila)":
         </div>
         """, unsafe_allow_html=True)
 
-# 2. PAINEL DO CLIENTE
-elif opcao == "Painel do Cliente":
+# 2. MODO PAINEL DO CLIENTE (Ideal para abrir no Smartphone)
+elif modo == "Painel do Cliente (Smartphone)":
     st.markdown('<div class="card-header">🎤 FFKARAOKE — PEDIR MÚSICA</div>', unsafe_allow_html=True)
 
-    with st.form("form_cliente"):
-        st.subheader("Insira os seus dados para participar")
+    # Se ainda não está no passo de confirmação
+    if not st.session_state.confirmar_envio:
+        with st.form("form_cliente"):
+            st.subheader("Insira os seus dados para participar")
+            
+            nome_cantor = st.text_input("O seu Nome / Alcunha:")
+            nome_musica = st.text_input("Nome da Música ou Artista pretendido:")
+            
+            botao_avancar = st.form_submit_button("Continuar ➡️")
+            
+            if botao_avancar:
+                if nome_cantor.strip() and nome_musica.strip():
+                    st.session_state.temp_cantor = nome_cantor.strip()
+                    st.session_state.temp_musica = nome_musica.strip()
+                    st.session_state.confirmar_envio = True
+                    st.rerun()
+                else:
+                    st.error("Por favor, preencha o seu nome e o nome da música.")
+    
+    # Se estiver no passo de confirmação (Sim / Não)
+    else:
+        st.markdown(f"""
+        <div style="background: #111; border: 2px solid #D4AF37; border-radius: 15px; padding: 20px; text-align: center; margin-bottom: 20px;">
+            <h3 style="color: #D4AF37;">Confirmação do Pedido</h3>
+            <p style="font-size: 18px; color: white;">Cantor: <b>{st.session_state.temp_cantor.upper()}</b></p>
+            <p style="font-size: 18px; color: white;">Música: <b>{st.session_state.temp_musica.title()}</b></p>
+            <p style="color: #FFD700; margin-top: 15px; font-weight: bold;">Tem a certeza que deseja enviar?</p>
+        </div>
+        """, unsafe_allow_html=True)
+
+        col_sim, col_nao = st.columns(2)
         
-        nome_cantor = st.text_input("O seu Nome / Alcunha:")
-        nome_musica = st.text_input("Nome da Música ou Artista pretendido:")
-        
-        enviar_pedido = st.form_submit_button("📤 Enviar Pedido para a Fila")
-        
-        if enviar_pedido:
-            if nome_cantor.strip() and nome_musica.strip():
-                # Adiciona o pedido à lista da fila
+        with col_sim:
+            if st.button("✅ SIM, Enviar"):
                 st.session_state.fila_karaoke.append({
-                    "cantor": nome_cantor.upper(),
-                    "musica": nome_musica.title()
+                    "cantor": st.session_state.temp_cantor.upper(),
+                    "musica": st.session_state.temp_musica.title()
                 })
-                st.success(f"Obrigado, **{nome_cantor}**! O seu pedido para a música **'{nome_musica}'** foi adicionado à Fila de Espera.")
-            else:
-                st.error("Por favor, preencha o seu nome e o nome da música antes de enviar.")
+                st.success("Pedido enviado com sucesso para a fila!")
+                # Limpa temporários e volta ao formulário inicial
+                st.session_state.confirmar_envio = False
+                st.session_state.temp_cantor = ""
+                st.session_state.temp_musica = ""
+                st.rerun()
+                
+        with col_nao:
+            if st.button("❌ NÃO, Voltar e Escolher Outra"):
+                st.session_state.confirmar_envio = False
+                st.rerun()
