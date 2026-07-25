@@ -6,6 +6,10 @@ st.set_page_config(
     layout="wide"
 )
 
+# Inicializar a Fila de Espera na memória da aplicação (se não existir)
+if "fila_karaoke" not in st.session_state:
+    st.session_state.fila_karaoke = []
+
 # Estilização Global CSS (Tema Escuro e Dourado)
 st.markdown("""
 <style>
@@ -113,40 +117,59 @@ st.sidebar.title("🎛️ Navegação FF Karaoke")
 opcao = st.sidebar.selectbox("Escolha o Painel:", ["Tela (Pública/Fila)", "Painel do Cliente"])
 
 st.sidebar.markdown("---")
-st.sidebar.info("Sistema integrado de gestão de karaoke.")
+if st.sidebar.button("🧹 Limpar Fila de Espera"):
+    st.session_state.fila_karaoke = []
+    st.rerun()
 
-# Lógica para mostrar o painel escolhido
+# 1. TELA (PÚBLICA / FILA)
 if opcao == "Tela (Pública/Fila)":
     col_fila, col_video = st.columns([1, 1])
 
     with col_fila:
         st.markdown('<div class="card-title">🎤 FILA DE ESPERA</div>', unsafe_allow_html=True)
 
-        st.markdown("""
-        <div class="card-next">
-            <div style="display: flex; align-items: center; justify-content: center; margin-bottom: 10px;">
-                <span style="background: #D4AF37; color: black; font-weight: bold; border-radius: 50%; width: 30px; height: 30px; display: inline-flex; align-items: center; justify-content: center; margin-right: 10px;">1</span>
-                <span style="color: #D4AF37; letter-spacing: 3px; font-weight: bold;">— Á Seguir —</span>
-            </div>
-            <h1 style="color: #FFD700; margin: 0; font-size: 36px; text-shadow: 0px 0px 10px rgba(255,215,0,0.5);">DANIEL AMORES</h1>
-        </div>
-        """, unsafe_allow_html=True)
+        fila = st.session_state.fila_karaoke
 
-        participantes = [
-            ("2", "MARIA SOUSA"),
-            ("3", "JOÃO PEDRO"),
-            ("4", "ANA LÚCIA"),
-            ("5", "CARLOS MENDES"),
-            ("6", "PATRÍCIA LEAL")
-        ]
-
-        for num, nome in participantes:
+        # Se houver pelo menos um cantor, ele vai para o "Á Seguir"
+        if len(fila) > 0:
+            primeiro = fila[0]
             st.markdown(f"""
-            <div class="item-fila">
-                <div class="badge-num">{num}</div>
-                <div style="font-size: 20px; font-weight: bold; color: white;">👤 {nome}</div>
+            <div class="card-next">
+                <div style="display: flex; align-items: center; justify-content: center; margin-bottom: 10px;">
+                    <span style="background: #D4AF37; color: black; font-weight: bold; border-radius: 50%; width: 30px; height: 30px; display: inline-flex; align-items: center; justify-content: center; margin-right: 10px;">1</span>
+                    <span style="color: #D4AF37; letter-spacing: 3px; font-weight: bold;">— Á Seguir —</span>
+                </div>
+                <h1 style="color: #FFD700; margin: 0; font-size: 32px; text-shadow: 0px 0px 10px rgba(255,215,0,0.5);">{primeiro['cantor']}</h1>
+                <p style="color: #ccc; margin-top: 5px; font-size: 16px;">🎵 {primeiro['musica']}</p>
             </div>
             """, unsafe_allow_html=True)
+        else:
+            st.markdown("""
+            <div class="card-next">
+                <div style="color: #D4AF37; letter-spacing: 3px; font-weight: bold; margin-bottom: 5px;">— Á Seguir —</div>
+                <h3 style="color: #777; margin: 0;">Aguardando cantor...</h3>
+            </div>
+            """, unsafe_allow_html=True)
+
+        # Mostrar os restantes nas posições de 2 a 6
+        posicoes_restantes = fila[1:6]
+        for i in range(2, 7):
+            idx = i - 2
+            if idx < len(posicoes_restantes):
+                item = posicoes_restantes[idx]
+                st.markdown(f"""
+                <div class="item-fila">
+                    <div class="badge-num">{i}</div>
+                    <div style="font-size: 18px; font-weight: bold; color: white;">👤 {item['cantor']} <span style="font-size: 14px; color: #aaa; font-weight: normal;">({item['musica']})</span></div>
+                </div>
+                """, unsafe_allow_html=True)
+            else:
+                st.markdown(f"""
+                <div class="item-fila" style="opacity: 0.3;">
+                    <div class="badge-num">{i}</div>
+                    <div style="font-size: 18px; color: #555;">— Vazio —</div>
+                </div>
+                """, unsafe_allow_html=True)
 
     with col_video:
         st.markdown('<div class="card-title">📺 VÍDEO CLIPE (FUNDO)</div>', unsafe_allow_html=True)
@@ -159,6 +182,7 @@ if opcao == "Tela (Pública/Fila)":
         </div>
         """, unsafe_allow_html=True)
 
+# 2. PAINEL DO CLIENTE
 elif opcao == "Painel do Cliente":
     st.markdown('<div class="card-header">🎤 FFKARAOKE — PEDIR MÚSICA</div>', unsafe_allow_html=True)
 
@@ -172,6 +196,11 @@ elif opcao == "Painel do Cliente":
         
         if enviar_pedido:
             if nome_cantor.strip() and nome_musica.strip():
-                st.success(f"Obrigado, **{nome_cantor}**! O seu pedido para a música **'{nome_musica}'** foi enviado com sucesso.")
+                # Adiciona o pedido à lista da fila
+                st.session_state.fila_karaoke.append({
+                    "cantor": nome_cantor.upper(),
+                    "musica": nome_musica.title()
+                })
+                st.success(f"Obrigado, **{nome_cantor}**! O seu pedido para a música **'{nome_musica}'** foi adicionado à Fila de Espera.")
             else:
                 st.error("Por favor, preencha o seu nome e o nome da música antes de enviar.")
