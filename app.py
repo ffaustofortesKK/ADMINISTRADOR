@@ -6,7 +6,6 @@ from modules.client_portal import show_client_portal
 from datetime import datetime
 import qrcode
 from io import BytesIO
-import time
 
 st.set_page_config(
     page_title="FFKaraoke - Gestão de Acessos",
@@ -44,78 +43,72 @@ def main():
                 
                 if not prestador.empty:
                     row = prestador.iloc[0]
-                    
-                    # VERIFICAÇÃO DE APROVAÇÃO
-                    if row.get('approved', 0) == 0:
-                        st.warning("⏳ O seu registo foi efetuado com sucesso, mas ainda aguarda a aprovação do Administrador.")
-                        st.info("Assim que o Administrador aprovar o seu pedido no painel, esta página abrirá automaticamente o seu programa. Pode clicar no botão abaixo para verificar se já foi aprovado:")
-                        if st.button("🔄 Verificar Estado da Aprovação"):
-                            st.rerun()
-                        return
-                    
-                    # SE JÁ ESTIVER APROVADO:
-                    now = datetime.now()
-                    exp_str = row.get('expires_at')
-                    
-                    if exp_str:
-                        exp_time = datetime.strptime(exp_str, "%Y-%m-%d %H:%M:%S")
+                    if row.get('approved', 0) == 1:
+                        now = datetime.now()
+                        exp_str = row.get('expires_at')
                         
-                        if now < exp_time:
-                            st.title(f"🎤 FFKaraoke - Painel do Prestador: {row['name']}")
-                            st.success("Acesso autorizado pelo Administrador! O seu programa está pronto a ser utilizado.")
+                        if exp_str:
+                            exp_time = datetime.strptime(exp_str, "%Y-%m-%d %H:%M:%S")
                             
-                            ref_pagamento = row.get('payment_ref', 'N/A')
-                            st.info(f"💳 **Referência de Pagamento:** `{ref_pagamento}`")
-                            
-                            # Temporizador de sessão (contagem decrescente)
-                            tempo_restante = exp_time - now
-                            horas, resto = divmod(int(tempo_restante.total_seconds()), 3600)
-                            minutos, segundos = divmod(resto, 60)
-                            st.metric(label="Tempo Restante de Sessão", value=f"{horas:02d}:{minutos:02d}:{segundos:02d}")
-                            
-                            st.markdown("---")
-                            
-                            # Gerador de Link / QR Code para os Clientes
-                            st.subheader("📱 QR Code e Link para os seus Clientes")
-                            base_url = "https://appadm.streamlit.app/"
-                            client_link = f"{base_url}?client_view={token}"
-                            
-                            col_l1, col_l2 = st.columns([1, 2])
-                            with col_l1:
-                                qr = qrcode.QRCode(version=1, box_size=8, border=2)
-                                qr.add_data(client_link)
-                                qr.make(fit=True)
-                                img = qr.make_image(fill_color="black", back_color="white")
-                                buffered = BytesIO()
-                                img.save(buffered, format="PNG")
-                                st.image(buffered.getvalue(), caption="Mostre este QR ao Cliente", width=200)
-                            with col_l2:
-                                st.write("Partilhe este link ou deixe os clientes escanearem o QR Code para escolherem as músicas:")
-                                st.code(client_link, language="text")
-                                st.info("💡 Assim que os clientes escolherem as músicas, elas aparecerão em tempo real na lista abaixo.")
+                            if now < exp_time:
+                                st.title(f"🎤 FFKaraoke - Painel do Prestador: {row['name']}")
+                                st.success("Acesso autorizado pelo Administrador. O seu programa está pronto!")
+                                
+                                ref_pagamento = row.get('payment_ref', 'N/A')
+                                st.info(f"💳 **Referência de Pagamento:** `{ref_pagamento}`")
+                                
+                                # Temporizador de sessão
+                                tempo_restante = exp_time - now
+                                horas, resto = divmod(int(tempo_restante.total_seconds()), 3600)
+                                minutos, segundos = divmod(resto, 60)
+                                st.metric(label="Tempo Restante de Sessão", value=f"{horas:02d}:{minutos:02d}:{segundos:02d}")
+                                
+                                st.markdown("---")
+                                
+                                # Gerador de Link / QR Code para os Clientes escanearem
+                                st.subheader("📱 QR Code e Link para os seus Clientes")
+                                base_url = "https://appadm.streamlit.app/"
+                                client_link = f"{base_url}?client_view={token}"
+                                
+                                col_l1, col_l2 = st.columns([1, 2])
+                                with col_l1:
+                                    qr = qrcode.QRCode(version=1, box_size=8, border=2)
+                                    qr.add_data(client_link)
+                                    qr.make(fit=True)
+                                    img = qr.make_image(fill_color="black", back_color="white")
+                                    buffered = BytesIO()
+                                    img.save(buffered, format="PNG")
+                                    st.image(buffered.getvalue(), caption="Mostre este QR ao Cliente", width=200)
+                                with col_l2:
+                                    st.write("Partilhe este link ou deixe os clientes lerem o QR Code para escolherem as músicas:")
+                                    st.code(client_link, language="text")
+                                    st.info("💡 Assim que os clientes escolherem as músicas, elas aparecerão em tempo real na lista abaixo.")
 
-                            st.markdown("---")
-                            st.subheader("📋 Fila de Pedidos de Músicas dos Clientes")
-                            
-                            requests_df = get_client_requests(token)
-                            if not requests_df.empty:
-                                st.dataframe(
-                                    requests_df[['client_name', 'song_choice', 'request_type', 'created_at']],
-                                    use_container_width=True,
-                                    column_config={
-                                        "client_name": "Cliente",
-                                        "song_choice": "Música Escolhida / Pedido",
-                                        "request_type": "Tipo de Pedido",
-                                        "created_at": "Hora do Pedido"
-                                    }
-                                )
+                                st.markdown("---")
+                                st.subheader("📋 Fila de Pedidos de Músicas dos Clientes")
+                                
+                                requests_df = get_client_requests(token)
+                                if not requests_df.empty:
+                                    st.dataframe(
+                                        requests_df[['client_name', 'song_choice', 'request_type', 'created_at']],
+                                        use_container_width=True,
+                                        column_config={
+                                            "client_name": "Cliente",
+                                            "song_choice": "Música Escolhida / Pedido",
+                                            "request_type": "Tipo de Pedido",
+                                            "created_at": "Hora do Pedido"
+                                        }
+                                    )
+                                else:
+                                    st.info("Ainda nenhum cliente submeteu pedidos de música.")
+                                
+                                return
                             else:
-                                st.info("Ainda nenhum cliente submeteu pedidos de música.")
-                            
-                            return
-                        else:
-                            st.error("❌ O seu tempo de acesso expirou. Contacte o administrador para renovar.")
-                            return
+                                st.error("❌ O seu tempo de acesso expirou.")
+                                return
+                    else:
+                        st.warning("⏳ O seu registo aguarda a aprovação do Administrador.")
+                        return
             st.error("Token de acesso inválido.")
             return
 
