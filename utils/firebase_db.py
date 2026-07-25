@@ -1,4 +1,5 @@
 import requests
+import streamlit as st
 
 FIREBASE_URL = "https://grupoffkaraoke-default-rtdb.firebaseio.com"
 
@@ -47,6 +48,33 @@ def enviar_pedido_cliente(provider_token, nome_cliente, musica):
             "timestamp": requests.post(f"{FIREBASE_URL}/timestamp.json", json={".sv": "timestamp"}).json().get("name")
         }
         response = requests.post(url, json=dados_pedido)
+        return response.status_code == 200
+    except Exception:
+        return False
+
+def buscar_pedidos_prestador(provider_token):
+    """Busca os pedidos pendentes ou enviados para o prestador específico."""
+    try:
+        url = f"{FIREBASE_URL}/pedidos/{provider_token}.json"
+        response = requests.get(url)
+        if response.status_code == 200 and response.json():
+            data = response.json()
+            pedidos_formatados = []
+            if isinstance(data, dict):
+                for pedido_id, info in data.items():
+                    if isinstance(info, dict):
+                        info['id'] = pedido_id
+                        pedidos_formatados.append(info)
+            return pedidos_formatados
+        return []
+    except Exception:
+        return []
+
+def atualizar_estado_pedido(provider_token, pedido_id, novo_estado):
+    """Atualiza o estado do pedido (ex: pendente -> aprovado -> terminado)."""
+    try:
+        url = f"{FIREBASE_URL}/pedidos/{provider_token}/{pedido_id}/estado.json"
+        response = requests.put(url, json=novo_estado)
         return response.status_code == 200
     except Exception:
         return False
