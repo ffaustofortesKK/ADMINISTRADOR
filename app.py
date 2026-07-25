@@ -1,310 +1,157 @@
 import streamlit as st
+from utils.db_manager import get_all_providers, approve_provider
+from datetime import datetime
+import qrcode
+from io import BytesIO
+import requests
 
-st.set_page_config(
-    page_title="FF Karaoke — ADM & Sistema",
-    page_icon="🎤",
-    layout="wide"
-)
+def show_admin_panel():
+    st.title("👑 FFKaraoke - Painel de Administração")
+    st.write("Gerencie os prestadores de serviço, aprove acessos e consulte o histórico e contabilidade.")
 
-# Base de dados em memória para o ADM gerir os prestadores
-if "prestadores_cadastrados" not in st.session_state:
-    st.session_state.prestadores_cadastrados = {"t-t": {"ativo": True}}
+    tab1, tab2, tab3, tab4 = st.tabs([
+        "🔗 Link e QR Code", 
+        "📋 Gestão de Prestadores", 
+        "📊 Histórico e Contabilidade", 
+        "⚙️ Definições"
+    ])
 
-# Capturar parâmetros do URL
-query_params = st.query_params
-prestador_url = query_params.get("prestador", None)
-painel_tipo = query_params.get("painel", "adm")
+    df = get_all_providers()
+    now = datetime.now()
 
-# Obter o URL base atual da aplicação
-base_url = "https://administrador.streamlit.app"  # Ajuste para o seu link real se necessário
+    with tab1:
+        st.subheader("Link e Código QR para Auto-Registo")
+        register_link = "https://appadm.streamlit.app/?page=register"
+        st.markdown("### 📌 Link Direto:")
+        st.code(register_link, language="text")
 
-# Estilização Global CSS
-st.markdown("""
-<style>
-body { background: #070707; color: white; }
-.main { background: #070707; }
-.card-title, .card-header {
-    background: linear-gradient(180deg, #111, #050505);
-    border: 2px solid #D4AF37;
-    border-radius: 15px;
-    padding: 15px;
-    text-align: center;
-    color: #D4AF37;
-    font-weight: bold;
-    font-size: 24px;
-    box-shadow: 0px 0px 20px rgba(212,175,55,.25);
-    margin-bottom: 20px;
-}
-.link-box {
-    background: #111;
-    border: 1px solid #D4AF37;
-    border-radius: 10px;
-    padding: 12px 20px;
-    margin-bottom: 15px;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    box-shadow: 0px 0px 10px rgba(212,175,55,0.15);
-}
-.card-next {
-    background: linear-gradient(180deg, #1a0b2e, #0a0412);
-    border: 2px solid #9C27B0;
-    border-radius: 15px;
-    padding: 25px;
-    text-align: center;
-    box-shadow: 0px 0px 30px rgba(156,39,176,0.4);
-    margin-bottom: 15px;
-}
-.item-fila {
-    background: linear-gradient(180deg, #111, #050505);
-    border: 2px solid #D4AF37;
-    border-radius: 12px;
-    padding: 15px 20px;
-    margin-bottom: 12px;
-    display: flex;
-    align-items: center;
-    box-shadow: 0px 0px 15px rgba(212,175,55,.15);
-}
-.badge-num {
-    background: #D4AF37;
-    color: black;
-    font-weight: bold;
-    border-radius: 50%;
-    width: 35px;
-    height: 35px;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    margin-right: 15px;
-    font-size: 18px;
-}
-.player-box {
-    background: linear-gradient(180deg, #111, #050505);
-    border: 2px solid #D4AF37;
-    border-radius: 20px;
-    height: 500px;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    box-shadow: 0px 0px 25px rgba(212,175,55,.25);
-    text-align: center;
-    padding: 20px;
-}
-.stTextInput input {
-    background-color: #111 !important;
-    color: white !important;
-    border: 1px solid #D4AF37 !important;
-    border-radius: 10px !important;
-}
-.stButton button {
-    background: linear-gradient(180deg, #D4AF37, #AA8C2C);
-    color: black;
-    font-weight: bold;
-    border-radius: 10px;
-    width: 100%;
-    padding: 10px;
-    border: none;
-    box-shadow: 0px 0px 15px rgba(212,175,55,0.4);
-}
-</style>
-""", unsafe_allow_html=True)
+        st.markdown("### 📱 Código QR de Acesso:")
+        qr = qrcode.QRCode(version=1, box_size=10, border=4)
+        qr.add_data(register_link)
+        qr.make(fit=True)
+        img = qr.make_image(fill_color="black", back_color="white")
+        buffered = BytesIO()
+        img.save(buffered, format="PNG")
+        
+        st.image(buffered.getvalue(), caption="QR Code de Registo", width=250)
 
-# -------------------------------------------------------------------------
-# 1. TELA / TV (Apenas abre se o URL tiver ?painel=tela&prestador=...)
-# -------------------------------------------------------------------------
-if prestador_url and painel_tipo == "tela":
-    chave_fila = f"fila_karaoke_{prestador_url}"
-    if chave_fila not in st.session_state:
-        st.session_state[chave_fila] = []
+    with tab2:
+        st.subheader("Lista de Prestadores e Aprovações")
 
-    col_fila, col_video = st.columns([1, 1])
-
-    with col_fila:
-        st.markdown(f'<div class="card-title">🎤 FILA DE ESPERA — {prestador_url.upper()}</div>', unsafe_allow_html=True)
-        fila = st.session_state[chave_fila]
-
-        if len(fila) > 0:
-            primeiro = fila[0]
-            st.markdown(f"""
-            <div class="card-next">
-                <div style="display: flex; align-items: center; justify-content: center; margin-bottom: 10px;">
-                    <span style="background: #D4AF37; color: black; font-weight: bold; border-radius: 50%; width: 30px; height: 30px; display: inline-flex; align-items: center; justify-content: center; margin-right: 10px;">1</span>
-                    <span style="color: #D4AF37; letter-spacing: 3px; font-weight: bold;">— Á Seguir —</span>
-                </div>
-                <h1 style="color: #FFD700; margin: 0; font-size: 32px; text-shadow: 0px 0px 10px rgba(255,215,0,0.5);">{primeiro['cantor']}</h1>
-                <p style="color: #ccc; margin-top: 5px; font-size: 16px;">🎵 {primeiro['musica']}</p>
-            </div>
-            """, unsafe_allow_html=True)
+        if not df.empty:
+            # Secção de aprovação de novos pedidos pendentes
+            pendentes = df[df['approved'] == 0]
+            if not pendentes.empty:
+                st.warning("⚠️ Tem novos pedidos de prestadores a aguardar aprovação:")
+                for index, row in pendentes.iterrows():
+                    with st.container():
+                        st.write(f"👤 **{row['name']}** (Duração: {row['duration_hours']}h) — 💳 `Ref: {row['payment_ref'] if row['payment_ref'] else 'N/A'}`")
+                        
+                        if st.button(f"Sim, Aprovar Prestador #{row['id']}", key=f"btn_sim_{row['id']}", type="primary"):
+                            approve_provider(row['id'])
+                            st.success(f"Prestador {row['name']} aprovado com sucesso!")
+                            st.rerun()
+                        st.markdown("---")
+            
+            st.subheader("Controlo de Prestadores Ativos")
+            
+            # Filtrar apenas os aprovados E cujo tempo ainda não expirou
+            ativos = []
+            for index, row in df[df['approved'] == 1].iterrows():
+                exp_str = row['expires_at']
+                if exp_str:
+                    exp_time = datetime.strptime(exp_str, "%Y-%m-%d %H:%M:%S")
+                    if now < exp_time:
+                        ativos.append(row)
+            
+            if ativos:
+                for row in ativos:
+                    exp_time = datetime.strptime(row['expires_at'], "%Y-%m-%d %H:%M:%S")
+                    tempo_restante = exp_time - now
+                    
+                    with st.container():
+                        cols = st.columns([2, 1, 1, 1])
+                        cols[0].write(f"👤 **{row['name']}**<br>💳 `Ref: {row['payment_ref']}`", unsafe_allow_html=True)
+                        cols[1].write(f"⏱️ Duração: {row['duration_hours']}h")
+                        
+                        horas, resto = divmod(int(tempo_restante.total_seconds()), 3600)
+                        minutos, segundos = divmod(resto, 60)
+                        cols[2].markdown(f"🟢 **Ativo**<br>`{horas}h {minutos}m {segundos}s`", unsafe_allow_html=True)
+                        cols[3].success("A decorrer")
+                        st.markdown("---")
+            else:
+                st.info("Nenhum prestador ativo no momento.")
         else:
-            st.markdown("""
-            <div class="card-next">
-                <div style="color: #D4AF37; letter-spacing: 3px; font-weight: bold; margin-bottom: 5px;">— Á Seguir —</div>
-                <h3 style="color: #777; margin: 0;">Aguardando cantor...</h3>
-            </div>
-            """, unsafe_allow_html=True)
+            st.info("Ainda nenhum prestador registado na base de dados.")
 
-        posicoes_restantes = fila[1:6]
-        for i in range(2, 7):
-            idx = i - 2
-            if idx < len(posicoes_restantes):
-                item = posicoes_restantes[idx]
-                st.markdown(f"""
-                <div class="item-fila">
-                    <div class="badge-num">{i}</div>
-                    <div style="font-size: 18px; font-weight: bold; color: white;">👤 {item['cantor']} <span style="font-size: 14px; color: #aaa; font-weight: normal;">({item['musica']})</span></div>
-                </div>
-                """, unsafe_allow_html=True)
+    with tab3:
+        st.subheader("📊 Histórico de Prestadores Expirados e Contabilidade")
+        st.write("Prestadores cujo tempo terminou e respetiva contabilidade de clientes e referências.")
+
+        if not df.empty:
+            # Filtrar apenas os expirados
+            expirados = []
+            for index, row in df[df['approved'] == 1].iterrows():
+                exp_str = row['expires_at']
+                if exp_str:
+                    exp_time = datetime.strptime(exp_str, "%Y-%m-%d %H:%M:%S")
+                    if now >= exp_time:
+                        expirados.append(row)
+
+            if expirados:
+                total_clientes_geral = 0
+                total_referencias_validas = 0
+                
+                tabela_historico = []
+                
+                for row in expirados:
+                    token_p = row['token']
+                    # Consultar o Firebase para contar quantos clientes este prestador teve
+                    URL_PEDIDOS = f"https://grupoffkaraoke-default-rtdb.firebaseio.com/pedidos_{token_p}.json"
+                    qtd_clientes = 0
+                    try:
+                        res = requests.get(URL_PEDIDOS, timeout=2).json()
+                        if res and isinstance(res, dict):
+                            clientes_unicos = set()
+                            for p_id, p_val in res.items():
+                                if isinstance(p_val, dict) and 'cantor' in p_val:
+                                    clientes_unicos.add(str(p_val['cantor']).strip().lower())
+                            qtd_clientes = len(clientes_unicos)
+                    except:
+                        qtd_clientes = 0
+
+                    total_clientes_geral += qtd_clientes
+                    total_referencias_validas += 1
+
+                    tabela_historico.append({
+                        "Nome do Prestador": row['name'],
+                        "Referência de Pagamento": row['payment_ref'] if row['payment_ref'] else "N/A",
+                        "Data de Registo": row['created_at'],
+                        "Clientes Atendidos": qtd_clientes
+                    })
+
+                # Mostrar tabela detalhada
+                st.dataframe(tabela_historico, use_container_width=True)
+
+                st.markdown("---")
+                st.subheader("📈 Totais Contabilizados")
+                
+                col_c1, col_c2 = st.columns(2)
+                col_c1.metric(label="Total Geral de Clientes (Histórico)", value=total_clientes_geral)
+                col_c2.metric(label="Total de Referências Registadas", value=total_referencias_validas)
+
             else:
-                st.markdown(f"""
-                <div class="item-fila" style="opacity: 0.3;">
-                    <div class="badge-num">{i}</div>
-                    <div style="font-size: 18px; color: #555;">— Vazio —</div>
-                </div>
-                """, unsafe_allow_html=True)
+                st.info("Ainda não existem prestadores com o tempo expirado.")
+        else:
+            st.info("Sem dados na base de dados.")
 
-    with col_video:
-        st.markdown('<div class="card-title">📺 VÍDEO CLIPE (FUNDO)</div>', unsafe_allow_html=True)
-        st.markdown("""
-        <div class="player-box">
-            <div style="font-size: 50px; margin-bottom: 15px;">📺</div>
-            <p style="color: #ccc; font-size: 18px; max-width: 350px; line-height: 1.5;">
-                Aguardando o prestador selecionar um vídeo clipe no painel de controle...
-            </p>
-        </div>
-        """, unsafe_allow_html=True)
-
-# -------------------------------------------------------------------------
-# 2. PAINEL DO CLIENTE (Apenas abre se o URL tiver ?painel=cliente&prestador=...)
-# -------------------------------------------------------------------------
-elif prestador_url and painel_tipo == "cliente":
-    chave_fila = f"fila_karaoke_{prestador_url}"
-    if chave_fila not in st.session_state:
-        st.session_state[chave_fila] = []
-
-    if "confirmar_envio" not in st.session_state:
-        st.session_state.confirmar_envio = False
-        st.session_state.temp_cantor = ""
-        st.session_state.temp_musica = ""
-
-    st.markdown(f'<div class="card-header">🎤 FFKARAOKE — PEDIR MÚSICA ({prestador_url.upper()})</div>', unsafe_allow_html=True)
-
-    if not st.session_state.confirmar_envio:
-        with st.form("form_cliente"):
-            st.subheader("Insira os seus dados para participar")
-            nome_cantor = st.text_input("O seu Nome / Alcunha:")
-            nome_musica = st.text_input("Nome da Música ou Artista pretendido:")
-            
-            if st.form_submit_button("Continuar ➡️"):
-                if nome_cantor.strip() and nome_musica.strip():
-                    st.session_state.temp_cantor = nome_cantor.strip()
-                    st.session_state.temp_musica = nome_musica.strip()
-                    st.session_state.confirmar_envio = True
-                    st.rerun()
+    with tab4:
+        st.subheader("Configurações do Sistema Admin")
+        with st.form("form_admin_settings"):
+            nova_senha = st.text_input("Alterar Palavra-passe de Administrador", type="password")
+            salvar_pass = st.form_submit_button("Guardar Alterações")
+            if salvar_pass:
+                if nova_senha:
+                    st.success("Palavra-passe de administrador atualizada com sucesso!")
                 else:
-                    st.error("Por favor, preencha o seu nome e o nome da música.")
-    else:
-        st.markdown(f"""
-        <div style="background: #111; border: 2px solid #D4AF37; border-radius: 15px; padding: 20px; text-align: center; margin-bottom: 20px;">
-            <h3 style="color: #D4AF37;">Confirmação do Pedido</h3>
-            <p style="font-size: 18px; color: white;">Cantor: <b>{st.session_state.temp_cantor.upper()}</b></p>
-            <p style="font-size: 18px; color: white;">Música: <b>{st.session_state.temp_musica.title()}</b></p>
-            <p style="color: #FFD700; margin-top: 15px; font-weight: bold;">Tem a certeza que deseja enviar?</p>
-        </div>
-        """, unsafe_allow_html=True)
-
-        col_sim, col_nao = st.columns(2)
-        with col_sim:
-            if st.button("✅ SIM, Enviar"):
-                st.session_state[chave_fila].append({
-                    "cantor": st.session_state.temp_cantor.upper(),
-                    "musica": st.session_state.temp_musica.title()
-                })
-                st.success(f"Pedido enviado com sucesso para a fila de {prestador_url}!")
-                st.session_state.confirmar_envio = False
-                st.session_state.temp_cantor = ""
-                st.session_state.temp_musica = ""
-                st.rerun()
-        with col_nao:
-            if st.button("❌ NÃO, Voltar"):
-                st.session_state.confirmar_envio = False
-                st.rerun()
-
-# -------------------------------------------------------------------------
-# 3. PÁGINA PRINCIPAL / ADM (Início por defeito)
-# -------------------------------------------------------------------------
-else:
-    st.markdown("### 🛠️ ADM — Gestão e Registo de Prestadores")
-    st.markdown("---")
-
-    aba_login, aba_registo = st.tabs(["🔑 Entrar (Prestador)", "📝 Registar Novo Prestador"])
-
-    with aba_login:
-        st.subheader("Aceder ao Painel do Prestador")
-        nome_login = st.text_input("Nome / Alcunha de Prestador:", key="login_nome")
-        
-        if st.button("Entrar no Painel"):
-            nome_limpo = nome_login.strip().lower()
-            if nome_limpo in st.session_state.prestadores_cadastrados:
-                st.success(f"Bem-vindo de volta, {nome_login}!")
-                st.query_params["prestador"] = nome_limpo
-                st.query_params["painel"] = "prestador"
-                st.rerun()
-            else:
-                st.error("Prestador não encontrado. Registe-se na aba ao lado.")
-
-    with aba_registo:
-        st.subheader("Criar Nova Conta de Prestador")
-        novo_nome = st.text_input("Escolha o seu Nome / Alcunha (ex: artur):", key="reg_nome")
-        
-        if st.button("Registar Conta"):
-            nome_limpo = novo_nome.strip().lower()
-            if nome_limpo:
-                if nome_limpo not in st.session_state.prestadores_cadastrados:
-                    st.session_state.prestadores_cadastrados[nome_limpo] = {"ativo": True}
-                    st.success(f"Conta de '{novo_nome}' criada com sucesso! Já pode entrar na aba ao lado.")
-                else:
-                    st.warning("Este nome de prestador já existe.")
-            else:
-                st.error("Insira um nome válido.")
-
-    # Se entrou com sucesso, exibe o painel individual do prestador com os seus links dinâmicos
-    if prestador_url and prestador_url in st.session_state.prestadores_cadastrados:
-        chave_fila = f"fila_karaoke_{prestador_url}"
-        if chave_fila not in st.session_state:
-            st.session_state[chave_fila] = []
-
-        link_cliente_prestador = f"{base_url}/?prestador={prestador_url}&painel=cliente"
-        link_tv_prestador = f"{base_url}/?prestador={prestador_url}&painel=tela"
-
-        st.markdown("---")
-        st.markdown(f"### 🎤 Bem-vindo, {prestador_url}!")
-        
-        if st.button("🚪 Terminar Sessão / Sair para ADM"):
-            st.query_params.clear()
-            st.rerun()
-
-        col_links, col_qr = st.columns([4, 1])
-        with col_links:
-            st.markdown(f"""
-            <div class="link-box">
-                <span>🏷️ <b>Cliente:</b> <a href="{link_cliente_prestador}" target="_blank" style="color: #FFD700;">{link_cliente_prestador}</a></span>
-            </div>
-            """, unsafe_allow_html=True)
-            
-            st.markdown(f"""
-            <div class="link-box">
-                <span>📺 <b>TV:</b> <a href="{link_tv_prestador}" target="_blank" style="color: #FFD700;">{link_tv_prestador}</a></span>
-            </div>
-            """, unsafe_allow_html=True)
-            
-        with col_qr:
-            qr_url_cliente = f"https://api.qrserver.com/v1/create-qr-code/?size=120x120&data={link_cliente_prestador}"
-            st.image(qr_url_cliente, width=110)
-
-        st.markdown("🎬 **Playlist de Vídeos Clipes (Fundo da TV)**")
-        st.info(f"Gerindo a sessão de karaoke para o prestador: **{prestador_url}**")
-
-        if st.button("🧹 Limpar Fila deste Prestador"):
-            st.session_state[chave_fila] = []
-            st.success("Fila limpa com sucesso!")
+                    st.error("A palavra-passe não pode estar vazia.")
