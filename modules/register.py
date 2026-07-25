@@ -13,8 +13,6 @@ def show_register_page():
             sobrenome = st.text_input("Sobrenome")
             
         telefone = st.text_input("Número de Telefone")
-        
-        # Novo campo de Referência de Pagamento
         payment_ref = st.text_input("Referência de Pagamento / Nº de Comprovativo")
         
         duracao_opcao = st.selectbox(
@@ -29,9 +27,23 @@ def show_register_page():
             if nome.strip() and sobrenome.strip() and telefone.strip() and payment_ref.strip():
                 nome_completo = f"{nome.strip()} {sobrenome.strip()} ({telefone.strip()})"
                 
-                create_provider_request(nome_completo, duracao_opcao, payment_ref.strip())
+                # Cria o pedido e obtém o token único gerado
+                token = create_provider_request(nome_completo, duracao_opcao, payment_ref.strip())
                 
+                # Guardar o token na sessão para redirecionar de imediato
+                st.session_state.new_token = token
+                st.session_state.registered_name = nome_completo
                 st.success("Pedido de permissão enviado com sucesso!")
-                st.info("O administrador irá analisar e aprovar o seu acesso em breve após validação do pagamento.")
             else:
-                st.error("Por favor, preencha todos os campos obrigatórios (Nome, Sobrenome, Telefone e Referência de Pagamento).")
+                st.error("Por favor, preencha todos os campos obrigatórios.")
+
+    # Se o registo foi submetido com sucesso nesta sessão, mostrar o link direto para o painel dele
+    if "new_token" in st.session_state and st.session_state.new_token:
+        st.markdown("---")
+        st.success("🎉 O seu registo foi registado com sucesso!")
+        st.info("Guarde o link abaixo ou clique nele para aceder ao seu painel de prestador. Assim que o Administrador aprovar no painel, o seu programa abrirá automaticamente aqui:")
+        
+        token_url = f"https://appadm.streamlit.app/?token={st.session_state.new_token}"
+        st.code(token_url, language="text")
+        
+        st.markdown(f"[🔗 Clique aqui para abrir o seu Painel de Prestador]({token_url})")
