@@ -3,7 +3,9 @@ from datetime import datetime, timedelta
 import pandas as pd
 import os
 
-DB_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'karaoke_database.db')
+# Caminho absoluto fixo na raiz do projeto para evitar duplicação da base de dados
+BASE_DIR = os.path.abspath(os.path.dirname(os.path.dirname(__file__)))
+DB_PATH = os.path.join(BASE_DIR, 'karaoke_database.db')
 
 def init_db():
     conn = sqlite3.connect(DB_PATH)
@@ -27,7 +29,6 @@ def add_provider(name, phone, payment_ref, hours, token, amount_paid=0.0):
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
     
-    # Calcular data de expiração com base nas horas escolhidas
     expires_at = (datetime.now() + timedelta(hours=hours)).strftime("%Y-%m-%d %H:%M:%S")
     
     cursor.execute('''
