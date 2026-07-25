@@ -1,5 +1,6 @@
 import sqlite3
 from datetime import datetime, timedelta
+import pandas as pd
 
 def init_db():
     conn = sqlite3.connect('karaoke_database.db')
@@ -22,7 +23,6 @@ def add_provider(name, phone, payment_ref, hours, token):
     conn = sqlite3.connect('karaoke_database.db')
     cursor = conn.cursor()
     
-    # Calcular data deexpiração provisória (será contada a partir da aprovação ou gerada)
     expires_at = (datetime.now() + timedelta(hours=hours)).strftime("%Y-%m-%d %H:%M:%S")
     
     cursor.execute('''
@@ -34,8 +34,17 @@ def add_provider(name, phone, payment_ref, hours, token):
     conn.close()
 
 def get_all_providers():
-    import pandas as pd
     conn = sqlite3.connect('karaoke_database.db')
-    df = pd.read_sql_query("SELECT * FROM providers", conn)
+    try:
+        df = pd.read_sql_query("SELECT * FROM providers", conn)
+    except Exception:
+        df = pd.DataFrame(columns=['id', 'name', 'phone', 'payment_ref', 'expires_at', 'token', 'approved'])
     conn.close()
     return df
+
+def approve_provider(token):
+    conn = sqlite3.connect('karaoke_database.db')
+    cursor = conn.cursor()
+    cursor.execute("UPDATE providers SET approved = 1 WHERE token = ?", (token,))
+    conn.commit()
+    conn.close()
