@@ -2,7 +2,6 @@ import streamlit as st
 from utils.db_manager import get_all_providers, approve_provider, get_total_revenue
 
 def show_admin_panel():
-    # Estilização visual integrada para o ADM
     st.markdown("""
     <style>
     .adm-card {
@@ -27,10 +26,22 @@ def show_admin_panel():
     st.subheader("🛠️ Painel de Administração — FF Karaoke")
     st.markdown("---")
 
+    # Obter dados atualizados da base de dados para contagem e listagem
+    df = get_all_providers()
+    
+    # Calcular quantidade de pendentes para mostrar o sinal/número na aba
+    pendentes_count = 0
+    if not df.empty and 'approved' in df.columns:
+        # Garante conversão segura para inteiro comparando com 0
+        pendentes_count = len(df[df['approved'].astype(int) == 0])
+
+    # Rótulo dinâmico com o sinalizador/número de pendentes
+    label_aba2 = f"⏳ Pedidos e Aprovação ({pendentes_count})" if pendentes_count > 0 else "⏳ Pedidos e Aprovação"
+
     # Criação das 4 abas solicitadas
     aba1, aba2, aba3, aba4 = st.tabs([
         "🔗 Link e QR Registo", 
-        "⏳ Pedidos e Aprovação", 
+        label_aba2, 
         "📊 Gestão Total", 
         "📈 Relatórios e Estatísticas"
     ])
@@ -42,7 +53,6 @@ def show_admin_panel():
         st.subheader("🔗 Portal de Auto-Registo de Prestadores")
         st.write("Partilhe este link ou o QR Code com os prestadores para que possam submeter os seus dados e comprovativo de pagamento.")
         
-        # Link base da aplicação com parâmetro de registo
         base_url = "https://appadm.streamlit.app/?page=register"
         
         col_l, col_q = st.columns([3, 1])
@@ -66,12 +76,12 @@ def show_admin_panel():
         st.subheader("📋 Pedidos de Registo Pendentes")
         st.write("Analise as informações enviadas por cada prestador e aprove o acesso conforme a confirmação do pagamento.")
         
-        df = get_all_providers()
-        
         if df.empty:
             st.info("Nenhum prestador registado na base de dados.")
         else:
-            pendentes = df[df['approved'] == 0]
+            # Filtro rigoroso para capturar os prestadores pendentes (approved == 0)
+            pendentes = df[df['approved'].astype(int) == 0]
+            
             if pendentes.empty:
                 st.success("Não existem pedidos de registo pendentes neste momento.")
             else:
@@ -91,7 +101,7 @@ def show_admin_panel():
                     </div>
                     """, unsafe_allow_html=True)
                     
-                    if st.button(f"✅ Aprovar Prestador {nome}", key=f"btn_aprovar_{token}type"):
+                    if st.button(f"✅ Aprovar Prestador {nome}", key=f"btn_aprovar_{token}"):
                         approve_provider(token)
                         st.success(f"Prestador {nome} aprovado com sucesso!")
                         st.rerun()
@@ -104,15 +114,12 @@ def show_admin_panel():
         st.subheader("📑 Gestão Total de Prestadores Registados")
         st.write("Histórico completo contendo a data de registo, valor pago, tempo solicitado e estado atual.")
         
-        df = get_all_providers()
-        
         if df.empty:
             st.info("Nenhum registo encontrado na base de dados.")
         else:
-            # Selecionar e formatar colunas para exibição limpa em tabela
             tabela_exibicao = df[['id', 'name', 'phone', 'payment_ref', 'amount_paid', 'expires_at', 'approved']].copy()
             tabela_exibicao.columns = ['ID', 'Nome', 'Telefone', 'Ref. Pagamento', 'Valor (Kz)', 'Expira em / Tempo', 'Estado']
-            tabela_exibicao['Estado'] = tabela_exibicao['Estado'].apply(lambda x: "✅ Aprovado" if x == 1 else "⏳ Pendente")
+            tabela_exibicao['Estado'] = tabela_exibicao['Estado'].apply(lambda x: "✅ Aprovado" if int(x) == 1 else "⏳ Pendente")
             
             st.dataframe(tabela_exibicao, use_container_width=True, hide_index=True)
 
@@ -123,10 +130,8 @@ def show_admin_panel():
         st.subheader("📈 Relatórios Financeiros e Operacionais")
         
         total_recebido = get_total_revenue()
-        df = get_all_providers()
         total_prestadores = len(df) if not df.empty else 0
-        aprovados_count = len(df[df['approved'] == 1]) if not df.empty else 0
-        pendentes_count = len(df[df['approved'] == 0]) if not df.empty else 0
+        aprovados_count = len(df[df['approved'].astype(int) == 1]) if not df.empty else 0
         
         col_m1, col_m2, col_m3 = st.columns(3)
         with col_m1:
