@@ -1,11 +1,14 @@
 import streamlit as st
+import requests
+import time
+from datetime import datetime
 from utils.db_manager import init_db, get_all_providers
 from modules.admin import show_admin_panel
 from modules.register import show_register_page
 from modules.provider import show_provider_panel
 from modules.client import show_client_page
-from modules.tela import show_client_screen
-from datetime import datetime
+
+FIREBASE_URL = "https://grupoffkaraoke-default-rtdb.firebaseio.com"
 
 st.set_page_config(
     page_title="FFKaraoke - Gestão de Acessos",
@@ -17,6 +20,54 @@ try:
     init_db()
 except Exception as e:
     st.error(f"Erro ao inicializar a base de dados: {e}")
+
+def show_client_screen():
+    query_params = st.query_params
+    provider_token = query_params.get("provider", None)
+
+    if not provider_token:
+        st.error("Tela inválida. Falta o parâmetro do prestador.")
+        return
+
+    st.markdown("""
+    <style>
+    .stApp { background-color: #000000; color: white; }
+    </style>
+    """, unsafe_allow_html=True)
+
+    st.title("📺 FFKaraoke — Palco Principal")
+    st.markdown("---")
+
+    try:
+        response = requests.get(f"{FIREBASE_URL}/pedidos/{provider_token}.json")
+        if response.status_code == 200 and response.json():
+            data = response.json()
+            pedidos = [{"id": k, **v} for k, v in data.items()]
+            aprovados = [p for p in pedidos if p.get("estado") == "aprovado"]
+
+            if aprovados:
+                pedido_atual = aprovados[0]
+                cliente = pedido_atual.get("cliente")
+                musica = pedido_atual.get("musica", {})
+                titulo = musica.get("titulo", "Karaoke")
+                url_cloudinary = musica.get("url_cloudinary")
+
+                st.markdown(f"### 🎤 A Cantar Agora: **{cliente}**")
+                st.markdown(f"🎵 **Música:** `{titulo}`")
+
+                if url_cloudinary:
+                    st.video(url_cloudinary)
+                else:
+                    st.warning("O link do vídeo do Cloudinary não foi encontrado para esta música.")
+                return
+
+        st.info("📺 A aguardar o próximo artista... O ecrã atualizará automaticamente assim que o prestador aprovar um pedido.")
+        
+    except Exception:
+        st.error("Erro ao sincronizar com a base de dados em tempo real.")
+
+    time.sleep(5)
+    st.rerun()
 
 def main():
     try:
