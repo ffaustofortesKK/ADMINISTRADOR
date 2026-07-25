@@ -1,151 +1,61 @@
-def show_client_screen():
-    query_params = st.query_params
-    provider_token = query_params.get("provider", None)
-
-    if not provider_token:
-        st.error("Tela inválida. Falta o parâmetro do prestador.")
-        return
-
-    st.markdown("""
-    <style>
-    .stApp { background-color: #000000; color: white; }
-    .box-header {
-        background: linear-gradient(90deg, #1a1a1a, #2c2c2c);
-        border: 2px solid #d4af37;
-        padding: 10px;
-        text-align: center;
-        border-radius: 8px;
-        color: #d4af37;
-        font-weight: bold;
-        font-size: 18px;
-        letter-spacing: 2px;
-        margin-bottom: 15px;
-    }
-    .card-next {
-        background: linear-gradient(135deg, #2b103a, #14081c);
-        border: 2px solid #9c27b0;
-        padding: 15px;
-        border-radius: 10px;
-        color: white;
-        text-align: center;
-        margin-bottom: 15px;
-    }
-    .card-fila {
-        background-color: #121212;
-        border: 1px solid #d4af37;
-        padding: 10px;
-        border-radius: 8px;
-        color: #ffffff;
-        margin-bottom: 8px;
-    }
-    </style>
-    """, unsafe_allow_html=True)
-
-    st.title("📺 FFKaraoke — Palco Principal")
-    st.markdown("---")
-
-    try:
-        response = requests.get(f"{FIREBASE_URL}/pedidos/{provider_token}.json")
-        if response.status_code == 200 and response.json():
-            data = response.json()
-            pedidos = [{"id": k, **v} for k, v in data.items()]
-            
-            pedidos_ativos = [p for p in pedidos if p.get("estado") in ["pendente", "aprovado"]]
-            tocando_agora = next((p for p in pedidos_ativos if p.get("estado") == "aprovado"), None)
-            pendentes = [p for p in pedidos_ativos if p.get("estado") == "pendente"]
-
-            col_esquerda, col_direita = st.columns([1.1, 0.9])
-
-            with col_esquerda:
-                st.markdown('<div class="box-header">🎙️ FILA DE ESPERA</div>', unsafe_allow_html=True)
-                
-                if tocando_agora:
-                    cliente = tocando_agora.get("cliente", "Convidado")
-                    musica = tocando_agora.get("musica", {})
-                    titulo = musica.get("titulo", "Karaoke") if isinstance(musica, dict) else str(musica)
-                    
-                    st.markdown(f"""
-                        <div class="card-next">
-                            <div style="font-size: 14px; color: #e0b0ff; margin-bottom: 5px;">— A Seguir —</div>
-                            <div style="font-size: 22px; font-weight: bold; color: #ffeb3b;">{str(titulo).upper()}</div>
-                            <div style="font-size: 12px; color: #ccc; margin-top: 5px;">Cliente: {cliente}</div>
-                        </div>
-                    """, unsafe_allow_html=True)
-                else:
-                    st.markdown("""
-                        <div class="card-next">
-                            <div style="font-size: 16px; color: #888;">Nenhuma música de karaoke a tocar no momento.</div>
-                        </div>
-                    """, unsafe_allow_html=True)
-
-                st.markdown("---")
-                st.markdown("**Próximos Pedidos na Fila:**")
-                
-                if not pendentes:
-                    st.info("A fila de karaoke está vazia.")
-                else:
-                    for idx, p in enumerate(pendentes, start=1):
-                        cliente_p = p.get("cliente", "Convidado")
-                        musica_p = p.get("musica", {})
-                        titulo_p = musica_p.get("titulo", "Música") if isinstance(musica_p, dict) else str(musica_p)
-                        
-                        st.markdown(f"""
-                            <div class="card-fila">
-                                <b>{idx}.</b> {titulo_p} <span style="font-size:11px; color:#aaa;">({cliente_p})</span>
-                            </div>
-                        """, unsafe_allow_html=True)
-
-            with col_direita:
-                st.markdown('<div class="box-header">📺 TELA DE REPRODUÇÃO</div>', unsafe_allow_html=True)
+with col_direita:
+                st.markdown('<div class="box-header">📺 VÍDEO CLIPE (FUNDO)</div>', unsafe_allow_html=True)
                 
                 if tocando_agora:
                     pedido_id_atual = tocando_agora.get("id")
                     musica = tocando_agora.get("musica", {})
-                    url_cloudinary = musica.get("url_cloudinary") if isinstance(musica, dict) else None
+                    
+                    # Extração ultra-robusta de qualquer formato de link do Cloudinary ou Firebase
+                    url_cloudinary = ""
+                    if isinstance(musica, dict):
+                        url_cloudinary = (
+                            musica.get("url_cloudinary") or 
+                            musica.get("url") or 
+                            musica.get("link") or 
+                            musica.get("secure_url")
+                        )
+                        # Se o dicionário contiver uma lista ou dados aninhados
+                        if not url_cloudinary and len(musica) > 0:
+                            for k, v in musica.items():
+                                if isinstance(v, str) and v.startswith("http"):
+                                    url_cloudinary = v
+                                    break
+                    elif isinstance(musica, str):
+                        url_cloudinary = musica
                     
                     if url_cloudinary and str(url_cloudinary).startswith("http"):
-                        # Inicializar memória de sessão se não existir
+                        # Garante que links do Cloudinary sem extensão explícita funcionem no st.video
+                        if "cloudinary.com" in url_cloudinary and not any(url_cloudinary.endswith(ext) for ext in [".mp4", ".webm", ".ogg", ".mov"]):
+                            if "/upload/" in url_cloudinary and not "/upload/f_auto/" in url_cloudinary:
+                                url_cloudinary = url_cloudinary.replace("/upload/", "/upload/fl_attachment/")
+
                         if "ultimo_pedido_tocando" not in st.session_state:
                             st.session_state.ultimo_pedido_tocando = None
 
-                        # Só faz a contagem se esta música/pedido for diferente da última reproduzida
                         if st.session_state.ultimo_pedido_tocando != pedido_id_atual:
                             placeholder_contagem = st.empty()
                             for i in [3, 2, 1]:
                                 placeholder_contagem.markdown(f"""
-                                    <div style="border: 2px solid #d4af37; border-radius: 10px; padding: 40px; text-align: center; background-color: #0d0d0d; min-height: 300px; display: flex; flex-direction: column; justify-content: center; align-items: center;">
+                                    <div style="border: 2px solid #d4af37; border-radius: 10px; padding: 40px; text-align: center; background-color: #0d0d0d; min-height: 280px; display: flex; flex-direction: column; justify-content: center; align-items: center;">
                                         <h2 style="color: #ffeb3b; margin-bottom: 10px;">A PREPARAR PALCO...</h2>
                                         <h1 style="color: #d4af37; font-size: 80px; margin: 0;">{i}</h1>
                                     </div>
                                 """, unsafe_allow_html=True)
                                 time.sleep(1)
                             placeholder_contagem.empty()
-                            
-                            # Atualiza o registo para não repetir a contagem nos próximos refreshes
                             st.session_state.ultimo_pedido_tocando = pedido_id_atual
 
-                        # Exibição direta do vídeo em tamanho grande sem repetir a contagem
-                        st.markdown("<h3 style='text-align: center; color: #ffeb3b;'>🎤 A CANTAR AGORA</h3>", unsafe_allow_html=True)
-                        st.video(url_cloudinary, autoplay=True)
+                        try:
+                            st.video(url_cloudinary)
+                        except Exception:
+                            st.error(f"Erro ao carregar o player de vídeo com o link: {url_cloudinary}")
                     else:
-                        st.warning("O link do vídeo do Cloudinary não foi encontrado para esta música.")
+                        st.warning(f"O link do vídeo não é válido ou está vazio. Dados recebidos: {musica}")
                 else:
-                    # Limpa a memória quando a música termina para permitir contagem na próxima
                     st.session_state.ultimo_pedido_tocando = None
                     st.markdown("""
-                        <div style="border: 2px solid #d4af37; border-radius: 10px; padding: 40px; text-align: center; background-color: #0d0d0d; min-height: 300px; display: flex; flex-direction: column; justify-content: center; align-items: center;">
-                            <div style="color: #d4af37; font-size: 45px; margin-bottom: 10px;">📺</div>
-                            <span style='color: #aaa; font-size: 16px;'>Aguardando o prestador selecionar um pedido na fila...</span>
+                        <div style="border: 2px solid #d4af37; border-radius: 10px; padding: 20px; text-align: center; background-color: #0d0d0d; min-height: 280px; display: flex; flex-direction: column; justify-content: center; align-items: center;">
+                            <div style="color: #d4af37; font-size: 35px; margin-bottom: 10px;">📺</div>
+                            <span style='color: #aaa;'>Aguardando o prestador selecionar um vídeo clipe no painel de controle...</span>
                         </div>
                     """, unsafe_allow_html=True)
-            
-            time.sleep(3)
-            st.rerun()
-
-        st.info("📺 A aguardar o próximo artista... O ecrã atualizará automaticamente assim que o prestador aprovar um pedido.")
-        
-    except Exception:
-        st.error("Erro ao sincronizar com a base de dados em tempo real.")
-
-    time.sleep(5)
-    st.rerun()
