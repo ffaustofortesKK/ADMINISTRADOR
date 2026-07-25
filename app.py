@@ -3,6 +3,7 @@ from utils.db_manager import init_db, get_all_providers
 from modules.admin import show_admin_panel
 from modules.register import show_register_page
 from modules.provider import show_provider_panel
+from modules.client import show_client_page
 from datetime import datetime
 
 st.set_page_config(
@@ -27,11 +28,7 @@ def main():
 
         # 2. Página de Auto-Registo de Clientes (Gerada pelo Prestador)
         if "page" in query_params and query_params["page"] == "client_register":
-            provider_token = query_params.get("provider", "Desconhecido")
-            st.title("🎤 FFKaraoke - Registo de Pedido do Cliente")
-            st.write(f"Faça o seu pedido de música para o prestador responsável (Ref: `{provider_token[:8]}...`)")
-            # Aqui poderá adicionar o formulário do cliente futuramente
-            st.info("O formulário de registo de pedidos do cliente está pronto a ser configurado.")
+            show_client_page()
             return
 
         # 3. Tela de Apresentação de Vídeos / Pedidos do Cliente
