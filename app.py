@@ -1,13 +1,11 @@
 import streamlit as st
-from utils.db_manager import init_db, get_all_providers
+from utils.db_manager import init_db, get_all_providers, get_client_requests
 from modules.admin import show_admin_panel
 from modules.register import show_register_page
 from modules.client_portal import show_client_portal
 from datetime import datetime
 import qrcode
 from io import BytesIO
-import time
-import requests
 
 st.set_page_config(
     page_title="FFKaraoke - Gestão de Acessos",
@@ -46,16 +44,15 @@ def main():
                 if not prestador.empty:
                     row = prestador.iloc[0]
                     
-                    # Se ainda não foi aprovado, fica em modo de espera a verificar automaticamente
+                    # Verificação se o Administrador já aprovou (approved == 1)
                     if row.get('approved', 0) == 0:
-                        st.warning("⏳ O seu registo foi enviado com sucesso e está a aguardar a aprovação do Administrador.")
-                        st.info("Assim que o Administrador aprovar no painel, esta página abrirá automaticamente o seu painel de prestador. Por favor, aguarde...")
-                        
-                        time.sleep(3)
-                        st.rerun()
+                        st.warning("⏳ O seu registo foi efetuado, mas ainda aguarda a aprovação do Administrador.")
+                        st.info("Assim que o Administrador clicar em 'Sim' no painel, esta página abrirá automaticamente com o seu programa de karaoke.")
+                        if st.button("🔄 Verificar se já fui aprovado"):
+                            st.rerun()
                         return
                     
-                    # SE JÁ ESTIVER APROVADO: Abre automaticamente o perfil completo do prestador
+                    # SE APROVADO: Abre o perfil completo do prestador com todas as ferramentas
                     now = datetime.now()
                     exp_str = row.get('expires_at')
                     
@@ -77,8 +74,8 @@ def main():
                             
                             st.markdown("---")
                             
-                            # Gerador do Link e QR Code para os Clientes
-                            st.subheader("📱 QR Code e Link para os seus Clientes")
+                            # Gerador do Link e QR Code para os Clientes escolherem as músicas
+                            st.subheader("📱 QR Code e Link para os Clientes")
                             base_url = "https://appadm.streamlit.app/"
                             client_link = f"{base_url}?client_view={token}"
                             
@@ -94,37 +91,25 @@ def main():
                             with col_l2:
                                 st.write("Disponibilize este link ou QR Code para que os clientes façam os pedidos de músicas diretamente:")
                                 st.code(client_link, language="text")
-                                st.info("💡 Os pedidos efetuados pelos clientes aparecem em tempo real abaixo.")
+                                st.info("💡 Os pedidos efetuados pelos clientes aparecem em tempo real na lista abaixo.")
 
                             st.markdown("---")
                             st.subheader("📋 Fila de Pedidos de Músicas dos Clientes")
                             
-                            # Buscar pedidos em tempo real do Firebase deste prestador específico
-                            URL_PEDIDOS = f"https://grupoffkaraoke-default-rtdb.firebaseio.com/pedidos_{token}.json"
-                            try:
-                                res_pedidos = requests.get(f"{URL_PEDIDOS}?nocache={time.time()}", timeout=3).json()
-                            except:
-                                res_pedidos = None
-                            
-                            if res_pedidos and isinstance(res_pedidos, dict):
-                                lista_pedidos = []
-                                for p_id, dados in res_pedidos.items():
-                                    if isinstance(dados, dict):
-                                        lista_pedidos.append({
-                                            "Cliente": dados.get("cantor", "Desconhecido"),
-                                            "Música / Pedido": dados.get("musica", "N/A")
-                                        })
-                                
-                                if lista_pedidos:
-                                    st.dataframe(lista_pedidos, use_container_width=True)
-                                else:
-                                    st.info("Ainda nenhum cliente submeteu pedidos de música.")
+                            requests_df = get_client_requests(token)
+                            if not requests_df.empty:
+                                st.dataframe(
+                                    requests_df[['client_name', 'song_choice', 'request_type', 'created_at']],
+                                    use_container_width=True,
+                                    column_config={
+                                        "client_name": "Nome do Cliente",
+                                        "song_choice": "Música Escolhida / Pedido",
+                                        "request_type": "Tipo de Registo",
+                                        "created_at": "Hora do Pedido"
+                                    }
+                                )
                             else:
                                 st.info("Ainda nenhum cliente submeteu pedidos de música.")
-                            
-                            # Atualiza a página automaticamente para mostrar novos clientes em tempo real
-                            time.sleep(3)
-                            st.rerun()
                             
                             return
                         else:
