@@ -21,22 +21,19 @@ def show_admin_panel():
         margin-bottom: 15px;
         color: white;
     }
-    /* Estilo para o crachá/badge vermelho de pendentes */
-    .badge-pendente {
-        background-color: #ff4d4d;
+    /* Estilo de destaque altamente visível para o número de pendentes */
+    .badge-pendente-global {
+        background-color: #ff3333;
         color: #000000;
-        padding: 2px 8px;
-        border-radius: 12px;
+        padding: 6px 14px;
+        border-radius: 20px;
         font-weight: 900;
-        font-size: 14px;
+        font-size: 16px;
         display: inline-block;
-        margin-left: 6px;
+        box-shadow: 0px 0px 10px rgba(255, 51, 51, 0.5);
     }
     </style>
     """, unsafe_allow_html=True)
-
-    st.subheader("🛠️ Painel de Administração — FF Karaoke")
-    st.markdown("---")
 
     placeholder = st.empty()
 
@@ -47,15 +44,21 @@ def show_admin_panel():
         if not df.empty and 'approved' in df.columns:
             pendentes_count = len(df[df['approved'].astype(int) == 0])
 
-        # Rótulo dinâmico com HTML estilizado para a aba
-        if pendentes_count > 0:
-            label_aba2 = f"⏳ Pedidos e Aprovação <span class='badge-pendente'>{pendentes_count}</span>"
-        else:
-            label_aba2 = "⏳ Pedidos e Aprovação"
+        col_t1, col_t2 = st.columns([3, 1])
+        with col_t1:
+            st.subheader("🛠️ Painel de Administração — FF Karaoke")
+        with col_t2:
+            if pendentes_count > 0:
+                st.markdown(f"⏳ Pendentes: <span class='badge-pendente-global'>{pendentes_count}</span>", unsafe_allow_html=True)
+            else:
+                st.markdown("✅ Sem Pendentes", unsafe_allow_html=True)
+                
+        st.markdown("---")
 
+        # Criação das 4 abas limpas
         aba1, aba2, aba3, aba4 = st.tabs([
             "🔗 Link e QR Registo", 
-            label_aba2, 
+            "⏳ Pedidos e Aprovação", 
             "📊 Gestão Total", 
             "📈 Relatórios e Estatísticas"
         ])
