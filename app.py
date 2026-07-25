@@ -6,6 +6,7 @@ from modules.client_portal import show_client_portal
 from datetime import datetime
 import qrcode
 from io import BytesIO
+import time
 
 st.set_page_config(
     page_title="FFKaraoke - Gestão de Acessos",
@@ -44,15 +45,15 @@ def main():
                 if not prestador.empty:
                     row = prestador.iloc[0]
                     
-                    # Verificação se o Administrador já aprovou (approved == 1)
+                    # VERIFICAÇÃO DE APROVAÇÃO
                     if row.get('approved', 0) == 0:
-                        st.warning("⏳ O seu registo foi efetuado, mas ainda aguarda a aprovação do Administrador.")
-                        st.info("Assim que o Administrador clicar em 'Sim' no painel, esta página abrirá automaticamente com o seu programa de karaoke.")
-                        if st.button("🔄 Verificar se já fui aprovado"):
+                        st.warning("⏳ O seu registo foi efetuado com sucesso, mas ainda aguarda a aprovação do Administrador.")
+                        st.info("Assim que o Administrador aprovar o seu pedido no painel, esta página abrirá automaticamente o seu programa. Pode clicar no botão abaixo para verificar se já foi aprovado:")
+                        if st.button("🔄 Verificar Estado da Aprovação"):
                             st.rerun()
                         return
                     
-                    # SE APROVADO: Abre o perfil completo do prestador com todas as ferramentas
+                    # SE JÁ ESTIVER APROVADO:
                     now = datetime.now()
                     exp_str = row.get('expires_at')
                     
@@ -66,7 +67,7 @@ def main():
                             ref_pagamento = row.get('payment_ref', 'N/A')
                             st.info(f"💳 **Referência de Pagamento:** `{ref_pagamento}`")
                             
-                            # Contagem decrescente do tempo restante
+                            # Temporizador de sessão (contagem decrescente)
                             tempo_restante = exp_time - now
                             horas, resto = divmod(int(tempo_restante.total_seconds()), 3600)
                             minutos, segundos = divmod(resto, 60)
@@ -74,8 +75,8 @@ def main():
                             
                             st.markdown("---")
                             
-                            # Gerador do Link e QR Code para os Clientes escolherem as músicas
-                            st.subheader("📱 QR Code e Link para os Clientes")
+                            # Gerador de Link / QR Code para os Clientes
+                            st.subheader("📱 QR Code e Link para os seus Clientes")
                             base_url = "https://appadm.streamlit.app/"
                             client_link = f"{base_url}?client_view={token}"
                             
@@ -87,11 +88,11 @@ def main():
                                 img = qr.make_image(fill_color="black", back_color="white")
                                 buffered = BytesIO()
                                 img.save(buffered, format="PNG")
-                                st.image(buffered.getvalue(), caption="Aponte a câmara para escolher música", width=200)
+                                st.image(buffered.getvalue(), caption="Mostre este QR ao Cliente", width=200)
                             with col_l2:
-                                st.write("Disponibilize este link ou QR Code para que os clientes façam os pedidos de músicas diretamente:")
+                                st.write("Partilhe este link ou deixe os clientes escanearem o QR Code para escolherem as músicas:")
                                 st.code(client_link, language="text")
-                                st.info("💡 Os pedidos efetuados pelos clientes aparecem em tempo real na lista abaixo.")
+                                st.info("💡 Assim que os clientes escolherem as músicas, elas aparecerão em tempo real na lista abaixo.")
 
                             st.markdown("---")
                             st.subheader("📋 Fila de Pedidos de Músicas dos Clientes")
@@ -102,9 +103,9 @@ def main():
                                     requests_df[['client_name', 'song_choice', 'request_type', 'created_at']],
                                     use_container_width=True,
                                     column_config={
-                                        "client_name": "Nome do Cliente",
+                                        "client_name": "Cliente",
                                         "song_choice": "Música Escolhida / Pedido",
-                                        "request_type": "Tipo de Registo",
+                                        "request_type": "Tipo de Pedido",
                                         "created_at": "Hora do Pedido"
                                     }
                                 )
@@ -113,9 +114,9 @@ def main():
                             
                             return
                         else:
-                            st.error("❌ O seu tempo de acesso expirou.")
+                            st.error("❌ O seu tempo de acesso expirou. Contacte o administrador para renovar.")
                             return
-            st.error("Token de acesso inválido ou não encontrado.")
+            st.error("Token de acesso inválido.")
             return
 
         # 4. Painel de Administração
