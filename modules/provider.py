@@ -1,7 +1,6 @@
 import streamlit as st
 
 def show_provider_panel():
-    # Obter o token do prestador através dos query_params
     query_params = st.query_params
     token = query_params.get("token", None)
 
@@ -25,7 +24,8 @@ def show_provider_panel():
         border: 1px solid #D4AF37;
         border-radius: 8px;
         padding: 12px;
-        margin-bottom: 12px;
+        margin-top: 10px;
+        margin-bottom: 10px;
         color: white;
         word-break: break-all;
     }
@@ -35,15 +35,15 @@ def show_provider_panel():
     st.subheader("🎤 Painel do Prestador — FF Karaoke")
     st.markdown("---")
 
-    # Links personalizados para este prestador específico com base no seu token
-    base_domain = "https://appadm.streamlit.app" # Substitua pelo seu domínio se necessário
+    base_domain = "https://appadm.streamlit.app"
     
     link_registo_cliente = f"{base_domain}/?page=client_register&provider={token}"
     link_tela_cliente = f"{base_domain}/?page=client_screen&provider={token}"
 
-    col1, col2 = st.columns(2)
+    # --- LINHA 1: Registo do Cliente ---
+    col_card1, col_qr1 = st.columns([4, 1])
 
-    with col1:
+    with col_card1:
         st.markdown(f"""
         <div class="prov-card">
             <h3 style="color: #D4AF37; margin-top: 0;">📝 1. Link de Registo do Cliente</h3>
@@ -53,11 +53,15 @@ def show_provider_panel():
             </div>
         </div>
         """, unsafe_allow_html=True)
-        
-        qr_registo = f"https://api.qrserver.com/v1/create-qr-code/?size=140x140&data={link_registo_cliente}"
-        st.image(qr_registo, caption="QR Code — Registo de Clientes")
 
-    with col2:
+    with col_qr1:
+        qr_registo = f"https://api.qrserver.com/v1/create-qr-code/?size=140x140&data={link_registo_cliente}"
+        st.image(qr_registo, caption="QR Code — Registo")
+
+    # --- LINHA 2: Tela de Vídeos ---
+    col_card2, col_qr2 = st.columns([4, 1])
+
+    with col_card2:
         st.markdown(f"""
         <div class="prov-card">
             <h3 style="color: #D4AF37; margin-top: 0;">📺 2. Link da Tela de Vídeos</h3>
@@ -67,6 +71,7 @@ def show_provider_panel():
             </div>
         </div>
         """, unsafe_allow_html=True)
-        
+
+    with col_qr2:
         qr_tela = f"https://api.qrserver.com/v1/create-qr-code/?size=140x140&data={link_tela_cliente}"
-        st.image(qr_tela, caption="QR Code — Tela de Apresentação")
+        st.image(qr_tela, caption="QR Code — Tela")
