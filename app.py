@@ -4,6 +4,7 @@ from modules.admin import show_admin_panel
 from modules.register import show_register_page
 from modules.provider import show_provider_panel
 from modules.client import show_client_page
+from modules.tela import show_client_screen
 from datetime import datetime
 
 st.set_page_config(
@@ -33,9 +34,7 @@ def main():
 
         # 3. Tela de Apresentação de Vídeos / Pedidos do Cliente
         if "page" in query_params and query_params["page"] == "client_screen":
-            provider_token = query_params.get("provider", "Desconhecido")
-            st.title("📺 FFKaraoke — Tela de Apresentação de Vídeos")
-            st.info(f"Ecrã de exibição em tempo real ligado ao prestador (`{provider_token[:8]}...`). Os vídeos pedidos aparecerão aqui.")
+            show_client_screen()
             return
 
         # 4. Acesso Individual do Prestador via Token
