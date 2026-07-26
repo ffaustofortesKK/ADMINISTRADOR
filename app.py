@@ -137,7 +137,7 @@ def show_client_screen():
         if response.status_code == 200 and response.json():
             data = response.json()
             pedidos = [{"id": k, **v} for k, v in data.items()]
-            pedidos_ativos = [p for p in pedidos if p.get("estado"] in ["pendente", "aprovado"]] if False else [p for p in pedidos if p.get("estado") in ["pendente", "aprovado"]]
+            pedidos_ativos = [p for p in pedidos if p.get("estado") in ["pendente", "aprovado"]]
             pedidos_ativos.sort(key=lambda x: x.get("timestamp", 0))
             
             tocando_agora = next((p for p in pedidos_ativos if p.get("estado") == "aprovado"), None)
@@ -150,7 +150,6 @@ def show_client_screen():
                 st.markdown(f"<h2>A tocar: {titulo}</h2>", unsafe_allow_html=True)
                 
                 if url_video:
-                    # Força a extensão para .mp4 caso o link termine em .avi para garantir compatibilidade com o browser
                     if url_video.endswith(".avi"):
                         url_video = url_video.rsplit(".", 1)[0] + ".mp4"
                     
