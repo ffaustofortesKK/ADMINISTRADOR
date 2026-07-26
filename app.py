@@ -30,15 +30,12 @@ def atualizar_estado_pedido(provider_token, pedido_id, novo_estado):
         return False
 
 def show_provider_panel_custom(provider_token):
-    """Painel personalizado do prestador estruturado exatamente conforme a imagem enviada."""
-    
-    # Obter nome ou identificação do prestador se possível, ou usar genérico
-    st.markdown("### 🎤 Bem-vindo, Painel do Prestador!")
+    """Painel personalizado do prestador."""
+    st.markdown("### 🎤 Painel do Prestador — FF Karaoke")
     st.markdown("---")
     
-    # Links exatos idênticos ao layout da imagem (Cliente e TV com URLs compridos)
-    link_cliente = f"https://appcliente.streamlit.app/?prestador={provider_token}"
-    link_tv = f"https://ffktela.streamlit.app/?prestador={provider_token}"
+    link_cliente = f"/?page=client_register&prestador={provider_token}"
+    link_tv = f"/?page=client_screen&prestador={provider_token}"
 
     st.markdown(f"""
         <div style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 25px; max-width: 850px;">
@@ -65,13 +62,13 @@ def show_provider_panel_custom(provider_token):
             tocando_agora = next((p for p in pedidos_ativos if p.get("estado") == "aprovado"), None)
             pendentes = [p for p in pedidos_ativos if p.get("estado") == "pendente"]
 
-            # Caixa preta com a lista numerada tal como no seu exemplo (ex: 1- amor, 3- minha vida...)
             if pedidos_ativos:
                 html_lista = '<div style="background-color: #000000; border: 3px solid #000000; padding: 15px; border-radius: 6px; color: #ffffff; max-width: 450px; font-family: monospace; font-size: 15px; margin-bottom: 20px;">'
                 for idx, p in enumerate(pedidos_ativos, start=1):
                     musica_obj = p.get("musica", {})
                     titulo_musica = musica_obj.get("titulo", "Música") if isinstance(musica_obj, dict) else str(musica_obj)
-                    html_lista += f'<div style="padding: 3px 0;"><b>{idx}-</b> {titulo_musica}</div>'
+                    cliente_nome = p.get("cliente", "Convidado")
+                    html_lista += f'<div style="padding: 3px 0;"><b>{idx}-</b> {titulo_musica} <span style="color:#aaa; font-size:12px;">({cliente_nome})</span></div>'
                 html_lista += '</div>'
                 st.markdown(html_lista, unsafe_allow_html=True)
             else:
@@ -175,8 +172,7 @@ def main():
             show_client_screen()
             return
 
-        # Suporte para parâmetro 'prestador' (conforme a imagem) ou 'token' antigo
-        token = query_params.get("prestador") or query_params.get("token")
+        token = query_params.get("prestador") or query_params.get("token") or query_params.get("provider")
         
         if token:
             df = get_all_providers()
