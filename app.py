@@ -30,24 +30,24 @@ def atualizar_estado_pedido(provider_token, pedido_id, novo_estado):
         return False
 
 def show_provider_panel_custom(provider_token):
-    """Painel personalizado do prestador com o visual exacto pedido."""
-    st.title("🎤 Painel do Prestador — FF Karaoke")
-    st.markdown("---")
+    """Painel personalizado do prestador com o visual exacto pedido na imagem."""
+    st.markdown("### 🎤 Painel do Prestador — FF Karaoke")
+    st.markdown("")
     
     link_cliente = f"/?page=client_register&provider={provider_token}"
     link_tela = f"/?page=client_screen&provider={provider_token}"
 
-    # --- BLOCOS EXATOS CONFORME A IMAGEM ---
+    # --- LAYOUT EXATO IDÊNTICO À IMAGEM ENVIADA ---
     st.markdown(f"""
-        <div style="max-width: 450px; display: flex; flex-direction: column; gap: 10px; margin-bottom: 25px;">
-            <div style="display: flex; align-items: center; justify-content: space-between; background-color: #1a1a1a; border: 1px solid #333; padding: 8px 12px; border-radius: 4px;">
-                <span style="color: #ffeb3b; font-weight: bold; font-size: 15px;">📝 1. Link de Registo do Cliente</span>
-                <a href="{link_cliente}" target="_blank" style="background-color: #222; color: #ffeb3b; border: 2px solid #000; padding: 4px 14px; text-decoration: none; border-radius: 6px; font-weight: bold; font-size: 14px; box-shadow: 0 2px 4px rgba(0,0,0,0.5);">link</a>
+        <div style="max-width: 420px; display: flex; flex-direction: column; gap: 8px; margin-bottom: 25px;">
+            <div style="display: flex; align-items: center; justify-content: space-between; background-color: #1a1a1a; border: 1px solid #d4af37; padding: 6px 10px; border-radius: 4px;">
+                <span style="color: #ffeb3b; font-weight: bold; font-size: 14px;">📝 1. Link de Registo do Cliente</span>
+                <a href="{link_cliente}" target="_blank" style="background-color: #000; color: #ffeb3b; border: 2px solid #ffeb3b; padding: 2px 12px; text-decoration: none; border-radius: 4px; font-weight: bold; font-size: 13px;">link</a>
             </div>
             
-            <div style="display: flex; align-items: center; justify-content: space-between; background-color: #1a1a1a; border: 1px solid #333; padding: 8px 12px; border-radius: 4px;">
-                <span style="color: #ffeb3b; font-weight: bold; font-size: 15px;">📺 2. Link da Tela de Vídeos</span>
-                <a href="{link_tela}" target="_blank" style="background-color: #222; color: #ffeb3b; border: 2px solid #000; padding: 4px 14px; text-decoration: none; border-radius: 6px; font-weight: bold; font-size: 14px; box-shadow: 0 2px 4px rgba(0,0,0,0.5);">link</a>
+            <div style="display: flex; align-items: center; justify-content: space-between; background-color: #1a1a1a; border: 1px solid #d4af37; padding: 6px 10px; border-radius: 4px;">
+                <span style="color: #ffeb3b; font-weight: bold; font-size: 14px;">📺 2. Link da Tela de Vídeos</span>
+                <a href="{link_tela}" target="_blank" style="background-color: #000; color: #ffeb3b; border: 2px solid #ffeb3b; padding: 2px 12px; text-decoration: none; border-radius: 4px; font-weight: bold; font-size: 13px;">link</a>
             </div>
         </div>
     """, unsafe_allow_html=True)
