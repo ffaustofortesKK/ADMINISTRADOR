@@ -30,38 +30,27 @@ def atualizar_estado_pedido(provider_token, pedido_id, novo_estado):
         return False
 
 def show_provider_panel_custom(provider_token):
-    """Painel personalizado do prestador mantendo a estrutura pedida."""
-    st.title("📺 Painel do Prestador — Fila de Pedidos")
+    """Painel personalizado do prestador com o visual exacto pedido."""
+    st.title("🎤 Painel do Prestador — FF Karaoke")
     st.markdown("---")
     
-    # --- EXIBIÇÃO DOS LINKS DENTRO DO AMBIENTE PRINCIPAL ---
-    # Obtém o URL correto da aplicação a partir do ambiente ou query parameters
-    try:
-        base_url = st.get_option("browser.serverAddress") or "localhost:8501"
-        protocol = "https" if "streamlit.app" in base_url or "https" in str(st.query_params) else "http"
-    except:
-        protocol = "https"
-        base_url = "ffkaraoke.streamlit.app" # Ajuste automático ou fallback seguro
-
-    # Se estiver no Streamlit Cloud, apanha o host atual de forma dinâmica
     link_cliente = f"/?page=client_register&provider={provider_token}"
     link_tela = f"/?page=client_screen&provider={provider_token}"
 
-    st.markdown("""
-        <div style="background-color: #1a1a1a; border: 2px solid #d4af37; padding: 20px; border-radius: 10px; margin-bottom: 25px;">
-            <h3 style="color: #ffeb3b; margin-top: 0;">🔗 Os Seus Links de Acesso</h3>
-            <p style="color: #ccc; font-size: 14px;">Utilize estes links para partilhar com os clientes ou abrir na tela da TV:</p>
+    # --- BLOCOS EXATOS CONFORME A IMAGEM ---
+    st.markdown(f"""
+        <div style="max-width: 450px; display: flex; flex-direction: column; gap: 10px; margin-bottom: 25px;">
+            <div style="display: flex; align-items: center; justify-content: space-between; background-color: #1a1a1a; border: 1px solid #333; padding: 8px 12px; border-radius: 4px;">
+                <span style="color: #ffeb3b; font-weight: bold; font-size: 15px;">📝 1. Link de Registo do Cliente</span>
+                <a href="{link_cliente}" target="_blank" style="background-color: #222; color: #ffeb3b; border: 2px solid #000; padding: 4px 14px; text-decoration: none; border-radius: 6px; font-weight: bold; font-size: 14px; box-shadow: 0 2px 4px rgba(0,0,0,0.5);">link</a>
+            </div>
+            
+            <div style="display: flex; align-items: center; justify-content: space-between; background-color: #1a1a1a; border: 1px solid #333; padding: 8px 12px; border-radius: 4px;">
+                <span style="color: #ffeb3b; font-weight: bold; font-size: 15px;">📺 2. Link da Tela de Vídeos</span>
+                <a href="{link_tela}" target="_blank" style="background-color: #222; color: #ffeb3b; border: 2px solid #000; padding: 4px 14px; text-decoration: none; border-radius: 6px; font-weight: bold; font-size: 14px; box-shadow: 0 2px 4px rgba(0,0,0,0.5);">link</a>
+            </div>
+        </div>
     """, unsafe_allow_html=True)
-
-    col_l1, col_l2 = st.columns(2)
-    with col_l1:
-        st.markdown("**📱 Link para Clientes (Fila/Pedidos):**")
-        st.code(link_cliente, language="text")
-    with col_l2:
-        st.markdown("**📺 Link para a Tela (Palco / TV):**")
-        st.code(link_tela, language="text")
-
-    st.markdown("</div>", unsafe_allow_html=True)
     st.markdown("---")
 
     try:
@@ -255,7 +244,6 @@ def show_client_screen():
                                 url_cloudinary = v if v.startswith("http") else f"https://{v}"
                                 break
 
-                    # Força .mp4 para evitar incompatibilidade
                     if url_cloudinary and "cloudinary.com" in url_cloudinary:
                         url_cloudinary = url_cloudinary.rsplit(".", 1)[0] + ".mp4"
 
@@ -335,7 +323,6 @@ def main():
                             try:
                                 exp_time = datetime.strptime(exp_str, "%Y-%m-%d %H:%M:%S")
                                 if now < exp_time:
-                                    # Removida a barra lateral (st.sidebar) para os links aparecerem no painel principal
                                     show_provider_panel_custom(token)
                                     return
                                 else:
