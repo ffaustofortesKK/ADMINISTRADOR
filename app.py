@@ -207,20 +207,30 @@ def show_client_screen():
                     
                     url_cloudinary = ""
                     if isinstance(musica, dict):
-                        url_cloudinary = (
-                            musica.get("url_cloudinary") or 
-                            musica.get("url") or 
-                            musica.get("link") or 
-                            musica.get("secure_url")
-                        )
-                        if not url_cloudinary and len(musica) > 0:
-                            for k, v in musica.items():
-                                if isinstance(v, str) and v.startswith("http"):
-                                    url_cloudinary = v
+                        # Procura primeiro se alguma chave tem um link http válido
+                        for k, v in musica.items():
+                            if isinstance(v, str) and (v.startswith("http://") or v.startswith("https://")):
+                                url_cloudinary = v
+                                break
+                        
+                        # Se não encontrou nas chaves, verifica os campos específicos mas valida se começam por http
+                        if not url_cloudinary:
+                            for campo in ["url_cloudinary", "url", "link", "secure_url"]:
+                                val = musica.get(campo, "")
+                                if isinstance(val, str) and (val.startswith("http://") or val.startswith("https://")):
+                                    url_cloudinary = val
                                     break
-                    elif isinstance(musica, str):
+                    elif isinstance(musica, str) and (musica.startswith("http://") or musica.startswith("https://")):
                         url_cloudinary = musica
                     
+                    # Verificação de segurança adicional caso o link venha sem http mas seja do cloudinary
+                    if not url_cloudinary and isinstance(musica, dict):
+                        # Tenta procurar se algum campo contém a palavra cloudinary ou formato de link direto
+                        for k, v in musica.items():
+                            if isinstance(v, str) and ("res.cloudinary.com" in v or ".mp4" in v):
+                                url_cloudinary = v if v.startswith("http") else f"https://{v}"
+                                break
+
                     if url_cloudinary and str(url_cloudinary).startswith("http"):
                         if "ultimo_pedido_tocando" not in st.session_state:
                             st.session_state.ultimo_pedido_tocando = None
@@ -243,7 +253,7 @@ def show_client_screen():
                         except Exception:
                             st.error(f"Erro ao carregar o player de vídeo com o link: {url_cloudinary}")
                     else:
-                        st.warning(f"O link do vídeo não é válido ou está vazio. Dados recebidos: {musica}")
+                        st.warning(f"⚠️ **Atenção:** O campo de vídeo guardado no Firebase para esta música (`{musica}`) contém apenas texto simples (ex: nome do ficheiro) e não um link web URL do Cloudinary. Certifique-se de que ao submeter o pedido o sistema guarda o link completo do vídeo.")
                 else:
                     st.session_state.ultimo_pedido_tocando = None
                     st.markdown("""
