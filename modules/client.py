@@ -1,9 +1,29 @@
+import time
+import requests
 import streamlit as st
-from utils.firebase_db import get_musicas_cloudinary, enviar_pedido_cliente
+from utils.firebase_db import get_musicas_cloudinary
+
+FIREBASE_URL = "https://grupoffkaraoke-default-rtdb.firebaseio.com"
+
+def enviar_pedido_cliente(provider_token, cliente_nome, musica_payload):
+    """Envia o pedido do cliente diretamente para o nó do prestador no Firebase."""
+    try:
+        url = f"{FIREBASE_URL}/pedidos/{provider_token}.json"
+        dados = {
+            "cliente": cliente_nome,
+            "musica": musica_payload,
+            "estado": "pendente",
+            "timestamp": int(time.time() * 1000)
+        }
+        response = requests.post(url, json=dados)
+        return response.status_code == 200
+    except Exception:
+        return False
 
 def show_client_page():
     query_params = st.query_params
-    provider_token = query_params.get("provider", None)
+    # Aceita tanto 'prestador' (usado no painel) como 'provider' por compatibilidade
+    provider_token = query_params.get("prestador") or query_params.get("provider", None)
 
     if not provider_token:
         st.error("Link de cliente inválido. Falta o identificador do prestador.")
@@ -84,7 +104,7 @@ def show_client_page():
     elif pesquisa and not musicas_disponiveis:
         st.info("Ainda não existem músicas registadas na base de dados do Firebase.")
 
-    # PASSO 3: Enviar e Confirmação (Mudar ou Manter)
+    # PASSO 3: Enviar e Confirmação
     if musica_escolhida:
         st.markdown(f"**Música selecionada:** `{musica_escolhida['titulo']}`")
         
@@ -92,18 +112,15 @@ def show_client_page():
         
         if confirmacao == "Manter":
             if st.button("🚀 Enviar Pedido"):
-                # Garante que o URL do Cloudinary está completo antes de enviar
                 url_original = musica_escolhida.get('url_cloudinary', '') or musica_escolhida.get('url', '') or musica_escolhida.get('link', '')
                 
-                # Se o link não começar por http, constrói o URL público do Cloudinary automaticamente
                 if not str(url_original).startswith("http"):
-                    cloud_name = "yhwgjh7g"  # O seu Cloud Name do Cloudinary
+                    cloud_name = "yhwgjh7g"
                     public_id = musica_escolhida.get('titulo', 'video')
                     url_completo = f"https://res.cloudinary.com/{cloud_name}/video/upload/{public_id}.wmv"
                 else:
                     url_completo = url_original
 
-                # Constrói o payload corrigido garantindo que o URL é válido
                 musica_payload = {
                     "titulo": musica_escolhida.get('titulo', 'Karaoke'),
                     "url_cloudinary": url_completo
