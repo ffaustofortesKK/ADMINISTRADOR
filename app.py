@@ -155,7 +155,7 @@ def show_client_screen():
             pedidos_ativos.sort(key=lambda x: x.get("timestamp", 0))
             
             tocando_agora = next((p for p in pedidos_ativos if p.get("estado") == "aprovado"), None)
-            pendentes = [p for p in pedidos_ativos if p.get("estado"] == "pendente"]
+            pendentes = [p for p in pedidos_ativos if p.get("estado") == "pendente"]
 
             col_esquerda, col_direita = st.columns([1.1, 0.9])
 
