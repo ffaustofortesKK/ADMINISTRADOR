@@ -30,29 +30,31 @@ def atualizar_estado_pedido(provider_token, pedido_id, novo_estado):
         return False
 
 def show_provider_panel_custom(provider_token):
-    """Painel personalizado do prestador com o visual exacto pedido na imagem."""
-    st.markdown("### 🎤 Painel do Prestador — FF Karaoke")
-    st.markdown("")
+    """Painel personalizado estruturado exatamente conforme a imagem enviada."""
+    st.markdown("### 🎤 Bem-vindo, ff fffff!")
+    st.markdown("---")
     
     link_cliente = f"/?page=client_register&provider={provider_token}"
     link_tela = f"/?page=client_screen&provider={provider_token}"
 
-    # --- LAYOUT EXATO IDÊNTICO À IMAGEM ENVIADA ---
+    # --- BLOCOS DOS LINKS (CLIENTE E TV) ---
     st.markdown(f"""
-        <div style="max-width: 420px; display: flex; flex-direction: column; gap: 8px; margin-bottom: 25px;">
-            <div style="display: flex; align-items: center; justify-content: space-between; background-color: #1a1a1a; border: 1px solid #d4af37; padding: 6px 10px; border-radius: 4px;">
-                <span style="color: #ffeb3b; font-weight: bold; font-size: 14px;">📝 1. Link de Registo do Cliente</span>
-                <a href="{link_cliente}" target="_blank" style="background-color: #000; color: #ffeb3b; border: 2px solid #ffeb3b; padding: 2px 12px; text-decoration: none; border-radius: 4px; font-weight: bold; font-size: 13px;">link</a>
+        <div style="display: flex; flex-direction: column; gap: 8px; margin-bottom: 25px; max-width: 800px;">
+            <div style="display: flex; align-items: center; background-color: #e8f0fe; border: 1px solid #d2e3fc; padding: 10px 15px; border-radius: 6px;">
+                <span style="font-weight: bold; margin-right: 10px;">📎 Cliente:</span>
+                <a href="{link_cliente}" target="_blank" style="color: #1a0dab; text-decoration: underline; font-size: 14px;">{link_cliente}</a>
             </div>
             
-            <div style="display: flex; align-items: center; justify-content: space-between; background-color: #1a1a1a; border: 1px solid #d4af37; padding: 6px 10px; border-radius: 4px;">
-                <span style="color: #ffeb3b; font-weight: bold; font-size: 14px;">📺 2. Link da Tela de Vídeos</span>
-                <a href="{link_tela}" target="_blank" style="background-color: #000; color: #ffeb3b; border: 2px solid #ffeb3b; padding: 2px 12px; text-decoration: none; border-radius: 4px; font-weight: bold; font-size: 13px;">link</a>
+            <div style="display: flex; align-items: center; background-color: #e8f0fe; border: 1px solid #d2e3fc; padding: 10px 15px; border-radius: 6px;">
+                <span style="font-weight: bold; margin-right: 10px;">📺 TV:</span>
+                <a href="{link_tela}" target="_blank" style="color: #1a0dab; text-decoration: underline; font-size: 14px;">{link_tela}</a>
             </div>
         </div>
     """, unsafe_allow_html=True)
-    st.markdown("---")
 
+    # --- PLAYLIST / FILA DE PEDIDOS CHEGADOS ---
+    st.markdown("### 🎬 Playlist de Vídeos Clipes (Fundo da TV)")
+    
     try:
         response = requests.get(f"{FIREBASE_URL}/pedidos/{provider_token}.json")
         if response.status_code == 200 and response.json():
@@ -65,53 +67,62 @@ def show_provider_panel_custom(provider_token):
             tocando_agora = next((p for p in pedidos_ativos if p.get("estado") == "aprovado"), None)
             pendentes = [p for p in pedidos_ativos if p.get("estado") == "pendente"]
 
+            # Caixa com a lista numerada tal como no seu exemplo
+            lista_html = ""
+            for idx, p in enumerate(pedidos_ativos, start=1):
+                musica_obj = p.get("musica", {})
+                titulo_musica = musica_obj.get("titulo", "Música") if isinstance(musica_obj, dict) else str(musica_obj)
+                cliente_nome = p.get("cliente", "Convidado")
+                lista_html += f"<div style='padding: 4px 0;'><b>{idx}-</b> {titulo_musica} <span style='color: #666; font-size: 12px;'>({cliente_nome})</span></div>"
+
+            st.markdown(f"""
+                <div style="border: 2px solid #000; background-color: #fff; padding: 15px; border-radius: 4px; max-width: 400px; margin-bottom: 20px;">
+                    {lista_html if lista_html else "Fila vazia."}
+                </div>
+            """, unsafe_allow_html=True)
+
             if tocando_agora:
                 musica_obj = tocando_agora.get("musica", {})
                 titulo_tocando = musica_obj.get("titulo", "Karaoke") if isinstance(musica_obj, dict) else str(musica_obj)
                 
-                st.markdown(f"""
-                    <div style="border: 2px solid #28a745; background-color: #0b1f12; padding: 15px; border-radius: 8px; margin-bottom: 15px;">
-                        <h3 style="color: #28a745; margin: 0 0 10px 0;">🎵 A TOCAR NO PALCO AGORA</h3>
-                        <p style="font-size: 18px; color: white; margin: 0;"><b>{titulo_tocando}</b> <span style="font-size: 14px; color: #aaa;">(Cliente: {tocando_agora.get('cliente', 'Convidado')})</span></p>
-                    </div>
-                """, unsafe_allow_html=True)
-                
+                st.markdown(f"**A tocar agora:** {titulo_tocando}")
                 if st.button("⏹️ Terminar Música Atual", key=f"term_{tocando_agora.get('id')}"):
                     atualizar_estado_pedido(provider_token, tocando_agora.get('id'), 'terminado')
                     st.rerun()
-            else:
-                st.info("ℹ️ Nenhuma música em reprodução no momento.")
 
             st.markdown("---")
-            st.markdown("### 📥 Fila de Espera (Ordem de Entrada)")
+            st.markdown("### 📋 Gestão de Fila")
 
             if not pendentes:
-                st.success("A fila de karaoke está limpa! Não há pedidos pendentes.")
+                st.write("Fila vazia.")
             else:
                 for idx, p in enumerate(pendentes, start=1):
                     musica_obj = p.get("musica", {})
                     titulo_musica = musica_obj.get("titulo", "Música") if isinstance(musica_obj, dict) else str(musica_obj)
-                    cliente_nome = p.get("cliente", "Convidado")
                     
-                    st.markdown(f"""
-                        <div style="border: 2px solid #d4af37; background-color: #121212; padding: 12px; border-radius: 8px; margin-bottom: 10px;">
-                            <b style="color: #ffeb3b; font-size: 16px;">#{idx}</b> &nbsp;&nbsp; 
-                            <span style="color: white; font-size: 15px;"><b>{titulo_musica}</b></span> 
-                            <span style="color: #aaa; font-size: 13px;">(Cliente: {cliente_nome})</span>
-                        </div>
-                    """, unsafe_allow_html=True)
-                    
-                    if st.button(f"▶️ Play #{idx}: {titulo_musica}", key=f"btn_play_{p.get('id')}"):
-                        if tocando_agora:
-                            atualizar_estado_pedido(provider_token, tocando_agora.get('id'), 'terminado')
-                        
-                        atualizar_estado_pedido(provider_token, p.get('id'), 'aprovado')
-                        st.rerun()
+                    col_info, col_btn = st.columns([3, 1])
+                    with col_info:
+                        st.write(f"#{idx} - {titulo_musica} ({p.get('cliente', 'Convidado')})")
+                    with col_btn:
+                        if st.button(f"▶️ Play", key=f"btn_play_{p.get('id')}"):
+                            if tocando_agora:
+                                atualizar_estado_pedido(provider_token, tocando_agora.get('id'), 'terminado')
+                            atualizar_estado_pedido(provider_token, p.get('id'), 'aprovado')
+                            st.rerun()
         else:
-            st.info("📭 A fila de pedidos do Firebase está vazia neste momento.")
+            st.markdown("""
+                <div style="border: 2px solid #000; background-color: #fff; padding: 15px; border-radius: 4px; max-width: 400px; margin-bottom: 20px;">
+                    Fila vazia.
+                </div>
+            """, unsafe_allow_html=True)
+            st.write("Fila vazia.")
             
     except Exception as e:
         st.error(f"Erro ao carregar os pedidos: {e}")
+
+    st.markdown("---")
+    st.markdown("### ⚠️ Pedidos Manuais (Atenção)")
+    st.info("Nenhum pedido manual pendente.")
 
     time.sleep(4)
     st.rerun()
