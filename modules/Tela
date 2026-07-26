@@ -12,46 +12,57 @@ def show_client_screen():
     </style>
     """, unsafe_allow_html=True)
 
-    st.title("📺 FFKaraoke — Diretor Palco")
+    st.title("📺 FFKaraoke — Diagnóstico de Vídeo")
     st.markdown("---")
 
     try:
         response = requests.get(f"{FIREBASE_URL}/pedidos/{provider_token}.json")
+        
+        # --- DIAGNOSTICO 1: Ver o que o Firebase respondeu ---
+        st.write("🔍 **Estado da Conexão Firebase:** HTTP", response.status_code)
+        
         if response.status_code == 200 and response.json():
             data = response.json()
+            st.write("📦 **Dados Brutos recebidos:**", data)
+            
             pedidos = [{"id": k, **v} for k, v in data.items()]
             pedidos_ativos = [p for p in pedidos if p.get("estado") in ["pendente", "aprovado"]]
-            pedidos_ativos.sort(key=lambda x: x.get("timestamp", 0))
             
             tocando_agora = next((p for p in pedidos_ativos if p.get("estado") == "aprovado"), None)
             
             if tocando_agora:
+                st.success("✅ Encontrou um pedido com estado 'aprovado'!")
+                st.write("📄 Conteúdo completo do pedido aprovado:", tocando_agora)
+                
                 musica = tocando_agora.get("musica", {})
-                titulo = musica.get("titulo", "Karaoke") if isinstance(musica, dict) else str(musica)
-                url_video = musica.get("url_cloudinary", "") if isinstance(musica, dict) else ""
+                st.write("🎶 Objeto 'musica' extraído:", musica, "Tipo:", type(musica))
                 
-                st.markdown(f"<h2>A tocar: {titulo}</h2>", unsafe_allow_html=True)
+                # Vamos extrair o link independentemente de vir como string ou dicionário
+                if isinstance(musica, dict):
+                    titulo = musica.get("titulo", "Sem Título")
+                    url_video = musica.get("url_cloudinary") or musica.get("url") or ""
+                else:
+                    titulo = str(musica)
+                    # Pode ser que o url esteja guardado noutra chave do pedido
+                    url_video = tocando_agora.get("url_cloudinary", "")
+
+                st.write(f"🎤 Título detetado: **{titulo}**")
+                st.write(f"🔗 Link bruto do vídeo detetado: `{url_video}` (Tipo: {type(url_video)})")
                 
-                if url_video:
-                    # Limpeza e normalização segura do link do Cloudinary para .mp4 direto
-                    if "/upload/" in url_video:
-                        base_url, rest = url_video.split("/upload/")
-                        # Remove parâmetros antigos se existirem e força a extensão mp4
-                        clean_rest = rest.split("/")[-1].rsplit(".", 1)[0] + ".mp4"
-                        url_video = f"{base_url}/upload/f_auto,q_auto/{clean_rest}"
-                    
-                    st.text(f"Link otimizado: {url_video}")
-                    
-                    # Player nativo sem autoplay forçado para evitar o bloqueio do ciclo de refresh
+                if url_video and str(url_video).startswith("http"):
+                    st.success("✅ O link é válido e começa com http!")
                     st.video(url_video)
                 else:
-                    st.warning("O link do vídeo não está disponível para esta música.")
+                    st.error("❌ **ERRO DESCOBERTO:** O link do vídeo está VAZIO, não começa com http ou está guardado numa chave errada no Firebase!")
             else:
-                st.info("A aguardar início de reprodução...")
+                st.warning("⚠️ Nenhum pedido está com o estado 'aprovado' no Firebase. Vencido ou pendente.")
         else:
-            st.info("Nenhum pedido ativo na TV.")
+            st.info("A base de dados do Firebase para este prestador está vazia ou inacessível.")
+            
     except Exception as e:
-        st.error(f"Erro de sincronização: {e}")
+        st.error(f"❌ **ERRO CRÍTICO NO PYTHON:** {e}")
 
-    time.sleep(5)
-    st.rerun()
+    # Sem o time.sleep e rerun para podermos ler o diagnóstico com calma no ecrã
+    st.markdown("---")
+    if st.button("🔄 Atualizar Diagnóstico Manualmente"):
+        st.rerun()
