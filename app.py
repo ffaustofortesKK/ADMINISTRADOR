@@ -145,13 +145,20 @@ def show_client_screen():
             if tocando_agora:
                 musica = tocando_agora.get("musica", {})
                 titulo = musica.get("titulo", "Karaoke") if isinstance(musica, dict) else str(musica)
+                url_video = musica.get("url_cloudinary", "") if isinstance(musica, dict) else ""
+                
                 st.markdown(f"<h2>A tocar: {titulo}</h2>", unsafe_allow_html=True)
+                
+                if url_video:
+                    st.video(url_video, autoplay=True)
+                else:
+                    st.warning("O link do vídeo não está disponível para esta música.")
             else:
                 st.info("A aguardar início de reprodução...")
         else:
             st.info("Nenhum pedido ativo na TV.")
-    except Exception:
-        st.error("Erro de sincronização.")
+    except Exception as e:
+        st.error(f"Erro de sincronização: {e}")
 
     time.sleep(5)
     st.rerun()
