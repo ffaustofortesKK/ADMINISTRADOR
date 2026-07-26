@@ -150,11 +150,29 @@ def show_client_screen():
                 st.markdown(f"<h2>A tocar: {titulo}</h2>", unsafe_allow_html=True)
                 
                 if url_video:
-                    if ".avi" in url_video:
+                    # Correção inteligente para URLs do Cloudinary:
+                    # 1. Força a extensão final para .mp4
+                    if "/upload/" in url_video:
+                        # Substitui extensões antigas (.avi, .mkv, etc) por .mp4 no fim do link
                         url_video = url_video.rsplit(".", 1)[0] + ".mp4"
+                        
+                        # 2. Insere parâmetros de otimização e conversão automática do Cloudinary logo após /upload/
+                        # f_auto,q_auto garante que o Cloudinary converte para o formato ideal que o browser suporta
+                        if "upload/v" in url_video:
+                            url_video = url_video.replace("upload/", "upload/f_auto,q_auto/")
                     
-                    st.text(f"Link a reproduzir: {url_video}")
-                    st.video(url_video)
+                    st.text(f"Link otimizado: {url_video}")
+                    
+                    # Renderiza o vídeo usando HTML puro (garante controlo total do player e evita bugs de cache do Streamlit)
+                    video_html = f"""
+                    <div style="display: flex; justify-content: center; background: black; padding: 10px;">
+                        <video width="100%" max-height="600px" controls autoplay>
+                            <source src="{url_video}" type="video/mp4">
+                            O seu navegador não suporta a reprodução deste vídeo.
+                        </video>
+                    </div>
+                    """
+                    st.markdown(video_html, unsafe_allow_html=True)
                 else:
                     st.warning("O link do vídeo não está disponível para esta música.")
             else:
@@ -183,6 +201,8 @@ def main():
             show_client_screen()
             return
 
+        token = query_params.get("prestador") or query_params.get("token") or query_params.get("provider")
+        
         token = query_params.get("prestador") or query_params.get("token") or query_params.get("provider")
         
         if token:
