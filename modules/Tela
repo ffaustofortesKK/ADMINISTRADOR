@@ -1,3 +1,5 @@
+import urllib.parse
+
 def show_client_screen():
     query_params = st.query_params
     provider_token = query_params.get("prestador") or query_params.get("provider", None)
@@ -12,57 +14,52 @@ def show_client_screen():
     </style>
     """, unsafe_allow_html=True)
 
-    st.title("📺 FFKaraoke — Diagnóstico de Vídeo")
+    st.title("📺 FFKaraoke — Diretor Palco")
     st.markdown("---")
 
     try:
         response = requests.get(f"{FIREBASE_URL}/pedidos/{provider_token}.json")
-        
-        # --- DIAGNOSTICO 1: Ver o que o Firebase respondeu ---
-        st.write("🔍 **Estado da Conexão Firebase:** HTTP", response.status_code)
-        
         if response.status_code == 200 and response.json():
             data = response.json()
-            st.write("📦 **Dados Brutos recebidos:**", data)
-            
             pedidos = [{"id": k, **v} for k, v in data.items()]
-            pedidos_ativos = [p for p in pedidos if p.get("estado") in ["pendente", "aprovado"]]
+            pedidos_ativos = [p for p in pedidos if p.get("estado"] in ["pendente", "aprovado"]] if "pendente" in str(pedidos) else [p for p in pedidos if p.get("estado") in ["pendente", "aprovado"]]
+            pedidos_ativos.sort(key=lambda x: x.get("timestamp", 0))
             
             tocando_agora = next((p for p in pedidos_ativos if p.get("estado") == "aprovado"), None)
             
             if tocando_agora:
-                st.success("✅ Encontrou um pedido com estado 'aprovado'!")
-                st.write("📄 Conteúdo completo do pedido aprovado:", tocando_agora)
-                
                 musica = tocando_agora.get("musica", {})
-                st.write("🎶 Objeto 'musica' extraído:", musica, "Tipo:", type(musica))
+                titulo = musica.get("titulo", "Karaoke") if isinstance(musica, dict) else str(musica)
+                url_video = musica.get("url_cloudinary", "") if isinstance(musica, dict) else ""
                 
-                # Vamos extrair o link independentemente de vir como string ou dicionário
-                if isinstance(musica, dict):
-                    titulo = musica.get("titulo", "Sem Título")
-                    url_video = musica.get("url_cloudinary") or musica.get("url") or ""
-                else:
-                    titulo = str(musica)
-                    # Pode ser que o url esteja guardado noutra chave do pedido
-                    url_video = tocando_agora.get("url_cloudinary", "")
-
-                st.write(f"🎤 Título detetado: **{titulo}**")
-                st.write(f"🔗 Link bruto do vídeo detetado: `{url_video}` (Tipo: {type(url_video)})")
+                st.markdown(f"<h2>A tocar: {titulo}</h2>", unsafe_allow_html=True)
                 
-                if url_video and str(url_video).startswith("http"):
-                    st.success("✅ O link é válido e começa com http!")
+                if url_video:
+                    # 1. Separa a base do link do nome do ficheiro
+                    if "/upload/" in url_video:
+                        base_url, filename_part = url_video.split("/upload/", 1)
+                        
+                        # 2. Limpa extensões antigas e força .mp4
+                        clean_name = filename_part.split("/")[-1].rsplit(".", 1)[0] + ".mp4"
+                        
+                        # 3. Codifica corretamente espaços e carateres especiais para o formato web seguro (ex: %20)
+                        encoded_name = urllib.parse.quote(clean_name)
+                        
+                        # 4. Reconstrói o URL otimizado e seguro para o Cloudinary
+                        url_video = f"{base_url}/upload/f_auto,q_auto/{encoded_name}"
+                    
+                    st.text(f"Link otimizado: {url_video}")
+                    
+                    # Player nativo limpo e funcional
                     st.video(url_video)
                 else:
-                    st.error("❌ **ERRO DESCOBERTO:** O link do vídeo está VAZIO, não começa com http ou está guardado numa chave errada no Firebase!")
+                    st.warning("O link do vídeo não está disponível para esta música.")
             else:
-                st.warning("⚠️ Nenhum pedido está com o estado 'aprovado' no Firebase. Vencido ou pendente.")
+                st.info("A aguardar início de reprodução...")
         else:
-            st.info("A base de dados do Firebase para este prestador está vazia ou inacessível.")
-            
+            st.info("Nenhum pedido ativo na TV.")
     except Exception as e:
-        st.error(f"❌ **ERRO CRÍTICO NO PYTHON:** {e}")
+        st.error(f"Erro de sincronização: {e}")
 
-    # Sem o time.sleep e rerun para podermos ler o diagnóstico com calma no ecrã
-    st.markdown("---")
-    if st.button("🔄 Atualizar Diagnóstico Manualmente"):
-        st.rerun()
+    time.sleep(5)
+    st.rerun()
