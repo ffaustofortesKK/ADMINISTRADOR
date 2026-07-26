@@ -1,3 +1,8 @@
+import streamlit as st
+import requests
+import time
+import urllib.parse
+
 def show_client_screen():
     query_params = st.query_params
     provider_token = query_params.get("provider", None)
@@ -120,10 +125,21 @@ def show_client_screen():
                         else:
                             raw_val = musica
 
-                    # Se raw_val contiver apenas o nome do ativo/Public ID, constrói o URL do Cloudinary (substitua 'yhwgjh7g' pelo seu Cloud Name se for diferente)
-                    if not url_cloudinary and raw_val:
-                        cloud_name = "yhwgjh7g"  # Seu Cloud Name do Cloudinary
-                        url_cloudinary = f"https://res.cloudinary.com/{cloud_name}/video/upload/{raw_val}.wmv"
+                    # Se não houver link direto, tenta extrair o título e tratá-lo para formar o link do Cloudinary sem erros
+                    if not url_cloudinary:
+                        titulo_fonte = ""
+                        if isinstance(musica, dict):
+                            titulo_fonte = musica.get("titulo", "video")
+                        else:
+                            titulo_fonte = str(musica)
+                        
+                        if raw_val and not str(raw_val).startswith("http"):
+                            titulo_fonte = str(raw_val)
+
+                        # Limpeza rigorosa de caracteres especiais (remove # e troca espaços por underscores)
+                        titulo_formatado = titulo_fonte.replace("#", "").strip().replace(" ", "_")
+                        cloud_name = "yhwgjh7g"  # O seu Cloud Name do Cloudinary
+                        url_cloudinary = f"https://res.cloudinary.com/{cloud_name}/video/upload/{titulo_formatado}.wmv"
 
                     if url_cloudinary and url_cloudinary.startswith("http"):
                         if "ultimo_pedido_tocando" not in st.session_state:
