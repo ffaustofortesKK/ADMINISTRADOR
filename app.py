@@ -60,7 +60,7 @@ def show_provider_panel_custom(provider_token):
             pedidos_ativos.sort(key=lambda x: x.get("timestamp", 0))
             
             tocando_agora = next((p for p in pedidos_ativos if p.get("estado") == "aprovado"), None)
-            pendentes = [p for p in pedidos_ativos if p.get("estado"] == "pendente"]
+            pendentes = [p for p in pedidos_ativos if p.get("estado") == "pendente"]
 
             if pedidos_ativos:
                 html_lista = '<div style="background-color: #000000; border: 3px solid #000000; padding: 15px; border-radius: 6px; color: #ffffff; max-width: 450px; font-family: monospace; font-size: 15px; margin-bottom: 20px;">'
@@ -150,7 +150,6 @@ def show_client_screen():
                 st.markdown(f"<h2>A tocar: {titulo}</h2>", unsafe_allow_html=True)
                 
                 if url_video:
-                    # Se o link contiver .avi, força a extensão para .mp4 para o browser conseguir ler
                     if ".avi" in url_video:
                         url_video = url_video.rsplit(".", 1)[0] + ".mp4"
                     
