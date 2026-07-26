@@ -132,6 +132,12 @@ def show_client_screen():
     st.title("📺 FFKaraoke — Diretor Palco")
     st.markdown("---")
 
+    # Botão de diagnóstico rápido na tela da TV
+    with st.expander("🛠️ Modo de Teste de Vídeo (Diagnóstico)"):
+        if st.button("🧪 Testar com Vídeo de Exemplo (Big Buck Bunny)"):
+            st.video("https://www.w3schools.com/html/mov_bbb.mp4")
+            return
+
     try:
         response = requests.get(f"{FIREBASE_URL}/pedidos/{provider_token}.json")
         if response.status_code == 200 and response.json():
@@ -150,9 +156,7 @@ def show_client_screen():
                 st.markdown(f"<h2>A tocar: {titulo}</h2>", unsafe_allow_html=True)
                 
                 if url_video:
-                    if url_video.endswith(".avi"):
-                        url_video = url_video.rsplit(".", 1)[0] + ".mp4"
-                    
+                    st.info(f"Link gerado: `{url_video}`")
                     st.video(url_video)
                 else:
                     st.warning("O link do vídeo não está disponível para esta música.")
@@ -199,7 +203,7 @@ def main():
             st.error("Token de acesso inválido ou não encontrado.")
             return
 
-        st.sidebar.title("Painel Admin")
+        st.sidebar.title("Panel Admin")
         senha = st.sidebar.text_input("Palavra-passe", type="password")
         
         if senha == "admin123":
