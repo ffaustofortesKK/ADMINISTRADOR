@@ -150,7 +150,8 @@ def show_client_screen():
                 st.markdown(f"<h2>A tocar: {titulo}</h2>", unsafe_allow_html=True)
                 
                 if url_video:
-                    st.video(url_video, autoplay=True)
+                    # Renderiza o vídeo sem autoplay forçado para evitar bloqueio do browser
+                    st.video(url_video)
                 else:
                     st.warning("O link do vídeo não está disponível para esta música.")
             else:
