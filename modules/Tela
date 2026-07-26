@@ -1,7 +1,6 @@
 import streamlit as st
 import requests
 import time
-import urllib.parse
 
 def show_client_screen():
     query_params = st.query_params
@@ -137,15 +136,21 @@ def show_client_screen():
 
                         titulo_formatado = titulo_fonte.replace("#", "").strip().replace(" ", "_")
                         cloud_name = "yhwgjh7g"
-                        
-                        # Adicionada a flag de transformação f_auto/ q_auto para forçar o Cloudinary a converter o formato para web compatível (mp4)
                         url_cloudinary = f"https://res.cloudinary.com/{cloud_name}/video/upload/f_auto,q_auto/{titulo_formatado}"
 
                     if url_cloudinary and url_cloudinary.startswith("http"):
                         if "ultimo_pedido_tocando" not in st.session_state:
                             st.session_state.ultimo_pedido_tocando = None
+                        if "contagem_feita" not in st.session_state:
+                            st.session_state.contagem_feita = False
 
+                        # Se mudou de música, ativa a contagem para este novo ID
                         if st.session_state.ultimo_pedido_tocando != pedido_id_atual:
+                            st.session_state.ultimo_pedido_tocando = pedido_id_atual
+                            st.session_state.contagem_feita = False
+
+                        # Executa a contagem apenas uma vez por música de forma isolada
+                        if not st.session_state.contagem_feita:
                             placeholder_contagem = st.empty()
                             for i in [3, 2, 1]:
                                 placeholder_contagem.markdown(f"""
@@ -156,8 +161,10 @@ def show_client_screen():
                                 """, unsafe_allow_html=True)
                                 time.sleep(1)
                             placeholder_contagem.empty()
-                            st.session_state.ultimo_pedido_tocando = pedido_id_atual
+                            st.session_state.contagem_feita = True
+                            st.rerun()  # Recarrega limpo para exibir imediatamente o vídeo
 
+                        # Exibe o vídeo de forma estável sem re-execuções cíclicas da contagem
                         try:
                             st.video(url_cloudinary)
                         except Exception:
@@ -166,6 +173,7 @@ def show_client_screen():
                         st.warning(f"⚠️ Não foi possível obter o link do vídeo. Dados recebidos: {musica}")
                 else:
                     st.session_state.ultimo_pedido_tocando = None
+                    st.session_state.contagem_feita = False
                     st.markdown("""
                         <div style="border: 2px solid #d4af37; border-radius: 10px; padding: 20px; text-align: center; background-color: #0d0d0d; min-height: 280px; display: flex; flex-direction: column; justify-content: center; align-items: center;">
                             <div style="color: #d4af37; font-size: 35px; margin-bottom: 10px;">📺</div>
