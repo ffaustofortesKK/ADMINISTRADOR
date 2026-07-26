@@ -92,9 +92,26 @@ def show_client_page():
         
         if confirmacao == "Manter":
             if st.button("🚀 Enviar Pedido"):
-                sucesso = enviar_pedido_cliente(provider_token, st.session_state.client_name, musica_escolhida)
+                # Garante que o URL do Cloudinary está completo antes de enviar
+                url_original = musica_escolhida.get('url_cloudinary', '') or musica_escolhida.get('url', '') or musica_escolhida.get('link', '')
+                
+                # Se o link não começar por http, constrói o URL público do Cloudinary automaticamente
+                if not str(url_original).startswith("http"):
+                    cloud_name = "yhwgjh7g"  # O seu Cloud Name do Cloudinary
+                    public_id = musica_escolhida.get('titulo', 'video')
+                    url_completo = f"https://res.cloudinary.com/{cloud_name}/video/upload/{public_id}.wmv"
+                else:
+                    url_completo = url_original
+
+                # Constrói o payload corrigido garantindo que o URL é válido
+                musica_payload = {
+                    "titulo": musica_escolhida.get('titulo', 'Karaoke'),
+                    "url_cloudinary": url_completo
+                }
+
+                sucesso = enviar_pedido_cliente(provider_token, st.session_state.client_name, musica_payload)
                 if sucesso:
-                    st.success("Seu pedido foi enviado.")
+                    st.success("Seu pedido foi enviado com sucesso!")
                     st.session_state.can_request = False
                     st.rerun()
                 else:
