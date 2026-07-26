@@ -1,184 +1,222 @@
 import streamlit as st
 import requests
 import time
+import streamlit.components.v1 as components
 
-def show_client_screen():
-    query_params = st.query_params
-    provider_token = query_params.get("provider", None)
+st.set_page_config(page_title="FF KARAOKE - TV", layout="wide")
 
-    if not provider_token:
-        st.error("Tela inválida. Falta o parâmetro do prestador.")
-        return
-
-    st.markdown("""
+st.markdown("""
     <style>
-    .stApp { background-color: #000000; color: white; }
-    .box-header {
-        background: linear-gradient(90deg, #1a1a1a, #2c2c2c);
-        border: 2px solid #d4af37;
-        padding: 10px;
-        text-align: center;
-        border-radius: 8px;
-        color: #d4af37;
-        font-weight: bold;
-        font-size: 18px;
-        letter-spacing: 2px;
-        margin-bottom: 15px;
-    }
-    .card-next {
-        background: linear-gradient(135deg, #2b103a, #14081c);
-        border: 2px solid #9c27b0;
-        padding: 15px;
-        border-radius: 10px;
-        color: white;
-        text-align: center;
-        margin-bottom: 15px;
-    }
-    .card-fila {
-        background-color: #121212;
-        border: 1px solid #d4af37;
-        padding: 10px;
-        border-radius: 8px;
-        color: #ffffff;
-        margin-bottom: 8px;
-    }
+        .stApp { background: black; margin: 0; padding: 0; overflow: hidden; }
+        #MainMenu {visibility: hidden;} footer {visibility: hidden;} header {visibility: hidden;}
+        .cantor-style { color: white; font-weight: bold; text-shadow: 2px 2px 4px #000; }
+        .musica-style { color: yellow; font-weight: bold; text-shadow: 2px 2px 4px #000; }
+        .video-clipe-box { 
+            width: 430px; 
+            height: 306px;
+            background: black; 
+            padding: 0px; 
+            border-radius: 4px; 
+            border: 2px solid #ffd700; 
+            overflow: hidden;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        .contador-box { font-size: 8rem; color: yellow; font-weight: bold; text-shadow: 0 0 20px red; text-align: center; }
     </style>
+""", unsafe_allow_html=True)
+
+# Obter o token/prestador pela query string (suporta 'provider' ou 'prestador')
+params = st.query_params
+slug = params.get("provider") or params.get("prestador") or "geral"
+
+FIREBASE_URL = "https://grupoffkaraoke-default-rtdb.firebaseio.com"
+URL_STATUS = f"{FIREBASE_URL}/status_{slug}.json"
+URL_PEDIDOS = f"{FIREBASE_URL}/pedidos_{slug}.json"
+
+# Buscar dados do Firebase com prevenção de cache
+try:
+    res_status = requests.get(f"{URL_STATUS}?nocache={time.time()}", timeout=5).json() or {}
+    res_pedidos = requests.get(f"{URL_PEDIDOS}?nocache={time.time()}", timeout=5).json() or {}
+except Exception:
+    res_status = {}
+    res_pedidos = {}
+
+comando = res_status.get("comando")
+url_video = res_status.get("url_video")
+
+# 1. CONTAGEM DECRESCENTE ANTES DE EXECUTAR O PEDIDO
+if comando == "aguardando_play":
+    st.markdown(f"""
+        <div style='text-align:center; padding:80px; color:white;'>
+            <h1 style='font-size: 2.5rem; color: #00ff00;'>A CHAMAR AO PALCO:</h1>
+            <h2 style='font-size: 3.5rem;' class="cantor-style">{str(res_status.get('cantor', '')).upper()}</h2>
+            <h3 style='font-size: 2rem; color: yellow;'>{str(res_status.get('musica', '')).upper()}</h3>
+            <hr style='width: 50%; margin: 20px auto; border-color: #444;'>
+            <p style='font-size: 1.5rem; color: #ccc;'>O palco vai abrir em:</p>
+        </div>
     """, unsafe_allow_html=True)
-
-    st.title("📺 FFKaraoke — Palco Principal")
-    st.markdown("---")
-
+    
+    placeholder_contagem = st.empty()
+    for i in [3, 2, 1, 0]:
+        placeholder_contagem.markdown(f'<div class="contador-box">{i}</div>', unsafe_allow_html=True)
+        time.sleep(1)
+    
+    # Após a contagem, limpa o comando para voltar ao ecrã normal
     try:
-        response = requests.get(f"{FIREBASE_URL}/pedidos/{provider_token}.json")
-        if response.status_code == 200 and response.json():
-            data = response.json()
-            pedidos = [{"id": k, **v} for k, v in data.items()]
-            
-            pedidos_ativos = [p for p in pedidos if p.get("estado") in ["pendente", "aprovado"]]
-            pedidos_ativos.sort(key=lambda x: x.get("timestamp", 0))
-            
-            tocando_agora = next((p for p in pedidos_ativos if p.get("estado") == "aprovado"), None)
-            pendentes = [p for p in pedidos_ativos if p.get("estado") == "pendente"]
-
-            col_esquerda, col_direita = st.columns([1.1, 0.9])
-
-            with col_esquerda:
-                st.markdown('<div class="box-header">🎙️ FILA DE ESPERA</div>', unsafe_allow_html=True)
-                
-                if tocando_agora:
-                    cliente = tocando_agora.get("cliente", "Convidado")
-                    musica = tocando_agora.get("musica", {})
-                    titulo = musica.get("titulo", "Karaoke") if isinstance(musica, dict) else str(musica)
-                    
-                    st.markdown(f"""
-                        <div class="card-next">
-                            <div style="font-size: 14px; color: #e0b0ff; margin-bottom: 5px;">— A Seguir —</div>
-                            <div style="font-size: 22px; font-weight: bold; color: #ffeb3b;">{str(titulo).upper()}</div>
-                            <div style="font-size: 12px; color: #ccc; margin-top: 5px;">Cliente: {cliente}</div>
-                        </div>
-                    """, unsafe_allow_html=True)
-                else:
-                    st.markdown("""
-                        <div class="card-next">
-                            <div style="font-size: 16px; color: #888;">Nenhuma música de karaoke a tocar no momento.</div>
-                        </div>
-                    """, unsafe_allow_html=True)
-
-                st.markdown("---")
-                st.markdown("**Próximos Pedidos na Fila:**")
-                
-                if not pendentes:
-                    st.info("A fila de karaoke está vazia.")
-                else:
-                    for idx, p in enumerate(pendentes, start=1):
-                        cliente_p = p.get("cliente", "Convidado")
-                        musica_p = p.get("musica", {})
-                        titulo_p = musica_p.get("titulo", "Música") if isinstance(musica_p, dict) else str(musica_p)
-                        
-                        st.markdown(f"""
-                            <div class="card-fila">
-                                <b>{idx}.</b> {titulo_p} <span style="font-size:11px; color:#aaa;">({cliente_p})</span>
-                            </div>
-                        """, unsafe_allow_html=True)
-
-            with col_direita:
-                st.markdown('<div class="box-header">📺 VÍDEO CLIPE (FUNDO)</div>', unsafe_allow_html=True)
-                
-                if tocando_agora:
-                    pedido_id_atual = tocando_agora.get("id")
-                    musica = tocando_agora.get("musica", {})
-                    
-                    url_cloudinary = ""
-                    raw_val = ""
-
-                    if isinstance(musica, dict):
-                        for k, v in musica.items():
-                            if isinstance(v, str) and (v.startswith("http://") or v.startswith("https://")):
-                                url_cloudinary = v
-                                break
-                        if not url_cloudinary:
-                            raw_val = musica.get("url_cloudinary") or musica.get("url") or musica.get("link") or ""
-                    elif isinstance(musica, str):
-                        if musica.startswith("http://") or musica.startswith("https://"):
-                            url_cloudinary = musica
-                        else:
-                            raw_val = musica
-
-                    if not url_cloudinary:
-                        titulo_fonte = ""
-                        if isinstance(musica, dict):
-                            titulo_fonte = musica.get("titulo", "video")
-                        else:
-                            titulo_fonte = str(musica)
-                        
-                        if raw_val and not str(raw_val).startswith("http"):
-                            titulo_fonte = str(raw_val)
-
-                        titulo_formatado = titulo_fonte.replace("#", "").strip().replace(" ", "_")
-                        cloud_name = "yhwgjh7g"
-                        url_cloudinary = f"https://res.cloudinary.com/{cloud_name}/video/upload/f_auto,q_auto/{titulo_formatado}"
-
-                    if url_cloudinary and url_cloudinary.startswith("http"):
-                        if "ultimo_pedido_tocando" not in st.session_state:
-                            st.session_state.ultimo_pedido_tocando = None
-                        if "contagem_feita" not in st.session_state:
-                            st.session_state.contagem_feita = False
-
-                        if st.session_state.ultimo_pedido_tocando != pedido_id_atual:
-                            st.session_state.ultimo_pedido_tocando = pedido_id_atual
-                            st.session_state.contagem_feita = False
-
-                        if not st.session_state.contagem_feita:
-                            placeholder_contagem = st.empty()
-                            for i in [3, 2, 1]:
-                                placeholder_contagem.markdown(f"""
-                                    <div style="border: 2px solid #d4af37; border-radius: 10px; padding: 40px; text-align: center; background-color: #0d0d0d; min-height: 280px; display: flex; flex-direction: column; justify-content: center; align-items: center;">
-                                        <h2 style="color: #ffeb3b; margin-bottom: 10px;">A PREPARAR PALCO...</h2>
-                                        <h1 style="color: #d4af37; font-size: 80px; margin: 0;">{i}</h1>
-                                    </div>
-                                """, unsafe_allow_html=True)
-                                time.sleep(1)
-                            placeholder_contagem.empty()
-                            st.session_state.contagem_feita = True
-                            st.rerun()
-
-                        try:
-                            st.video(url_cloudinary)
-                        except Exception:
-                            st.error(f"Erro ao carregar o player de vídeo com o link: {url_cloudinary}")
-                    else:
-                        st.warning(f"⚠️ Não foi possível obter o link do vídeo. Dados recebidos: {musica}")
-                else:
-                    st.session_state.ultimo_pedido_tocando = None
-                    st.session_state.contagem_feita = False
-                    st.markdown("""
-                        <div style="border: 2px solid #d4af37; border-radius: 10px; padding: 20px; text-align: center; background-color: #0d0d0d; min-height: 280px; display: flex; flex-direction: column; justify-content: center; align-items: center;">
-                            <div style="color: #d4af37; font-size: 35px; margin-bottom: 10px;">📺</div>
-                            <span style='color: #aaa;'>Aguardando o prestador selecionar um vídeo clipe no painel de controle...</span>
-                        </div>
-                    """, unsafe_allow_html=True)
-        else:
-            st.info("📺 A aguardar o próximo artista... O ecrã atualizará automaticamente assim que o prestador aprovar um pedido.")
-        
+        requests.patch(URL_STATUS, json={"comando": "fim"})
     except Exception:
-        st.error("Erro ao sincronizar com a base de dados em tempo real.")
+        pass
+    st.rerun()
+
+# 2. TELA PRINCIPAL: FILA DE ESPERA À ESQUERDA E VÍDEO HTML5 À DIREITA
+else:
+    cl1, cl2 = st.columns([1.4, 1.2])
+
+    with cl1:
+        st.markdown("<h1 style='color:gold; font-size: 2.2rem; margin-bottom: 15px;'>🎤 FILA DE ESPERA</h1>", unsafe_allow_html=True)
+        
+        if res_pedidos:
+            pedidos_lista = list(res_pedidos.items())
+            contador_exibicao = 1
+            for p_id, p in pedidos_lista:
+                if isinstance(p, dict) and not str(p.get('musica', '')).startswith("PEDIDO:"):
+                    cantor_nome = p.get('cantor', 'Convidado')
+                    musica_nome = p.get('musica', 'Música')
+                    st.markdown(f"<h3 style='margin: 10px 0; font-size: 1.3rem;'>{contador_exibicao}. <span class='cantor-style'>{str(cantor_nome).upper()}</span> ➔ <span class='musica-style'>{str(musica_nome).upper()}</span></h3>", unsafe_allow_html=True)
+                    contador_exibicao += 1
+            if contador_exibicao == 1:
+                st.info("Ainda sem cantores na fila.")
+        else:
+            st.info("A fila está vazia. Envie músicas pelo telemóvel!")
+
+    with cl2:
+        st.markdown("<h1 style='color:gold; font-size: 1.8rem; margin-bottom: 5px;'>📺 VÍDEO CLIPE (FUNDO)</h1>", unsafe_allow_html=True)
+        
+        url_clipe = res_status.get("url_video")
+        nome_clipe_atual = res_status.get("musica")
+
+        if url_clipe:
+            if nome_clipe_atual:
+                st.markdown(f"<p style='color: #00ff00; font-weight: bold; margin-bottom: 5px;'>▶️ Reproduzindo: {nome_clipe_atual}</p>", unsafe_allow_html=True)
+            else:
+                st.markdown(f"<p style='color: #00ff00; font-weight: bold; margin-bottom: 5px;'>▶️ Reproduzindo vídeo</p>", unsafe_allow_html=True)
+            
+            # Player HTML5 encapsulado via components.html para garantir compatibilidade total e evitar bloqueios
+            mini_player_html = f"""
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <style>
+                    body, html {{
+                        margin: 0; padding: 0; width: 430px; height: 306px; background: black; overflow: hidden;
+                    }}
+                    .mini-container {{
+                        position: relative; width: 430px; height: 306px; background: black; display: flex; justify-content: center; align-items: center;
+                    }}
+                    video {{
+                        width: 100%; height: 100%; object-fit: fill;
+                    }}
+                    .mini-controls {{
+                        position: absolute;
+                        bottom: 5px;
+                        left: 5px;
+                        right: 5px;
+                        background: rgba(0, 0, 0, 0.85);
+                        border: 1px solid #ffd700;
+                        padding: 5px 10px;
+                        border-radius: 6px;
+                        display: flex;
+                        align-items: center;
+                        gap: 8px;
+                        box-sizing: border-box;
+                    }}
+                    .mini-controls button {{
+                        background: #ffd700;
+                        border: none;
+                        color: black;
+                        font-weight: bold;
+                        padding: 4px 8px;
+                        border-radius: 4px;
+                        cursor: pointer;
+                        font-size: 0.8rem;
+                    }}
+                    .mini-controls input[type=range] {{
+                        cursor: pointer;
+                        accent-color: #ffd700;
+                        height: 4px;
+                    }}
+                    .mini-time {{
+                        color: white;
+                        font-family: monospace;
+                        font-size: 0.75rem;
+                    }}
+                </style>
+            </head>
+            <body>
+                <div class="mini-container">
+                    <video id="mini-video" autoplay loop muted playsinline>
+                        <source src="{url_clipe}" type="video/mp4">
+                    </video>
+                    
+                    <div class="mini-controls">
+                        <button id="btn-play-pause" onclick="togglePlay()">⏸️</button>
+                        <span id="mini-time" class="mini-time">00:00</span>
+                        <input type="range" id="mini-seek" value="0" min="0" max="100" step="0.1" style="flex-grow: 1;" oninput="mudarSeek(this.value)">
+                        <button onclick="mudarAudio()" id="btn-audio" style="background: #333; color: white;">🔇</button>
+                    </div>
+                </div>
+                
+                <script>
+                    const v = document.getElementById('mini-video');
+                    const seek = document.getElementById('mini-seek');
+                    const timeLbl = document.getElementById('mini-time');
+                    const btnPlay = document.getElementById('btn-play-pause');
+                    const btnAudio = document.getElementById('btn-audio');
+
+                    v.play().catch(e => console.log(e));
+
+                    v.ontimeupdate = function() {{
+                        if (v.duration) {{
+                            seek.value = (v.currentTime / v.duration) * 100;
+                            let m = Math.floor(v.currentTime / 60);
+                            let s = Math.floor(v.currentTime % 60);
+                            timeLbl.innerText = (m < 10 ? "0" + m : m) + ":" + (s < 10 ? "0" + s : s);
+                        }}
+                    }};
+
+                    function togglePlay() {{
+                        if (v.paused) {{
+                            v.play();
+                            btnPlay.innerText = "⏸️";
+                        }} else {{
+                            v.pause();
+                            btnPlay.innerText = "▶️";
+                        }}
+                    }}
+
+                    function mudarSeek(val) {{
+                        if (v.duration) {{
+                            v.currentTime = (val * v.duration) / 100;
+                        }}
+                    }}
+
+                    function mudarAudio() {{
+                        v.muted = !v.muted;
+                        btnAudio.innerText = v.muted ? "🔇" : "🔊";
+                    }}
+                </script>
+            </body>
+            </html>
+            """
+            components.html(mini_player_html, height=316, scrolling=False)
+        else:
+            st.markdown("""
+                <div class="video-clipe-box" style="display: flex; align-items: center; justify-content: center; text-align: center; color: #888; padding: 20px;">
+                    <p style="margin: 0; font-size: 1rem;">Aguardando o prestador selecionar um vídeo clipe no painel de controle...</p>
+                </div>
+            """, unsafe_allow_html=True)
+
+    time.sleep(3)
+    st.rerun()
