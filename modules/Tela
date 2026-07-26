@@ -22,7 +22,7 @@ def show_client_screen():
         if response.status_code == 200 and response.json():
             data = response.json()
             pedidos = [{"id": k, **v} for k, v in data.items()]
-            pedidos_ativos = [p for p in pedidos if p.get("estado"] in ["pendente", "aprovado"]] if "pendente" in str(pedidos) else [p for p in pedidos if p.get("estado") in ["pendente", "aprovado"]]
+            pedidos_ativos = [p for p in pedidos if p.get("estado") in ["pendente", "aprovado"]]
             pedidos_ativos.sort(key=lambda x: x.get("timestamp", 0))
             
             tocando_agora = next((p for p in pedidos_ativos if p.get("estado") == "aprovado"), None)
@@ -35,23 +35,26 @@ def show_client_screen():
                 st.markdown(f"<h2>A tocar: {titulo}</h2>", unsafe_allow_html=True)
                 
                 if url_video:
-                    # 1. Separa a base do link do nome do ficheiro
+                    # Normalização segura do link do Cloudinary
                     if "/upload/" in url_video:
                         base_url, filename_part = url_video.split("/upload/", 1)
-                        
-                        # 2. Limpa extensões antigas e força .mp4
                         clean_name = filename_part.split("/")[-1].rsplit(".", 1)[0] + ".mp4"
-                        
-                        # 3. Codifica corretamente espaços e carateres especiais para o formato web seguro (ex: %20)
                         encoded_name = urllib.parse.quote(clean_name)
-                        
-                        # 4. Reconstrói o URL otimizado e seguro para o Cloudinary
                         url_video = f"{base_url}/upload/f_auto,q_auto/{encoded_name}"
                     
-                    st.text(f"Link otimizado: {url_video}")
+                    # Mostra o link clicável para teste manual imediato
+                    st.markdown(f"🔗 **Teste manual do link:** [Abrir Vídeo Noutra Aba]({url_video})", unsafe_allow_html=True)
                     
-                    # Player nativo limpo e funcional
-                    st.video(url_video)
+                    # Força a renderização via tag HTML pura (ignora o st.video e iframes restritos)
+                    video_html = f"""
+                    <div style="display: flex; justify-content: center; background: #000; padding: 20px;">
+                        <video width="800" height="450" controls autoplay style="background: black; border-radius: 8px;">
+                            <source src="{url_video}" type="video/mp4">
+                            O seu browser não suporta a tag de vídeo.
+                        </video>
+                    </div>
+                    """
+                    components.html(video_html, height=500)
                 else:
                     st.warning("O link do vídeo não está disponível para esta música.")
             else:
