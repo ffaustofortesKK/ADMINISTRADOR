@@ -137,8 +137,9 @@ def show_client_screen():
 
                         titulo_formatado = titulo_fonte.replace("#", "").strip().replace(" ", "_")
                         cloud_name = "yhwgjh7g"
-                        # Alterado de .wmv para .mp4 para máxima compatibilidade web/Streamlit
-                        url_cloudinary = f"https://res.cloudinary.com/{cloud_name}/video/upload/{titulo_formatado}.mp4"
+                        
+                        # Adicionada a flag de transformação f_auto/ q_auto para forçar o Cloudinary a converter o formato para web compatível (mp4)
+                        url_cloudinary = f"https://res.cloudinary.com/{cloud_name}/video/upload/f_auto,q_auto/{titulo_formatado}"
 
                     if url_cloudinary and url_cloudinary.startswith("http"):
                         if "ultimo_pedido_tocando" not in st.session_state:
