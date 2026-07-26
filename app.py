@@ -5,7 +5,6 @@ from datetime import datetime
 from utils.db_manager import init_db, get_all_providers
 from modules.admin import show_admin_panel
 from modules.register import show_register_page
-from modules.provider import show_provider_panel
 from modules.client import show_client_page
 
 FIREBASE_URL = "https://grupoffkaraoke-default-rtdb.firebaseio.com"
@@ -20,6 +19,85 @@ try:
     init_db()
 except Exception as e:
     st.error(f"Erro ao inicializar a base de dados: {e}")
+
+def atualizar_estado_pedido(provider_token, pedido_id, novo_estado):
+    """Atualiza o estado do pedido no Firebase."""
+    try:
+        url = f"{FIREBASE_URL}/pedidos/{provider_token}/{pedido_id}/estado.json"
+        response = requests.put(url, json=novo_estado)
+        return response.status_code == 200
+    except Exception:
+        return False
+
+def show_provider_panel_custom(provider_token):
+    """Painel personalizado do prestador mantendo a estrutura pedida."""
+    st.title("📺 Painel do Prestador — Fila de Pedidos")
+    st.markdown("---")
+    
+    try:
+        response = requests.get(f"{FIREBASE_URL}/pedidos/{provider_token}.json")
+        if response.status_code == 200 and response.json():
+            data = response.json()
+            pedidos = [{"id": k, **v} for k, v in data.items()]
+            
+            pedidos_ativos = [p for p in pedidos if p.get("estado") in ["pendente", "aprovado"]]
+            pedidos_ativos.sort(key=lambda x: x.get("timestamp", 0))
+            
+            tocando_agora = next((p for p in pedidos_ativos if p.get("estado") == "aprovado"), None)
+            pendentes = [p for p in pedidos_ativos if p.get("estado") == "pendente"]
+
+            if tocando_agora:
+                musica_obj = tocando_agora.get("musica", {})
+                titulo_tocando = musica_obj.get("titulo", "Karaoke") if isinstance(musica_obj, dict) else str(musica_obj)
+                
+                st.markdown(f"""
+                    <div style="border: 2px solid #28a745; background-color: #0b1f12; padding: 15px; border-radius: 8px; margin-bottom: 15px;">
+                        <h3 style="color: #28a745; margin: 0 0 10px 0;">🎵 A TOCAR NO PALCO AGORA</h3>
+                        <p style="font-size: 18px; color: white; margin: 0;"><b>{titulo_tocando}</b> <span style="font-size: 14px; color: #aaa;">(Cliente: {tocando_agora.get('cliente', 'Convidado')})</span></p>
+                    </div>
+                """, unsafe_allow_html=True)
+                
+                if st.button("⏹️ Terminar Música Atual", key=f"term_{tocando_agora.get('id')}"):
+                    atualizar_estado_pedido(provider_token, tocando_agora.get('id'), 'terminado')
+                    st.rerun()
+            else:
+                st.info("ℹ️ Nenhuma música em reprodução no momento.")
+
+            st.markdown("---")
+            st.markdown("### 📥 Fila de Espera (Ordem de Entrada)")
+
+            if not pendentes:
+                st.success("A fila de karaoke está limpa! Não há pedidos pendentes.")
+            else:
+                for idx, p in enumerate(pendentes, start=1):
+                    musica_obj = p.get("musica", {})
+                    titulo_musica = musica_obj.get("titulo", "Música") if isinstance(musica_obj, dict) else str(musica_obj)
+                    cliente_nome = p.get("cliente", "Convidado")
+                    
+                    # Música numerada dentro de um retângulo estilizado
+                    st.markdown(f"""
+                        <div style="border: 2px solid #d4af37; background-color: #121212; padding: 12px; border-radius: 8px; margin-bottom: 10px;">
+                            <b style="color: #ffeb3b; font-size: 16px;">#{idx}</b> &nbsp;&nbsp; 
+                            <span style="color: white; font-size: 15px;"><b>{titulo_musica}</b></span> 
+                            <span style="color: #aaa; font-size: 13px;">(Cliente: {cliente_nome})</span>
+                        </div>
+                    """, unsafe_allow_html=True)
+                    
+                    # Botão Play para iniciar a reprodução da música da fila
+                    if st.button(f"▶️ Play #{idx}: {titulo_musica}", key=f"btn_play_{p.get('id')}"):
+                        if tocando_agora:
+                            atualizar_estado_pedido(provider_token, tocando_agora.get('id'), 'terminado')
+                        
+                        atualizar_estado_pedido(provider_token, p.get('id'), 'aprovado')
+                        st.rerun()
+        else:
+            st.info("📭 A fila de pedidos do Firebase está vazia neste momento.")
+            
+    except Exception as e:
+        st.error(f"Erro ao carregar os pedidos: {e}")
+
+    time.sleep(4)
+    st.rerun()
 
 def show_client_screen():
     query_params = st.query_params
@@ -77,7 +155,7 @@ def show_client_screen():
             pedidos_ativos.sort(key=lambda x: x.get("timestamp", 0))
             
             tocando_agora = next((p for p in pedidos_ativos if p.get("estado") == "aprovado"), None)
-            pendentes = [p for p in pedidos_ativos if p.get("estado") == "pendente"]
+            pendentes = [p for p in pedidos_ativos if p.get("estado"] == "pendente"]
 
             col_esquerda, col_direita = st.columns([1.1, 0.9])
 
@@ -127,10 +205,21 @@ def show_client_screen():
                     pedido_id_atual = tocando_agora.get("id")
                     musica = tocando_agora.get("musica", {})
                     
+                    url_cloudinary = ""
                     if isinstance(musica, dict):
-                        url_cloudinary = musica.get("url_cloudinary") or musica.get("url") or musica.get("link")
-                    else:
-                        url_cloudinary = str(musica)
+                        url_cloudinary = (
+                            musica.get("url_cloudinary") or 
+                            musica.get("url") or 
+                            musica.get("link") or 
+                            musica.get("secure_url")
+                        )
+                        if not url_cloudinary and len(musica) > 0:
+                            for k, v in musica.items():
+                                if isinstance(v, str) and v.startswith("http"):
+                                    url_cloudinary = v
+                                    break
+                    elif isinstance(musica, str):
+                        url_cloudinary = musica
                     
                     if url_cloudinary and str(url_cloudinary).startswith("http"):
                         if "ultimo_pedido_tocando" not in st.session_state:
@@ -149,9 +238,12 @@ def show_client_screen():
                             placeholder_contagem.empty()
                             st.session_state.ultimo_pedido_tocando = pedido_id_atual
 
-                        st.video(url_cloudinary)
+                        try:
+                            st.video(url_cloudinary)
+                        except Exception:
+                            st.error(f"Erro ao carregar o player de vídeo com o link: {url_cloudinary}")
                     else:
-                        st.warning("O link do vídeo do Cloudinary não foi encontrado para esta música.")
+                        st.warning(f"O link do vídeo não é válido ou está vazio. Dados recebidos: {musica}")
                 else:
                     st.session_state.ultimo_pedido_tocando = None
                     st.markdown("""
@@ -209,7 +301,6 @@ def main():
                             try:
                                 exp_time = datetime.strptime(exp_str, "%Y-%m-%d %H:%M:%S")
                                 if now < exp_time:
-                                    # Garante que os links da tela e do cliente aparecem logo acima do painel
                                     st.sidebar.markdown("### 🔗 Links de Acesso")
                                     base_url = st.get_option("browser.serverAddress") or "localhost:8501"
                                     protocol = "https" if "streamlit.app" in base_url else "http"
@@ -221,13 +312,13 @@ def main():
                                     st.sidebar.markdown(f"**Link para a Tela (Palco):**\n`{link_tela}`")
                                     st.sidebar.markdown("---")
 
-                                    show_provider_panel()
+                                    show_provider_panel_custom(token)
                                     return
                                 else:
                                     st.error("❌ O seu tempo de acesso expirou.")
                                     return
                             except Exception:
-                                show_provider_panel()
+                                show_provider_panel_custom(token)
                                 return
                         else:
                             st.sidebar.markdown("### 🔗 Links de Acesso")
@@ -241,7 +332,7 @@ def main():
                             st.sidebar.markdown(f"**Link para a Tela (Palco):**\n`{link_tela}`")
                             st.sidebar.markdown("---")
 
-                            show_provider_panel()
+                            show_provider_panel_custom(token)
                             return
                     else:
                         st.warning("⏳ O seu registo foi efetuado, mas ainda aguarda a aprovação do Administrador.")
