@@ -144,12 +144,10 @@ def show_client_screen():
                         if "contagem_feita" not in st.session_state:
                             st.session_state.contagem_feita = False
 
-                        # Se mudou de música, ativa a contagem para este novo ID
                         if st.session_state.ultimo_pedido_tocando != pedido_id_atual:
                             st.session_state.ultimo_pedido_tocando = pedido_id_atual
                             st.session_state.contagem_feita = False
 
-                        # Executa a contagem apenas uma vez por música de forma isolada
                         if not st.session_state.contagem_feita:
                             placeholder_contagem = st.empty()
                             for i in [3, 2, 1]:
@@ -162,9 +160,8 @@ def show_client_screen():
                                 time.sleep(1)
                             placeholder_contagem.empty()
                             st.session_state.contagem_feita = True
-                            st.rerun()  # Recarrega limpo para exibir imediatamente o vídeo
+                            st.rerun()
 
-                        # Exibe o vídeo de forma estável sem re-execuções cíclicas da contagem
                         try:
                             st.video(url_cloudinary)
                         except Exception:
@@ -180,14 +177,8 @@ def show_client_screen():
                             <span style='color: #aaa;'>Aguardando o prestador selecionar um vídeo clipe no painel de controle...</span>
                         </div>
                     """, unsafe_allow_html=True)
-            
-            time.sleep(5)
-            st.rerun()
-
-        st.info("📺 A aguardar o próximo artista... O ecrã atualizará automaticamente assim que o prestador aprovar um pedido.")
+        else:
+            st.info("📺 A aguardar o próximo artista... O ecrã atualizará automaticamente assim que o prestador aprovar um pedido.")
         
     except Exception:
         st.error("Erro ao sincronizar com a base de dados em tempo real.")
-
-    time.sleep(5)
-    st.rerun()
