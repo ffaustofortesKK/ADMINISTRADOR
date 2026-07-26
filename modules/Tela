@@ -33,16 +33,17 @@ def show_client_screen():
                 st.markdown(f"<h2>A tocar: {titulo}</h2>", unsafe_allow_html=True)
                 
                 if url_video:
-                    # Otimização limpa para Cloudinary
+                    # Limpeza e normalização segura do link do Cloudinary para .mp4 direto
                     if "/upload/" in url_video:
-                        url_video = url_video.rsplit(".", 1)[0] + ".mp4"
-                        if "upload/v" in url_video:
-                            url_video = url_video.replace("upload/", "upload/f_auto,q_auto/")
+                        base_url, rest = url_video.split("/upload/")
+                        # Remove parâmetros antigos se existirem e força a extensão mp4
+                        clean_rest = rest.split("/")[-1].rsplit(".", 1)[0] + ".mp4"
+                        url_video = f"{base_url}/upload/f_auto,q_auto/{clean_rest}"
                     
                     st.text(f"Link otimizado: {url_video}")
                     
-                    # Usa o player nativo do Streamlit (resolve problemas de CORS e iframes de uma vez)
-                    st.video(url_video, autoplay=True, format="video/mp4")
+                    # Player nativo sem autoplay forçado para evitar o bloqueio do ciclo de refresh
+                    st.video(url_video)
                 else:
                     st.warning("O link do vídeo não está disponível para esta música.")
             else:
