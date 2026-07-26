@@ -34,6 +34,36 @@ def show_provider_panel_custom(provider_token):
     st.title("📺 Painel do Prestador — Fila de Pedidos")
     st.markdown("---")
     
+    # --- EXIBIÇÃO DOS LINKS DENTRO DO AMBIENTE PRINCIPAL ---
+    # Obtém o URL correto da aplicação a partir do ambiente ou query parameters
+    try:
+        base_url = st.get_option("browser.serverAddress") or "localhost:8501"
+        protocol = "https" if "streamlit.app" in base_url or "https" in str(st.query_params) else "http"
+    except:
+        protocol = "https"
+        base_url = "ffkaraoke.streamlit.app" # Ajuste automático ou fallback seguro
+
+    # Se estiver no Streamlit Cloud, apanha o host atual de forma dinâmica
+    link_cliente = f"/?page=client_register&provider={provider_token}"
+    link_tela = f"/?page=client_screen&provider={provider_token}"
+
+    st.markdown("""
+        <div style="background-color: #1a1a1a; border: 2px solid #d4af37; padding: 20px; border-radius: 10px; margin-bottom: 25px;">
+            <h3 style="color: #ffeb3b; margin-top: 0;">🔗 Os Seus Links de Acesso</h3>
+            <p style="color: #ccc; font-size: 14px;">Utilize estes links para partilhar com os clientes ou abrir na tela da TV:</p>
+    """, unsafe_allow_html=True)
+
+    col_l1, col_l2 = st.columns(2)
+    with col_l1:
+        st.markdown("**📱 Link para Clientes (Fila/Pedidos):**")
+        st.code(link_cliente, language="text")
+    with col_l2:
+        st.markdown("**📺 Link para a Tela (Palco / TV):**")
+        st.code(link_tela, language="text")
+
+    st.markdown("</div>", unsafe_allow_html=True)
+    st.markdown("---")
+
     try:
         response = requests.get(f"{FIREBASE_URL}/pedidos/{provider_token}.json")
         if response.status_code == 200 and response.json():
@@ -225,7 +255,7 @@ def show_client_screen():
                                 url_cloudinary = v if v.startswith("http") else f"https://{v}"
                                 break
 
-                    # Correção automática de formato: força .mp4 para evitar incompatibilidade com .avi
+                    # Força .mp4 para evitar incompatibilidade
                     if url_cloudinary and "cloudinary.com" in url_cloudinary:
                         url_cloudinary = url_cloudinary.rsplit(".", 1)[0] + ".mp4"
 
@@ -247,7 +277,6 @@ def show_client_screen():
                             st.session_state.ultimo_pedido_tocando = pedido_id_atual
 
                         try:
-                            # Player nativo estável do Streamlit
                             st.video(url_cloudinary, format="video/mp4", autoplay=True, muted=True)
                         except Exception:
                             st.error(f"Erro ao carregar o player de vídeo com o link: {url_cloudinary}")
@@ -306,17 +335,7 @@ def main():
                             try:
                                 exp_time = datetime.strptime(exp_str, "%Y-%m-%d %H:%M:%S")
                                 if now < exp_time:
-                                    st.sidebar.markdown("### 🔗 Links de Acesso")
-                                    base_url = st.get_option("browser.serverAddress") or "localhost:8501"
-                                    protocol = "https" if "streamlit.app" in base_url else "http"
-                                    
-                                    link_cliente = f"{protocol}://{base_url}/?page=client_register&provider={token}"
-                                    link_tela = f"{protocol}://{base_url}/?page=client_screen&provider={token}"
-                                    
-                                    st.sidebar.markdown(f"**Link para Clientes (Fila):**\n`{link_cliente}`")
-                                    st.sidebar.markdown(f"**Link para a Tela (Palco):**\n`{link_tela}`")
-                                    st.sidebar.markdown("---")
-
+                                    # Removida a barra lateral (st.sidebar) para os links aparecerem no painel principal
                                     show_provider_panel_custom(token)
                                     return
                                 else:
@@ -326,17 +345,6 @@ def main():
                                 show_provider_panel_custom(token)
                                 return
                         else:
-                            st.sidebar.markdown("### 🔗 Links de Acesso")
-                            base_url = st.get_option("browser.serverAddress") or "localhost:8501"
-                            protocol = "https" if "streamlit.app" in base_url else "http"
-                            
-                            link_cliente = f"{protocol}://{base_url}/?page=client_register&provider={token}"
-                            link_tela = f"{protocol}://{base_url}/?page=client_screen&provider={token}"
-                            
-                            st.sidebar.markdown(f"**Link para Clientes (Fila):**\n`{link_cliente}`")
-                            st.sidebar.markdown(f"**Link para a Tela (Palco):**\n`{link_tela}`")
-                            st.sidebar.markdown("---")
-
                             show_provider_panel_custom(token)
                             return
                     else:
