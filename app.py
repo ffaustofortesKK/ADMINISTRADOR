@@ -74,7 +74,6 @@ def show_provider_panel_custom(provider_token):
                     titulo_musica = musica_obj.get("titulo", "Música") if isinstance(musica_obj, dict) else str(musica_obj)
                     cliente_nome = p.get("cliente", "Convidado")
                     
-                    # Música numerada dentro de um retângulo estilizado
                     st.markdown(f"""
                         <div style="border: 2px solid #d4af37; background-color: #121212; padding: 12px; border-radius: 8px; margin-bottom: 10px;">
                             <b style="color: #ffeb3b; font-size: 16px;">#{idx}</b> &nbsp;&nbsp; 
@@ -83,7 +82,6 @@ def show_provider_panel_custom(provider_token):
                         </div>
                     """, unsafe_allow_html=True)
                     
-                    # Botão Play para iniciar a reprodução da música da fila
                     if st.button(f"▶️ Play #{idx}: {titulo_musica}", key=f"btn_play_{p.get('id')}"):
                         if tocando_agora:
                             atualizar_estado_pedido(provider_token, tocando_agora.get('id'), 'terminado')
@@ -207,13 +205,11 @@ def show_client_screen():
                     
                     url_cloudinary = ""
                     if isinstance(musica, dict):
-                        # Procura primeiro se alguma chave tem um link http válido
                         for k, v in musica.items():
                             if isinstance(v, str) and (v.startswith("http://") or v.startswith("https://")):
                                 url_cloudinary = v
                                 break
                         
-                        # Se não encontrou nas chaves, verifica os campos específicos mas valida se começam por http
                         if not url_cloudinary:
                             for campo in ["url_cloudinary", "url", "link", "secure_url"]:
                                 val = musica.get(campo, "")
@@ -223,13 +219,15 @@ def show_client_screen():
                     elif isinstance(musica, str) and (musica.startswith("http://") or musica.startswith("https://")):
                         url_cloudinary = musica
                     
-                    # Verificação de segurança adicional caso o link venha sem http mas seja do cloudinary
                     if not url_cloudinary and isinstance(musica, dict):
-                        # Tenta procurar se algum campo contém a palavra cloudinary ou formato de link direto
                         for k, v in musica.items():
                             if isinstance(v, str) and ("res.cloudinary.com" in v or ".mp4" in v):
                                 url_cloudinary = v if v.startswith("http") else f"https://{v}"
                                 break
+
+                    # Correção automática de formato: força .mp4 para evitar incompatibilidade com .avi
+                    if url_cloudinary and "cloudinary.com" in url_cloudinary:
+                        url_cloudinary = url_cloudinary.rsplit(".", 1)[0] + ".mp4"
 
                     if url_cloudinary and str(url_cloudinary).startswith("http"):
                         if "ultimo_pedido_tocando" not in st.session_state:
@@ -249,11 +247,12 @@ def show_client_screen():
                             st.session_state.ultimo_pedido_tocando = pedido_id_atual
 
                         try:
-                            st.video(url_cloudinary)
+                            # Player nativo estável do Streamlit
+                            st.video(url_cloudinary, format="video/mp4", autoplay=True, muted=True)
                         except Exception:
                             st.error(f"Erro ao carregar o player de vídeo com o link: {url_cloudinary}")
                     else:
-                        st.warning(f"⚠️ **Atenção:** O campo de vídeo guardado no Firebase para esta música (`{musica}`) contém apenas texto simples (ex: nome do ficheiro) e não um link web URL do Cloudinary. Certifique-se de que ao submeter o pedido o sistema guarda o link completo do vídeo.")
+                        st.warning(f"⚠️ **Atenção:** O campo de vídeo guardado no Firebase para esta música (`{musica}`) não contém um link web URL válido do Cloudinary.")
                 else:
                     st.session_state.ultimo_pedido_tocando = None
                     st.markdown("""
@@ -278,22 +277,18 @@ def main():
     try:
         query_params = st.query_params
         
-        # 1. Página de Auto-Registo Pública do Prestador
         if "page" in query_params and query_params["page"] == "register":
             show_register_page()
             return
 
-        # 2. Página de Auto-Registo de Clientes (Gerada pelo Prestador)
         if "page" in query_params and query_params["page"] == "client_register":
             show_client_page()
             return
 
-        # 3. Tela de Apresentação de Vídeos / Pedidos do Cliente
         if "page" in query_params and query_params["page"] == "client_screen":
             show_client_screen()
             return
 
-        # 4. Acesso Individual do Prestador via Token
         if "token" in query_params:
             token = query_params["token"]
             df = get_all_providers()
@@ -351,7 +346,6 @@ def main():
             st.error("Token de acesso inválido ou não encontrado.")
             return
 
-        # 5. Painel de Administração
         st.sidebar.title("Painel Admin")
         senha = st.sidebar.text_input("Palavra-passe", type="password")
         
