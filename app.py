@@ -179,6 +179,7 @@ def show_client_screen():
                 
                 st.markdown(f"<h2>A tocar: {titulo}</h2>", unsafe_allow_html=True)
                 
+                # Procura automática e correção inteligente de extensões ou links diretos
                 if not url_video or "http" not in url_video or "cloudinary.com" not in url_video:
                     try:
                         cat_resp = requests.get(f"{FIREBASE_URL}/catalogo.json")
@@ -199,9 +200,15 @@ def show_client_screen():
                     except Exception:
                         pass
 
+                # Se o link ainda vier com extensão antiga (.avi, .wmv), converte para .mp4 para streaming
+                if url_video and "cloudinary.com" in url_video:
+                    if url_video.endswith((".avi", ".wmv", ".mov", ".mkv")):
+                        # Substitui a extensão final por .mp4 para garantir reprodução web por streaming
+                        url_video = ''.join(url_video.rsplit('.', 1)[:-1]) + '.mp4'
+
                 if not url_video or "cloudinary.com" not in url_video:
                     st.error(f"⚠️ O link do vídeo para a música '{titulo}' não foi encontrado ou é inválido na base de dados.")
-                    st.info("💡 Solução: Insira o link direto correto do Cloudinary (ex: https://res.cloudinary.com/yhwgjh7g/video/upload/...) no registo da música no Firebase.")
+                    st.info("💡 Solução: Insira o link correto do Cloudinary no registo da música no Firebase.")
                 else:
                     st.markdown(f"🔗 **Link Direto:** [Abrir Vídeo]({url_video})", unsafe_allow_html=True)
                     
