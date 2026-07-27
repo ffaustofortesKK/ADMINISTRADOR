@@ -148,7 +148,7 @@ def show_client_screen():
         if response.status_code == 200 and response.json():
             data = response.json()
             pedidos = [{"id": k, **v} for k, v in data.items()]
-            pedidos_ativos = [p for p in pedidos if p.get("estado") in ["pendente", "aprovado"]]
+            pedidos_ativos = [p for p in pedidos if p.get("estado"] in ["pendente", "aprovado"]]
             pedidos_ativos.sort(key=lambda x: x.get("timestamp", 0))
             
             tocando_agora = next((p for p in pedidos_ativos if p.get("estado") == "aprovado"), None)
@@ -174,7 +174,7 @@ def show_client_screen():
                 st.markdown(f"<h2>A tocar: {titulo}</h2>", unsafe_allow_html=True)
                 
                 # Procura no catálogo geral do Firebase caso o link não venha preenchido no pedido
-                if not url_video or "http" not in url_video:
+                if not url_video or "http" not in url_video or "cloudinary.com" not in url_video:
                     try:
                         cat_resp = requests.get(f"{FIREBASE_URL}/catalogo.json")
                         if cat_resp.status_code == 200 and cat_resp.json():
@@ -194,26 +194,22 @@ def show_client_screen():
                     except Exception:
                         pass
 
-                # Fallback seguro para o Cloudinary caso não encontre nas referências anteriores
-                if not url_video or "http" not in url_video:
-                    cloud_name = "yhwgjh7g"
-                    safe_title = urllib.parse.quote(titulo, safe='')
-                    url_video = f"https://res.cloudinary.com/{cloud_name}/video/upload/f_mp4,q_auto,vc_h264,ac_aac/{safe_title}"
-
-                if "/upload/" in url_video and "f_mp4" not in url_video:
-                    url_video = url_video.replace("/upload/", "/upload/f_mp4,q_auto,vc_h264,ac_aac/")
-                
-                st.markdown(f"🔗 **Link Direto:** [Abrir Vídeo]({url_video})", unsafe_allow_html=True)
-                
-                video_html = f"""
-                <div style="display: flex; justify-content: center; background: black; padding: 10px; width: 100%;">
-                    <video width="100%" height="450px" controls autoplay playsinline style="object-fit: contain; background: black;">
-                        <source src="{url_video}" type="video/mp4">
-                        O seu navegador não suporta a reprodução deste vídeo.
-                    </video>
-                </div>
-                """
-                components.html(video_html, height=500)
+                # Validação final: se o link não for válido do Cloudinary, mostra aviso claro para corrigir no Firebase
+                if not url_video or "cloudinary.com" not in url_video:
+                    st.error(f"⚠️ O link do vídeo para a música '{titulo}' não foi encontrado ou é inválido na base de dados.")
+                    st.info("💡 Solução: Insira o link direto correto do Cloudinary (ex: https://res.cloudinary.com/yhwgjh7g/video/upload/...) no registo da música no Firebase.")
+                else:
+                    st.markdown(f"🔗 **Link Direto:** [Abrir Vídeo]({url_video})", unsafe_allow_html=True)
+                    
+                    video_html = f"""
+                    <div style="display: flex; justify-content: center; background: black; padding: 10px; width: 100%;">
+                        <video width="100%" height="450px" controls autoplay playsinline style="object-fit: contain; background: black;">
+                            <source src="{url_video}" type="video/mp4">
+                            O seu navegador não suporta a reprodução deste vídeo.
+                        </video>
+                    </div>
+                    """
+                    components.html(video_html, height=500)
             else:
                 st.info("A aguardar início de reprodução...")
         else:
