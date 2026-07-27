@@ -148,7 +148,7 @@ def show_client_screen():
         if response.status_code == 200 and response.json():
             data = response.json()
             pedidos = [{"id": k, **v} for k, v in data.items()]
-            pedidos_ativos = [p for p in pedidos if p.get("estado"] in ["pendente", "aprovado"]]
+            pedidos_ativos = [p for p in pedidos if p.get("estado") in ["pendente", "aprovado"]]
             pedidos_ativos.sort(key=lambda x: x.get("timestamp", 0))
             
             tocando_agora = next((p for p in pedidos_ativos if p.get("estado") == "aprovado"), None)
@@ -173,7 +173,6 @@ def show_client_screen():
                 
                 st.markdown(f"<h2>A tocar: {titulo}</h2>", unsafe_allow_html=True)
                 
-                # Procura no catálogo geral do Firebase caso o link não venha preenchido no pedido
                 if not url_video or "http" not in url_video or "cloudinary.com" not in url_video:
                     try:
                         cat_resp = requests.get(f"{FIREBASE_URL}/catalogo.json")
@@ -194,7 +193,6 @@ def show_client_screen():
                     except Exception:
                         pass
 
-                # Validação final: se o link não for válido do Cloudinary, mostra aviso claro para corrigir no Firebase
                 if not url_video or "cloudinary.com" not in url_video:
                     st.error(f"⚠️ O link do vídeo para a música '{titulo}' não foi encontrado ou é inválido na base de dados.")
                     st.info("💡 Solução: Insira o link direto correto do Cloudinary (ex: https://res.cloudinary.com/yhwgjh7g/video/upload/...) no registo da música no Firebase.")
