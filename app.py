@@ -154,7 +154,7 @@ def show_client_screen():
         if response.status_code == 200 and response.json():
             data = response.json()
             pedidos = [{"id": k, **v} for k, v in data.items()]
-            pedidos_ativos = [p for p in pedidos if p.get("estado"] in ["pendente", "aprovado"]]
+            pedidos_ativos = [p for p in pedidos if p.get("estado") in ["pendente", "aprovado"]]
             pedidos_ativos.sort(key=lambda x: x.get("timestamp", 0))
             
             tocando_agora = next((p for p in pedidos_ativos if p.get("estado") == "aprovado"), None)
@@ -169,23 +169,22 @@ def show_client_screen():
                     titulo = str(musica)
                     url_video = ""
                 
-                # Normaliza o título para maiúsculas para facilitar a correspondência exata de termos
                 t_upper = titulo.upper()
                 
-                # --- Sistema de Mapeamento Inteligente por Palavras-Chave ---
-                if not url_video or "http" not in url_video or "%5B" in url_video or "404" in url_video:
-                    if "PATRICK" in t_upper or "MANMAN" in t_upper:
-                        url_video = "https://res.cloudinary.com/yhwgjh7g/video/upload/v1784608903/karaok%C3%A9_-_Patrick_Saint-Eloi_Manman_kr%C3%A9yol.wmv_xf2ca9.mp4"
-                    elif "JESSIE" in t_upper or "HEART WILL GO ON" in t_upper:
-                        url_video = "https://res.cloudinary.com/yhwgjh7g/video/upload/v1784608970/Karaoke_Jessie_J_-_My_heart_will_go_on_Singer_1_z191qh.mp4"
-                    elif "NEGRITUDE" in t_upper or "FAZ FALTA" in t_upper:
-                        url_video = "https://res.cloudinary.com/yhwgjh7g/video/upload/v1784119615/NEGRITUDE_JUNIOR_-_VOC%C3%8A_FAZ_FALTA_KARAOKE_lzrcrt.mp4"
-                    else:
-                        # Fallback geral para outras músicas
-                        cloud_name = "yhwgjh7g"
-                        titulo_limpo = titulo.replace("?", "").replace("[", "").replace("]", "").strip().replace(" ", "_")
-                        encoded_title = urllib.parse.quote(titulo_limpo + ".mp4")
-                        url_video = f"https://res.cloudinary.com/{cloud_name}/video/upload/f_auto,q_auto/{encoded_title}"
+                # --- Mapeamento direto de links conhecidos para evitar erros de leitura ---
+                if "PATRICK" in t_upper or "MANMAN" in t_upper or "KRÉYOL" in t_upper:
+                    url_video = "https://res.cloudinary.com/yhwgjh7g/video/upload/v1784608903/karaok%C3%A9_-_Patrick_Saint-Eloi_Manman_kr%C3%A9yol.wmv_xf2ca9.mp4"
+                elif "JESSIE" in t_upper or "HEART WILL GO ON" in t_upper:
+                    url_video = "https://res.cloudinary.com/yhwgjh7g/video/upload/v1784608970/Karaoke_Jessie_J_-_My_heart_will_go_on_Singer_1_z191qh.mp4"
+                elif "NEGRITUDE" in t_upper or "FAZ FALTA" in t_upper or "VOCÊ" in t_upper:
+                    url_video = "https://res.cloudinary.com/yhwgjh7g/video/upload/v1784119615/NEGRITUDE_JUNIOR_-_VOC%C3%8A_FAZ_FALTA_KARAOKE_lzrcrt.mp4"
+                
+                # Fallback dinâmico seguro
+                if not url_video or "http" not in url_video:
+                    cloud_name = "yhwgjh7g"
+                    titulo_limpo = titulo.replace("?", "").replace("[", "").replace("]", "").strip().replace(" ", "_")
+                    encoded_title = urllib.parse.quote(titulo_limpo + ".mp4")
+                    url_video = f"https://res.cloudinary.com/{cloud_name}/video/upload/f_auto,q_auto/{encoded_title}"
                 
                 st.markdown(f"<h2>A tocar: {titulo}</h2>", unsafe_allow_html=True)
                 
