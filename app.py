@@ -154,15 +154,14 @@ def show_client_screen():
                     titulo = str(musica)
                     url_video = ""
                 
-                # Se o url_video vier preenchido do catálogo, garantimos os parâmetros de otimização
                 if url_video and "http" in url_video:
                     if "/upload/" in url_video and "f_mp4" not in url_video:
                         url_video = url_video.replace("/upload/", "/upload/f_mp4,q_auto,vc_h264,ac_aac/")
                 else:
-                    # Fallback seguro caso o link venha vazio
                     cloud_name = "yhwgjh7g"
-                    encoded_title = urllib.parse.quote(titulo)
-                    url_video = f"https://res.cloudinary.com/{cloud_name}/video/upload/f_mp4,q_auto,vc_h264,ac_aac/{encoded_title}"
+                    # Codificação segura de caracteres especiais para evitar erros 400 do Cloudinary
+                    safe_title = urllib.parse.quote(titulo, safe='')
+                    url_video = f"https://res.cloudinary.com/{cloud_name}/video/upload/f_mp4,q_auto,vc_h264,ac_aac/{safe_title}"
                 
                 st.markdown(f"<h2>A tocar: {titulo}</h2>", unsafe_allow_html=True)
                 st.markdown(f"🔗 **Link gerado:** [Testar Link Noutra Aba]({url_video})", unsafe_allow_html=True)
