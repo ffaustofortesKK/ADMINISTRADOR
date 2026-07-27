@@ -7,10 +7,12 @@ import sys
 import os
 import re
 
+# Garante que o diretório atual está no path do sistema logo no início
 current_dir = os.path.dirname(os.path.abspath(__file__))
 if current_dir not in sys.path:
-    sys.path.append(current_dir)
+    sys.path.insert(0, current_dir)
 
+# Importações seguras para evitar falhas de diretório
 try:
     from utils.db_manager import init_db, get_all_providers
 except ImportError:
@@ -59,7 +61,6 @@ def limpar_nome_musica(musica_raw):
     return titulo.strip()
 
 def obter_url_video_cloudinary(musica_obj, titulo_limpo):
-    """Mapeia os títulos do Firebase para os links reais e corretos do Cloudinary."""
     if isinstance(musica_obj, dict):
         url_direta = musica_obj.get("url_cloudinary", "") or musica_obj.get("url", "")
         if url_direta and "http" in url_direta:
@@ -70,13 +71,11 @@ def obter_url_video_cloudinary(musica_obj, titulo_limpo):
     cloud_name = "yhwgjh7g"
     titulo_lower = titulo_limpo.lower()
     
-    # Mapeamento direto exato para os ficheiros reais que estão na sua nuvem
     if "mulheres e mulheres" in titulo_lower or "landrick" in titulo_lower:
         return f"https://res.cloudinary.com/{cloud_name}/video/upload/f_auto,q_auto/v1784592601/Karaoke_H%C3%81_MULHERES_E_MULHERES_-_Landrick_rnomfr.mp4"
     elif "nani ta quieto" in titulo_lower:
         return f"https://res.cloudinary.com/{cloud_name}/video/upload/f_auto,q_auto/Nani_Ta_Quieto_f35hpj.mp4"
     
-    # Fallback genérico caso adicione novas músicas
     encoded_title = urllib.parse.quote(titulo_limpo + ".mp4")
     return f"https://res.cloudinary.com/{cloud_name}/video/upload/f_auto,q_auto/{encoded_title}"
 
