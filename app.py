@@ -68,7 +68,10 @@ def show_provider_panel_custom(provider_token):
                 html_lista = '<div style="background-color: #000000; border: 3px solid #000000; padding: 15px; border-radius: 6px; color: #ffffff; max-width: 450px; font-family: monospace; font-size: 15px; margin-bottom: 20px;">'
                 for idx, p in enumerate(pedidos_ativos, start=1):
                     musica_obj = p.get("musica", {})
-                    titulo_musica = musica_obj.get("titulo", "Música") if isinstance(musica_obj, dict) else str(musica_obj)
+                    if isinstance(musica_obj, dict):
+                        titulo_musica = musica_obj.get("titulo", musica_obj.get("nome", "Música"))
+                    else:
+                        titulo_musica = str(musica_obj)
                     cliente_nome = p.get("cliente", "Convidado")
                     html_lista += f'<div style="padding: 3px 0;"><b>{idx}-</b> {titulo_musica} <span style="color:#aaa; font-size:12px;">({cliente_nome})</span></div>'
                 html_lista += '</div>'
@@ -85,7 +88,10 @@ def show_provider_panel_custom(provider_token):
 
             if tocando_agora:
                 musica_obj = tocando_agora.get("musica", {})
-                titulo_tocando = musica_obj.get("titulo", "Karaoke") if isinstance(musica_obj, dict) else str(musica_obj)
+                if isinstance(musica_obj, dict):
+                    titulo_tocando = musica_obj.get("titulo", musica_obj.get("nome", "Karaoke"))
+                else:
+                    titulo_tocando = str(musica_obj)
                 st.success(f"🎵 A tocar agora: **{titulo_tocando}** (Cliente: {tocando_agora.get('cliente', 'Convidado')})")
                 if st.button("⏹️ Terminar Música Atual", key=f"term_{tocando_agora.get('id')}"):
                     atualizar_estado_pedido(provider_token, tocando_agora.get('id'), 'terminado')
@@ -96,7 +102,10 @@ def show_provider_panel_custom(provider_token):
             else:
                 for idx, p in enumerate(pendentes, start=1):
                     musica_obj = p.get("musica", {})
-                    titulo_musica = musica_obj.get("titulo", "Música") if isinstance(musica_obj, dict) else str(musica_obj)
+                    if isinstance(musica_obj, dict):
+                        titulo_musica = musica_obj.get("titulo", musica_obj.get("nome", "Música"))
+                    else:
+                        titulo_musica = str(musica_obj)
                     cliente_nome = p.get("cliente", "Convidado")
                     
                     col_info, col_btn = st.columns([3, 1])
@@ -135,7 +144,7 @@ def show_client_screen():
     st.markdown("---")
 
     try:
-        response = requests.get(f"{FIREBASE_URL}/pedidos/{provider_token}.json")
+        response = requests.get(FIREBASE_URL + f"/pedidos/{provider_token}.json")
         if response.status_code == 200 and response.json():
             data = response.json()
             pedidos = [{"id": k, **v} for k, v in data.items()]
@@ -147,8 +156,11 @@ def show_client_screen():
             if tocando_agora:
                 musica = tocando_agora.get("musica", {})
                 
+                titulo = "Karaoke"
+                url_video = ""
+                
                 if isinstance(musica, dict):
-                    titulo = musica.get("titulo", "Karaoke")
+                    titulo = musica.get("titulo") or musica.get("nome") or "Karaoke"
                     url_video = (
                         musica.get("url_cloudinary") or 
                         musica.get("url") or 
@@ -158,42 +170,50 @@ def show_client_screen():
                     )
                 else:
                     titulo = str(musica)
-                    url_video = ""
                 
                 st.markdown(f"<h2>A tocar: {titulo}</h2>", unsafe_allow_html=True)
                 
-                # Se o link não vier gravado, tentamos procurar no catálogo geral do Firebase para obter o link exato do Cloudinary
+                # Tenta procurar no catálogo geral do Firebase caso o link não venha no pedido
                 if not url_video or "http" not in url_video:
                     try:
-                        cat_resp = requests.get(f"{FIREBASE_URL}/catalogo.json")
+                        cat_resp = requests.get(FIREBASE_URL + "/catalogo.json")
                         if cat_resp.status_code == 200 and cat_resp.json():
                             cat_data = cat_resp.json()
                             for item_id, item_val in cat_data.items():
                                 if isinstance(item_val, dict):
                                     t_item = item_val.get("titulo", "") or item_val.get("nome", "")
                                     if titulo.lower() in t_item.lower() or t_item.lower() in titulo.lower():
-                                        url_video = item_val.get("url_cloudinary") or item_val.get("url") or item_val.get("link", "")
+                                        url_video = (
+                                            item_val.get("url_cloudinary") or 
+                                            item_val.get("url") or 
+                                            item_val.get("link") or 
+                                            item_val.get("secure_url") or 
+                                            ""
+                                        )
                                         break
                     except Exception:
                         pass
-                
+
+                # Fallback estruturado para a raiz do Cloudinary
                 if not url_video or "http" not in url_video:
-                    st.error(f"❌ O vídeo '{titulo}' não tem um URL associado no Firebase nem no Catálogo.")
-                else:
-                    if "/upload/" in url_video and "f_mp4" not in url_video:
-                        url_video = url_video.replace("/upload/", "/upload/f_mp4,q_auto,vc_h264,ac_aac/")
-                    
-                    st.markdown(f"🔗 **Link Cloudinary:** [Abrir Vídeo Diretamente]({url_video})", unsafe_allow_html=True)
-                    
-                    video_html = f"""
-                    <div style="display: flex; justify-content: center; background: black; padding: 10px; width: 100%;">
-                        <video width="100%" height="450px" controls autoplay playsinline style="object-fit: contain; background: black;">
-                            <source src="{url_video}" type="video/mp4">
-                            O seu navegador não suporta a reprodução deste vídeo.
-                        </video>
-                    </div>
-                    """
-                    components.html(video_html, height=500)
+                    cloud_name = "yhwgjh7g"
+                    safe_title = urllib.parse.quote(titulo, safe='')
+                    url_video = f"https://res.cloudinary.com/{cloud_name}/video/upload/f_mp4,q_auto,vc_h264,ac_aac/{safe_title}"
+
+                if "/upload/" in url_video and "f_mp4" not in url_video:
+                    url_video = url_video.replace("/upload/", "/upload/f_mp4,q_auto,vc_h264,ac_aac/")
+                
+                st.markdown(f"🔗 **Link Direto:** [Abrir Vídeo]({url_video})", unsafe_allow_html=True)
+                
+                video_html = f"""
+                <div style="display: flex; justify-content: center; background: black; padding: 10px; width: 100%;">
+                    <video width="100%" height="450px" controls autoplay playsinline style="object-fit: contain; background: black;">
+                        <source src="{url_video}" type="video/mp4">
+                        O seu navegador não suporta a reprodução deste vídeo.
+                    </video>
+                </div>
+                """
+                components.html(video_html, height=500)
             else:
                 st.info("A aguardar início de reprodução...")
         else:
