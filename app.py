@@ -48,23 +48,18 @@ def atualizar_estado_pedido(provider_token, pedido_id, novo_estado):
         return False
 
 def limpar_nome_musica(musica_raw):
-    """Extrai e limpa o título da música, removendo extensões inválidas (.cdg) e formatações indesejadas."""
     if isinstance(musica_raw, dict):
         titulo = musica_raw.get("titulo", musica_raw.get("nome", "Karaoke"))
     else:
         titulo = str(musica_raw)
     
-    # Remove aspas se existirem nas pontas
     titulo = titulo.strip('"\'')
-    
-    # Se terminar com .cdg, limpa para permitir reprodução de vídeo correspondente
     if titulo.lower().endswith('.cdg'):
         titulo = titulo[:-4]
-        
     return titulo.strip()
 
 def obter_url_video_cloudinary(musica_obj, titulo_limpo):
-    """Gera a URL correta do Cloudinary verificando se o objeto já tem URL direta ou se precisa formatar."""
+    """Mapeia os títulos do Firebase para os links reais e corretos do Cloudinary."""
     if isinstance(musica_obj, dict):
         url_direta = musica_obj.get("url_cloudinary", "") or musica_obj.get("url", "")
         if url_direta and "http" in url_direta:
@@ -73,16 +68,16 @@ def obter_url_video_cloudinary(musica_obj, titulo_limpo):
             return url_direta
 
     cloud_name = "yhwgjh7g"
-    
-    # Tratamento especial para casos conhecidos onde o nome na nuvem tem sufixo (ex: Nani_Ta_Quieto_f35hpj)
     titulo_lower = titulo_limpo.lower()
-    if "nani ta quieto" in titulo_lower:
-        nome_ficheiro = "Nani_Ta_Quieto_f35hpj.mp4"
-    else:
-        # Substitui espaços por underscores ou formata de maneira limpa para o Cloudinary
-        nome_ficheiro = titulo_limpo + ".mp4"
-
-    encoded_title = urllib.parse.quote(nome_ficheiro)
+    
+    # Mapeamento direto exato para os ficheiros reais que estão na sua nuvem
+    if "mulheres e mulheres" in titulo_lower or "landrick" in titulo_lower:
+        return f"https://res.cloudinary.com/{cloud_name}/video/upload/f_auto,q_auto/v1784592601/Karaoke_H%C3%81_MULHERES_E_MULHERES_-_Landrick_rnomfr.mp4"
+    elif "nani ta quieto" in titulo_lower:
+        return f"https://res.cloudinary.com/{cloud_name}/video/upload/f_auto,q_auto/Nani_Ta_Quieto_f35hpj.mp4"
+    
+    # Fallback genérico caso adicione novas músicas
+    encoded_title = urllib.parse.quote(titulo_limpo + ".mp4")
     return f"https://res.cloudinary.com/{cloud_name}/video/upload/f_auto,q_auto/{encoded_title}"
 
 def show_provider_panel_custom(provider_token):
