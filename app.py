@@ -167,7 +167,7 @@ def show_client_screen():
         if response.status_code == 200 and response.json():
             data = response.json()
             pedidos = [{"id": k, **v} for k, v in data.items()]
-            pedidos_ativos = [p for p in pedidos if p.get("estado"] in ["pendente", "aprovado"]]
+            pedidos_ativos = [p for p in pedidos if p.get("estado") in ["pendente", "aprovado"]]
             pedidos_ativos.sort(key=lambda x: x.get("timestamp", 0))
             
             tocando_agora = next((p for p in pedidos_ativos if p.get("estado") == "aprovado"), None)
@@ -184,14 +184,11 @@ def show_client_screen():
                     url_video = ""
                 
                 # --- Sistema Dinâmico Universal para as 9.900+ músicas ---
-                # Se o Firebase já trouxer o link pronto, usamo-lo (otimizando com f_auto,q_auto se for do Cloudinary)
                 if url_video and "http" in url_video:
                     if "res.cloudinary.com" in url_video and "/upload/" in url_video and "f_auto,q_auto" not in url_video:
                         url_video = url_video.replace("/upload/", "/upload/f_auto,q_auto/")
                 else:
-                    # Se não vier o link direto, geramos o link dinamicamente com base no nome do título guardado no pedido
                     cloud_name = "yhwgjh7g"
-                    # Limpeza de caracteres especiais para corresponder ao formato de ficheiro web padrão
                     titulo_limpo = titulo.strip().replace(" ", "_")
                     encoded_title = urllib.parse.quote(titulo_limpo + ".mp4")
                     url_video = f"https://res.cloudinary.com/{cloud_name}/video/upload/f_auto,q_auto/{encoded_title}"
