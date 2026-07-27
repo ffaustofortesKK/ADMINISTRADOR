@@ -37,7 +37,7 @@ def show_client_screen():
                 
                 t_upper = titulo.upper()
                 
-                # --- Forçamento Direto de Links Conhecidos ---
+                # --- Mapeamento direto de links conhecidos ---
                 if "PATRICK" in t_upper or "MANMAN" in t_upper or "KRÉYOL" in t_upper:
                     url_video = "https://res.cloudinary.com/yhwgjh7g/video/upload/v1784608903/karaok%C3%A9_-_Patrick_Saint-Eloi_Manman_kr%C3%A9yol.wmv_xf2ca9.mp4"
                 elif "JESSIE" in t_upper or "HEART WILL GO ON" in t_upper:
@@ -45,8 +45,12 @@ def show_client_screen():
                 elif "NEGRITUDE" in t_upper or "FAZ FALTA" in t_upper or "VOCÊ" in t_upper:
                     url_video = "https://res.cloudinary.com/yhwgjh7g/video/upload/v1784119615/NEGRITUDE_JUNIOR_-_VOC%C3%8A_FAZ_FALTA_KARAOKE_lzrcrt.mp4"
                 
-                # Se mesmo assim não houver link válido, tenta montar de forma segura
-                if not url_video or "http" not in url_video:
+                # --- Conversão e Otimização Universal Cloudinary ---
+                # Se o link veio do Cloudinary, injetamos f_auto,q_auto para garantir compatibilidade total de leitura
+                if "res.cloudinary.com" in url_video:
+                    if "/upload/" in url_video and "f_auto,q_auto" not in url_video:
+                        url_video = url_video.replace("/upload/", "/upload/f_auto,q_auto/")
+                elif not url_video or "http" not in url_video:
                     cloud_name = "yhwgjh7g"
                     titulo_limpo = titulo.replace("?", "").replace("[", "").replace("]", "").strip().replace(" ", "_")
                     encoded_title = urllib.parse.quote(titulo_limpo + ".mp4")
@@ -54,11 +58,12 @@ def show_client_screen():
                 
                 st.markdown(f"<h2>A tocar: {titulo}</h2>", unsafe_allow_html=True)
                 
-                # Renderiza o vídeo na tela com HTML5 puro e controlos
+                # Renderiza o vídeo com suporte a múltiplos tipos para forçar a leitura no browser
                 video_html = f"""
                 <div style="display: flex; justify-content: center; background: black; padding: 10px; width: 100%;">
                     <video width="100%" height="500px" controls autoplay playsinline style="object-fit: contain; background: black;">
                         <source src="{url_video}" type="video/mp4">
+                        <source src="{url_video}" type="video/webm">
                         O seu navegador não suporta a reprodução deste vídeo.
                     </video>
                 </div>
