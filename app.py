@@ -154,14 +154,17 @@ def show_client_screen():
                     titulo = str(musica)
                     url_video = ""
                 
-                # Gera o link do Cloudinary automaticamente com base no catálogo/título se não vier preenchido
+                # Gera o link otimizado com transcodificação forçada para garantir compatibilidade com o browser
                 if not url_video or "http" not in url_video:
                     cloud_name = "yhwgjh7g"
                     encoded_title = urllib.parse.quote(titulo + ".mp4")
-                    url_video = f"https://res.cloudinary.com/{cloud_name}/video/upload/f_auto,q_auto/{encoded_title}"
+                    url_video = f"https://res.cloudinary.com/{cloud_name}/video/upload/f_mp4,q_auto,vc_h264,ac_aac/{encoded_title}"
+                else:
+                    if "/upload/" in url_video and "f_mp4" not in url_video:
+                        url_video = url_video.replace("/upload/", "/upload/f_mp4,q_auto,vc_h264,ac_aac/")
                 
                 st.markdown(f"<h2>A tocar: {titulo}</h2>", unsafe_allow_html=True)
-                st.text(f"Link gerado: {url_video}")
+                st.text(f"Link otimizado: {url_video}")
                 
                 # Renderiza o vídeo na tela com HTML5 puro e controlos
                 video_html = f"""
