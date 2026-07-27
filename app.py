@@ -162,65 +162,31 @@ def show_client_screen():
             if tocando_agora:
                 musica = tocando_agora.get("musica", {})
                 
-                titulo = "Karaoke"
-                url_video = ""
-                
                 if isinstance(musica, dict):
-                    titulo = musica.get("titulo") or musica.get("nome") or "Karaoke"
-                    url_video = (
-                        musica.get("url_cloudinary") or 
-                        musica.get("url") or 
-                        musica.get("link") or 
-                        musica.get("secure_url") or
-                        ""
-                    )
+                    titulo = musica.get("titulo", "Karaoke")
+                    url_video = musica.get("url_cloudinary", "")
                 else:
                     titulo = str(musica)
+                    url_video = ""
+                
+                # Se o link não veio guardado no pedido, geramos com base no título
+                if not url_video or "http" not in url_video:
+                    cloud_name = "yhwgjh7g" 
+                    encoded_title = urllib.parse.quote(titulo + ".mp4")
+                    url_video = f"https://res.cloudinary.com/{cloud_name}/video/upload/f_auto,q_auto/{encoded_title}"
                 
                 st.markdown(f"<h2>A tocar: {titulo}</h2>", unsafe_allow_html=True)
                 
-                # Procura automática e correção inteligente de extensões ou links diretos
-                if not url_video or "http" not in url_video or "cloudinary.com" not in url_video:
-                    try:
-                        cat_resp = requests.get(f"{FIREBASE_URL}/catalogo.json")
-                        if cat_resp.status_code == 200 and cat_resp.json():
-                            cat_data = cat_resp.json()
-                            for item_id, item_val in cat_data.items():
-                                if isinstance(item_val, dict):
-                                    t_item = item_val.get("titulo", "") or item_val.get("nome", "")
-                                    if titulo.lower() in t_item.lower() or t_item.lower() in titulo.lower():
-                                        url_video = (
-                                            item_val.get("url_cloudinary") or 
-                                            item_val.get("url") or 
-                                            item_val.get("link") or 
-                                            item_val.get("secure_url") or 
-                                            ""
-                                        )
-                                        break
-                    except Exception:
-                        pass
-
-                # Se o link ainda vier com extensão antiga (.avi, .wmv), converte para .mp4 para streaming
-                if url_video and "cloudinary.com" in url_video:
-                    if url_video.endswith((".avi", ".wmv", ".mov", ".mkv")):
-                        # Substitui a extensão final por .mp4 para garantir reprodução web por streaming
-                        url_video = ''.join(url_video.rsplit('.', 1)[:-1]) + '.mp4'
-
-                if not url_video or "cloudinary.com" not in url_video:
-                    st.error(f"⚠️ O link do vídeo para a música '{titulo}' não foi encontrado ou é inválido na base de dados.")
-                    st.info("💡 Solução: Insira o link correto do Cloudinary no registo da música no Firebase.")
-                else:
-                    st.markdown(f"🔗 **Link Direto:** [Abrir Vídeo]({url_video})", unsafe_allow_html=True)
-                    
-                    video_html = f"""
-                    <div style="display: flex; justify-content: center; background: black; padding: 10px; width: 100%;">
-                        <video width="100%" height="450px" controls autoplay playsinline style="object-fit: contain; background: black;">
-                            <source src="{url_video}" type="video/mp4">
-                            O seu navegador não suporta a reprodução deste vídeo.
-                        </video>
-                    </div>
-                    """
-                    components.html(video_html, height=500)
+                # Renderiza o vídeo na tela com HTML5 puro e controlos
+                video_html = f"""
+                <div style="display: flex; justify-content: center; background: black; padding: 10px; width: 100%;">
+                    <video width="100%" height="500px" controls autoplay playsinline style="object-fit: contain; background: black;">
+                        <source src="{url_video}" type="video/mp4">
+                        O seu navegador não suporta a reprodução deste vídeo.
+                    </video>
+                </div>
+                """
+                components.html(video_html, height=550)
             else:
                 st.info("A aguardar início de reprodução...")
         else:
