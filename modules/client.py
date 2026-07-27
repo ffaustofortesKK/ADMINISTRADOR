@@ -1,6 +1,6 @@
 import time
+import urllib.parse
 import requests
-import streamlit as st
 from utils.firebase_db import get_musicas_cloudinary
 
 FIREBASE_URL = "https://grupoffkaraoke-default-rtdb.firebaseio.com"
@@ -116,8 +116,9 @@ def show_client_page():
                 
                 if not str(url_original).startswith("http"):
                     cloud_name = "yhwgjh7g"
-                    public_id = musica_escolhida.get('titulo', 'video')
-                    url_completo = f"https://res.cloudinary.com/{cloud_name}/video/upload/{public_id}.wmv"
+                    titulo_musica = musica_escolhida.get('titulo', 'video').strip()
+                    encoded_title = urllib.parse.quote(titulo_musica + ".mp4")
+                    url_completo = f"https://res.cloudinary.com/{cloud_name}/video/upload/f_auto,q_auto/{encoded_title}"
                 else:
                     url_completo = url_original
 
