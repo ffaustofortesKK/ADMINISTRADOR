@@ -4,7 +4,13 @@ import urllib.parse
 import streamlit as st
 import streamlit.components.v1 as components
 from datetime import datetime
-from utils.db_manager import init_db, get_all_providers
+
+# Importação protegida para evitar erros de diretório no Streamlit Cloud
+try:
+    from utils.db_manager import init_db, get_all_providers
+except ImportError:
+    from db_manager import init_db, get_all_providers
+
 from modules.admin import show_admin_panel
 from modules.register import show_register_page
 from modules.client import show_client_page
