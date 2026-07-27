@@ -62,7 +62,7 @@ def show_provider_panel_custom(provider_token):
             pedidos_ativos.sort(key=lambda x: x.get("timestamp", 0))
             
             tocando_agora = next((p for p in pedidos_ativos if p.get("estado") == "aprovado"), None)
-            pendentes = [p for p in pedidos_ativos if p.get("estado") == "pendente"]
+            pendentes = [p for p in pedidos_ativos if p.get("estado"] == "pendente"]
 
             if pedidos_ativos:
                 html_lista = '<div style="background-color: #000000; border: 3px solid #000000; padding: 15px; border-radius: 6px; color: #ffffff; max-width: 450px; font-family: monospace; font-size: 15px; margin-bottom: 20px;">'
@@ -154,7 +154,7 @@ def show_client_screen():
                     titulo = str(musica)
                     url_video = ""
                 
-                # Gera o link otimizado com transcodificação forçada para garantir compatibilidade com o browser
+                # Gera o link do Cloudinary compatível
                 if not url_video or "http" not in url_video:
                     cloud_name = "yhwgjh7g"
                     encoded_title = urllib.parse.quote(titulo + ".mp4")
@@ -164,18 +164,20 @@ def show_client_screen():
                         url_video = url_video.replace("/upload/", "/upload/f_mp4,q_auto,vc_h264,ac_aac/")
                 
                 st.markdown(f"<h2>A tocar: {titulo}</h2>", unsafe_allow_html=True)
-                st.text(f"Link otimizado: {url_video}")
                 
-                # Renderiza o vídeo na tela com HTML5 puro e controlos
+                # Botão de teste direto visível na tela para confirmar se o link do Cloudinary responde
+                st.markdown(f"🔗 **Teste direto do Cloudinary:** [Abrir Ficheiro Noutra Aba]({url_video})", unsafe_allow_html=True)
+                
+                # Renderiza o vídeo na tela com HTML5 puro
                 video_html = f"""
                 <div style="display: flex; justify-content: center; background: black; padding: 10px; width: 100%;">
-                    <video width="100%" height="500px" controls autoplay playsinline style="object-fit: contain; background: black;">
+                    <video width="100%" height="450px" controls autoplay playsinline style="object-fit: contain; background: black;">
                         <source src="{url_video}" type="video/mp4">
                         O seu navegador não suporta a reprodução deste vídeo.
                     </video>
                 </div>
                 """
-                components.html(video_html, height=550)
+                components.html(video_html, height=500)
             else:
                 st.info("A aguardar início de reprodução...")
         else:
