@@ -144,7 +144,7 @@ def show_client_screen():
     st.markdown("---")
 
     try:
-        response = requests.get(FIREBASE_URL + f"/pedidos/{provider_token}.json")
+        response = requests.get(f"{FIREBASE_URL}/pedidos/{provider_token}.json")
         if response.status_code == 200 and response.json():
             data = response.json()
             pedidos = [{"id": k, **v} for k, v in data.items()]
@@ -173,10 +173,10 @@ def show_client_screen():
                 
                 st.markdown(f"<h2>A tocar: {titulo}</h2>", unsafe_allow_html=True)
                 
-                # Tenta procurar no catálogo geral do Firebase caso o link não venha no pedido
+                # Procura no catálogo geral do Firebase caso o link não venha preenchido no pedido
                 if not url_video or "http" not in url_video:
                     try:
-                        cat_resp = requests.get(FIREBASE_URL + "/catalogo.json")
+                        cat_resp = requests.get(f"{FIREBASE_URL}/catalogo.json")
                         if cat_resp.status_code == 200 and cat_resp.json():
                             cat_data = cat_resp.json()
                             for item_id, item_val in cat_data.items():
@@ -194,7 +194,7 @@ def show_client_screen():
                     except Exception:
                         pass
 
-                # Fallback estruturado para a raiz do Cloudinary
+                # Fallback seguro para o Cloudinary caso não encontre nas referências anteriores
                 if not url_video or "http" not in url_video:
                     cloud_name = "yhwgjh7g"
                     safe_title = urllib.parse.quote(titulo, safe='')
