@@ -149,32 +149,40 @@ def show_client_screen():
                 
                 if isinstance(musica, dict):
                     titulo = musica.get("titulo", "Karaoke")
-                    url_video = musica.get("url_cloudinary", "") or musica.get("url", "") or musica.get("link", "")
+                    # Procura em todas as chaves possíveis onde o link real possa estar guardado
+                    url_video = (
+                        musica.get("url_cloudinary") or 
+                        musica.get("url") or 
+                        musica.get("link") or 
+                        musica.get("secure_url") or
+                        ""
+                    )
                 else:
                     titulo = str(musica)
                     url_video = ""
                 
-                if url_video and "http" in url_video:
+                st.markdown(f"<h2>A tocar: {titulo}</h2>", unsafe_allow_html=True)
+                
+                # Validação rigorosa: se não houver um link HTTP real guardado, avisamos para verificar o registo no Firebase
+                if not url_video or "http" not in url_video:
+                    st.error("❌ O objeto desta música no Firebase não contém um link válido do Cloudinary ('url_cloudinary'). O link gerado por título falhou porque o ficheiro não existe com esse nome exato na nuvem.")
+                    st.info("💡 **Solução:** Garanta que ao selecionar a música no painel do cliente, o link direto do Cloudinary é gravado corretamente no Firebase.")
+                else:
+                    # Aplica a otimização se o link existir
                     if "/upload/" in url_video and "f_mp4" not in url_video:
                         url_video = url_video.replace("/upload/", "/upload/f_mp4,q_auto,vc_h264,ac_aac/")
-                else:
-                    cloud_name = "yhwgjh7g"
-                    # Codificação segura de caracteres especiais para evitar erros 400 do Cloudinary
-                    safe_title = urllib.parse.quote(titulo, safe='')
-                    url_video = f"https://res.cloudinary.com/{cloud_name}/video/upload/f_mp4,q_auto,vc_h264,ac_aac/{safe_title}"
-                
-                st.markdown(f"<h2>A tocar: {titulo}</h2>", unsafe_allow_html=True)
-                st.markdown(f"🔗 **Link gerado:** [Testar Link Noutra Aba]({url_video})", unsafe_allow_html=True)
-                
-                video_html = f"""
-                <div style="display: flex; justify-content: center; background: black; padding: 10px; width: 100%;">
-                    <video width="100%" height="450px" controls autoplay playsinline style="object-fit: contain; background: black;">
-                        <source src="{url_video}" type="video/mp4">
-                        O seu navegador não suporta a reprodução deste vídeo.
-                    </video>
-                </div>
-                """
-                components.html(video_html, height=500)
+                    
+                    st.markdown(f"🔗 **Link Cloudinary:** [Abrir Vídeo]({url_video})", unsafe_allow_html=True)
+                    
+                    video_html = f"""
+                    <div style="display: flex; justify-content: center; background: black; padding: 10px; width: 100%;">
+                        <video width="100%" height="450px" controls autoplay playsinline style="object-fit: contain; background: black;">
+                            <source src="{url_video}" type="video/mp4">
+                            O seu navegador não suporta a reprodução deste vídeo.
+                        </video>
+                    </div>
+                    """
+                    components.html(video_html, height=500)
             else:
                 st.info("A aguardar início de reprodução...")
         else:
