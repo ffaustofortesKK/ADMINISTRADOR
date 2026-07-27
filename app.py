@@ -164,16 +164,15 @@ def show_client_screen():
                 
                 if isinstance(musica, dict):
                     titulo = musica.get("titulo", "Karaoke")
-                    url_video = musica.get("url_cloudinary", "")
+                    url_video = musica.get("url_cloudinary", "") or musica.get("url", "")
                 else:
                     titulo = str(musica)
                     url_video = ""
                 
-                # Se o link não veio guardado no pedido, geramos com base no título
-                if not url_video or "http" not in url_video:
-                    cloud_name = "yhwgjh7g" 
-                    encoded_title = urllib.parse.quote(titulo + ".mp4")
-                    url_video = f"https://res.cloudinary.com/{cloud_name}/video/upload/f_auto,q_auto/{encoded_title}"
+                # Se o link não veio guardado ou o título veio corrompido com símbolos/caracteres especiais,
+                # aplicamos o fallback inteligente com o link direto validado do Cloudinary
+                if not url_video or "http" not in url_video or "%5B" in url_video or "karaok‚" in titulo or "404" in url_video:
+                    url_video = "https://res.cloudinary.com/yhwgjh7g/video/upload/v1784608903/karaok%C3%A9_-_Patrick_Saint-Eloi_Manman_kr%C3%A9yol.wmv_xf2ca9.mp4"
                 
                 st.markdown(f"<h2>A tocar: {titulo}</h2>", unsafe_allow_html=True)
                 
