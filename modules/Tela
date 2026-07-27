@@ -29,34 +29,35 @@ def show_client_screen():
             
             if tocando_agora:
                 musica = tocando_agora.get("musica", {})
-                titulo = musica.get("titulo", "Karaoke") if isinstance(musica, dict) else str(musica)
-                url_video = musica.get("url_cloudinary", "") if isinstance(musica, dict) else ""
+                
+                # Extrai o título e o link caso venham como string simples ou dicionário
+                if isinstance(musica, dict):
+                    titulo = musica.get("titulo", "Karaoke")
+                    url_video = musica.get("url_cloudinary", "")
+                else:
+                    titulo = str(musica)
+                    url_video = ""
+                
+                # Se o link não veio guardado no pedido, geramos diretamente com base no título do catálogo do Firebase
+                if not url_video or "http" not in url_video:
+                    # Substitua 'seu_cloud_name' pelo seu nome de conta real do Cloudinary se necessário
+                    cloud_name = "yhwgjh7g" 
+                    encoded_title = urllib.parse.quote(titulo + ".mp4")
+                    url_video = f"https://res.cloudinary.com/{cloud_name}/video/upload/f_auto,q_auto/{encoded_title}"
                 
                 st.markdown(f"<h2>A tocar: {titulo}</h2>", unsafe_allow_html=True)
+                st.text(f"Link gerado: {url_video}")
                 
-                if url_video:
-                    # Tratamento seguro e robusto para links do Cloudinary com espaços e carateres especiais
-                    if "/upload/" in url_video:
-                        base_url, filename_part = url_video.split("/upload/", 1)
-                        # Remove a extensão antiga, força .mp4 e aplica a codificação web (ex: %20)
-                        clean_name = filename_part.split("/")[-1].rsplit(".", 1)[0] + ".mp4"
-                        encoded_name = urllib.parse.quote(clean_name)
-                        url_video = f"{base_url}/upload/f_auto,q_auto/{encoded_name}"
-                    
-                    st.text(f"Link otimizado: {url_video}")
-                    
-                    # Renderiza o vídeo usando st.components.v1.html com controlos nativos
-                    video_html = f"""
-                    <div style="display: flex; justify-content: center; background: black; padding: 10px; width: 100%;">
-                        <video width="100%" height="500px" controls autoplay playsinline style="object-fit: contain; background: black;">
-                            <source src="{url_video}" type="video/mp4">
-                            O seu navegador não suporta a reprodução deste vídeo.
-                        </video>
-                    </div>
-                    """
-                    components.html(video_html, height=550)
-                else:
-                    st.warning("O link do vídeo não está disponível para esta música.")
+                # Renderiza o vídeo na tela com HTML5 puro e controlos
+                video_html = f"""
+                <div style="display: flex; justify-content: center; background: black; padding: 10px; width: 100%;">
+                    <video width="100%" height="500px" controls autoplay playsinline style="object-fit: contain; background: black;">
+                        <source src="{url_video}" type="video/mp4">
+                        O seu navegador não suporta a reprodução deste vídeo.
+                    </video>
+                </div>
+                """
+                components.html(video_html, height=550)
             else:
                 st.info("A aguardar início de reprodução...")
         else:
