@@ -149,21 +149,23 @@ def show_client_screen():
                 
                 if isinstance(musica, dict):
                     titulo = musica.get("titulo", "Karaoke")
-                    url_video = musica.get("url_cloudinary", "")
+                    url_video = musica.get("url_cloudinary", "") or musica.get("url", "") or musica.get("link", "")
                 else:
                     titulo = str(musica)
                     url_video = ""
                 
-                if not url_video or "http" not in url_video:
-                    cloud_name = "yhwgjh7g"
-                    encoded_title = urllib.parse.quote(titulo + ".mp4")
-                    url_video = f"https://res.cloudinary.com/{cloud_name}/video/upload/f_mp4,q_auto,vc_h264,ac_aac/{encoded_title}"
-                else:
+                # Se o url_video vier preenchido do catálogo, garantimos os parâmetros de otimização
+                if url_video and "http" in url_video:
                     if "/upload/" in url_video and "f_mp4" not in url_video:
                         url_video = url_video.replace("/upload/", "/upload/f_mp4,q_auto,vc_h264,ac_aac/")
+                else:
+                    # Fallback seguro caso o link venha vazio
+                    cloud_name = "yhwgjh7g"
+                    encoded_title = urllib.parse.quote(titulo)
+                    url_video = f"https://res.cloudinary.com/{cloud_name}/video/upload/f_mp4,q_auto,vc_h264,ac_aac/{encoded_title}"
                 
                 st.markdown(f"<h2>A tocar: {titulo}</h2>", unsafe_allow_html=True)
-                st.markdown(f"🔗 **Teste direto do Cloudinary:** [Abrir Ficheiro Noutra Aba]({url_video})", unsafe_allow_html=True)
+                st.markdown(f"🔗 **Link gerado:** [Testar Link Noutra Aba]({url_video})", unsafe_allow_html=True)
                 
                 video_html = f"""
                 <div style="display: flex; justify-content: center; background: black; padding: 10px; width: 100%;">
