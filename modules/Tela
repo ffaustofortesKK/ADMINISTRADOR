@@ -35,26 +35,26 @@ def show_client_screen():
                 st.markdown(f"<h2>A tocar: {titulo}</h2>", unsafe_allow_html=True)
                 
                 if url_video:
-                    # Normalização segura do link do Cloudinary
+                    # Tratamento seguro e robusto para links do Cloudinary com espaços e carateres especiais
                     if "/upload/" in url_video:
                         base_url, filename_part = url_video.split("/upload/", 1)
+                        # Remove a extensão antiga, força .mp4 e aplica a codificação web (ex: %20)
                         clean_name = filename_part.split("/")[-1].rsplit(".", 1)[0] + ".mp4"
                         encoded_name = urllib.parse.quote(clean_name)
                         url_video = f"{base_url}/upload/f_auto,q_auto/{encoded_name}"
                     
-                    # Mostra o link clicável para teste manual imediato
-                    st.markdown(f"🔗 **Teste manual do link:** [Abrir Vídeo Noutra Aba]({url_video})", unsafe_allow_html=True)
+                    st.text(f"Link otimizado: {url_video}")
                     
-                    # Força a renderização via tag HTML pura (ignora o st.video e iframes restritos)
+                    # Renderiza o vídeo usando st.components.v1.html com controlos nativos
                     video_html = f"""
-                    <div style="display: flex; justify-content: center; background: #000; padding: 20px;">
-                        <video width="800" height="450" controls autoplay style="background: black; border-radius: 8px;">
+                    <div style="display: flex; justify-content: center; background: black; padding: 10px; width: 100%;">
+                        <video width="100%" height="500px" controls autoplay playsinline style="object-fit: contain; background: black;">
                             <source src="{url_video}" type="video/mp4">
-                            O seu browser não suporta a tag de vídeo.
+                            O seu navegador não suporta a reprodução deste vídeo.
                         </video>
                     </div>
                     """
-                    components.html(video_html, height=500)
+                    components.html(video_html, height=550)
                 else:
                     st.warning("O link do vídeo não está disponível para esta música.")
             else:
