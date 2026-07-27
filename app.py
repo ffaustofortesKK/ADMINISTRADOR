@@ -137,8 +137,9 @@ def show_provider_panel_custom(provider_token):
     except Exception as e:
         st.error(f"Erro ao carregar os pedidos: {e}")
 
-    time.sleep(4)
-    st.rerun()
+    # Botão manual para atualizar o painel quando quiser
+    if st.button("🔄 Atualizar Painel"):
+        st.rerun()
 
 def show_client_screen():
     query_params = st.query_params
@@ -212,8 +213,9 @@ def show_client_screen():
     except Exception as e:
         st.error(f"Erro de sincronização: {e}")
 
-    time.sleep(5)
-    st.rerun()
+    # Botão manual para atualizar a tela da TV sem prender o carregamento
+    if st.button("🔄 Atualizar Tela TV"):
+        st.rerun()
 
 def main():
     try:
