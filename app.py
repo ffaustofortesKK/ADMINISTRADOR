@@ -1,18 +1,19 @@
 import time
 import requests
 import urllib.parse
-import streamlit as st
-import streamlit.components.v1 as components
 import sys
 import os
 import re
 
-# Garante que o diretório atual está no path do sistema logo no início
+# Garante que a raiz do projeto está no path do Python
 current_dir = os.path.dirname(os.path.abspath(__file__))
 if current_dir not in sys.path:
     sys.path.insert(0, current_dir)
 
-# Importações seguras para evitar falhas de diretório
+import streamlit as st
+import streamlit.components.v1 as components
+
+# Importações seguras de utilitários
 try:
     from utils.db_manager import init_db, get_all_providers
 except ImportError:
@@ -24,9 +25,21 @@ except ImportError:
             import pandas as pd
             return pd.DataFrame(columns=['token', 'approved'])
 
-from modules.admin import show_admin_panel
-from modules.register import show_register_page
-from modules.client import show_client_page
+# Importações seguras dos módulos
+try:
+    from modules.admin import show_admin_panel
+except ImportError:
+    def show_admin_panel(): st.error("Módulo 'modules.admin' não encontrado.")
+
+try:
+    from modules.register import show_register_page
+except ImportError:
+    def show_register_page(): st.error("Módulo 'modules.register' não encontrado.")
+
+try:
+    from modules.client import show_client_page
+except ImportError:
+    def show_client_page(): st.error("Módulo 'modules.client' não encontrado.")
 
 FIREBASE_URL = "https://grupoffkaraoke-default-rtdb.firebaseio.com"
 
