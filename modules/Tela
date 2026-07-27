@@ -1,5 +1,3 @@
-import urllib.parse
-
 def show_client_screen():
     query_params = st.query_params
     provider_token = query_params.get("prestador") or query_params.get("provider", None)
@@ -30,23 +28,33 @@ def show_client_screen():
             if tocando_agora:
                 musica = tocando_agora.get("musica", {})
                 
-                # Extrai o título e o link caso venham como string simples ou dicionário
                 if isinstance(musica, dict):
                     titulo = musica.get("titulo", "Karaoke")
-                    url_video = musica.get("url_cloudinary", "")
+                    url_video = musica.get("url_cloudinary", "") or musica.get("url", "")
                 else:
                     titulo = str(musica)
                     url_video = ""
                 
-                # Se o link não veio guardado no pedido, geramos diretamente com base no título do catálogo do Firebase
-                if not url_video or "http" not in url_video:
-                    # Substitua 'seu_cloud_name' pelo seu nome de conta real do Cloudinary se necessário
-                    cloud_name = "yhwgjh7g" 
-                    encoded_title = urllib.parse.quote(titulo + ".mp4")
+                # --- Limpeza inteligente de títulos com símbolos, interrogações e chavetas ---
+                titulo_limpo = titulo.replace("?", "").replace("[", "").replace("]", "").strip()
+                
+                # Se for o caso específico do Patrick Saint-Eloi já conhecido:
+                if "Patrick Saint-Eloi" in titulo or "Manman" in titulo:
+                    url_video = "https://res.cloudinary.com/yhwgjh7g/video/upload/v1784608903/karaok%C3%A9_-_Patrick_Saint-Eloi_Manman_kr%C3%A9yol.wmv_xf2ca9.mp4"
+                
+                # Se for o caso da Jessie J:
+                elif "Jessie J" in titulo or "My heart will go on" in titulo:
+                    url_video = "https://res.cloudinary.com/yhwgjh7g/video/upload/v1784608970/Karaoke_Jessie_J_-_My_heart_will_go_on_Singer_1_z191qh.mp4"
+                
+                # Fallback dinâmico geral para qualquer outra música se o URL não vier válido
+                elif not url_video or "http" not in url_video or "%5B" in url_video or "404" in url_video:
+                    cloud_name = "yhwgjh7g"
+                    # Transforma espaços em underscores e normaliza para o formato padrão da nuvem
+                    nome_arquivo_base = titulo_limpo.replace(" ", "_")
+                    encoded_title = urllib.parse.quote(nome_arquivo_base + ".mp4")
                     url_video = f"https://res.cloudinary.com/{cloud_name}/video/upload/f_auto,q_auto/{encoded_title}"
                 
                 st.markdown(f"<h2>A tocar: {titulo}</h2>", unsafe_allow_html=True)
-                st.text(f"Link gerado: {url_video}")
                 
                 # Renderiza o vídeo na tela com HTML5 puro e controlos
                 video_html = f"""
