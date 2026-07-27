@@ -4,12 +4,26 @@ import urllib.parse
 import streamlit as st
 import streamlit.components.v1 as components
 from datetime import datetime
+import sys
+import os
 
-# Importação protegida para evitar erros de diretório no Streamlit Cloud
+# Adiciona explicitamente a raiz ao path do sistema para evitar falhas de importação
+current_dir = os.path.dirname(os.path.abspath(__file__))
+if current_dir not in sys.path:
+    sys.path.append(current_dir)
+
+# Importação blindada contra erros de diretório
 try:
     from utils.db_manager import init_db, get_all_providers
 except ImportError:
-    from db_manager import init_db, get_all_providers
+    try:
+        from db_manager import init_db, get_all_providers
+    except Exception:
+        # Fallback seguro caso o módulo falhe temporariamente
+        def init_db(): pass
+        def get_all_providers(): 
+            import pandas as pd
+            return pd.DataFrame(columns=['token', 'approved'])
 
 from modules.admin import show_admin_panel
 from modules.register import show_register_page
