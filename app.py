@@ -5,6 +5,7 @@ import streamlit as st
 import streamlit.components.v1 as components
 import sys
 import os
+import re
 
 current_dir = os.path.dirname(os.path.abspath(__file__))
 if current_dir not in sys.path:
@@ -46,6 +47,22 @@ def atualizar_estado_pedido(provider_token, pedido_id, novo_estado):
     except Exception:
         return False
 
+def limpar_nome_musica(musica_raw):
+    """Extrai e limpa o título da música, removendo extensões inválidas (.cdg) e formatações indesejadas."""
+    if isinstance(musica_raw, dict):
+        titulo = musica_raw.get("titulo", musica_raw.get("nome", "Karaoke"))
+    else:
+        titulo = str(musica_raw)
+    
+    # Remove aspas se existirem nas pontas
+    titulo = titulo.strip('"\'')
+    
+    # Se terminar com .cdg, limpa para permitir reprodução de vídeo mp4 correspondente
+    if titulo.lower().endswith('.cdg'):
+        titulo = titulo[:-4]
+        
+    return titulo.strip()
+
 def show_provider_panel_custom(provider_token):
     st.markdown("### 🎤 Painel do Prestador — FF Karaoke")
     st.markdown("---")
@@ -81,11 +98,7 @@ def show_provider_panel_custom(provider_token):
             if pedidos_ativos:
                 html_lista = '<div style="background-color: #000000; border: 3px solid #000000; padding: 15px; border-radius: 6px; color: #ffffff; max-width: 450px; font-family: monospace; font-size: 15px; margin-bottom: 20px;">'
                 for idx, p in enumerate(pedidos_ativos, start=1):
-                    musica_obj = p.get("musica", {})
-                    if isinstance(musica_obj, dict):
-                        titulo_musica = musica_obj.get("titulo", musica_obj.get("nome", "Música"))
-                    else:
-                        titulo_musica = str(musica_obj)
+                    titulo_musica = limpar_nome_musica(p.get("musica", {}))
                     cliente_nome = p.get("cliente", "Convidado")
                     html_lista += f'<div style="padding: 3px 0;"><b>{idx}-</b> {titulo_musica} <span style="color:#aaa; font-size:12px;">({cliente_nome})</span></div>'
                 html_lista += '</div>'
@@ -101,11 +114,7 @@ def show_provider_panel_custom(provider_token):
             st.markdown("### 📋 Gestão de Fila")
 
             if tocando_agora:
-                musica_obj = tocando_agora.get("musica", {})
-                if isinstance(musica_obj, dict):
-                    titulo_tocando = musica_obj.get("titulo", musica_obj.get("nome", "Karaoke"))
-                else:
-                    titulo_tocando = str(musica_obj)
+                titulo_tocando = limpar_nome_musica(tocando_agora.get("musica", {}))
                 st.success(f"🎵 A tocar agora: **{titulo_tocando}** (Cliente: {tocando_agora.get('cliente', 'Convidado')})")
                 if st.button("⏹️ Terminar Música Atual", key=f"term_{tocando_agora.get('id')}"):
                     atualizar_estado_pedido(provider_token, tocando_agora.get('id'), 'terminado')
@@ -115,11 +124,7 @@ def show_provider_panel_custom(provider_token):
                 st.write("Fila vazia.")
             else:
                 for idx, p in enumerate(pendentes, start=1):
-                    musica_obj = p.get("musica", {})
-                    if isinstance(musica_obj, dict):
-                        titulo_musica = musica_obj.get("titulo", musica_obj.get("nome", "Música"))
-                    else:
-                        titulo_musica = str(musica_obj)
+                    titulo_musica = limpar_nome_musica(p.get("musica", {}))
                     cliente_nome = p.get("cliente", "Convidado")
                     
                     col_info, col_btn = st.columns([3, 1])
@@ -136,10 +141,6 @@ def show_provider_panel_custom(provider_token):
             
     except Exception as e:
         st.error(f"Erro ao carregar os pedidos: {e}")
-
-    # Botão manual para atualizar o painel quando quiser
-    if st.button("🔄 Atualizar Painel"):
-        st.rerun()
 
 def show_client_screen():
     query_params = st.query_params
@@ -178,16 +179,17 @@ def show_client_screen():
                     titulo = str(musica)
                     url_video = ""
                 
+                titulo_limpo = limpar_nome_musica(titulo)
+                
                 if url_video and "http" in url_video:
                     if "res.cloudinary.com" in url_video and "/upload/" in url_video and "f_auto,q_auto" not in url_video:
                         url_video = url_video.replace("/upload/", "/upload/f_auto,q_auto/")
                 else:
                     cloud_name = "yhwgjh7g"
-                    titulo_limpo = titulo.strip()
                     encoded_title = urllib.parse.quote(titulo_limpo + ".mp4")
                     url_video = f"https://res.cloudinary.com/{cloud_name}/video/upload/f_auto,q_auto/{encoded_title}"
                 
-                st.markdown(f"<h2>A tocar: {titulo}</h2>", unsafe_allow_html=True)
+                st.markdown(f"<h2>A tocar: {titulo_limpo}</h2>", unsafe_allow_html=True)
                 st.caption(f"Link do Vídeo: {url_video}")
 
                 video_html = f"""
@@ -212,10 +214,6 @@ def show_client_screen():
             st.info("Nenhum pedido ativo na TV.")
     except Exception as e:
         st.error(f"Erro de sincronização: {e}")
-
-    # Botão manual para atualizar a tela da TV sem prender o carregamento
-    if st.button("🔄 Atualizar Tela TV"):
-        st.rerun()
 
 def main():
     try:
