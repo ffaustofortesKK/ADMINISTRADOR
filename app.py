@@ -62,7 +62,7 @@ def show_provider_panel_custom(provider_token):
             pedidos_ativos.sort(key=lambda x: x.get("timestamp", 0))
             
             tocando_agora = next((p for p in pedidos_ativos if p.get("estado") == "aprovado"), None)
-            pendentes = [p for p in pedidos_ativos if p.get("estado"] == "pendente"]
+            pendentes = [p for p in pedidos_ativos if p.get("estado") == "pendente"]
 
             if pedidos_ativos:
                 html_lista = '<div style="background-color: #000000; border: 3px solid #000000; padding: 15px; border-radius: 6px; color: #ffffff; max-width: 450px; font-family: monospace; font-size: 15px; margin-bottom: 20px;">'
@@ -162,7 +162,7 @@ def show_client_screen():
                 
                 st.markdown(f"<h2>A tocar: {titulo}</h2>", unsafe_allow_html=True)
                 
-                # Se o link não vier gravado, tentamos procurar no catálogo geral do Firebase para obter o link exato do Cloudinary correspondente ao título
+                # Se o link não vier gravado, tentamos procurar no catálogo geral do Firebase para obter o link exato do Cloudinary
                 if not url_video or "http" not in url_video:
                     try:
                         cat_resp = requests.get(f"{FIREBASE_URL}/catalogo.json")
@@ -177,9 +177,8 @@ def show_client_screen():
                     except Exception:
                         pass
                 
-                # Se ainda assim não houver link válido, informamos claramente a origem do problema na base de dados
                 if not url_video or "http" not in url_video:
-                    st.error(f"❌ O vídeo '{titulo}' não tem um URL associado no Firebase nem no Catálogo. O link direto falhou porque o Cloudinary não possui nenhum ficheiro com esse nome exato.")
+                    st.error(f"❌ O vídeo '{titulo}' não tem um URL associado no Firebase nem no Catálogo.")
                 else:
                     if "/upload/" in url_video and "f_mp4" not in url_video:
                         url_video = url_video.replace("/upload/", "/upload/f_mp4,q_auto,vc_h264,ac_aac/")
