@@ -62,7 +62,7 @@ def show_provider_panel_custom(provider_token):
             pedidos_ativos.sort(key=lambda x: x.get("timestamp", 0))
             
             tocando_agora = next((p for p in pedidos_ativos if p.get("estado") == "aprovado"), None)
-            pendentes = [p for p in pedidos_ativos if p.get("estado") == "pendente"]
+            pendentes = [p for p in pedidos_ativos if p.get("estado"] == "pendente"]
 
             if pedidos_ativos:
                 html_lista = '<div style="background-color: #000000; border: 3px solid #000000; padding: 15px; border-radius: 6px; color: #ffffff; max-width: 450px; font-family: monospace; font-size: 15px; margin-bottom: 20px;">'
@@ -149,7 +149,6 @@ def show_client_screen():
                 
                 if isinstance(musica, dict):
                     titulo = musica.get("titulo", "Karaoke")
-                    # Procura em todas as chaves possíveis onde o link real possa estar guardado
                     url_video = (
                         musica.get("url_cloudinary") or 
                         musica.get("url") or 
@@ -163,16 +162,29 @@ def show_client_screen():
                 
                 st.markdown(f"<h2>A tocar: {titulo}</h2>", unsafe_allow_html=True)
                 
-                # Validação rigorosa: se não houver um link HTTP real guardado, avisamos para verificar o registo no Firebase
+                # Se o link não vier gravado, tentamos procurar no catálogo geral do Firebase para obter o link exato do Cloudinary correspondente ao título
                 if not url_video or "http" not in url_video:
-                    st.error("❌ O objeto desta música no Firebase não contém um link válido do Cloudinary ('url_cloudinary'). O link gerado por título falhou porque o ficheiro não existe com esse nome exato na nuvem.")
-                    st.info("💡 **Solução:** Garanta que ao selecionar a música no painel do cliente, o link direto do Cloudinary é gravado corretamente no Firebase.")
+                    try:
+                        cat_resp = requests.get(f"{FIREBASE_URL}/catalogo.json")
+                        if cat_resp.status_code == 200 and cat_resp.json():
+                            cat_data = cat_resp.json()
+                            for item_id, item_val in cat_data.items():
+                                if isinstance(item_val, dict):
+                                    t_item = item_val.get("titulo", "") or item_val.get("nome", "")
+                                    if titulo.lower() in t_item.lower() or t_item.lower() in titulo.lower():
+                                        url_video = item_val.get("url_cloudinary") or item_val.get("url") or item_val.get("link", "")
+                                        break
+                    except Exception:
+                        pass
+                
+                # Se ainda assim não houver link válido, informamos claramente a origem do problema na base de dados
+                if not url_video or "http" not in url_video:
+                    st.error(f"❌ O vídeo '{titulo}' não tem um URL associado no Firebase nem no Catálogo. O link direto falhou porque o Cloudinary não possui nenhum ficheiro com esse nome exato.")
                 else:
-                    # Aplica a otimização se o link existir
                     if "/upload/" in url_video and "f_mp4" not in url_video:
                         url_video = url_video.replace("/upload/", "/upload/f_mp4,q_auto,vc_h264,ac_aac/")
                     
-                    st.markdown(f"🔗 **Link Cloudinary:** [Abrir Vídeo]({url_video})", unsafe_allow_html=True)
+                    st.markdown(f"🔗 **Link Cloudinary:** [Abrir Vídeo Diretamente]({url_video})", unsafe_allow_html=True)
                     
                     video_html = f"""
                     <div style="display: flex; justify-content: center; background: black; padding: 10px; width: 100%;">
