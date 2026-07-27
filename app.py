@@ -19,7 +19,6 @@ except ImportError:
     try:
         from db_manager import init_db, get_all_providers
     except Exception:
-        # Fallback seguro caso o módulo falhe temporariamente
         def init_db(): pass
         def get_all_providers(): 
             import pandas as pd
@@ -168,7 +167,7 @@ def show_client_screen():
         if response.status_code == 200 and response.json():
             data = response.json()
             pedidos = [{"id": k, **v} for k, v in data.items()]
-            pedidos_ativos = [p for p in pedidos if p.get("estado") in ["pendente", "aprovado"]]
+            pedidos_ativos = [p for p in pedidos if p.get("estado"] in ["pendente", "aprovado"]]
             pedidos_ativos.sort(key=lambda x: x.get("timestamp", 0))
             
             tocando_agora = next((p for p in pedidos_ativos if p.get("estado") == "aprovado"), None)
@@ -176,37 +175,35 @@ def show_client_screen():
             if tocando_agora:
                 musica = tocando_agora.get("musica", {})
                 
+                # Extrai dados do pedido de forma totalmente dinâmica
                 if isinstance(musica, dict):
-                    titulo = musica.get("titulo", "Karaoke")
+                    titulo = musica.get("titulo", musica.get("nome", "Karaoke"))
                     url_video = musica.get("url_cloudinary", "") or musica.get("url", "")
                 else:
                     titulo = str(musica)
                     url_video = ""
                 
-                t_upper = titulo.upper()
-                
-                # --- Mapeamento direto de links conhecidos para evitar erros de leitura ---
-                if "PATRICK" in t_upper or "MANMAN" in t_upper or "KRÉYOL" in t_upper:
-                    url_video = "https://res.cloudinary.com/yhwgjh7g/video/upload/v1784608903/karaok%C3%A9_-_Patrick_Saint-Eloi_Manman_kr%C3%A9yol.wmv_xf2ca9.mp4"
-                elif "JESSIE" in t_upper or "HEART WILL GO ON" in t_upper:
-                    url_video = "https://res.cloudinary.com/yhwgjh7g/video/upload/v1784608970/Karaoke_Jessie_J_-_My_heart_will_go_on_Singer_1_z191qh.mp4"
-                elif "NEGRITUDE" in t_upper or "FAZ FALTA" in t_upper or "VOCÊ" in t_upper:
-                    url_video = "https://res.cloudinary.com/yhwgjh7g/video/upload/v1784119615/NEGRITUDE_JUNIOR_-_VOC%C3%8A_FAZ_FALTA_KARAOKE_lzrcrt.mp4"
-                
-                # Fallback dinâmico seguro
-                if not url_video or "http" not in url_video:
+                # --- Sistema Dinâmico Universal para as 9.900+ músicas ---
+                # Se o Firebase já trouxer o link pronto, usamo-lo (otimizando com f_auto,q_auto se for do Cloudinary)
+                if url_video and "http" in url_video:
+                    if "res.cloudinary.com" in url_video and "/upload/" in url_video and "f_auto,q_auto" not in url_video:
+                        url_video = url_video.replace("/upload/", "/upload/f_auto,q_auto/")
+                else:
+                    # Se não vier o link direto, geramos o link dinamicamente com base no nome do título guardado no pedido
                     cloud_name = "yhwgjh7g"
-                    titulo_limpo = titulo.replace("?", "").replace("[", "").replace("]", "").strip().replace(" ", "_")
+                    # Limpeza de caracteres especiais para corresponder ao formato de ficheiro web padrão
+                    titulo_limpo = titulo.strip().replace(" ", "_")
                     encoded_title = urllib.parse.quote(titulo_limpo + ".mp4")
                     url_video = f"https://res.cloudinary.com/{cloud_name}/video/upload/f_auto,q_auto/{encoded_title}"
                 
                 st.markdown(f"<h2>A tocar: {titulo}</h2>", unsafe_allow_html=True)
                 
-                # Renderiza o vídeo na tela com HTML5 puro e controlos
+                # Renderizador HTML5 compatível com qualquer formato de vídeo da nuvem
                 video_html = f"""
                 <div style="display: flex; justify-content: center; background: black; padding: 10px; width: 100%;">
                     <video width="100%" height="500px" controls autoplay playsinline style="object-fit: contain; background: black;">
                         <source src="{url_video}" type="video/mp4">
+                        <source src="{url_video}" type="video/webm">
                         O seu navegador não suporta a reprodução deste vídeo.
                     </video>
                 </div>
