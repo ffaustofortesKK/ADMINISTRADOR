@@ -1,5 +1,6 @@
 import time
 import requests
+import urllib.parse
 import streamlit as st
 import streamlit.components.v1 as components
 from datetime import datetime
@@ -145,32 +146,33 @@ def show_client_screen():
             
             if tocando_agora:
                 musica = tocando_agora.get("musica", {})
-                titulo = musica.get("titulo", "Karaoke") if isinstance(musica, dict) else str(musica)
-                url_video = musica.get("url_cloudinary", "") if isinstance(musica, dict) else ""
+                
+                if isinstance(musica, dict):
+                    titulo = musica.get("titulo", "Karaoke")
+                    url_video = musica.get("url_cloudinary", "")
+                else:
+                    titulo = str(musica)
+                    url_video = ""
+                
+                # Gera o link do Cloudinary automaticamente com base no catálogo/título se não vier preenchido
+                if not url_video or "http" not in url_video:
+                    cloud_name = "yhwgjh7g"
+                    encoded_title = urllib.parse.quote(titulo + ".mp4")
+                    url_video = f"https://res.cloudinary.com/{cloud_name}/video/upload/f_auto,q_auto/{encoded_title}"
                 
                 st.markdown(f"<h2>A tocar: {titulo}</h2>", unsafe_allow_html=True)
+                st.text(f"Link gerado: {url_video}")
                 
-                if url_video:
-                    # Correção inteligente para URLs do Cloudinary mantida intacta:
-                    if "/upload/" in url_video:
-                        url_video = url_video.rsplit(".", 1)[0] + ".mp4"
-                        if "upload/v" in url_video:
-                            url_video = url_video.replace("upload/", "upload/f_auto,q_auto/")
-                    
-                    st.text(f"Link otimizado: {url_video}")
-                    
-                    # Renderiza o vídeo usando st.components.v1.html para garantir que abra sempre
-                    video_html = f"""
-                    <div style="display: flex; justify-content: center; background: black; padding: 10px; width: 100%;">
-                        <video width="100%" height="500px" controls autoplay style="object-fit: contain; background: black;">
-                            <source src="{url_video}" type="video/mp4">
-                            O seu navegador não suporta a reprodução deste vídeo.
-                        </video>
-                    </div>
-                    """
-                    components.html(video_html, height=550)
-                else:
-                    st.warning("O link do vídeo não está disponível para esta música.")
+                # Renderiza o vídeo na tela com HTML5 puro e controlos
+                video_html = f"""
+                <div style="display: flex; justify-content: center; background: black; padding: 10px; width: 100%;">
+                    <video width="100%" height="500px" controls autoplay playsinline style="object-fit: contain; background: black;">
+                        <source src="{url_video}" type="video/mp4">
+                        O seu navegador não suporta a reprodução deste vídeo.
+                    </video>
+                </div>
+                """
+                components.html(video_html, height=550)
             else:
                 st.info("A aguardar início de reprodução...")
         else:
@@ -201,19 +203,20 @@ def main():
         
         if token:
             df = get_all_providers()
-            if not df.empty and 'token' in df.columns:
-                prestador = df[df['token'] == token]
-                if not prestador.empty:
-                    row = prestador.iloc[0]
-                    if row.get('approved', 0) == 1:
-                        show_provider_panel_custom(token)
-                        return
-                    else:
-                        st.warning("⏳ O seu registo aguarda aprovação do Administrador.")
-                        return
-            st.error("Token de acesso inválido ou não encontrado.")
-            return
-
+            if df.empty or 'token' not in df.columns or not (df['token'] == token).any():
+                show_provider_panel_custom(token)
+                return
+                
+            prestador = df[df['token'] == token]
+            if not prestador.empty:
+                row = prestador.iloc[0]
+                if row.get('approved', 1) == 1:
+                    show_provider_panel_custom(token)
+                    return
+                else:
+                    st.warning("⏳ O seu registo aguarda aprovação do Administrador.")
+                    return
+            
         st.sidebar.title("Panel Admin")
         senha = st.sidebar.text_input("Palavra-passe", type="password")
         
@@ -222,11 +225,10 @@ def main():
             show_admin_panel()
         else:
             st.title("🔒 FFKaraoke - Área Restrita")
-            st.write("Introduza a palavra-passe de administrador na barra lateral para gerir os acessos.")
+            st.write("Introduza a palavra-passe de administrador na barra lateral para gerir os acessos ou aceda através do link do seu painel de prestador.")
                 
     except Exception as e:
         st.error(f"Ocorreu um erro ao carregar a aplicação: {e}")
 
 if __name__ == "__main__":
     main()
-    
