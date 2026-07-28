@@ -67,7 +67,7 @@ def atualizar_estado_pedido(provider_token, pedido_id, novo_estado):
 
 def terminar_todas_musicas_ativas(provider_token, pedidos):
     for p in pedidos:
-        if p.get("estado") == "aprovado":
+        if p.get("estado") in ["aprovado", "pendente"]:
             atualizar_estado_pedido(provider_token, p.get("id"), "terminado")
 
 def limpar_nome_musica(musica_raw):
@@ -104,7 +104,6 @@ def show_provider_panel_custom(provider_token):
     st.markdown("### 🎤 Painel do Prestador — FF Karaoke")
     st.markdown("---")
     
-    # Atualiza a página do prestador a cada 3 segundos para apanhar novos pedidos na hora
     st.markdown("""
         <script>
             setTimeout(function() {
@@ -167,7 +166,8 @@ def show_provider_panel_custom(provider_token):
                 titulo_tocando = limpar_nome_musica(tocando_agora.get("musica", {}))
                 st.success(f"🎵 A tocar agora: **{titulo_tocando}** (Cliente: {tocando_agora.get('cliente', 'Convidado')})")
                 if st.button("⏹️ Terminar Música Atual", key=f"term_{tocando_agora.get('id')}"):
-                    atualizar_estado_pedido(provider_token, tocando_agora.get('id'), 'terminado')
+                    terminar_todas_musicas_ativas(provider_token, pedidos)
+                    st.success("Música terminada e tela limpa com sucesso!")
                     st.rerun()
 
             if not pendentes:
@@ -207,7 +207,6 @@ def show_client_screen():
     </style>
     """, unsafe_allow_html=True)
 
-    # Atualiza a tela a cada 3 segundos para detetar novos pedidos ou cliques em Play instantaneamente
     st.markdown("""
         <script>
             setTimeout(function() {
@@ -227,7 +226,7 @@ def show_client_screen():
             tocando_agora = next((p for p in pedidos_ativos if p.get("estado") == "aprovado"), None)
             
             if tocando_agora:
-                # --- MODO REPRODUÇÃO: VÍDEO EM TELA INTEIRA ASSIM QUE CLICAS EM PLAY ---
+                # --- MODO REPRODUÇÃO: VÍDEO EM TELA INTEIRA ---
                 musica_obj = tocando_agora.get("musica", {})
                 titulo_limpo = limpar_nome_musica(musica_obj)
                 url_video = obter_url_video_cloudinary(musica_obj, titulo_limpo)
