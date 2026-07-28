@@ -60,7 +60,6 @@ def atualizar_estado_pedido(provider_token, pedido_id, novo_estado):
         return False
 
 def terminar_todas_musicas_ativas(provider_token, pedidos):
-    """Garante que apenas uma música fica aprovada de cada vez, terminando as restantes."""
     for p in pedidos:
         if p.get("estado") == "aprovado":
             atualizar_estado_pedido(provider_token, p.get("id"), "terminado")
@@ -99,6 +98,15 @@ def show_provider_panel_custom(provider_token):
     st.markdown("### 🎤 Painel do Prestador — FF Karaoke")
     st.markdown("---")
     
+    # Atualiza o painel do prestador automaticamente a cada 3 segundos para novos pedidos caírem sozinhos
+    st.markdown("""
+        <script>
+            setTimeout(function() {
+                window.location.reload();
+            }, 3000);
+        </script>
+    """, unsafe_allow_html=True)
+
     link_cliente = f"/?page=client_register&prestador={provider_token}"
     link_tv = f"/?page=client_screen&prestador={provider_token}"
 
@@ -164,14 +172,12 @@ def show_provider_panel_custom(provider_token):
                         st.write(f"**#{idx}** - {titulo_musica} *(Cliente: {cliente_nome})*")
                     with col_btn:
                         if st.button(f"▶️ Play #{idx}", key=f"btn_play_{p.get('id')}"):
-                            # Termina qualquer outra música que estivesse a tocar antes
                             terminar_todas_musicas_ativas(provider_token, pedidos)
-                            # Aprova imediatamente a música selecionada
                             atualizar_estado_pedido(provider_token, p.get('id'), 'aprovado')
                             st.success(f"Música '{titulo_musica}' enviada para a tela!")
                             st.rerun()
         else:
-            st.write("Fila vazia.")
+            st.write("Fila vazia. À espera de novos pedidos...")
             
     except Exception as e:
         st.error(f"Erro ao carregar os pedidos: {e}")
@@ -193,7 +199,7 @@ def show_client_screen():
     st.title("📺 FFKaraoke — Diretor Palco")
     st.markdown("---")
 
-    # Atualiza a tela automaticamente a cada 3 segundos para apanhar novas músicas sem precisar de atualizar manualmente
+    # Atualiza a tela automaticamente a cada 3 segundos
     st.markdown("""
         <script>
             setTimeout(function() {
@@ -230,7 +236,7 @@ def show_client_screen():
                 <script>
                     var video = document.getElementById('karaoke-player');
                     video.play().catch(function(error) {{
-                        console.log("Autoplay bloqueado pelo browser, clique no play:", error);
+                        console.log("Autoplay bloqueado pelo browser:", error);
                     }});
                 </script>
                 """
