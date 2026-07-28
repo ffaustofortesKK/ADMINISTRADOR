@@ -225,31 +225,40 @@ def show_client_screen():
             tocando_agora = next((p for p in pedidos_ativos if p.get("estado") == "aprovado"), None)
             
             if tocando_agora:
-                # --- MODO REPRODUÇÃO: VÍDEO EM TELA INTEIRA ---
+                # --- MODO REPRODUÇÃO: VÍDEO EM TELA INTEIRA COM BYPASS DE AUTOPLAY ---
                 musica_obj = tocando_agora.get("musica", {})
                 titulo_limpo = limpar_nome_musica(musica_obj)
                 url_video = obter_url_video_cloudinary(musica_obj, titulo_limpo)
                 
                 video_html = f"""
                 <div style="position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: black; display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 9999;">
-                    <div style="position: absolute; top: 15px; left: 25px; color: #4CAF50; font-family: monospace; font-size: 22px; font-weight: bold; background: rgba(0,0,0,0.7); padding: 8px 15px; border-radius: 6px;">
-                        🎵 A Tocar: {titulo_limpo} <span style="font-size:16px; color:#ccc;">(Cantor: {tocando_agora.get('cliente', 'Convidado')})</span>
+                    <div style="position: absolute; top: 15px; left: 25px; color: #4CAF50; font-family: monospace; font-size: 20px; font-weight: bold; background: rgba(0,0,0,0.8); padding: 8px 15px; border-radius: 6px; z-index: 10000;">
+                        🎵 A Tocar: {titulo_limpo} <span style="font-size:14px; color:#ccc;">(Cantor: {tocando_agora.get('cliente', 'Convidado')})</span>
                     </div>
                     <video id="karaoke-player" width="100%" height="100%" controls autoplay playsinline style="object-fit: contain; background: black;">
                         <source src="{url_video}" type="video/mp4">
                         O seu navegador não suporta a reprodução deste vídeo.
                     </video>
+                    <div id="play-warning" style="position: absolute; bottom: 30px; background: rgba(255, 193, 7, 0.9); color: #000; padding: 10px 20px; border-radius: 8px; font-family: monospace; font-size: 16px; font-weight: bold; display: none; cursor: pointer; z-index: 10000;" onclick="document.getElementById('karaoke-player').play(); this.style.display='none';">
+                        ⚠️ Clique aqui se o vídeo não iniciar automaticamente
+                    </div>
                 </div>
                 <script>
                     var video = document.getElementById('karaoke-player');
-                    video.play().catch(function(error) {{
-                        console.log("Autoplay bloqueado pelo browser:", error);
-                    }});
+                    var warning = document.getElementById('play-warning');
+                    
+                    var playPromise = video.play();
+                    if (playPromise !== undefined) {
+                        playPromise.catch(function(error) {
+                            console.log("Autoplay bloqueado pelo browser:", error);
+                            warning.style.display = 'block';
+                        });
+                    }
                 </script>
                 """
                 components.html(video_html, height=900)
             else:
-                # --- MODO LISTA DE ESPERA (Quando não há música a tocar) ---
+                # --- MODO LISTA DE ESPERA ---
                 st.title("📺 FFKaraoke — Próximos Cantores na Fila")
                 st.markdown("---")
                 
