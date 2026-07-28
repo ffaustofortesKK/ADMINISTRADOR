@@ -1,17 +1,24 @@
-import time
-import requests
-import urllib.parse
 import sys
 import os
-import re
 
+# Garante rigorosamente que a raiz do projeto e os subdiretórios estão no path do Python
 current_dir = os.path.dirname(os.path.abspath(__file__))
 if current_dir not in sys.path:
     sys.path.insert(0, current_dir)
+utils_path = os.path.join(current_dir, "utils")
+if utils_path not in sys.path:
+    sys.path.insert(0, utils_path)
+modules_path = os.path.join(current_dir, "modules")
+if modules_path not in sys.path:
+    sys.path.insert(0, modules_path)
 
+import time
+import requests
+import urllib.parse
 import streamlit as st
 import streamlit.components.v1 as components
 
+# Importação segura de utilitários da base de dados
 try:
     from utils.db_manager import init_db, get_all_providers
 except ImportError:
@@ -23,6 +30,7 @@ except ImportError:
             import pandas as pd
             return pd.DataFrame(columns=['token', 'approved'])
 
+# Importações seguras dos módulos
 try:
     from modules.admin import show_admin_panel
 except ImportError:
@@ -98,7 +106,7 @@ def show_provider_panel_custom(provider_token):
     st.markdown("### 🎤 Painel do Prestador — FF Karaoke")
     st.markdown("---")
     
-    # Atualiza o painel do prestador automaticamente a cada 3 segundos para novos pedidos caírem sozinhos
+    # Atualiza automaticamente a página do prestador a cada 3 segundos para novos pedidos caírem sozinhos
     st.markdown("""
         <script>
             setTimeout(function() {
@@ -161,7 +169,7 @@ def show_provider_panel_custom(provider_token):
                     st.rerun()
 
             if not pendentes:
-                st.write("Fila vazia.")
+                st.write("Fila vazia. À espera de novos pedidos...")
             else:
                 for idx, p in enumerate(pendentes, start=1):
                     titulo_musica = limpar_nome_musica(p.get("musica", {}))
@@ -199,7 +207,7 @@ def show_client_screen():
     st.title("📺 FFKaraoke — Diretor Palco")
     st.markdown("---")
 
-    # Atualiza a tela automaticamente a cada 3 segundos
+    # Atualiza a tela automaticamente a cada 3 segundos para abrir o vídeo assim que clicar em Play
     st.markdown("""
         <script>
             setTimeout(function() {
