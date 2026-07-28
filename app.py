@@ -42,17 +42,52 @@ def apagar_pedido(provider_token, pedido_id):
     except Exception:
         pass
 
-def main():
-    st.title("🎤 FF Karaoke — Painel de Gestão")
+def show_screen_view(provider_token):
+    """Ecrã de Projecção / Tela para mostrar o vídeo a tocar aos clientes no estabelecimento"""
+    st.markdown("""
+        <style>
+        .stApp { background-color: #000000; color: white; }
+        </style>
+    """, unsafe_allow_html=True)
+
+    st.title("🖥️ FF Karaoke — Tela de Projecção")
     
+    pedidos = obter_pedidos(provider_token)
+    pedidos_aprovados = [p for p in pedidos if p.get("estado") == "aprovado"]
+
+    if not pedidos_aprovados:
+        st.info("Aguardando o próximo cantor...")
+    else:
+        # Pega o primeiro aprovado para reprodução na tela
+        ator_atual = pedidos_aprovados[0]
+        musica = ator_atual.get("musica", {})
+        
+        titulo = musica.get("titulo", "Música") if isinstance(musica, dict) else str(musica)
+        artista = musica.get("artista", "FFKaraoke") if isinstance(musica, dict) else ""
+        url_video = musica.get("url", "") if isinstance(musica, dict) else ""
+        cantor = ator_atual.get("cliente", "Convidado")
+
+        st.markdown(f"## 🎤 A Cantar Agora: **{cantor}**")
+        st.markdown(f"### 🎵 {titulo} — *{artista}*")
+
+        if url_video:
+            st.video(url_video, autoplay=True)
+        else:
+            st.warning("⚠️ Este pedido é personalizado (não possui vídeo automático na nuvem). Aguarde orientações do DJ.")
+
+    # Atualiza automaticamente a tela a cada 4 segundos
+    time.sleep(4)
+    st.rerun()
+
+def main():
     query_params = st.query_params
     provider_token = query_params.get("prestador") or query_params.get("provider", None)
+    modo_tela = query_params.get("tela") or query_params.get("screen", None)
 
     if not provider_token:
         st.warning("⚠️ Selecione ou aceda através de um link de prestador válido.")
         df_prov = get_all_providers()
         if not df_prov.empty:
-            tokens = df_prov['token'].tolist()
             names = df_prov['name'].tolist()
             escolha = st.selectbox("Ou escolha um prestador da base de dados:", names)
             if escolha:
@@ -69,6 +104,14 @@ def main():
         return
 
     row_prov = prestador.iloc[0]
+
+    # Se o parâmetro 'tela' ou 'screen' estiver presente no link, abre a Tela de Projecção e não o Painel de Gestão/Cliente
+    if modo_tela:
+        show_screen_view(provider_token)
+        return
+
+    # Painel Normal de Gestão do DJ
+    st.title(f"🎤 FF Karaoke — Painel de Gestão ({row_prov['name']})")
     st.sidebar.markdown(f"### Prestador: **{row_prov['name']}**")
     st.sidebar.markdown("---")
 
