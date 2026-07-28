@@ -19,10 +19,7 @@ cloudinary.config(
 def obter_catalogo_cloudinary():
     catalogo = []
     try:
-        result = cloudinary.api.resources(
-            resource_type="video",
-            max_results=200
-        )
+        result = cloudinary.api.resources(resource_type="video", max_results=200)
         resources = result.get("resources", [])
         for item in resources:
             public_id = item.get("public_id", "")
@@ -71,114 +68,93 @@ def show_client_page():
         st.error("❌ Link de pedido inválido. Falta o código do prestador.")
         return
 
-    # Estilos CSS gerais, cores e animação do rodapé (agenda em marquee)
+    # Estilos CSS gerais (incluindo o letreiro em rodapé estilo marquee)
     st.markdown("""
     <style>
     .stApp { background-color: #0e1117; color: white; }
-    .welcome-banner {
-        background: linear-gradient(135deg, #1f4068, #162447);
-        padding: 20px;
-        border-radius: 12px;
-        text-align: center;
-        border: 2px solid #e43f5a;
-        margin-bottom: 20px;
-    }
     .marquee-container {
-        overflow: hidden;
-        white-space: nowrap;
-        background: #111;
-        border-top: 2px solid #e43f5a;
-        border-bottom: 2px solid #e43f5a;
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        width: 100%;
+        background-color: #1a1d24;
+        color: #FFC107;
         padding: 10px 0;
-        margin-top: 30px;
-        color: #00ffcc;
         font-family: monospace;
-        font-size: 16px;
+        font-size: 15px;
+        white-space: nowrap;
+        overflow: hidden;
+        z-index: 9999;
+        border-top: 2px solid #333;
     }
-    .marquee-content {
+    .marquee-text {
         display: inline-block;
-        animation: marquee 35s linear infinite;
+        padding-left: 100%;
+        animation: marquee 25s linear infinite;
     }
     @keyframes marquee {
-        0% { transform: translateX(100%); }
-        100% { transform: translateX(-100%); }
+        0%   { transform: translate(0, 0); }
+        100% { transform: translate(-100%, 0); }
     }
-    .promo-box {
-        background-color: #1a1a2e;
-        border: 1px solid #162447;
-        padding: 20px;
+    .banner-box {
+        background: linear-gradient(135deg, #1f4068, #162447);
+        border: 1px solid #e43f5a;
+        padding: 15px;
         border-radius: 10px;
         text-align: center;
-        margin-top: 25px;
+        margin-bottom: 20px;
     }
     </style>
+    <div class="marquee-container">
+        <div class="marquee-text">
+            🎤✨ AGENDA DO GRUPO FF KARAOKE ✨🎤 &nbsp;&nbsp;|&nbsp;&nbsp; 🎵 QUARTA-FEIRA: Restaurante Cave da Samba (Apresentação: CEFAS DAVID) &nbsp;&nbsp;|&nbsp;&nbsp; 🎵 SEXTA-FEIRA: Restaurante O Kubico - Maculusso (Apresentação: CEFAS DAVID) &nbsp;&nbsp;|&nbsp;&nbsp; 🎵 SEXTA-FEIRA: Restaurante Dinugo - Rangel B7 (Apresentação: EDNA ANJINHA)
+        </div>
+    </div>
     """, unsafe_allow_html=True)
 
-    # Gestão de Estados da Sessão do Cliente
-    if 'cliente_nome' not in st.session_state:
-        st.session_state.cliente_nome = ""
-    if 'confirmar_musica' not in st.session_state:
-        st.session_state.confirmar_musica = None
-    if 'pesquisa_input' not in st.session_state:
-        st.session_state.pesquisa_input = ""
-
-    st.markdown("## 🎤 FFKaraoke — Registo de Pedidos")
+    st.markdown("## 🎤 FFKaraoke — Painel do Cliente")
     st.markdown("---")
 
-    # Passo 1: Registo do Nome
-    if not st.session_state.cliente_nome:
-        with st.form("form_nome"):
-            nome_temp = st.text_input("Insira o seu Nome ou Alcunha para começar:", placeholder="Ex: João da Silva")
-            submitted = st.form_submit_button("Entrar no Karaoke 🚀")
-            if submitted:
-                if nome_temp.strip():
-                    st.session_state.cliente_nome = nome_temp.strip()
-                    st.rerun()
-                else:
-                    st.warning("⚠️ Por favor, insira um nome válido.")
+    # Gestão do Nome / Alcunha do Cliente
+    if 'cliente_nome_input' not in st.session_state:
+        st.session_state.cliente_nome_input = ""
+
+    cliente_nome = st.text_input("Insira o seu Nome ou Alcunha para começar:", value=st.session_state.cliente_nome_input, placeholder="Ex: João da Silva")
+    
+    if not cliente_nome.strip():
+        st.info("💡 Por favor, insira o seu nome acima para desbloquear o sistema de pedidos.")
         return
 
-    # Se já estiver registado, mostra o banner de boas-vindas personalizado
-    st.markdown(f"""
-        <div class="welcome-banner">
-            <h1 style="color: #ffffff; margin: 0; font-size: 28px;">🎉 Bem-vindo, {st.session_state.cliente_nome}!</h1>
-            <p style="color: #e43f5a; font-size: 16px; margin-top: 5px;">Prepare a sua voz e escolha o seu sucesso!</p>
-        </div>
-    """, unsafe_allow_html=True)
+    st.session_state.cliente_nome_input = cliente_nome.strip()
+    
+    # Mensagem de Boas-vindas em destaque
+    st.markdown(f"<h1 style='color: #4CAF50; text-align: center;'>Bem-vindo, {st.session_state.cliente_nome_input}!</h1>", unsafe_allow_html=True)
+    st.markdown("---")
 
-    # Verificar se o cliente já tem algum pedido ativo (pendente ou aprovado) na fila do prestador
+    # Verificar se o cliente já tem um pedido ativo na fila (pendente ou aprovado/a tocar)
     pedidos_atuais = obter_pedidos_firebase(provider_token)
-    pedido_ativo_cliente = next(
-        (p for p in pedidos_atuais if p.get("cliente", "").lower() == st.session_state.cliente_nome.lower() and p.get("estado") in ["pendente", "aprovado"]), 
-        None
-    )
+    meus_pedidos_ativos = [
+        p for p in pedidos_atuais 
+        if p.get("cliente", "").strip().lower() == st.session_state.cliente_nome_input.lower() 
+        and p.get("estado") in ["pendente", "aprovado"]
+    ]
 
-    if pedido_ativo_cliente:
-        estado_atual = pedido_ativo_cliente.get("estado")
-        musica_nome = pedido_ativo_cliente.get("musica", {}).get("titulo", "Música") if isinstance(pedido_ativo_cliente.get("musica"), dict) else str(pedido_ativo_cliente.get("musica"))
+    if meus_pedidos_ativos:
+        # Descobrir a posição exata na playlist
+        pedidos_ativos_geral = [p for p in pedidos_atuais if p.get("estado") in ["pendente", "aprovado"]]
+        pedidos_ativos_geral.sort(key=lambda x: x.get("timestamp", 0))
         
-        # Calcular posição na fila se estiver pendente
-        if estado_atual == "pendente":
-            pendentes_ordenados = [p for p in pedidos_atuais if p.get("estado") == "pendente"]
-            pendentes_ordenados.sort(key=lambda x: x.get("timestamp", 0))
-            posicao = next((i for i, p in enumerate(pendentes_ordenados, start=1) if p.get("id") == pedido_ativo_cliente.get("id")), 1)
-            st.warning(f"⏳ **Atenção:** Já tem um pedido pendente na fila (**{musica_nome}**). Encontra-se na **posição {posicao}** da playlist. Só poderá enviar um novo pedido assim que a sua música passar na tela e terminar!")
-        else:
-            st.info(f"🎵 A sua música **'{musica_nome}'** está a tocar atualmente ou foi aprovada na tela! Assim que terminar, já poderá enviar um novo pedido.")
-
-        if st.button("🔄 Alterar Nome / Sair da Sessão"):
-            st.session_state.cliente_nome = ""
-            st.session_state.confirmar_musica = None
-            st.rerun()
-            
+        # Encontrar a posição do cliente
+        posicao = next((idx for idx, p in enumerate(pedidos_ativos_geral, start=1) if p.get("cliente", "").strip().lower() == st.session_state.cliente_nome_input.lower()), 0)
+        
+        st.warning(f"🚫 **Atenção:** Você já tem um pedido ativo na fila! Encontra-se na **posição nº {posicao}** da playlist.")
+        st.info("ℹ️ Só poderá enviar um novo pedido assim que a sua música atual passar na tela e terminar.")
     else:
-        # Se não tiver pedidos ativos, permite pesquisar e solicitar músicas livremente
-        st.markdown("### 🔍 Pesquisar Música")
-        
-        def limpar_pesquisa():
-            st.session_state.pesquisa_input = ""
+        # Se cantou e terminou, exibe a mensagem de permissão
+        if 'ja_cantou_notificado' in st.session_state and st.session_state.ja_cantou_notificado:
+            st.success("🎉 A sua música anterior já passou! Já poderá enviar o seu próximo pedido.")
 
-        pesquisa = st.text_input("Digite o título ou artista:", value=st.session_state.pesquisa_input, key="pesquisa_input", placeholder="Ex: Landrick, Kizomba...")
+        pesquisa = st.text_input("🔍 Pesquisar música:", placeholder="Digite o nome da música ou artista...")
 
         catalogo = obter_catalogo_cloudinary()
 
@@ -188,68 +164,48 @@ def show_client_page():
                 if pesquisa.lower() in m["titulo"].lower() or pesquisa.lower() in m["artista"].lower()
             ]
 
-            if musicas_filtradas:
-                st.write(result_msg := f"Encontradas {len(musicas_filtradas)} músicas semelhantes:")
-                for musica in musicas_filtradas[:15]:
-                    col_info, col_btn = st.columns([4, 1])
-                    with col_info:
-                        st.markdown(f"🎵 **{musica['titulo']}**")
-                    with col_btn:
-                        if st.button("📤 Pedir", key=f"sel_{musica['id']}"):
-                            st.session_state.confirmar_musica = musica
-                            st.rerun()
-            else:
+            if not musicas_filtradas:
                 st.warning("Nenhuma música encontrada com esse termo.")
-        else:
-            st.info("💡 Digite um termo na caixa acima para ver a lista de músicas disponíveis.")
+            else:
+                st.write(f"Encontradas {len(musicas_filtradas)} músicas semelhantes:")
+                for musica in musicas_filtradas[:20]:
+                    col1, col2 = st.columns([4, 1])
+                    with col1:
+                        st.markdown(f"🎵 **{musica['titulo']}**")
+                    with col2:
+                        safe_key = f"btn_cloud_{musica['id']}"
+                        if st.button("📤 Pedir", key=safe_key):
+                            st.session_state['musica_selecionada_pendente'] = musica
 
-        # Janela de Confirmação do Pedido ("Tem a certeza ou quer tocar?")
-        if st.session_state.confirmar_musica:
-            m_escolhida = st.session_state.confirmar_musica
-            st.markdown("---")
-            st.markdown(f"### 🤔 Confirmação de Pedido")
-            st.markdown(f"Vai solicitar a música: **{m_escolhida['titulo']}**")
+        # Confirmação antes de enviar o pedido
+        if 'musica_selecionada_pendente' in st.session_state and st.session_state['musica_selecionada_pendente']:
+            musica_escolhida = st.session_state['musica_selecionada_pendente']
+            st.info(q:=f"Tem a certeza que deseja enviar o pedido de **{musica_escolhida['titulo']}**?")
             
             c_sim, c_nao = st.columns(2)
             with c_sim:
-                if st.button("✅ Tenho a certeza, Enviar Pedido!"):
-                    if enviar_pedido_firebase(provider_token, st.session_state.cliente_nome, m_escolhida):
-                        st.success("Pedido enviado com sucesso para o prestador!")
-                        st.session_state.confirmar_musica = None
-                        st.session_state.pesquisa_input = ""  # Limpa campos de pesquisa
+                if st.button("✅ Sim, Enviar Pedido"):
+                    if enviar_pedido_firebase(provider_token, st.session_state.cliente_nome_input, musica_escolhida):
+                        st.success(f"Pedido de '{musica_escolhida['titulo']}' enviado com sucesso!")
+                        st.session_state['musica_selecionada_pendente'] = None
+                        st.session_state['ja_cantou_notificado'] = False
                         time.sleep(1)
                         st.rerun()
                     else:
-                        st.error("Erro ao enviar o pedido. Tente novamente.")
+                        st.error("Erro ao enviar o pedido para o DJ.")
             with c_nao:
-                if st.button("❌ Quero escolher outra"):
-                    st.session_state.confirmar_musica = None
+                if st.button("❌ Cancelar"):
+                    st.session_state['musica_selecionada_pendente'] = None
                     st.rerun()
 
-    # Secção Promocional e Redes Sociais
     st.markdown("---")
+    
+    # Bloco Chamativo de Redes Sociais e Eventos
     st.markdown("""
-        <div class="promo-box">
-            <h3 style="color: #00ffcc; margin-bottom: 10px;">Quer saber mais do serviço de Karaoke do Grupo FF, clica abaixo!</h3>
-            <p style="font-size: 16px; margin: 5px 0;">📸 Instagram: <a href="https://instagram.com/ff.karaoke" target="_blank" style="color: #e43f5a; text-decoration: none;"><b>@ff.karaoke</b></a></p>
-            <p style="font-size: 16px; margin: 5px 0;">📞 Contacto para Eventos Privados: <b>955099159</b></p>
-            <p style="font-size: 16px; margin: 5px 0;">💬 WhatsApp: <b>955099159</b></p>
-        </div>
-    """, unsafe_allow_html=True)
-
-    # Rodapé Animado (Marquee) com a Agenda Completa do Grupo FF Karaoke
-    agenda_texto = (
-        "🎤✨ AGENDA DO GRUPO FF KARAOKE ✨🎤  |  "
-        "🗓️ Nossa Agenda da Semana  |  "
-        "🎵 QUARTA-FEIRA ➔ 📍 Restaurante Cave da Samba | 🎤 Apresentação: CEFAS DAVID | 🕖 Hora: 19H  |  "
-        "🎵 SEXTA-FEIRA ➔ 📍 Restaurante O Kubico | 🎤 Apresentação: CEFAS DAVID | 📌 Local: Maculusso | 🕖 Hora: 19H  |  "
-        "🎵 SEXTA-FEIRA ➔ 📍 Restaurante Universidade | 🎤 Apresentação: EDNA ANJINHA | 📌 Local: Nova Vida – Rua 40  |  "
-        "🎵 DOMINGO ➔ 📍 Restaurante TASCA | 🎤 Apresentação: EDNA ANJINHA | 📌 Local: Bairro Prenda – Frente ao Posto 15 | 🕖 Hora: 19H  |  "
-        "🎶 LINHA DA FRENTE: Venha cantar, dançar e se divertir conosco! Entrada Gratuita! 🎶"
-    )
-
-    st.markdown(f"""
-        <div class="marquee-container">
-            <div class="marquee-content">{agenda_texto}</div>
+        <div class="banner-box">
+            <h3>Quer saber mais do serviço de Karaoke do Grupo FF, clica abaixo.</h3>
+            <p style="font-size: 16px; margin: 10px 0;">📸 <b>Instagram:</b> <a href="https://instagram.com/ff.karaoke" target="_blank" style="color: #ff6584; text-decoration: none;">@ff.karaoke</a></p>
+            <p style="font-size: 16px; margin: 5px 0;">📞 <b>Contacto para Eventos Privados:</b> 955099159</p>
+            <p style="font-size: 16px; margin: 5px 0;">💬 <b>WhatsApp:</b> <a href="https://wa.me/244955099159" target="_blank" style="color: #4CAF50; text-decoration: none;">955099159</a></p>
         </div>
     """, unsafe_allow_html=True)
