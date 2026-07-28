@@ -118,10 +118,10 @@ def show_provider_panel_custom(provider_token):
     st.markdown(f"""
         <div style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 25px; max-width: 850px;">
             <div style="background-color: #e8f0fe; border: 1px solid #d2e3fc; padding: 10px 15px; border-radius: 8px; display: flex; align-items: center; justify-content: space-between;">
-                <span style="font-size: 14px; color: #202124;">📎 <b>Link do Cliente (Partilhe com os clientes):</b> <a href="{link_cliente}" target="_blank" rel="noopener noreferrer" style="color: #1a73e8; text-decoration: none;">{link_cliente}</a></span>
+                <span style="font-size: 14px; color: #202124;">📎 <b>Link do Cliente:</b> <a href="{link_cliente}" target="_blank" rel="noopener noreferrer" style="color: #1a73e8; text-decoration: none;">{link_cliente}</a></span>
             </div>
             <div style="background-color: #e8f0fe; border: 1px solid #d2e3fc; padding: 10px 15px; border-radius: 8px; display: flex; align-items: center; justify-content: space-between;">
-                <span style="font-size: 14px; color: #202124;">📺 <b>Link da TV (Abrir no Ecrã/Projetor):</b> <a href="{link_tv}" target="_blank" rel="noopener noreferrer" style="color: #1a73e8; text-decoration: none;">{link_tv}</a></span>
+                <span style="font-size: 14px; color: #202124;">📺 <b>Link da TV:</b> <a href="{link_tv}" target="_blank" rel="noopener noreferrer" style="color: #1a73e8; text-decoration: none;">{link_tv}</a></span>
             </div>
         </div>
     """, unsafe_allow_html=True)
@@ -206,9 +206,6 @@ def show_client_screen():
     </style>
     """, unsafe_allow_html=True)
 
-    st.title("📺 FFKaraoke — Ecrã / Palco")
-    st.markdown("---")
-
     st.markdown("""
         <script>
             setTimeout(function() {
@@ -227,53 +224,57 @@ def show_client_screen():
             
             tocando_agora = next((p for p in pedidos_ativos if p.get("estado") == "aprovado"), None)
             
-            # Layout na TV dividido em Duas Colunas: Vídeo a tocar e Lista Numerada da Fila
-            col_video, col_fila = st.columns([2.5, 1])
-
-            with col_video:
-                if tocando_agora:
-                    musica_obj = tocando_agora.get("musica", {})
-                    titulo_limpo = limpar_nome_musica(musica_obj)
-                    url_video = obter_url_video_cloudinary(musica_obj, titulo_limpo)
-                    
-                    st.markdown(f"<h3 style='color: #4CAF50;'>🎵 A Tocar: {titulo_limpo} <span style='font-size:16px; color:#ccc;'>(Req: {tocando_agora.get('cliente', 'Convidado')})</span></h3>", unsafe_allow_html=True)
-
-                    video_html = f"""
-                    <div style="display: flex; justify-content: center; background: black; padding: 5px; width: 100%;">
-                        <video id="karaoke-player" width="100%" height="450px" controls autoplay playsinline style="object-fit: contain; background: black; border-radius: 8px;">
-                            <source src="{url_video}" type="video/mp4">
-                            O seu navegador não suporta a reprodução deste vídeo.
-                        </video>
+            if tocando_agora:
+                # --- MODO REPRODUÇÃO: VÍDEO EM TELA INTEIRA (Sem Lista) ---
+                musica_obj = tocando_agora.get("musica", {})
+                titulo_limpo = limpar_nome_musica(musica_obj)
+                url_video = obter_url_video_cloudinary(musica_obj, titulo_limpo)
+                
+                video_html = f"""
+                <div style="position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: black; display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 9999;">
+                    <div style="position: absolute; top: 15px; left: 25px; color: #4CAF50; font-family: monospace; font-size: 22px; font-weight: bold; background: rgba(0,0,0,0.7); padding: 8px 15px; border-radius: 6px;">
+                        🎵 A Tocar: {titulo_limpo} <span style="font-size:16px; color:#ccc;">(Cantor: {tocando_agora.get('cliente', 'Convidado')})</span>
                     </div>
-                    <script>
-                        var video = document.getElementById('karaoke-player');
-                        video.play().catch(function(error) {{
-                            console.log("Autoplay bloqueado pelo browser:", error);
-                        }});
-                    </script>
-                    """
-                    components.html(video_html, height=500)
-                else:
-                    st.info("📺 A aguardar início de reprodução... Selecione 'Play' no painel do prestador.")
-
-            with col_fila:
-                st.markdown("### 📋 Fila de Espera")
+                    <video id="karaoke-player" width="100%" height="100%" controls autoplay playsinline style="object-fit: contain; background: black;">
+                        <source src="{url_video}" type="video/mp4">
+                        O seu navegador não suporta a reprodução deste vídeo.
+                    </video>
+                </div>
+                <script>
+                    var video = document.getElementById('karaoke-player');
+                    video.play().catch(function(error) {{
+                        console.log("Autoplay bloqueado pelo browser:", error);
+                    }});
+                </script>
+                """
+                components.html(video_html, height=900)
+            else:
+                # --- MODO LISTA DE ESPERA (Quando não há música a tocar) ---
+                st.title("📺 FFKaraoke — Próximos Cantores na Fila")
+                st.markdown("---")
+                
                 if pedidos_ativos:
-                    html_fila_tv = '<div style="background-color: #111111; border: 2px solid #333333; padding: 12px; border-radius: 8px; color: #ffffff; font-family: monospace; font-size: 14px;">'
+                    html_lista_geral = '<div style="background-color: #111111; border: 2px solid #333333; padding: 25px; border-radius: 12px; color: #ffffff; font-family: monospace; font-size: 20px; max-width: 900px; margin: 0 auto;">'
+                    html_lista_geral += '<div style="color: #FFC107; font-weight: bold; margin-bottom: 15px; border-bottom: 2px solid #444; padding-bottom: 8px; font-size: 24px;">📋 LISTA DE ESPERA (À espera de vez):</div>'
+                    
                     for idx, p in enumerate(pedidos_ativos, start=1):
                         t_limpo = limpar_nome_musica(p.get("musica", {}))
                         c_nome = p.get("cliente", "Convidado")
-                        estado = p.get("estado")
-                        if estado == "aprovado":
-                            html_fila_tv += f'<div style="padding: 5px 0; color: #4CAF50;"><b>{idx}. {t_limpo}</b><br><span style="font-size:11px; color:#888;">👤 {c_nome} (A tocar)</span></div><hr style="border-color:#222; margin:4px 0;">'
-                        else:
-                            html_fila_tv += f'<div style="padding: 5px 0; color: #ddd;"><b>{idx}. {t_limpo}</b><br><span style="font-size:11px; color:#888;">👤 {c_nome} (Pendente)</span></div><hr style="border-color:#222; margin:4px 0;">'
-                    html_fila_tv += '</div>'
-                    st.markdown(html_fila_tv, unsafe_allow_html=True)
+                        html_lista_geral += f'<div style="padding: 10px 0; border-bottom: 1px solid #222;"><b>{idx}.</b> <span style="color: #4CAF50;">{t_limpo}</span> <span style="color: #aaa; font-size: 16px;">— Cantor: <b>{c_nome}</b></span></div>'
+                    
+                    html_lista_geral += '</div>'
+                    st.markdown(html_lista_geral, unsafe_allow_html=True)
                 else:
-                    st.markdown("<p style='color: #888;'>Fila vazia.</p>", unsafe_allow_html=True)
+                    st.markdown("""
+                        <div style="text-align: center; margin-top: 100px; color: #888; font-family: monospace;">
+                            <h2>Fila de espera vazia.</h2>
+                            <p style="font-size: 18px;">Faça o seu pedido através do telemóvel!</p>
+                        </div>
+                    """, unsafe_allow_html=True)
         else:
-            st.info("Nenhum pedido ativo na TV.")
+            st.title("📺 FFKaraoke — Ecrã / Palco")
+            st.markdown("---")
+            st.info("Nenhum pedido ativo na TV no momento.")
     except Exception as e:
         st.error(f"Erro de sincronização: {e}")
 
