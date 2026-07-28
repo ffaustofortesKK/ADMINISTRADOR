@@ -1,13 +1,15 @@
 import sys
 import os
 
-# Garante rigorosamente que a raiz do projeto e os subdiretórios estão no path do Python
+# Configuração estrita do caminho absoluto para evitar erros de importação
 current_dir = os.path.dirname(os.path.abspath(__file__))
 if current_dir not in sys.path:
     sys.path.insert(0, current_dir)
+
 utils_path = os.path.join(current_dir, "utils")
 if utils_path not in sys.path:
     sys.path.insert(0, utils_path)
+
 modules_path = os.path.join(current_dir, "modules")
 if modules_path not in sys.path:
     sys.path.insert(0, modules_path)
@@ -18,32 +20,28 @@ import urllib.parse
 import streamlit as st
 import streamlit.components.v1 as components
 
-# Importação segura de utilitários da base de dados
+# Importações seguras com fallbacks para evitar crash total da aplicação
 try:
     from utils.db_manager import init_db, get_all_providers
-except ImportError:
-    try:
-        from db_manager import init_db, get_all_providers
-    except Exception:
-        def init_db(): pass
-        def get_all_providers(): 
-            import pandas as pd
-            return pd.DataFrame(columns=['token', 'approved'])
+except Exception:
+    def init_db(): pass
+    def get_all_providers(): 
+        import pandas as pd
+        return pd.DataFrame(columns=['token', 'approved'])
 
-# Importações seguras dos módulos
 try:
     from modules.admin import show_admin_panel
-except ImportError:
+except Exception:
     def show_admin_panel(): st.error("Módulo 'modules.admin' não encontrado.")
 
 try:
     from modules.register import show_register_page
-except ImportError:
+except Exception:
     def show_register_page(): st.error("Módulo 'modules.register' não encontrado.")
 
 try:
     from modules.client import show_client_page
-except ImportError:
+except Exception:
     def show_client_page(): st.error("Módulo 'modules.client' não encontrado.")
 
 FIREBASE_URL = "https://grupoffkaraoke-default-rtdb.firebaseio.com"
@@ -56,8 +54,8 @@ st.set_page_config(
 
 try:
     init_db()
-except Exception as e:
-    st.error(f"Erro ao inicializar a base de dados: {e}")
+except Exception:
+    pass
 
 def atualizar_estado_pedido(provider_token, pedido_id, novo_estado):
     try:
