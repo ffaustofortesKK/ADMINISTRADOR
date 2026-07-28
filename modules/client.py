@@ -169,7 +169,6 @@ def show_client_page():
             <div style="text-align: center; padding: 50px 20px; background: #12151c; border-radius: 16px; border: 2px solid #FFC107; margin: 30px auto; max-width: 700px; box-shadow: 0px 0px 20px rgba(255, 193, 7, 0.2);">
                 <div class="spinning-mic">🎤</div>
                 <h2 style="color: #FFC107; margin-top: 20px; font-size: 28px;">Aguarde pela sua vez</h2>
-                <p style="color: #ddd; font-size: 16px; margin-top: 10px;">Fica dentro da agenda de karaoke do grupo FF. O seu pedido já está registado na fila.</p>
                 """ + (f"<p style='color: #4CAF50; font-weight: bold; font-size: 18px; margin-top: 15px;'>📍 Encontra-se na posição <b>{posicao_fila}º</b> da fila do prestador.</p>" if posicao_fila else "") + """
             </div>
         """, unsafe_allow_html=True)
