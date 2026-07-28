@@ -4,15 +4,12 @@ import requests
 FIREBASE_URL = "https://grupoffkaraoke-default-rtdb.firebaseio.com"
 
 CLOUD_NAME = "yhwgjh7g"
-# Insira aqui os dados gerados na sua chave do Cloudinary:
 API_KEY = "852581666546867"
 API_SECRET = "oWTTGfF8KRtd4ojFiS"
 
 @st.cache_data(ttl=30)
 def obter_catalogo_cloudinary():
     catalogo = []
-    
-    # Consulta a API Admin do Cloudinary para listar todos os vídeos da nuvem automaticamente
     if API_KEY and API_SECRET:
         try:
             url = f"https://api.cloudinary.com/v1_1/{CLOUD_NAME}/resources/video?max_results=100"
@@ -31,7 +28,6 @@ def obter_catalogo_cloudinary():
         except Exception:
             pass
 
-    # Fallback caso ocorra algum problema na ligação à API
     if not catalogo:
         catalogo = [
             {
@@ -45,7 +41,6 @@ def obter_catalogo_cloudinary():
                 "url": f"https://res.cloudinary.com/{CLOUD_NAME}/video/upload/f_auto,q_auto/Nani_Ta_Quieto_f35hpj.mp4"
             }
         ]
-        
     return catalogo
 
 def enviar_pedido_firebase(provider_token, cliente_nome, musica_escolhida):
@@ -61,7 +56,6 @@ def enviar_pedido_firebase(provider_token, cliente_nome, musica_escolhida):
         response = requests.post(url, json=novo_pedido)
         return response.status_code == 200
     except Exception as e:
-        print(f"Erro ao enviar pedido: {e}")
         return False
 
 def show_client_page():
@@ -79,14 +73,11 @@ def show_client_page():
     """, unsafe_allow_html=True)
 
     st.markdown("## 🎤 FFKaraoke — Pedir Música")
-    st.markdown("Escolha a sua música diretamente da nuvem e envie para a fila!")
+    st.markdown("Pesquise e escolha a sua música diretamente da nuvem!")
     st.markdown("---")
 
     cliente_nome = st.text_input("O seu Nome / alcunha:", placeholder="Ex: João da Silva")
-
-    st.markdown("### 📚 Catálogo em Direto da Nuvem")
-
-    pesquisa = st.text_input("🔍 Pesquisar música:", placeholder="Digite o nome...")
+    pesquisa = st.text_input("🔍 Pesquisar música:", placeholder="Digite para filtrar os títulos...")
 
     catalogo = obter_catalogo_cloudinary()
 
@@ -107,8 +98,7 @@ def show_client_page():
                     if not cliente_nome.strip():
                         st.warning("Por favor, insira o seu nome.")
                     else:
-                        sucesso = enviar_pedido_firebase(provider_token, cliente_nome, musica)
-                        if sucesso:
+                        if enviar_pedido_firebase(provider_token, cliente_nome, musica):
                             st.success(f"Pedido de '{musica['titulo']}' enviado com sucesso!")
                             st.balloons()
                         else:
