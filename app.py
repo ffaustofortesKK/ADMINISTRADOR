@@ -68,7 +68,6 @@ st.markdown("""
 
     <script>
     function annihilateManageButton() {
-        // Varredura profunda incluindo elementos normais e Shadow DOMs
         const walkDOM = (node) => {
             if (node.shadowRoot) {
                 walkDOM(node.shadowRoot);
@@ -76,7 +75,7 @@ st.markdown("""
             let children = node.children || node.childNodes;
             for (let i = 0; i < children.length; i++) {
                 let child = children[i];
-                if (child.nodeType === 1) { // Element node
+                if (child.nodeType === 1) {
                     let text = child.innerText || child.textContent || "";
                     let titleAttr = child.getAttribute ? (child.getAttribute('title') || '') : '';
                     let ariaLabel = child.getAttribute ? (child.getAttribute('aria-label') || '') : '';
@@ -88,7 +87,6 @@ st.markdown("""
                         titleAttr.includes("Manage app") ||
                         ariaLabel.includes("Manage app")
                     ) {
-                        // Sobe na árvore para apagar o container flutuante inteiro
                         let target = child.closest('div[style*="position: fixed"]') || child.parentElement || child;
                         target.remove();
                     }
@@ -98,8 +96,6 @@ st.markdown("""
         };
         walkDOM(document.body);
     }
-    
-    // Executa continuamente para garantir que não volte a aparecer após atualizações da página
     setInterval(annihilateManageButton, 300);
     </script>
 """, unsafe_allow_html=True)
@@ -281,22 +277,29 @@ def renderizar_ecra_tv(provider_token):
                 cantor_name = tocando_agora.get('cliente', 'Convidado')
                 
                 st.markdown(f"<h2>A tocar: {titulo_limpo} <span style='font-size:16px; color:#aaa;'>(Cantor: {cantor_name})</span></h2>", unsafe_allow_html=True)
-                st.caption(f"Link do Vídeo: {url_video}")
 
+                # Player limpo sem os 3 pontinhos e com autoplay forçado
                 video_html = f"""
                 <div style="display: flex; justify-content: center; background: black; padding: 10px; width: 100%;">
-                    <video id="karaoke-player" width="100%" height="500px" controls autoplay playsinline style="object-fit: contain; background: black;">
+                    <video id="karaoke-player" width="100%" height="500px" controls autoplay playsinline controlslist="nodownload noremoteplayback" disablepictureinpicture style="object-fit: contain; background: black;">
                         <source src="{url_video}" type="video/mp4">
                         O seu navegador não suporta a reprodução deste vídeo.
                     </video>
                 </div>
                 <script>
                     var video = document.getElementById('karaoke-player');
-                    video.play().catch(function(error) {{
-                        console.log("Autoplay bloqueado pelo browser:", error);
-                    }});
+                    video.muted = false;
+                    var playPromise = video.play();
+                    if (playPromise !== undefined) {{
+                        playPromise.then(_ => {{
+                            // Reprodução iniciada automaticamente
+                        }}).catch(error => {{
+                            video.muted = true;
+                            video.play();
+                        }});
+                    }}
                     video.onerror = function() {{
-                        console.error("Erro ao carregar o vídeo do Cloudinary. Verifique se o ficheiro existe na nuvem com o nome correto.");
+                        console.error("Erro ao carregar o vídeo do Cloudinary.");
                     }};
                 </script>
                 """
