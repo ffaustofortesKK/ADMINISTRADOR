@@ -194,7 +194,7 @@ def renderizar_gestao_fila_prestador(provider_token):
             pedidos_ativos.sort(key=lambda x: x.get("timestamp", 0))
             
             tocando_agora = next((p for p in pedidos_ativos if p.get("estado") == "aprovado"), None)
-            pendentes = [p for p in pedidos_ativos if p.get("estado"] == "pendente"]
+            pendentes = [p for p in pedidos_ativos if p.get("estado") == "pendente"]
 
             if pedidos_ativos:
                 html_lista = '<div style="background-color: #111111; border: 2px solid #333333; padding: 15px; border-radius: 8px; color: #ffffff; max-width: 550px; font-family: monospace; font-size: 15px; margin-bottom: 20px;">'
@@ -443,7 +443,7 @@ def main():
             show_register_page()
             return
 
-        if "page" in query_params && query_params["page"] == "client_register":
+        if "page" in query_params and query_params["page"] == "client_register":
             show_client_page()
             return
 
