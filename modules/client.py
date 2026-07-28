@@ -1,49 +1,52 @@
 import streamlit as st
 import requests
-import base64
 
 FIREBASE_URL = "https://grupoffkaraoke-default-rtdb.firebaseio.com"
 
-# Credenciais da sua conta Cloudinary (fornecidas nos seus dados anteriores)
 CLOUD_NAME = "yhwgjh7g"
-# Opcional: se quiser usar autenticação da API Admin para listar vídeos de uma pasta específica
-# API_KEY = "o_seu_api_key"
-# API_SECRET = "o_seu_api_secret"
+# Insira aqui os dados gerados na sua chave do Cloudinary:
+API_KEY = "852581666546867"
+API_SECRET = "oWTTGfF8KRtd4ojFiS"
 
-@st.cache_data(ttl=60) # Guarda em cache durante 60 segundos para otimizar a velocidade
+@st.cache_data(ttl=30)
 def obter_catalogo_cloudinary():
-    """
-    Busca a lista de vídeos diretamente do Cloudinary usando a API pública/Search 
-    ou retorna uma lista dinâmica baseada nos ficheiros conhecidos da nuvem.
-    """
-    catalogo_padrao = [
-        {"titulo": "Há Mulheres e Mulheres", "artista": "Landrick", "url": f"https://res.cloudinary.com/{CLOUD_NAME}/video/upload/f_auto,q_auto/v1784592601/Karaoke_H%C3%81_MULHERES_E_MULHERES_-_Landrick_rnomfr.mp4"},
-        {"titulo": "Nani Tá Quieto", "artista": "Kudurista", "url": f"https://res.cloudinary.com/{CLOUD_NAME}/video/upload/f_auto,q_auto/Nani_Ta_Quieto_f35hpj.mp4"}
-    ]
+    catalogo = []
     
-    try:
-        # Consulta à API de listagem pública do Cloudinary (se os recursos estiverem definidos como listáveis)
-        url_api = f"https://res.cloudinary.com/{CLOUD_NAME}/video/list/karaoke.json"
-        response = requests.get(url_api, timeout=3)
-        if response.status_code == 200:
-            data = response.json()
-            recursos = data.get("resources", [])
-            lista_dinamica = []
-            for item in recursos:
-                public_id = item.get("public_id", "")
-                titulo_formatado = public_id.replace("_", " ").replace("-", " ").title()
-                url_video = f"https://res.cloudinary.com/{CLOUD_NAME}/video/upload/f_auto,q_auto/{public_id}.mp4"
-                lista_dinamica.append({
-                    "titulo": titulo_formatado,
-                    "artista": "Cloudinary Video",
-                    "url": url_video
-                })
-            if lista_dinamica:
-                return lista_dinamica
-    except Exception:
-        pass
+    # Consulta a API Admin do Cloudinary para listar todos os vídeos da nuvem automaticamente
+    if API_KEY and API_SECRET:
+        try:
+            url = f"https://api.cloudinary.com/v1_1/{CLOUD_NAME}/resources/video?max_results=100"
+            response = requests.get(url, auth=(API_KEY, API_SECRET), timeout=5)
+            if response.status_code == 200:
+                data = response.json()
+                for item in data.get("resources", []):
+                    public_id = item.get("public_id", "")
+                    titulo_limpo = public_id.split("/")[-1].replace("_", " ").replace("-", " ").title()
+                    url_video = item.get("secure_url", "")
+                    catalogo.append({
+                        "titulo": titulo_limpo,
+                        "artista": "Cloudinary",
+                        "url": url_video
+                    })
+        except Exception:
+            pass
+
+    # Fallback caso ocorra algum problema na ligação à API
+    if not catalogo:
+        catalogo = [
+            {
+                "titulo": "Há Mulheres e Mulheres", 
+                "artista": "Landrick", 
+                "url": f"https://res.cloudinary.com/{CLOUD_NAME}/video/upload/f_auto,q_auto/v1784592601/Karaoke_H%C3%81_MULHERES_E_MULHERES_-_Landrick_rnomfr.mp4"
+            },
+            {
+                "titulo": "Nani Tá Quieto", 
+                "artista": "Kudurista", 
+                "url": f"https://res.cloudinary.com/{CLOUD_NAME}/video/upload/f_auto,q_auto/Nani_Ta_Quieto_f35hpj.mp4"
+            }
+        ]
         
-    return catalogo_padrao
+    return catalogo
 
 def enviar_pedido_firebase(provider_token, cliente_nome, musica_escolhida):
     try:
