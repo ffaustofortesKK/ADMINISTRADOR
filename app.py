@@ -5,7 +5,6 @@ import sys
 import os
 import re
 
-# Garante que a raiz do projeto está no path do Python
 current_dir = os.path.dirname(os.path.abspath(__file__))
 if current_dir not in sys.path:
     sys.path.insert(0, current_dir)
@@ -13,7 +12,6 @@ if current_dir not in sys.path:
 import streamlit as st
 import streamlit.components.v1 as components
 
-# Importações seguras de utilitários
 try:
     from utils.db_manager import init_db, get_all_providers
 except ImportError:
@@ -25,7 +23,6 @@ except ImportError:
             import pandas as pd
             return pd.DataFrame(columns=['token', 'approved'])
 
-# Importações seguras dos módulos
 try:
     from modules.admin import show_admin_panel
 except ImportError:
@@ -188,6 +185,15 @@ def show_client_screen():
     st.title("📺 FFKaraoke — Diretor Palco")
     st.markdown("---")
 
+    # Script automático para atualizar a tela do cliente a cada 4 segundos e buscar novas músicas instantaneamente
+    st.markdown("""
+        <script>
+            setTimeout(function() {
+                window.location.reload();
+            }, 4000);
+        </script>
+    """, unsafe_allow_html=True)
+
     try:
         response = requests.get(f"{FIREBASE_URL}/pedidos/{provider_token}.json")
         if response.status_code == 200 and response.json():
@@ -204,7 +210,6 @@ def show_client_screen():
                 url_video = obter_url_video_cloudinary(musica_obj, titulo_limpo)
                 
                 st.markdown(f"<h2>A tocar: {titulo_limpo}</h2>", unsafe_allow_html=True)
-                st.caption(f"Link do Vídeo: {url_video}")
 
                 video_html = f"""
                 <div style="display: flex; justify-content: center; background: black; padding: 10px; width: 100%;">
@@ -216,9 +221,9 @@ def show_client_screen():
                 </div>
                 <script>
                     var video = document.getElementById('karaoke-player');
-                    video.onerror = function() {{
-                        console.error("Erro ao carregar o vídeo do Cloudinary. Verifique se o ficheiro existe na nuvem.");
-                    }};
+                    video.play().catch(function(error) {{
+                        console.log("Reprodução automática bloqueada pelo navegador, clique no play:", error);
+                    }});
                 </script>
                 """
                 components.html(video_html, height=580)
