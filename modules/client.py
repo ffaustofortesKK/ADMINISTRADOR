@@ -60,17 +60,16 @@ def show_client_page():
         st.error("❌ Link de pedido inválido. Falta o código do prestador.")
         return
 
-    df_prov = get_all_providers()
-    prestador = df_prov[df_prov['token'] == provider_token]
-    
-    if prestador.empty:
-        st.error("❌ Link de prestador inválido ou inexistente na base de dados.")
-        return
-
-    row_prov = prestador.iloc[0]
-    if row_prov.get('approved', 0) != 1:
-        st.warning("⏳ Este painel de prestador encontra-se temporariamente inativo ou expirado.")
-        return
+    # Validação tolerante: tenta encontrar o nome do prestador na BD, mas não bloqueia se não achar
+    nome_prestador = "FFKaraoke"
+    try:
+        df_prov = get_all_providers()
+        if not df_prov.empty and 'token' in df_prov.columns:
+            prestador = df_prov[df_prov['token'] == provider_token]
+            if not prestador.empty:
+                nome_prestador = prestador.iloc[0].get('name', 'FFKaraoke')
+    except Exception:
+        pass
 
     st.markdown("""
     <style>
@@ -78,7 +77,7 @@ def show_client_page():
     </style>
     """, unsafe_allow_html=True)
 
-    st.markdown(f"## 🎤 FFKaraoke — {row_prov['name']}")
+    st.markdown(f"## 🎤 FFKaraoke — {nome_prestador}")
     st.markdown("Pesquise e escolha a sua música diretamente da nuvem!")
     st.markdown("---")
 
@@ -93,7 +92,6 @@ def show_client_page():
     # Obter catálogo da nuvem
     catalogo = obter_catalogo_cloudinary()
 
-    # Se o catálogo estiver vazio, mostra um aviso útil de diagnóstico para o operador
     if not catalogo:
         st.warning("⚠️ O catálogo do Cloudinary não retornou nenhum ficheiro. Verifique se existem vídeos carregados na conta Cloudinary associada ou se as credenciais da API estão corretas.")
 
