@@ -111,6 +111,10 @@ def show_client_page():
         font-size: 14px !important;
         min-height: 35px !important;
     }
+    /* Deixar o label do text_input (Digite o nome da música ou artista) em cor branca */
+    .stTextInput label {
+        color: white !important;
+    }
     </style>
     """, unsafe_allow_html=True)
 
@@ -175,8 +179,7 @@ def show_client_page():
             <div style="text-align: center; padding: 40px 10px; margin: 20px auto; max-width: 700px;">
                 <div class="spinning-mic">🎤</div>
                 <h2 style="color: #FFC107; margin-top: 20px; font-size: 28px;">Aguarde pela sua vez</h2>
-                <p style="color: #ddd; font-size: 16px; margin-top: 10px;">Fica dentro da agenda de karaoke do grupo FF. O seu pedido já está registado na fila.</p>
-                """ + (f"<p style='color: #4CAF50; font-weight: bold; font-size: 18px; margin-top: 15px;'>📍 Encontra-se na posição <b>{posicao_fila}º</b> da fila do prestador.</p>" if posicao_fila else "") + """
+                """ + (f"<p style='color: #4CAF50; font-weight: bold; font-size: 18px; margin-top: 20px;'>📍 Encontra-se na posição <b>{posicao_fila}º</b> da fila do prestador.</p>" if posicao_fila else "") + """
             </div>
         """, unsafe_allow_html=True)
     else:
