@@ -1,6 +1,7 @@
 import sys
 import os
 
+# Configuração estrita do caminho absoluto para evitar erros de importação
 current_dir = os.path.dirname(os.path.abspath(__file__))
 if current_dir not in sys.path:
     sys.path.insert(0, current_dir)
@@ -19,6 +20,7 @@ import urllib.parse
 import streamlit as st
 import streamlit.components.v1 as components
 
+# Importações seguras com fallbacks para evitar crash total da aplicação
 try:
     from utils.db_manager import init_db, get_all_providers
 except Exception:
@@ -103,6 +105,7 @@ def show_provider_panel_custom(provider_token):
     st.markdown(f"<p style='color: #888; font-size: 13px;'>Token Ativo: <code>{provider_token}</code></p>", unsafe_allow_html=True)
     st.markdown("---")
     
+    # Auto-refresh a cada 3 segundos para capturar novos pedidos instantaneamente
     st.markdown("""
         <script>
             setTimeout(function() {
@@ -114,19 +117,25 @@ def show_provider_panel_custom(provider_token):
     link_cliente_rel = f"/?page=client_register&prestador={provider_token}"
     link_tv_rel = f"/?page=client_screen&prestador={provider_token}"
     
-    link_cliente_absoluto = f"https://grupoffkaraoke.streamlit.app{link_cliente_rel}"
+    host_dominio = st.context.headers.get('Host', 'grupoffkaraoke.streamlit.app')
+    link_cliente_absoluto = f"https://{host_dominio}{link_cliente_rel}"
     qr_url_cliente = f"https://api.qrserver.com/v1/create-qr-code/?size=180x180&data={urllib.parse.quote(link_cliente_absoluto)}"
 
-    col_links, col_qr = st.columns([3, 1])
-    
-    with col_links:
-        st.info(f"📎 **Link do Cliente:**\n`{link_cliente_rel}`")
-        st.info(f"📺 **Link da TV:**\n`{link_tv_rel}`")
-        
+    col_link, col_qr = st.columns([3, 1])
+    with col_link:
+        st.markdown(f"""
+            <div style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 15px;">
+                <div style="background-color: #e8f0fe; border: 1px solid #d2e3fc; padding: 10px 15px; border-radius: 8px;">
+                    <span style="font-size: 14px; color: #202124;">📎 <b>Link do Cliente:</b> <a href="{link_cliente_rel}" target="_blank" rel="noopener noreferrer" style="color: #1a73e8; text-decoration: none;">{link_cliente_rel}</a></span>
+                </div>
+                <div style="background-color: #e8f0fe; border: 1px solid #d2e3fc; padding: 10px 15px; border-radius: 8px;">
+                    <span style="font-size: 14px; color: #202124;">📺 <b>Link da TV:</b> <a href="{link_tv_rel}" target="_blank" rel="noopener noreferrer" style="color: #1a73e8; text-decoration: none;">{link_tv_rel}</a></span>
+                </div>
+            </div>
+        """, unsafe_allow_html=True)
     with col_qr:
-        st.image(qr_url_cliente, width=140, caption="QR Code Cliente")
+        st.image(qr_url_cliente, width=130, caption="QR Code Cliente")
 
-    st.markdown("---")
     st.markdown("### 🎬 Fila de Pedidos Atual")
 
     try:
@@ -156,7 +165,11 @@ def show_provider_panel_custom(provider_token):
                 html_lista += '</div>'
                 st.markdown(html_lista, unsafe_allow_html=True)
             else:
-                st.info("Nenhum pedido na lista neste momento. À espera de novos pedidos...")
+                st.markdown("""
+                    <div style="background-color: #111111; border: 2px solid #333333; padding: 15px; border-radius: 8px; color: #888; max-width: 550px; font-family: monospace; font-size: 15px; margin-bottom: 20px;">
+                        <div>Nenhum pedido na lista neste momento. À espera de novos pedidos...</div>
+                    </div>
+                """, unsafe_allow_html=True)
 
             st.markdown("---")
             st.markdown("### 📋 Gestão de Fila e Controlo")
@@ -166,12 +179,14 @@ def show_provider_panel_custom(provider_token):
                 st.success(f"🎵 A tocar agora: **{titulo_tocando}** (Cliente: {tocando_agora.get('cliente', 'Convidado')})")
                 if st.button("⏹️ Terminar Música Atual", key=f"term_{tocando_agora.get('id')}"):
                     terminar_todas_musicas_ativas(provider_token, pedidos)
-                    st.success("Música terminada com sucesso!")
+                    st.success("Música terminada e tela limpa com sucesso!")
                     st.rerun()
 
-            if pendentes:
+            if not pendentes:
+                st.write("Fila de pendentes vazia. Os pedidos feitos pelos clientes aparecerão aqui automaticamente.")
+            else:
                 st.write("### Pedidos Pendentes para Aprovar:")
-                for p in pendentes:
+                for idx, p in enumerate(pendentes, start=1):
                     titulo_musica = limpar_nome_musica(p.get("musica", {}))
                     cliente_nome = p.get("cliente", "Convidado")
                     
@@ -182,13 +197,13 @@ def show_provider_panel_custom(provider_token):
                         if st.button(f"▶️ Play", key=f"btn_play_{p.get('id')}"):
                             terminar_todas_musicas_ativas(provider_token, pedidos)
                             atualizar_estado_pedido(provider_token, p.get('id'), 'aprovado')
-                            st.success(f"Música enviada para a tela!")
+                            st.success(f"Música '{titulo_musica}' enviada para a tela!")
                             st.rerun()
         else:
-            st.info("Nenhum pedido encontrado no Firebase para este prestador.")
+            st.info("Nenhum pedido encontrado no Firebase para este prestador. Abra o link do cliente e envie uma música para testar.")
             
     except Exception as e:
-        st.error(f"Erro ao carregar os pedidos: {e}")
+        st.error(f"Erro ao carregar os pedidos do Firebase: {e}")
 
 def show_client_screen():
     query_params = st.query_params
@@ -229,12 +244,20 @@ def show_client_screen():
             
             if tocando_agora:
                 musica = tocando_agora.get("musica", {})
-                titulo = musica.get("titulo", musica.get("nome", "Karaoke")) if isinstance(musica, dict) else str(musica)
+                
+                if isinstance(musica, dict):
+                    titulo = musica.get("titulo", musica.get("nome", "Karaoke"))
+                    url_video = musica.get("url_cloudinary", "") or musica.get("url", "")
+                else:
+                    titulo = str(musica)
+                    url_video = ""
+                
                 titulo_limpo = limpar_nome_musica(titulo)
                 url_video = obter_url_video_cloudinary(musica, titulo_limpo)
                 cantor_name = tocando_agora.get('cliente', 'Convidado')
                 
                 st.markdown(f"<h2>A tocar: {titulo_limpo} <span style='font-size:16px; color:#aaa;'>(Cantor: {cantor_name})</span></h2>", unsafe_allow_html=True)
+                st.caption(f"Link do Vídeo: {url_video}")
 
                 video_html = f"""
                 <div style="display: flex; justify-content: center; background: black; padding: 10px; width: 100%;">
@@ -245,12 +268,26 @@ def show_client_screen():
                 </div>
                 <script>
                     var video = document.getElementById('karaoke-player');
-                    video.play().catch(function(error) {{ console.log(error); }});
+                    video.play().catch(function(error) {{
+                        console.log("Autoplay bloqueado pelo browser:", error);
+                    }});
+                    video.onerror = function() {{
+                        console.error("Erro ao carregar o vídeo do Cloudinary. Verifique se o ficheiro existe na nuvem com o nome correto.");
+                    }};
                 </script>
                 """
                 components.html(video_html, height=580)
             else:
                 st.info("📺 Fila em espera. A aguardar que o prestador aprove um pedido...")
+                if pedidos_ativos:
+                    html_lista_geral = '<div style="background-color: #111111; border: 2px solid #333333; padding: 20px; border-radius: 10px; color: #ffffff; font-family: monospace; font-size: 18px; max-width: 800px; margin: 20px auto;">'
+                    html_lista_geral += '<div style="color: #FFC107; font-weight: bold; margin-bottom: 10px; border-bottom: 1px solid #444; padding-bottom: 5px;">PRÓXIMOS NA FILA:</div>'
+                    for idx, p in enumerate(pedidos_ativos, start=1):
+                        t_limpo = limpar_nome_musica(p.get("musica", {}))
+                        c_nome = p.get("cliente", "Convidado")
+                        html_lista_geral += f'<div style="padding: 6px 0;"><b>{idx}.</b> <span style="color: #4CAF50;">{t_limpo}</span> <span style="color: #aaa; font-size: 14px;">(Cantor: {c_nome})</span></div>'
+                    html_lista_geral += '</div>'
+                    st.markdown(html_lista_geral, unsafe_allow_html=True)
         else:
             st.info("Nenhum pedido ativo na TV no momento.")
     except Exception as e:
