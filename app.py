@@ -62,28 +62,85 @@ def obter_pedidos_cliente(provider_token):
         pass
     return []
 
-def show_client_page():
-    # Inicializar estado de autenticação em segurança
-    if "autenticado" not in st.session_state:
-        st.session_state.autenticado = False
+def atualizar_estado_pedido(provider_token, pedido_id, novo_estado):
+    try:
+        url = f"{FIREBASE_URL}/pedidos/{provider_token}/{pedido_id}/estado.json"
+        response = requests.put(url, json=novo_estado, timeout=10)
+        return response.status_code == 200
+    except Exception:
+        return False
 
-    # 🔒 SISTEMA DE PROTEÇÃO POR PALAVRA-PASSE
+def apagar_pedido_firebase(provider_token, pedido_id):
+    try:
+        url = f"{FIREBASE_URL}/pedidos/{provider_token}/{pedido_id}.json"
+        response = requests.delete(url, timeout=10)
+        return response.status_code == 200
+    except Exception:
+        return False
+
+# ==================== PAINEL DE ADMINISTRADOR (ADM) ====================
+def show_admin_page():
+    if "admin_autenticado" not in st.session_state:
+        st.session_state.admin_autenticado = False
+
     PALAVRA_PASSE_MESTRE = "ffkaraoke2026"
 
-    if not st.session_state.autenticado:
-        st.markdown("<h2 style='color: #FFC107;'>🔒 Acesso Restrito - FF Karaoke</h2>", unsafe_allow_html=True)
-        st.markdown("Insira a palavra-passe para aceder ao sistema:")
-        
-        senha_input = st.text_input("Palavra-passe:", type="password", key="input_senha_seguranca")
-        if st.button("Entrar no Sistema", key="btn_login_seguranca"):
-            if senha_input == PALAVRA_PASSE_MESTRE:
-                st.session_state.autenticado = True
+    if not st.session_state.admin_autenticado:
+        st.markdown("<h2 style='color: #FFC107;'>🔒 Painel ADM - FF Karaoke</h2>", unsafe_allow_html=True)
+        senha_adm = st.text_input("Palavra-passe do Administrador:", type="password", key="senha_adm_input")
+        if st.button("Entrar no ADM", key="btn_login_adm"):
+            if senha_adm == PALAVRA_PASSE_MESTRE:
+                st.session_state.admin_autenticado = True
                 st.rerun()
             else:
                 st.error("❌ Palavra-passe incorreta!")
-        return  # Interrompe a execução enquanto não autenticar
+        return
 
-    # Configuração de estilos gerais após autenticação
+    st.markdown("<h1>🎛️ Painel de Controlo do Prestador / ADM</h1>", unsafe_allow_html=True)
+    st.markdown("Gerencie os pedidos de karaoke recebidos em tempo real.")
+
+    # Definir o token do prestador gerido no ADM (ex: "1" ou o ID padrão)
+    provider_token = st.text_input("Código do Prestador (Token):", value="1", key="input_token_adm")
+
+    if st.button("🔄 Atualizar Pedidos", key="btn_refresh_adm"):
+        st.rerun()
+
+    pedidos = obter_pedidos_cliente(provider_token)
+    
+    if not pedidos:
+        st.info("ℹ️ Nenhum pedido registado para este prestador no momento.")
+        return
+
+    st.markdown("### 📋 Lista de Pedidos")
+    for p in pedidos:
+        p_id = p.get("id")
+        cliente = p.get("cliente", "Desconhecido")
+        musica_dict = p.get("musica", {})
+        titulo_musica = musica_dict.get("titulo", "Música desconhecida") if isinstance(musica_dict, dict) else str(musica_dict)
+        estado = p.get("estado", "pendente")
+
+        cor_estado = "#FFC107" if estado == "pendente" else "#4CAF50" if estado == "aprovado" else "#f44336"
+        
+        with st.container():
+            col1, col2, col3, col4 = st.columns([3, 3, 2, 2])
+            with col1:
+                st.markdown(f"👤 **{cliente}**")
+            with col2:
+                st.markdown(f"🎵 {titulo_musica}")
+            with col3:
+                st.markdown(f"<span style='color: {cor_estado}; font-weight: bold;'>{estado.upper()}</span>", unsafe_allow_html=True)
+            with col4:
+                if estado == "pendente":
+                    if st.button("✅ Aprovar", key=f"aprov_{p_id}"):
+                        atualizar_estado_pedido(provider_token, p_id, "aprovado")
+                        st.rerun()
+                if st.button("🗑️ Apagar", key=f"del_{p_id}"):
+                    apagar_pedido_firebase(provider_token, p_id)
+                    st.rerun()
+            st.markdown("---")
+
+# ==================== PÁGINA DO CLIENTE ====================
+def show_client_page():
     st.markdown("""
     <style>
     .stApp { background-color: #0e1117; color: white; }
@@ -119,22 +176,12 @@ def show_client_page():
         display: inline-block;
         font-size: 160px;
     }
-    .stButton button {
-        padding: 4px 12px !important;
-        font-size: 14px !important;
-        min-height: 35px !important;
-    }
-    .stTextInput label {
-        color: white !important;
-    }
     </style>
     """, unsafe_allow_html=True)
 
     query_params = st.query_params
-    # Se não vier prestador no link, assume "geral" para nunca dar erro de link inválido
-    provider_token = query_params.get("prestador") or query_params.get("provider", "geral")
+    provider_token = query_params.get("prestador") or query_params.get("provider", "1")
 
-    # Agenda em rodapé / letreiro superior lento
     agenda_texto = (
         "🎤✨ AGENDA DO GRUPO FF KARAOKE ✨🎤  |  "
         "🎵 QUARTA-FEIRA 📍 Restaurante Cave da Samba 🎤 Apresentação: CEFAS DAVID  |  "
@@ -154,7 +201,6 @@ def show_client_page():
     if 'musica_selecionada' not in st.session_state:
         st.session_state.musica_selecionada = None
 
-    # Registo inicial do nome do cliente
     if not st.session_state.cliente_registado:
         st.markdown("## 🎤 Bem-vindo ao FF Karaoke")
         st.markdown("Insira o seu nome ou alcunha para começar:")
@@ -169,12 +215,10 @@ def show_client_page():
                     st.warning("⚠️ Por favor, insira um nome válido.")
         return
 
-    # Ecrã principal pós-registo
     cliente_nome = st.session_state.cliente_registado
     st.markdown(f"<h1 style='color: #4CAF50; font-size: 28px; margin-bottom: 0;'>Benvindo {cliente_nome}</h1>", unsafe_allow_html=True)
     st.markdown("<hr style='margin-top: 10px; margin-bottom: 20px;'>", unsafe_allow_html=True)
 
-    # Verificar estado dos pedidos anteriores deste cliente na fila
     pedidos = obter_pedidos_cliente(provider_token)
     pedidos_cliente = [p for p in pedidos if p.get("cliente", "").lower() == cliente_nome.lower() and p.get("estado") in ["pendente", "aprovado"]]
     
@@ -200,7 +244,6 @@ def show_client_page():
     else:
         st.success("✅ Já poderá enviar o seu pedido!")
 
-    # Se selecionou uma música, exibe a confirmação
     if st.session_state.musica_selecionada:
         musica_atual = st.session_state.musica_selecionada
         st.markdown(f"""
@@ -224,14 +267,13 @@ def show_client_page():
                         time.sleep(1)
                         st.rerun()
                     else:
-                        st.error("Erro ao enviar o pedido para o DJ.")
+                        st.error("Erro ao enviar o pedido.")
         with col_c2:
             if st.button("❌ Não", use_container_width=True, key="btn_nao_cancelar"):
                 st.session_state.musica_selecionada = None
                 st.rerun()
         st.markdown("---")
 
-    # Caixa de pesquisa de música com lista rolável (scroll)
     st.markdown("### 🔍 Pesquisar Música")
     pesquisa = st.text_input("Digite o nome da música ou artista:", value=st.session_state.pesquisa_input, placeholder="Ex: Landrick, Nani...")
     st.session_state.pesquisa_input = pesquisa
@@ -246,7 +288,6 @@ def show_client_page():
 
         if musicas_filtradas:
             st.write(f"Encontradas {len(musicas_filtradas)} músicas:")
-            
             container_lista = st.container(height=300)
             with container_lista:
                 for musica in musicas_filtradas:
@@ -260,17 +301,15 @@ def show_client_page():
         else:
             st.warning("Nenhuma música encontrada com esse termo.")
 
-    st.markdown("---")
+# ==================== NAVEGAÇÃO PRINCIPAL ====================
+def main():
+    st.sidebar.title("🎛️ Menu FF Karaoke")
+    pagina = st.sidebar.radio("Escolha a Vista:", ["🎤 Página do Cliente", "🛠️ Painel Administrador (ADM)"])
 
-    # Secção chamativa para redes sociais e contactos
-    st.markdown("""
-        <div style="background: linear-gradient(135deg, #1f1c2c, #928dab); padding: 25px; border-radius: 12px; text-align: center; color: white; margin-top: 30px;">
-            <h3 style="margin-bottom: 10px; color: #FFC107;">Quer saber mais do serviço de Karaoke do Grupo FF, clica abaixo.</h3>
-            <p style="font-size: 16px; margin: 8px 0;">📸 <b>Instagram:</b> <a href="https://instagram.com/ff.karaoke" target="_blank" style="color: #00d2ff; text-decoration: none;">ff.karaoke</a></p>
-            <p style="font-size: 16px; margin: 8px 0;">📞 <b>Contacto para Eventos Privados:</b> 955099159</p>
-            <p style="font-size: 16px; margin: 8px 0;">💬 <b>WhatsApp:</b> <a href="https://wa.me/244955099159" target="_blank" style="color: #25D366; text-decoration: none;">955099159</a></p>
-        </div>
-    """, unsafe_allow_html=True)
+    if pagina == "🎤 Página do Cliente":
+        show_client_page()
+    else:
+        show_admin_page()
 
 if __name__ == "__main__":
-    show_client_page()
+    main()
