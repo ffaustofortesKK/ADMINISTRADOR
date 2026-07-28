@@ -114,16 +114,34 @@ def show_provider_panel_custom(provider_token):
         </script>
     """, unsafe_allow_html=True)
 
-    link_cliente = f"/?page=client_register&prestador={provider_token}"
-    link_tv = f"/?page=client_screen&prestador={provider_token}"
+    # Obter URL base atual da aplicação Streamlit para montar links dinâmicos perfeitos para QR Code
+    base_url = st.get_option("server.baseUrlPath") or ""
+    # Se estiver a correr localmente ou em cloud, criamos os links completos
+    host_url = "https://grupoffkaraoke.streamlit.app" # Substitui se necessário ou usa relativo
+    
+    link_cliente_rel = f"/?page=client_register&prestador={provider_token}"
+    link_tv_rel = f"/?page=client_screen&prestador={provider_token}"
+    
+    # URL completa codificada para o QR Code (usando api.qrserver.com)
+    # Nota: substitui o host_url pelo teu domínio real se estiver alojado na Streamlit Community Cloud
+    qr_url_cliente = f"https://api.qrserver.com/v1/create-qr-code/?size=180x180&data={urllib.parse.quote('https://' + st.context.headers.get('Host', 'localhost:8501') + link_cliente_rel)}"
 
     st.markdown(f"""
-        <div style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 25px; max-width: 850px;">
-            <div style="background-color: #e8f0fe; border: 1px solid #d2e3fc; padding: 10px 15px; border-radius: 8px; display: flex; align-items: center; justify-content: space-between;">
-                <span style="font-size: 14px; color: #202124;">📎 <b>Link do Cliente:</b> <a href="{link_cliente}" target="_blank" rel="noopener noreferrer" style="color: #1a73e8; text-decoration: none;">{link_cliente}</a></span>
+        <div style="display: flex; flex-wrap: wrap; gap: 20px; margin-bottom: 25px; align-items: flex-start;">
+            <!-- Bloco de Links -->
+            <div style="display: flex; flex-direction: column; gap: 10px; flex: 1; min-width: 320px;">
+                <div style="background-color: #e8f0fe; border: 1px solid #d2e3fc; padding: 12px 15px; border-radius: 8px;">
+                    <span style="font-size: 14px; color: #202124;">📎 <b>Link do Cliente:</b><br><a href="{link_cliente_rel}" target="_blank" rel="noopener noreferrer" style="color: #1a73e8; text-decoration: none; word-break: break-all;">{link_cliente_rel}</a></span>
+                </div>
+                <div style="background-color: #e8f0fe; border: 1px solid #d2e3fc; padding: 12px 15px; border-radius: 8px;">
+                    <span style="font-size: 14px; color: #202124;">📺 <b>Link da TV:</b><br><a href="{link_tv_rel}" target="_blank" rel="noopener noreferrer" style="color: #1a73e8; text-decoration: none; word-break: break-all;">{link_tv_rel}</a></span>
+                </div>
             </div>
-            <div style="background-color: #e8f0fe; border: 1px solid #d2e3fc; padding: 10px 15px; border-radius: 8px; display: flex; align-items: center; justify-content: space-between;">
-                <span style="font-size: 14px; color: #202124;">📺 <b>Link da TV:</b> <a href="{link_tv}" target="_blank" rel="noopener noreferrer" style="color: #1a73e8; text-decoration: none;">{link_tv}</a></span>
+            
+            <!-- Bloco do QR Code -->
+            <div style="background-color: #ffffff; border: 1px solid #d2e3fc; padding: 10px; border-radius: 8px; text-align: center; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
+                <span style="font-size: 12px; color: #333; font-weight: bold; display: block; margin-bottom: 6px;">📱 QR Code para Pedidos</span>
+                <img src="{qr_url_cliente}" width="140" height="140" style="border-radius: 4px;" alt="QR Code Cliente">
             </div>
         </div>
     """, unsafe_allow_html=True)
