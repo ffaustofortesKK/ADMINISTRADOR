@@ -67,7 +67,7 @@ def atualizar_estado_pedido(provider_token, pedido_id, novo_estado):
 
 def terminar_todas_musicas_ativas(provider_token, pedidos):
     for p in pedidos:
-        if p.get("estado") == "aprovado":
+        if p.get("estado") in ["aprovado", "pendente"]:
             atualizar_estado_pedido(provider_token, p.get("id"), "terminado")
 
 def limpar_nome_musica(musica_raw):
@@ -89,7 +89,7 @@ def obter_url_video_cloudinary(musica_obj, titulo_limpo):
                 return url_direta.replace("/upload/", "/upload/f_auto,q_auto/")
             return url_direta
 
-    cloud_name = "ejil7wKYY15xHjDcRVfbk6Ow"
+    cloud_name = "yhwgjh7g"
     titulo_lower = titulo_limpo.lower()
     
     if "mulheres e mulheres" in titulo_lower or "landrick" in titulo_lower:
@@ -102,8 +102,10 @@ def obter_url_video_cloudinary(musica_obj, titulo_limpo):
 
 def show_provider_panel_custom(provider_token):
     st.markdown("### 🎤 Painel do Prestador — FF Karaoke")
+    st.markdown(f"<p style='color: #888; font-size: 13px;'>Token do Prestador: <code>{provider_token}</code></p>", unsafe_allow_html=True)
     st.markdown("---")
     
+    # Auto-refresh otimizado via JS a cada 3 segundos para detetar novos pedidos instantaneamente
     st.markdown("""
         <script>
             setTimeout(function() {
@@ -115,22 +117,24 @@ def show_provider_panel_custom(provider_token):
     link_cliente = f"/?page=client_register&prestador={provider_token}"
     link_tv = f"/?page=client_screen&prestador={provider_token}"
 
-    # Forçado com target='_blank' via componente HTML seguro para abrir em separadores diferentes
     st.markdown(f"""
         <div style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 25px; max-width: 850px;">
             <div style="background-color: #e8f0fe; border: 1px solid #d2e3fc; padding: 10px 15px; border-radius: 8px; display: flex; align-items: center; justify-content: space-between;">
-                <span style="font-size: 14px; color: #202124;">📎 <b>Cliente:</b> <a href="{link_cliente}" target="_blank" rel="noopener noreferrer" style="color: #1a73e8; text-decoration: none;">{link_cliente}</a></span>
+                <span style="font-size: 14px; color: #202124;">📎 <b>Link do Cliente:</b> <a href="{link_cliente}" target="_blank" rel="noopener noreferrer" style="color: #1a73e8; text-decoration: none;">{link_cliente}</a></span>
             </div>
             <div style="background-color: #e8f0fe; border: 1px solid #d2e3fc; padding: 10px 15px; border-radius: 8px; display: flex; align-items: center; justify-content: space-between;">
-                <span style="font-size: 14px; color: #202124;">📺 <b>TV:</b> <a href="{link_tv}" target="_blank" rel="noopener noreferrer" style="color: #1a73e8; text-decoration: none;">{link_tv}</a></span>
+                <span style="font-size: 14px; color: #202124;">📺 <b>Link da TV:</b> <a href="{link_tv}" target="_blank" rel="noopener noreferrer" style="color: #1a73e8; text-decoration: none;">{link_tv}</a></span>
             </div>
         </div>
     """, unsafe_allow_html=True)
 
-    st.markdown("### 🎬 Playlist de Vídeos Clipes (Fundo da TV)")
+    st.markdown("### 🎬 Fila de Pedidos Atual")
 
     try:
-        response = requests.get(f"{FIREBASE_URL}/pedidos/{provider_token}.json", timeout=10)
+        # Adicionado timestamp para evitar cache agressivo do requests
+        url_firebase = f"{FIREBASE_URL}/pedidos/{provider_token}.json?_t={time.time()}"
+        response = requests.get(url_firebase, timeout=10)
+        
         if response.status_code == 200 and response.json():
             data = response.json()
             pedidos = [{"id": k, **v} for k, v in data.items()]
@@ -142,51 +146,57 @@ def show_provider_panel_custom(provider_token):
             pendentes = [p for p in pedidos_ativos if p.get("estado") == "pendente"]
 
             if pedidos_ativos:
-                html_lista = '<div style="background-color: #000000; border: 3px solid #000000; padding: 15px; border-radius: 6px; color: #ffffff; max-width: 450px; font-family: monospace; font-size: 15px; margin-bottom: 20px;">'
+                html_lista = '<div style="background-color: #111111; border: 2px solid #333333; padding: 15px; border-radius: 8px; color: #ffffff; max-width: 550px; font-family: monospace; font-size: 15px; margin-bottom: 20px;">'
+                html_lista += '<div style="color: #4CAF50; font-weight: bold; margin-bottom: 8px; border-bottom: 1px solid #333; padding-bottom: 4px;">ESTADO DA FILA:</div>'
                 for idx, p in enumerate(pedidos_ativos, start=1):
                     titulo_musica = limpar_nome_musica(p.get("musica", {}))
                     cliente_nome = p.get("cliente", "Convidado")
-                    html_lista += f'<div style="padding: 3px 0;"><b>{idx}-</b> {titulo_musica} <span style="color:#aaa; font-size:12px;">({cliente_nome})</span></div>'
+                    estado_atual = p.get("estado")
+                    badge = "🎵 [A Tocar]" if estado_atual == "aprovado" else "⏳ [Pendente]"
+                    cor_badge = "#4CAF50" if estado_atual == "aprovado" else "#FFC107"
+                    html_lista += f'<div style="padding: 4px 0;"><b>{idx}.</b> {titulo_musica} <span style="color:#aaa; font-size:13px;">({cliente_nome})</span> <span style="color:{cor_badge}; font-size:12px; float:right;">{badge}</span></div>'
                 html_lista += '</div>'
                 st.markdown(html_lista, unsafe_allow_html=True)
             else:
                 st.markdown("""
-                    <div style="background-color: #000000; border: 3px solid #000000; padding: 15px; border-radius: 6px; color: #888; max-width: 450px; font-family: monospace; font-size: 15px; margin-bottom: 20px;">
-                        <div>Nenhum pedido na lista.</div>
+                    <div style="background-color: #111111; border: 2px solid #333333; padding: 15px; border-radius: 8px; color: #888; max-width: 550px; font-family: monospace; font-size: 15px; margin-bottom: 20px;">
+                        <div>Nenhum pedido na lista neste momento. À espera de novos pedidos...</div>
                     </div>
                 """, unsafe_allow_html=True)
 
             st.markdown("---")
-            st.markdown("### 📋 Gestão de Fila")
+            st.markdown("### 📋 Gestão de Fila e Controlo")
 
             if tocando_agora:
                 titulo_tocando = limpar_nome_musica(tocando_agora.get("musica", {}))
                 st.success(f"🎵 A tocar agora: **{titulo_tocando}** (Cliente: {tocando_agora.get('cliente', 'Convidado')})")
                 if st.button("⏹️ Terminar Música Atual", key=f"term_{tocando_agora.get('id')}"):
-                    atualizar_estado_pedido(provider_token, tocando_agora.get('id'), 'terminado')
+                    terminar_todas_musicas_ativas(provider_token, pedidos)
+                    st.success("Música terminada e tela limpa com sucesso!")
                     st.rerun()
 
             if not pendentes:
-                st.write("Fila vazia. À espera de novos pedidos...")
+                st.write("Fila de pendentes vazia. Os pedidos feitos pelos clientes aparecerão aqui automaticamente.")
             else:
+                st.write("### Pedidos Pendentes para Aprovar:")
                 for idx, p in enumerate(pendentes, start=1):
                     titulo_musica = limpar_nome_musica(p.get("musica", {}))
                     cliente_nome = p.get("cliente", "Convidado")
                     
                     col_info, col_btn = st.columns([3, 1])
                     with col_info:
-                        st.write(f"**#{idx}** - {titulo_musica} *(Cliente: {cliente_nome})*")
+                        st.write(f"**Pedido** - {titulo_musica} *(Cliente: {cliente_nome})*")
                     with col_btn:
-                        if st.button(f"▶️ Play #{idx}", key=f"btn_play_{p.get('id')}"):
+                        if st.button(f"▶️ Play", key=f"btn_play_{p.get('id')}"):
                             terminar_todas_musicas_ativas(provider_token, pedidos)
                             atualizar_estado_pedido(provider_token, p.get('id'), 'aprovado')
                             st.success(f"Música '{titulo_musica}' enviada para a tela!")
                             st.rerun()
         else:
-            st.write("Fila vazia. À espera de novos pedidos...")
+            st.info("Nenhum pedido encontrado no Firebase para este prestador. Abra o link do cliente e envie uma música para testar.")
             
     except Exception as e:
-        st.error(f"Erro ao carregar os pedidos: {e}")
+        st.error(f"Erro ao carregar os pedidos do Firebase: {e}")
 
 def show_client_screen():
     query_params = st.query_params
@@ -202,9 +212,7 @@ def show_client_screen():
     </style>
     """, unsafe_allow_html=True)
 
-    st.title("📺 FFKaraoke — Diretor Palco")
-    st.markdown("---")
-
+    # Recarregamento automático da tela a cada 3 segundos para sincronizar com o Play do prestador
     st.markdown("""
         <script>
             setTimeout(function() {
@@ -213,8 +221,13 @@ def show_client_screen():
         </script>
     """, unsafe_allow_html=True)
 
+    st.title("📺 FFKaraoke — Diretor Palco")
+    st.markdown("---")
+
     try:
-        response = requests.get(f"{FIREBASE_URL}/pedidos/{provider_token}.json", timeout=10)
+        url_firebase = f"{FIREBASE_URL}/pedidos/{provider_token}.json?_t={time.time()}"
+        response = requests.get(url_firebase, timeout=10)
+        
         if response.status_code == 200 and response.json():
             data = response.json()
             pedidos = [{"id": k, **v} for k, v in data.items()]
@@ -224,11 +237,21 @@ def show_client_screen():
             tocando_agora = next((p for p in pedidos_ativos if p.get("estado") == "aprovado"), None)
             
             if tocando_agora:
-                musica_obj = tocando_agora.get("musica", {})
-                titulo_limpo = limpar_nome_musica(musica_obj)
-                url_video = obter_url_video_cloudinary(musica_obj, titulo_limpo)
+                musica = tocando_agora.get("musica", {})
                 
-                st.markdown(f"<h2>A tocar: {titulo_limpo}</h2>", unsafe_allow_html=True)
+                if isinstance(musica, dict):
+                    titulo = musica.get("titulo", musica.get("nome", "Karaoke"))
+                    url_video = musica.get("url_cloudinary", "") or musica.get("url", "")
+                else:
+                    titulo = str(musica)
+                    url_video = ""
+                
+                titulo_limpo = limpar_nome_musica(titulo)
+                url_video = obter_url_video_cloudinary(musica, titulo_limpo)
+                cantor_name = tocando_agora.get('cliente', 'Convidado')
+                
+                st.markdown(f"<h2>A tocar: {titulo_limpo} <span style='font-size:16px; color:#aaa;'>(Cantor: {cantor_name})</span></h2>", unsafe_allow_html=True)
+                st.caption(f"Link do Vídeo: {url_video}")
 
                 video_html = f"""
                 <div style="display: flex; justify-content: center; background: black; padding: 10px; width: 100%;">
@@ -242,13 +265,26 @@ def show_client_screen():
                     video.play().catch(function(error) {{
                         console.log("Autoplay bloqueado pelo browser:", error);
                     }});
+                    video.onerror = function() {{
+                        console.error("Erro ao carregar o vídeo do Cloudinary. Verifique se o ficheiro existe na nuvem com o nome correto.");
+                    }};
                 </script>
                 """
                 components.html(video_html, height=580)
             else:
-                st.info("A aguardar início de reprodução... Selecione 'Play' no painel do prestador.")
+                # Se não houver música aprovada, mostra a lista de espera geral para a TV
+                st.info("📺 Fila em espera. A aguardar que o prestador aprove um pedido...")
+                if pedidos_ativos:
+                    html_lista_geral = '<div style="background-color: #111111; border: 2px solid #333333; padding: 20px; border-radius: 10px; color: #ffffff; font-family: monospace; font-size: 18px; max-width: 800px; margin: 20px auto;">'
+                    html_lista_geral += '<div style="color: #FFC107; font-weight: bold; margin-bottom: 10px; border-bottom: 1px solid #444; padding-bottom: 5px;">PRÓXIMOS NA FILA:</div>'
+                    for idx, p in enumerate(pedidos_ativos, start=1):
+                        t_limpo = limpar_nome_musica(p.get("musica", {}))
+                        c_nome = p.get("cliente", "Convidado")
+                        html_lista_geral += f'<div style="padding: 6px 0;"><b>{idx}.</b> <span style="color: #4CAF50;">{t_limpo}</span> <span style="color: #aaa; font-size: 14px;">(Cantor: {c_nome})</span></div>'
+                    html_lista_geral += '</div>'
+                    st.markdown(html_lista_geral, unsafe_allow_html=True)
         else:
-            st.info("Nenhum pedido ativo na TV.")
+            st.info("Nenhum pedido ativo na TV no momento.")
     except Exception as e:
         st.error(f"Erro de sincronização: {e}")
 
