@@ -102,10 +102,10 @@ def obter_url_video_cloudinary(musica_obj, titulo_limpo):
 
 def show_provider_panel_custom(provider_token):
     st.markdown("### 🎤 Painel do Prestador — FF Karaoke")
-    st.markdown(f"<p style='color: #888; font-size: 13px;'>Token do Prestador: <code>{provider_token}</code></p>", unsafe_allow_html=True)
+    st.markdown(f"<p style='color: #888; font-size: 13px;'>Token Ativo: <code>{provider_token}</code></p>", unsafe_allow_html=True)
     st.markdown("---")
     
-    # Auto-refresh otimizado via JS a cada 3 segundos para detetar novos pedidos instantaneamente
+    # Auto-refresh a cada 3 segundos para capturar novos pedidos instantaneamente
     st.markdown("""
         <script>
             setTimeout(function() {
@@ -131,7 +131,6 @@ def show_provider_panel_custom(provider_token):
     st.markdown("### 🎬 Fila de Pedidos Atual")
 
     try:
-        # Adicionado timestamp para evitar cache agressivo do requests
         url_firebase = f"{FIREBASE_URL}/pedidos/{provider_token}.json?_t={time.time()}"
         response = requests.get(url_firebase, timeout=10)
         
@@ -212,7 +211,6 @@ def show_client_screen():
     </style>
     """, unsafe_allow_html=True)
 
-    # Recarregamento automático da tela a cada 3 segundos para sincronizar com o Play do prestador
     st.markdown("""
         <script>
             setTimeout(function() {
@@ -272,7 +270,6 @@ def show_client_screen():
                 """
                 components.html(video_html, height=580)
             else:
-                # Se não houver música aprovada, mostra a lista de espera geral para a TV
                 st.info("📺 Fila em espera. A aguardar que o prestador aprove um pedido...")
                 if pedidos_ativos:
                     html_lista_geral = '<div style="background-color: #111111; border: 2px solid #333333; padding: 20px; border-radius: 10px; color: #ffffff; font-family: monospace; font-size: 18px; max-width: 800px; margin: 20px auto;">'
