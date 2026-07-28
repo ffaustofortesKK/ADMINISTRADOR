@@ -68,10 +68,9 @@ def show_client_page():
         st.session_state.autenticado = False
 
     # 🔒 SISTEMA DE PROTEÇÃO POR PALAVRA-PASSE
-    PALAVRA_PASSE_MESTRE = "ffkaraoke2026"  # Pode alterar aqui se desejar
+    PALAVRA_PASSE_MESTRE = "ffkaraoke2026"  # Pode alterar aqui a sua senha se desejar
 
     if not st.session_state.autenticado:
-        st.set_page_config(page_title="Acesso Restrito - FF Karaoke", page_icon="🔒", layout="centered")
         st.markdown("<h2 style='color: #FFC107;'>🔒 Acesso Restrito - FF Karaoke</h2>", unsafe_allow_html=True)
         st.markdown("Insira a palavra-passe para aceder ao sistema:")
         
@@ -82,7 +81,7 @@ def show_client_page():
                 st.rerun()
             else:
                 st.error("❌ Palavra-passe incorreta!")
-        return  # Interrompe a execução para não carregar o resto em branco
+        return  # Interrompe a execução para não carregar o resto enquanto não autenticar
 
     # Configuração de estilos gerais após autenticação
     st.markdown("""
@@ -180,7 +179,7 @@ def show_client_page():
 
     # Verificar estado dos pedidos anteriores deste cliente na fila
     pedidos = obter_pedidos_cliente(provider_token)
-    pedidos_cliente = [p for p in pedidos if p.get("cliente", "").lower() == cliente_nome.lower() and p.get("estado"] in ["pendente", "aprovado"]]
+    pedidos_cliente = [p for p in pedidos if p.get("cliente", "").lower() == cliente_nome.lower() and p.get("estado") in ["pendente", "aprovado"]]
     
     tem_pedido_ativo = len(pedidos_cliente) > 0
     posicao_fila = None
