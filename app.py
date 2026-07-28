@@ -278,7 +278,7 @@ def renderizar_ecra_tv(provider_token):
                 
                 st.markdown(f"<h2>A tocar: {titulo_limpo} <span style='font-size:16px; color:#aaa;'>(Cantor: {cantor_name})</span></h2>", unsafe_allow_html=True)
 
-                # Player limpo sem os 3 pontinhos e com autoplay forçado
+                # Player com remoção de 3 pontos e retorno automático à lista ao terminar o vídeo
                 video_html = f"""
                 <div style="display: flex; justify-content: center; background: black; padding: 10px; width: 100%;">
                     <video id="karaoke-player" width="100%" height="500px" controls autoplay playsinline controlslist="nodownload noremoteplayback" disablepictureinpicture style="object-fit: contain; background: black;">
@@ -292,12 +292,34 @@ def renderizar_ecra_tv(provider_token):
                     var playPromise = video.play();
                     if (playPromise !== undefined) {{
                         playPromise.then(_ => {{
-                            // Reprodução iniciada automaticamente
+                            // Reprodução automática iniciada com sucesso
                         }}).catch(error => {{
                             video.muted = true;
                             video.play();
                         }});
                     }}
+
+                    // Quando o vídeo termina, atualiza o estado para terminado e recarrega a tela
+                    video.onended = function() {{
+                        var pedidoId = "{tocando_agora.get('id')}";
+                        var token = "{provider_token}";
+                        var firebaseURL = "{FIREBASE_URL}/pedidos/" + token + "/" + pedidoId + "/estado.json";
+                        
+                        fetch(firebaseURL, {{
+                            method: 'PUT',
+                            body: JSON.stringify('terminado'),
+                            headers: {{
+                                'Content-Type': 'application/json'
+                            }}
+                        }}).then(response => {{
+                            setTimeout(function() {{
+                                window.location.reload();
+                            }}, 500);
+                        }}).catch(err => {{
+                            window.location.reload();
+                        }});
+                    }};
+
                     video.onerror = function() {{
                         console.error("Erro ao carregar o vídeo do Cloudinary.");
                     }};
