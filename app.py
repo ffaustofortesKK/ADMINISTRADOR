@@ -60,7 +60,7 @@ except Exception:
 def atualizar_estado_pedido(provider_token, pedido_id, novo_estado):
     try:
         url = f"{FIREBASE_URL}/pedidos/{provider_token}/{pedido_id}/estado.json"
-        response = requests.put(url, json=novo_estado)
+        response = requests.put(url, json=novo_estado, timeout=10)
         return response.status_code == 200
     except Exception:
         return False
@@ -89,7 +89,7 @@ def obter_url_video_cloudinary(musica_obj, titulo_limpo):
                 return url_direta.replace("/upload/", "/upload/f_auto,q_auto/")
             return url_direta
 
-    cloud_name = "yhwgjh7g"
+    cloud_name = "ejil7wKYY15xHjDcRVfbk6Ow"
     titulo_lower = titulo_limpo.lower()
     
     if "mulheres e mulheres" in titulo_lower or "landrick" in titulo_lower:
@@ -104,7 +104,6 @@ def show_provider_panel_custom(provider_token):
     st.markdown("### 🎤 Painel do Prestador — FF Karaoke")
     st.markdown("---")
     
-    # Atualiza automaticamente a página do prestador a cada 3 segundos para novos pedidos caírem sozinhos
     st.markdown("""
         <script>
             setTimeout(function() {
@@ -130,7 +129,7 @@ def show_provider_panel_custom(provider_token):
     st.markdown("### 🎬 Playlist de Vídeos Clipes (Fundo da TV)")
 
     try:
-        response = requests.get(f"{FIREBASE_URL}/pedidos/{provider_token}.json")
+        response = requests.get(f"{FIREBASE_URL}/pedidos/{provider_token}.json", timeout=10)
         if response.status_code == 200 and response.json():
             data = response.json()
             pedidos = [{"id": k, **v} for k, v in data.items()]
@@ -205,7 +204,6 @@ def show_client_screen():
     st.title("📺 FFKaraoke — Diretor Palco")
     st.markdown("---")
 
-    # Atualiza a tela automaticamente a cada 3 segundos para abrir o vídeo assim que clicar em Play
     st.markdown("""
         <script>
             setTimeout(function() {
@@ -215,7 +213,7 @@ def show_client_screen():
     """, unsafe_allow_html=True)
 
     try:
-        response = requests.get(f"{FIREBASE_URL}/pedidos/{provider_token}.json")
+        response = requests.get(f"{FIREBASE_URL}/pedidos/{provider_token}.json", timeout=10)
         if response.status_code == 200 and response.json():
             data = response.json()
             pedidos = [{"id": k, **v} for k, v in data.items()]
@@ -235,7 +233,6 @@ def show_client_screen():
                 <div style="display: flex; justify-content: center; background: black; padding: 10px; width: 100%;">
                     <video id="karaoke-player" width="100%" height="500px" controls autoplay playsinline style="object-fit: contain; background: black;">
                         <source src="{url_video}" type="video/mp4">
-                        <source src="{url_video}" type="video/webm">
                         O seu navegador não suporta a reprodução deste vídeo.
                     </video>
                 </div>
