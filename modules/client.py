@@ -12,8 +12,15 @@ def obter_catalogo_cloudinary():
     catalogo = []
     if API_KEY and API_SECRET:
         try:
-            url = f"https://api.cloudinary.com/v1_1/{CLOUD_NAME}/resources/video?max_results=100"
+            # Se os vídeos estão numa pasta chamada "video", usamos o prefixo para pesquisar lá dentro
+            url = f"https://api.cloudinary.com/v1_1/{CLOUD_NAME}/resources/video?prefix=video/&max_results=100"
             response = requests.get(url, auth=(API_KEY, API_SECRET), timeout=5)
+            
+            # Se não encontrar nada com o prefixo, tenta listar a raiz geral
+            if response.status_code == 200 and not response.json().get("resources"):
+                url = f"https://api.cloudinary.com/v1_1/{CLOUD_NAME}/resources/video?max_results=100"
+                response = requests.get(url, auth=(API_KEY, API_SECRET), timeout=5)
+
             if response.status_code == 200:
                 data = response.json()
                 for item in data.get("resources", []):
@@ -73,7 +80,7 @@ def show_client_page():
     """, unsafe_allow_html=True)
 
     st.markdown("## 🎤 FFKaraoke — Pedir Música")
-    st.markdown("Pesquise e escolha a sua música diretamente da nuvem!")
+    st.markdown("Pesquise e escolha a sua música diretamente da pasta de vídeos!")
     st.markdown("---")
 
     cliente_nome = st.text_input("O seu Nome / alcunha:", placeholder="Ex: João da Silva")
