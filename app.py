@@ -102,6 +102,7 @@ def obter_url_video_cloudinary(musica_obj, titulo_limpo):
 
 def show_provider_panel_custom(provider_token):
     st.markdown("### 🎤 Painel do Prestador — FF Karaoke")
+    st.markdown(f"<p style='color: #888; font-size: 13px;'>Token do Prestador: <code>{provider_token}</code></p>", unsafe_allow_html=True)
     st.markdown("---")
     
     st.markdown("""
@@ -129,7 +130,9 @@ def show_provider_panel_custom(provider_token):
     st.markdown("### 🎬 Fila de Pedidos Atual")
 
     try:
-        response = requests.get(f"{FIREBASE_URL}/pedidos/{provider_token}.json", timeout=10)
+        url_firebase = f"{FIREBASE_URL}/pedidos/{provider_token}.json"
+        response = requests.get(url_firebase, timeout=10)
+        
         if response.status_code == 200 and response.json():
             data = response.json()
             pedidos = [{"id": k, **v} for k, v in data.items()]
@@ -155,7 +158,7 @@ def show_provider_panel_custom(provider_token):
             else:
                 st.markdown("""
                     <div style="background-color: #111111; border: 2px solid #333333; padding: 15px; border-radius: 8px; color: #888; max-width: 550px; font-family: monospace; font-size: 15px; margin-bottom: 20px;">
-                        <div>Nenhum pedido na lista neste momento.</div>
+                        <div>Nenhum pedido na lista neste momento. À espera de novos pedidos...</div>
                     </div>
                 """, unsafe_allow_html=True)
 
@@ -171,7 +174,7 @@ def show_provider_panel_custom(provider_token):
                     st.rerun()
 
             if not pendentes:
-                st.write("Fila de pendentes vazia. À espera de novos pedidos...")
+                st.write("Fila de pendentes vazia. Os pedidos feitos pelos clientes aparecerão aqui automaticamente.")
             else:
                 st.write("### Pedidos Pendentes para Aprovar:")
                 for idx, p in enumerate(pendentes, start=1):
@@ -188,10 +191,10 @@ def show_provider_panel_custom(provider_token):
                             st.success(f"Música '{titulo_musica}' enviada para a tela!")
                             st.rerun()
         else:
-            st.write("Fila vazia. À espera de novos pedidos...")
+            st.info("Nenhum pedido encontrado no Firebase para este prestador. Faça um teste abrindo o link do cliente e enviando uma música.")
             
     except Exception as e:
-        st.error(f"Erro ao carregar os pedidos: {e}")
+        st.error(f"Erro ao carregar os pedidos do Firebase: {e}")
 
 def show_client_screen():
     query_params = st.query_params
@@ -261,7 +264,7 @@ def show_client_screen():
                 
                 components.html(video_html, height=900)
             else:
-                # --- MODO LISTA DE ESPERA (Mostra mal o cliente faz o pedido) ---
+                # --- MODO LISTA DE ESPERA ---
                 st.title("📺 FFKaraoke — Próximos Cantores na Fila")
                 st.markdown("---")
                 
