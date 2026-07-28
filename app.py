@@ -63,36 +63,28 @@ def obter_pedidos_cliente(provider_token):
     return []
 
 def show_client_page():
-    # ==========================================
-    # 🔒 SISTEMA DE PROTEÇÃO (Ninguém entra sem a senha)
-    # ==========================================
-    PALAVRA_PASSE_MESTRE = "ffkaraoke2026"  # <--- Altere aqui para a senha que quiser
-    
+    # Inicializar estado de autenticação em segurança
     if "autenticado" not in st.session_state:
         st.session_state.autenticado = False
 
+    # 🔒 SISTEMA DE PROTEÇÃO POR PALAVRA-PASSE
+    PALAVRA_PASSE_MESTRE = "ffkaraoke2026"  # Pode alterar aqui se desejar
+
     if not st.session_state.autenticado:
+        st.set_page_config(page_title="Acesso Restrito - FF Karaoke", page_icon="🔒", layout="centered")
         st.markdown("<h2 style='color: #FFC107;'>🔒 Acesso Restrito - FF Karaoke</h2>", unsafe_allow_html=True)
         st.markdown("Insira a palavra-passe para aceder ao sistema:")
-        with st.form("form_login_seguranca"):
-            senha_input = st.text_input("Palavra-passe:", type="password")
-            submitted_login = st.form_submit_button("Entrar no Sistema")
-            if submitted_login:
-                if senha_input == PALAVRA_PASSE_MESTRE:
-                    st.session_state.autenticado = True
-                    st.rerun()
-                else:
-                    st.error("❌ Palavra-passe incorreta!")
-        return  # Impede que o resto da página seja carregado
-    # ==========================================
+        
+        senha_input = st.text_input("Palavra-passe:", type="password", key="input_senha_seguranca")
+        if st.button("Entrar no Sistema", key="btn_login_seguranca"):
+            if senha_input == PALAVRA_PASSE_MESTRE:
+                st.session_state.autenticado = True
+                st.rerun()
+            else:
+                st.error("❌ Palavra-passe incorreta!")
+        return  # Interrompe a execução para não carregar o resto em branco
 
-    query_params = st.query_params
-    provider_token = query_params.get("prestador") or query_params.get("provider", None)
-
-    if not provider_token:
-        st.error("❌ Link de pedido inválido. Falta o código do prestador.")
-        return
-
+    # Configuração de estilos gerais após autenticação
     st.markdown("""
     <style>
     .stApp { background-color: #0e1117; color: white; }
@@ -128,18 +120,23 @@ def show_client_page():
         display: inline-block;
         font-size: 160px;
     }
-    /* Reduzir o tamanho dos botões de Sim/Não */
     .stButton button {
         padding: 4px 12px !important;
         font-size: 14px !important;
         min-height: 35px !important;
     }
-    /* Deixar o label do text_input (Digite o nome da música ou artista) em cor branca */
     .stTextInput label {
         color: white !important;
     }
     </style>
     """, unsafe_allow_html=True)
+
+    query_params = st.query_params
+    provider_token = query_params.get("prestador") or query_params.get("provider", None)
+
+    if not provider_token:
+        st.error("❌ Link de pedido inválido. Falta o código do prestador.")
+        return
 
     # Agenda em rodapé / letreiro superior lento
     agenda_texto = (
@@ -183,9 +180,8 @@ def show_client_page():
 
     # Verificar estado dos pedidos anteriores deste cliente na fila
     pedidos = obter_pedidos_cliente(provider_token)
-    pedidos_cliente = [p for p in pedidos if p.get("cliente", "").lower() == cliente_nome.lower() and p.get("estado") in ["pendente", "aprovado"]]
+    pedidos_cliente = [p for p in pedidos if p.get("cliente", "").lower() == cliente_nome.lower() and p.get("estado"] in ["pendente", "aprovado"]]
     
-    # Calcular posição na fila se houver pedido ativo
     tem_pedido_ativo = len(pedidos_cliente) > 0
     posicao_fila = None
     if tem_pedido_ativo:
@@ -197,7 +193,6 @@ def show_client_page():
                 break
 
     if tem_pedido_ativo:
-        # Ecrã de espera com microfone gigante a girar no meio da tela (sem retângulo à volta)
         st.markdown("""
             <div style="text-align: center; padding: 40px 10px; margin: 20px auto; max-width: 700px;">
                 <div class="spinning-mic">🎤</div>
@@ -209,7 +204,7 @@ def show_client_page():
     else:
         st.success("✅ Já poderá enviar o seu pedido!")
 
-    # Se selecionou uma música, exibe a confirmação LOGO NO TOPO (antes da pesquisa)
+    # Se selecionou uma música, exibe a confirmação
     if st.session_state.musica_selecionada:
         musica_atual = st.session_state.musica_selecionada
         st.markdown(f"""
@@ -256,7 +251,6 @@ def show_client_page():
         if musicas_filtradas:
             st.write(f"Encontradas {len(musicas_filtradas)} músicas:")
             
-            # Container com scroll para a lista de músicas
             container_lista = st.container(height=300)
             with container_lista:
                 for musica in musicas_filtradas:
