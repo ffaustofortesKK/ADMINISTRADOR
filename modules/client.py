@@ -1,51 +1,52 @@
 import streamlit as st
 import requests
+import cloudinary
+import cloudinary.api
 
 FIREBASE_URL = "https://grupoffkaraoke-default-rtdb.firebaseio.com"
 
-CLOUD_NAME = "yhwgjh7g"
-API_KEY = "852581666546867"
-API_SECRET = "oWTTGfF8KRtd4ojFiS"
+# Configuração com as suas credenciais exatas do Cloudinary
+cloudinary.config(
+    cloud_name="TU_ejil7wKYY15xHjDcRVfbk6Ow",
+    api_key="852434629995691",
+    api_secret="oWTTGfF8KRtd4ojFiS",
+    secure=True
+)
 
 @st.cache_data(ttl=30)
 def obter_catalogo_cloudinary():
     catalogo = []
-    if API_KEY and API_SECRET:
-        try:
-            # Se os vídeos estão numa pasta chamada "video", usamos o prefixo para pesquisar lá dentro
-            url = f"https://api.cloudinary.com/v1_1/{CLOUD_NAME}/resources/video?prefix=video/&max_results=100"
-            response = requests.get(url, auth=(API_KEY, API_SECRET), timeout=5)
-            
-            # Se não encontrar nada com o prefixo, tenta listar a raiz geral
-            if response.status_code == 200 and not response.json().get("resources"):
-                url = f"https://api.cloudinary.com/v1_1/{CLOUD_NAME}/resources/video?max_results=100"
-                response = requests.get(url, auth=(API_KEY, API_SECRET), timeout=5)
+    try:
+        # Tenta listar os vídeos da nuvem (incluindo a pasta de vídeos se aplicável)
+        result = cloudinary.api.resources(
+            resource_type="video",
+            max_results=100
+        )
+        
+        for item in result.get("resources", []):
+            public_id = item.get("public_id", "")
+            titulo_limpo = public_id.split("/")[-1].replace("_", " ").replace("-", " ").title()
+            url_video = item.get("secure_url", "")
+            catalogo.append({
+                "titulo": titulo_limpo,
+                "artista": "FFKaraoke",
+                "url": url_video
+            })
+    except Exception as e:
+        print(f"Erro ao ligar ao Cloudinary SDK: {e}")
 
-            if response.status_code == 200:
-                data = response.json()
-                for item in data.get("resources", []):
-                    public_id = item.get("public_id", "")
-                    titulo_limpo = public_id.split("/")[-1].replace("_", " ").replace("-", " ").title()
-                    url_video = item.get("secure_url", "")
-                    catalogo.append({
-                        "titulo": titulo_limpo,
-                        "artista": "Cloudinary",
-                        "url": url_video
-                    })
-        except Exception:
-            pass
-
+    # Fallback de segurança caso a ligação demore ou a nuvem esteja vazia
     if not catalogo:
         catalogo = [
             {
                 "titulo": "Há Mulheres e Mulheres", 
                 "artista": "Landrick", 
-                "url": f"https://res.cloudinary.com/{CLOUD_NAME}/video/upload/f_auto,q_auto/v1784592601/Karaoke_H%C3%81_MULHERES_E_MULHERES_-_Landrick_rnomfr.mp4"
+                "url": "https://res.cloudinary.com/TU_ejil7wKYY15xHjDcRVfbk6Ow/video/upload/f_auto,q_auto/v1784592601/Karaoke_H%C3%81_MULHERES_E_MULHERES_-_Landrick_rnomfr.mp4"
             },
             {
                 "titulo": "Nani Tá Quieto", 
                 "artista": "Kudurista", 
-                "url": f"https://res.cloudinary.com/{CLOUD_NAME}/video/upload/f_auto,q_auto/Nani_Ta_Quieto_f35hpj.mp4"
+                "url": "https://res.cloudinary.com/TU_ejil7wKYY15xHjDcRVfbk6Ow/video/upload/f_auto,q_auto/Nani_Ta_Quieto_f35hpj.mp4"
             }
         ]
     return catalogo
@@ -62,7 +63,7 @@ def enviar_pedido_firebase(provider_token, cliente_nome, musica_escolhida):
         url = f"{FIREBASE_URL}/pedidos/{provider_token}.json"
         response = requests.post(url, json=novo_pedido)
         return response.status_code == 200
-    except Exception as e:
+    except Exception:
         return False
 
 def show_client_page():
@@ -80,7 +81,7 @@ def show_client_page():
     """, unsafe_allow_html=True)
 
     st.markdown("## 🎤 FFKaraoke — Pedir Música")
-    st.markdown("Pesquise e escolha a sua música diretamente da pasta de vídeos!")
+    st.markdown("Pesquise e escolha a sua música diretamente da nuvem!")
     st.markdown("---")
 
     cliente_nome = st.text_input("O seu Nome / alcunha:", placeholder="Ex: João da Silva")
