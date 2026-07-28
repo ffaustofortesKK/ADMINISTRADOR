@@ -115,13 +115,14 @@ def show_provider_panel_custom(provider_token):
     link_cliente = f"/?page=client_register&prestador={provider_token}"
     link_tv = f"/?page=client_screen&prestador={provider_token}"
 
+    # Forçado com target='_blank' via componente HTML seguro para abrir em separadores diferentes
     st.markdown(f"""
         <div style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 25px; max-width: 850px;">
             <div style="background-color: #e8f0fe; border: 1px solid #d2e3fc; padding: 10px 15px; border-radius: 8px; display: flex; align-items: center; justify-content: space-between;">
-                <span style="font-size: 14px; color: #202124;">📎 <b>Cliente:</b> <a href="{link_cliente}" target="_self" style="color: #1a73e8; text-decoration: none;">{link_cliente}</a></span>
+                <span style="font-size: 14px; color: #202124;">📎 <b>Cliente:</b> <a href="{link_cliente}" target="_blank" rel="noopener noreferrer" style="color: #1a73e8; text-decoration: none;">{link_cliente}</a></span>
             </div>
             <div style="background-color: #e8f0fe; border: 1px solid #d2e3fc; padding: 10px 15px; border-radius: 8px; display: flex; align-items: center; justify-content: space-between;">
-                <span style="font-size: 14px; color: #202124;">📺 <b>TV:</b> <a href="{link_tv}" target="_self" style="color: #1a73e8; text-decoration: none;">{link_tv}</a></span>
+                <span style="font-size: 14px; color: #202124;">📺 <b>TV:</b> <a href="{link_tv}" target="_blank" rel="noopener noreferrer" style="color: #1a73e8; text-decoration: none;">{link_tv}</a></span>
             </div>
         </div>
     """, unsafe_allow_html=True)
