@@ -1,11 +1,13 @@
 import streamlit as st
 import requests
+import time
 import cloudinary
 import cloudinary.api
+from utils.db_manager import get_all_providers
 
 FIREBASE_URL = "https://grupoffkaraoke-default-rtdb.firebaseio.com"
 
-# Configuração atualizada com as suas credenciais reais do Cloudinary
+# Configuração do Cloudinary
 cloudinary.config(
     cloud_name="ejil7wKYY15xHjDcRVfbk6Ow",
     api_key="766164269958181",
@@ -13,32 +15,31 @@ cloudinary.config(
     secure=True
 )
 
-@st.cache_data(ttl=30)
+@st.cache_data(ttl=60)
 def obter_catalogo_cloudinary():
     catalogo = []
     try:
         result = cloudinary.api.resources(
             resource_type="video",
-            max_results=100
+            max_results=200
         )
-        
         for item in result.get("resources", []):
             public_id = item.get("public_id", "")
             titulo_limpo = public_id.split("/")[-1].replace("_", " ").replace("-", " ").title()
             url_video = item.get("secure_url", "")
+            # Usar o public_id como identificador único seguro
             catalogo.append({
+                "id": public_id,
                 "titulo": titulo_limpo,
                 "artista": "FFKaraoke",
                 "url": url_video
             })
     except Exception as e:
         print(f"Erro ao ligar ao Cloudinary SDK: {e}")
-    
     return catalogo
 
 def enviar_pedido_firebase(provider_token, cliente_nome, musica_escolhida):
     try:
-        import time
         novo_pedido = {
             "cliente": cliente_nome if cliente_nome else "Convidado",
             "musica": musica_escolhida,
@@ -56,7 +57,20 @@ def show_client_page():
     provider_token = query_params.get("prestador") or query_params.get("provider", None)
 
     if not provider_token:
-        st.error("Link de pedido inválido. Falta o código do prestador.")
+        st.error("❌ Link de pedido inválido. Falta o código do prestador.")
+        return
+
+    # Validar se o prestador existe e está ativo na base de dados local
+    df_prov = get_all_providers()
+    prestador = df_prov[df_prov['token'] == provider_token]
+    
+    if prestador.empty:
+        st.error("❌ Link de prestador inválido ou inexistente na base de dados.")
+        return
+
+    row_prov = prestador.iloc[0]
+    if row_prov.get('approved', 0) != 1:
+        st.warning("⏳ Este painel de prestador encontra-se temporariamente inativo ou expirado.")
         return
 
     st.markdown("""
@@ -65,34 +79,48 @@ def show_client_page():
     </style>
     """, unsafe_allow_html=True)
 
-    st.markdown("## 🎤 FFKaraoke — Pedir Música")
+    st.markdown(f"## 🎤 FFKaraoke — {row_prov['name']}")
     st.markdown("Pesquise e escolha a sua música diretamente da nuvem!")
     st.markdown("---")
 
-    cliente_nome = st.text_input("O seu Nome / alcunha:", placeholder="Ex: João da Silva")
-    pesquisa = st.text_input("🔍 Pesquisar música:", placeholder="Digite para filtrar os títulos...")
+    # Guardar nome na sessão para não obrigar a reescrever a cada clique
+    if 'cliente_nome_input' not in st.session_state:
+        st.session_state.cliente_nome_input = ""
+
+    cliente_nome = st.text_input("O seu Nome / alcunha:", value=st.session_state.cliente_nome_input, placeholder="Ex: João da Silva")
+    st.session_state.cliente_nome_input = cliente_nome
+
+    pesquisa = st.text_input("🔍 Pesquisar música:", placeholder="Digite o nome da música...")
 
     catalogo = obter_catalogo_cloudinary()
 
-    musicas_filtradas = [
-        m for m in catalogo 
-        if pesquisa.lower() in m["titulo"].lower() or pesquisa.lower() in m["artista"].lower()
-    ] if pesquisa else catalogo
-
-    if not musicas_filtradas:
-        st.warning("Nenhuma música encontrada.")
+    if not pesquisa:
+        st.info("💡 Digite algo na caixa de pesquisa acima para encontrar as músicas disponíveis.")
+        musicas_filtradas = []
     else:
-        for idx, musica in enumerate(musicas_filtradas):
+        musicas_filtradas = [
+            m for m in catalogo 
+            if pesquisa.lower() in m["titulo"].lower() or pesquisa.lower() in m["artista"].lower()
+        ]
+
+    if pesquisa and not musicas_filtradas:
+        st.warning("Nenhuma música encontrada com esse termo.")
+    elif musicas_filtradas:
+        st.write(f"Encontradas {len(musicas_filtradas)} músicas:")
+        # Limitar a exibição a 30 resultados por segurança de performance no telemóvel
+        for musica in musicas_filtradas[:30]:
             col1, col2 = st.columns([4, 1])
             with col1:
-                st.markdown(f"🎵 **{musica['titulo']}** — *{musica['artista']}*")
+                st.markdown(f"🎵 **{musica['titulo']}**")
             with col2:
-                if st.button("📤 Pedir", key=f"btn_cloud_{idx}"):
+                # Chave única baseada no ID do Cloudinary para evitar conflitos no Streamlit
+                safe_key = f"btn_cloud_{musica['id']}"
+                if st.button("📤 Pedir", key=safe_key):
                     if not cliente_nome.strip():
-                        st.warning("Por favor, insira o seu nome.")
+                        st.warning("⚠️ Por favor, insira o seu nome antes de pedir.")
                     else:
                         if enviar_pedido_firebase(provider_token, cliente_nome, musica):
                             st.success(f"Pedido de '{musica['titulo']}' enviado com sucesso!")
                             st.balloons()
                         else:
-                            st.error("Erro ao enviar o pedido.")
+                            st.error("Erro ao enviar o pedido para o DJ.")
