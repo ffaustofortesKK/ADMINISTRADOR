@@ -52,6 +52,19 @@ st.set_page_config(
     layout="wide"
 )
 
+# --- OCULTAR BARRA SUPERIOR (TOOLBAR E MENU DE 3 PONTOS) ---
+st.markdown("""
+    <style>
+    /* Oculta completamente a barra superior do Streamlit */
+    div[data-testid="stToolbar"] {
+        display: none !important;
+    }
+    header {
+        visibility: hidden !important;
+    }
+    </style>
+""", unsafe_allow_html=True)
+
 try:
     init_db()
 except Exception:
@@ -324,7 +337,6 @@ def main():
         st.sidebar.title("Panel Admin")
         senha = st.sidebar.text_input("Palavra-passe", type="password")
         
-        # Palavra-passe atualizada para ffkaraoke2026 conforme solicitado
         if senha == "ffkaraoke2026" or senha == "admin123":
             st.sidebar.success("Sessão Iniciada")
             show_admin_panel()
