@@ -229,11 +229,12 @@ def show_client_screen():
                 musica_obj = tocando_agora.get("musica", {})
                 titulo_limpo = limpar_nome_musica(musica_obj)
                 url_video = obter_url_video_cloudinary(musica_obj, titulo_limpo)
+                cantor_nome = tocando_agora.get('cliente', 'Convidado')
                 
                 video_html = f"""
                 <div style="position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: black; display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 9999;">
                     <div style="position: absolute; top: 15px; left: 25px; color: #4CAF50; font-family: monospace; font-size: 20px; font-weight: bold; background: rgba(0,0,0,0.8); padding: 8px 15px; border-radius: 6px; z-index: 10000;">
-                        🎵 A Tocar: {titulo_limpo} <span style="font-size:14px; color:#ccc;">(Cantor: {tocando_agora.get('cliente', 'Convidado')})</span>
+                        🎵 A Tocar: {titulo_limpo} <span style="font-size:14px; color:#ccc;">(Cantor: {cantor_nome})</span>
                     </div>
                     <video id="karaoke-player" width="100%" height="100%" controls autoplay playsinline style="object-fit: contain; background: black;">
                         <source src="{url_video}" type="video/mp4">
