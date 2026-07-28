@@ -7,9 +7,9 @@ from utils.db_manager import get_all_providers
 
 FIREBASE_URL = "https://grupoffkaraoke-default-rtdb.firebaseio.com"
 
-# Configuração do Cloudinary
+# Configuração correta do Cloudinary (Cloud Name: yhwgjh7g)
 cloudinary.config(
-    cloud_name="ejil7wKYY15xHjDcRVfbk6Ow",
+    cloud_name="yhwgjh7g",
     api_key="766164269958181",
     api_secret="oWTTGfF8KRtd4ojFiS",
     secure=True
@@ -23,7 +23,8 @@ def obter_catalogo_cloudinary():
             resource_type="video",
             max_results=200
         )
-        for item in result.get("resources", []):
+        resources = result.get("resources", [])
+        for item in resources:
             public_id = item.get("public_id", "")
             titulo_limpo = public_id.split("/")[-1].replace("_", " ").replace("-", " ").title()
             url_video = item.get("secure_url", "")
@@ -34,7 +35,7 @@ def obter_catalogo_cloudinary():
                 "url": url_video
             })
     except Exception as e:
-        print(f"Erro ao ligar ao Cloudinary SDK: {e}")
+        print(f"Erro detalhado ao ligar ao Cloudinary SDK: {e}")
     return catalogo
 
 def enviar_pedido_firebase(provider_token, cliente_nome, musica_escolhida):
@@ -87,9 +88,14 @@ def show_client_page():
     cliente_nome = st.text_input("O seu Nome / alcunha:", value=st.session_state.cliente_nome_input, placeholder="Ex: João da Silva")
     st.session_state.cliente_nome_input = cliente_nome
 
-    pesquisa = st.text_input("🔍 Pesquisar música:", placeholder="Digite o nome da música...")
+    pesquisa = st.text_input("🔍 Pesquisar música:", placeholder="Digite o nome da música (ex: Landrick)...")
 
+    # Obter catálogo da nuvem
     catalogo = obter_catalogo_cloudinary()
+
+    # Se o catálogo estiver vazio, mostra um aviso útil de diagnóstico para o operador
+    if not catalogo:
+        st.warning("⚠️ O catálogo do Cloudinary não retornou nenhum ficheiro. Verifique se existem vídeos carregados na conta Cloudinary associada ou se as credenciais da API estão corretas.")
 
     if not pesquisa:
         st.info("💡 Digite algo na caixa de pesquisa acima para encontrar as músicas disponíveis.")
