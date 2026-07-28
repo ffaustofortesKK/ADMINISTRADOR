@@ -164,28 +164,29 @@ def show_client_page():
                 break
 
     if tem_pedido_ativo:
-        # Ecrã de espera com microfone gigante a girar no meio da tela
+        # Ecrã de espera com microfone gigante a girar no meio da tela (sem retângulo à volta)
         st.markdown("""
-            <div style="text-align: center; padding: 50px 20px; background: #12151c; border-radius: 16px; border: 2px solid #FFC107; margin: 30px auto; max-width: 700px; box-shadow: 0px 0px 20px rgba(255, 193, 7, 0.2);">
+            <div style="text-align: center; padding: 40px 20px; margin: 30px auto; max-width: 700px;">
                 <div class="spinning-mic">🎤</div>
                 <h2 style="color: #FFC107; margin-top: 20px; font-size: 28px;">Aguarde pela sua vez</h2>
+                <p style="color: #ddd; font-size: 16px; margin-top: 10px;">Fica dentro da agenda de karaoke do grupo FF. O seu pedido já está registado na fila.</p>
                 """ + (f"<p style='color: #4CAF50; font-weight: bold; font-size: 18px; margin-top: 15px;'>📍 Encontra-se na posição <b>{posicao_fila}º</b> da fila do prestador.</p>" if posicao_fila else "") + """
             </div>
         """, unsafe_allow_html=True)
     else:
         st.success("✅ Já poderá enviar o seu pedido!")
 
-    # Se selecionou uma música, exibe a confirmação LOGO NO TOPO (antes da pesquisa)
+    # Se selecionou uma música, exibe a confirmação no topo com botões mais compactos e próximos
     if st.session_state.musica_selecionada:
         musica_atual = st.session_state.musica_selecionada
         st.markdown(f"""
-            <div style="background: #161a23; padding: 30px; border-radius: 12px; border: 2px solid #4CAF50; text-align: center; margin: 10px 0 25px 0;">
-                <h2 style="color: #4CAF50; margin-bottom: 15px; font-size: 24px;">Confirmação de Pedido</h2>
-                <p style="font-size: 20px; font-weight: bold; margin-bottom: 25px;">Quer tocar <b>{musica_atual['titulo']}</b>?</p>
+            <div style="background: #161a23; padding: 25px; border-radius: 12px; border: 2px solid #4CAF50; text-align: center; margin: 10px 0 20px 0;">
+                <h2 style="color: #4CAF50; margin-bottom: 10px; font-size: 22px;">Confirmação de Pedido</h2>
+                <p style="font-size: 18px; font-weight: bold; margin-bottom: 20px;">Quer tocar <b>{musica_atual['titulo']}</b>?</p>
             </div>
         """, unsafe_allow_html=True)
         
-        col_espaco1, col_c1, col_c2, col_espaco2 = st.columns([1, 2, 2, 1])
+        col_espaco1, col_c1, col_c2, col_espaco2 = st.columns([2, 2, 2, 2])
         with col_c1:
             if st.button("✅ Sim, Enviar", use_container_width=True, key="btn_sim_enviar"):
                 if tem_pedido_ativo:
@@ -201,7 +202,7 @@ def show_client_page():
                     else:
                         st.error("Erro ao enviar o pedido para o DJ.")
         with col_c2:
-            if st.button("❌ Não / Cancelar", use_container_width=True, key="btn_nao_cancelar"):
+            if st.button("❌ Cancelar", use_container_width=True, key="btn_nao_cancelar"):
                 st.session_state.musica_selecionada = None
                 st.rerun()
         st.markdown("---")
