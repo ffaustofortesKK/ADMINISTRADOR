@@ -1,137 +1,112 @@
 import streamlit as st
-import time
-import urllib.parse
 import requests
-from utils.firebase_db import get_musicas_cloudinary
+import base64
 
 FIREBASE_URL = "https://grupoffkaraoke-default-rtdb.firebaseio.com"
 
-def enviar_pedido_cliente(provider_token, cliente_nome, musica_payload):
-    """Envia o pedido do cliente diretamente para o nó do prestador no Firebase."""
+# Credenciais da sua conta Cloudinary (fornecidas nos seus dados anteriores)
+CLOUD_NAME = "yhwgjh7g"
+# Opcional: se quiser usar autenticação da API Admin para listar vídeos de uma pasta específica
+# API_KEY = "o_seu_api_key"
+# API_SECRET = "o_seu_api_secret"
+
+@st.cache_data(ttl=60) # Guarda em cache durante 60 segundos para otimizar a velocidade
+def obter_catalogo_cloudinary():
+    """
+    Busca a lista de vídeos diretamente do Cloudinary usando a API pública/Search 
+    ou retorna uma lista dinâmica baseada nos ficheiros conhecidos da nuvem.
+    """
+    catalogo_padrao = [
+        {"titulo": "Há Mulheres e Mulheres", "artista": "Landrick", "url": f"https://res.cloudinary.com/{CLOUD_NAME}/video/upload/f_auto,q_auto/v1784592601/Karaoke_H%C3%81_MULHERES_E_MULHERES_-_Landrick_rnomfr.mp4"},
+        {"titulo": "Nani Tá Quieto", "artista": "Kudurista", "url": f"https://res.cloudinary.com/{CLOUD_NAME}/video/upload/f_auto,q_auto/Nani_Ta_Quieto_f35hpj.mp4"}
+    ]
+    
     try:
-        url = f"{FIREBASE_URL}/pedidos/{provider_token}.json"
-        dados = {
-            "cliente": cliente_nome,
-            "musica": musica_payload,
+        # Consulta à API de listagem pública do Cloudinary (se os recursos estiverem definidos como listáveis)
+        url_api = f"https://res.cloudinary.com/{CLOUD_NAME}/video/list/karaoke.json"
+        response = requests.get(url_api, timeout=3)
+        if response.status_code == 200:
+            data = response.json()
+            recursos = data.get("resources", [])
+            lista_dinamica = []
+            for item in recursos:
+                public_id = item.get("public_id", "")
+                titulo_formatado = public_id.replace("_", " ").replace("-", " ").title()
+                url_video = f"https://res.cloudinary.com/{CLOUD_NAME}/video/upload/f_auto,q_auto/{public_id}.mp4"
+                lista_dinamica.append({
+                    "titulo": titulo_formatado,
+                    "artista": "Cloudinary Video",
+                    "url": url_video
+                })
+            if lista_dinamica:
+                return lista_dinamica
+    except Exception:
+        pass
+        
+    return catalogo_padrao
+
+def enviar_pedido_firebase(provider_token, cliente_nome, musica_escolhida):
+    try:
+        import time
+        novo_pedido = {
+            "cliente": cliente_nome if cliente_nome else "Convidado",
+            "musica": musica_escolhida,
             "estado": "pendente",
             "timestamp": int(time.time() * 1000)
         }
-        response = requests.post(url, json=dados)
+        url = f"{FIREBASE_URL}/pedidos/{provider_token}.json"
+        response = requests.post(url, json=novo_pedido)
         return response.status_code == 200
-    except Exception:
+    except Exception as e:
+        print(f"Erro ao enviar pedido: {e}")
         return False
 
 def show_client_page():
     query_params = st.query_params
-    # Aceita tanto 'prestador' (usado no painel) como 'provider' por compatibilidade
     provider_token = query_params.get("prestador") or query_params.get("provider", None)
 
     if not provider_token:
-        st.error("Link de cliente inválido. Falta o identificador do prestador.")
+        st.error("Link de pedido inválido. Falta o código do prestador.")
         return
 
     st.markdown("""
     <style>
-    .client-card {
-        background: linear-gradient(180deg, #111, #050505);
-        border: 2px solid #D4AF37;
-        border-radius: 12px;
-        padding: 20px;
-        color: white;
-        box-shadow: 0px 0px 15px rgba(212,175,55,0.15);
-    }
-    .stTextInput input {
-        background-color: #1a1a1a !important;
-        color: white !important;
-        border: 1px solid #D4AF37 !important;
-    }
+    .stApp { background-color: #0e1117; color: white; }
     </style>
     """, unsafe_allow_html=True)
 
-    st.subheader("🎤 FFKaraoke — Registo e Pedido de Música")
+    st.markdown("## 🎤 FFKaraoke — Pedir Música")
+    st.markdown("Escolha a sua música diretamente da nuvem e envie para a fila!")
     st.markdown("---")
 
-    if "client_name" not in st.session_state:
-        st.session_state.client_name = ""
-    if "client_registered" not in st.session_state:
-        st.session_state.client_registered = False
-    if "can_request" not in st.session_state:
-        st.session_state.can_request = True
+    cliente_nome = st.text_input("O seu Nome / alcunha:", placeholder="Ex: João da Silva")
 
-    # PASSO 1: Registo do Nome
-    if not st.session_state.client_registered:
-        with st.form("form_registo_cliente"):
-            st.markdown("### Como gostaria de ser chamado?")
-            nome_input = st.text_input("Introduza o seu nome ou alcunha:")
-            btn_registar = st.form_submit_button("Avançar para o Karaoke")
-            
-            if btn_registar:
-                if nome_input.strip():
-                    st.session_state.client_name = nome_input.strip()
-                    st.session_state.client_registered = True
-                    st.rerun()
-                else:
-                    st.warning("Por favor, insira um nome válido.")
-        return
+    st.markdown("### 📚 Catálogo em Direto da Nuvem")
 
-    st.success(f"Bem-vindo(a), **{st.session_state.client_name}**!")
+    pesquisa = st.text_input("🔍 Pesquisar música:", placeholder="Digite o nome...")
 
-    # Controlo de estado (bloqueio até terminar de cantar)
-    if not st.session_state.can_request:
-        st.warning("⏳ O seu pedido anterior ainda está em reprodução ou na fila.")
-        st.info("Assim que terminar de cantar, receberá a notificação: **'Já pode voltar a pedir outra música.'**")
-        
-        if st.button("🔄 Simular Fim de Atuação (Desbloquear)"):
-            st.session_state.can_request = True
-            st.rerun()
-        return
+    catalogo = obter_catalogo_cloudinary()
 
-    # PASSO 2: Pesquisar Música no Firebase/Cloudinary
-    st.markdown("### 🔍 Pesquisar Música")
-    
-    musicas_disponiveis = get_musicas_cloudinary()
+    musicas_filtradas = [
+        m for m in catalogo 
+        if pesquisa.lower() in m["titulo"].lower() or pesquisa.lower() in m["artista"].lower()
+    ] if pesquisa else catalogo
 
-    pesquisa = st.text_input("Escreva o título da música pretendida:")
-    
-    musica_escolhida = None
-    if pesquisa and musicas_disponiveis:
-        resultados = [m for m in musicas_disponiveis if pesquisa.lower() in m.get('titulo', '').lower()]
-        if resultados:
-            opcoes_titulos = [m['titulo'] for m in resultados]
-            escolha_titulo = st.selectbox("Selecione a música encontrada:", opcoes_titulos)
-            musica_escolhida = next(m for m in resultados if m['titulo'] == escolha_titulo)
-        else:
-            st.warning("Nenhuma música encontrada com esse título na base de dados.")
-    elif pesquisa and not musicas_disponiveis:
-        st.info("Ainda não existem músicas registadas na base de dados do Firebase.")
-
-    # PASSO 3: Enviar e Confirmação
-    if musica_escolhida:
-        st.markdown(f"**Música selecionada:** `{musica_escolhida['titulo']}`")
-        
-        confirmacao = st.radio("Pretende manter esta escolha ou mudar?", ["Manter", "Mudar"], horizontal=True)
-        
-        if confirmacao == "Manter":
-            if st.button("🚀 Enviar Pedido"):
-                url_original = musica_escolhida.get('url_cloudinary', '') or musica_escolhida.get('url', '') or musica_escolhida.get('link', '')
-                
-                if not str(url_original).startswith("http"):
-                    cloud_name = "yhwgjh7g"
-                    titulo_musica = musica_escolhida.get('titulo', 'video').strip()
-                    encoded_title = urllib.parse.quote(titulo_musica + ".mp4")
-                    url_completo = f"https://res.cloudinary.com/{cloud_name}/video/upload/f_auto,q_auto/{encoded_title}"
-                else:
-                    url_completo = url_original
-
-                musica_payload = {
-                    "titulo": musica_escolhida.get('titulo', 'Karaoke'),
-                    "url_cloudinary": url_completo
-                }
-
-                sucesso = enviar_pedido_cliente(provider_token, st.session_state.client_name, musica_payload)
-                if sucesso:
-                    st.success("Seu pedido foi enviado com sucesso!")
-                    st.session_state.can_request = False
-                    st.rerun()
-                else:
-                    st.error("Erro ao enviar o pedido. Tente novamente.")
+    if not musicas_filtradas:
+        st.warning("Nenhuma música encontrada.")
+    else:
+        for idx, musica in enumerate(musicas_filtradas):
+            col1, col2 = st.columns([4, 1])
+            with col1:
+                st.markdown(f"🎵 **{musica['titulo']}** — *{musica['artista']}*")
+            with col2:
+                if st.button("📤 Pedir", key=f"btn_cloud_{idx}"):
+                    if not cliente_nome.strip():
+                        st.warning("Por favor, insira o seu nome.")
+                    else:
+                        sucesso = enviar_pedido_firebase(provider_token, cliente_nome, musica)
+                        if sucesso:
+                            st.success(f"Pedido de '{musica['titulo']}' enviado com sucesso!")
+                            st.balloons()
+                        else:
+                            st.error("Erro ao enviar o pedido.")
