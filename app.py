@@ -104,6 +104,7 @@ def show_provider_panel_custom(provider_token):
     st.markdown("### 🎤 Painel do Prestador — FF Karaoke")
     st.markdown("---")
     
+    # Atualiza a página do prestador a cada 3 segundos para apanhar novos pedidos na hora
     st.markdown("""
         <script>
             setTimeout(function() {
@@ -206,6 +207,7 @@ def show_client_screen():
     </style>
     """, unsafe_allow_html=True)
 
+    # Atualiza a tela a cada 3 segundos para detetar novos pedidos ou cliques em Play instantaneamente
     st.markdown("""
         <script>
             setTimeout(function() {
@@ -225,13 +227,12 @@ def show_client_screen():
             tocando_agora = next((p for p in pedidos_ativos if p.get("estado") == "aprovado"), None)
             
             if tocando_agora:
-                # --- MODO REPRODUÇÃO: VÍDEO EM TELA INTEIRA COM BYPASS DE AUTOPLAY ---
+                # --- MODO REPRODUÇÃO: VÍDEO EM TELA INTEIRA ASSIM QUE CLICAS EM PLAY ---
                 musica_obj = tocando_agora.get("musica", {})
                 titulo_limpo = limpar_nome_musica(musica_obj)
                 url_video = obter_url_video_cloudinary(musica_obj, titulo_limpo)
                 cantor_nome = tocando_agora.get('cliente', 'Convidado')
                 
-                # Uso do método .format() para evitar conflitos de chaves nas f-strings do Python
                 video_html = """
                 <div style="position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: black; display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 9999;">
                     <div style="position: absolute; top: 15px; left: 25px; color: #4CAF50; font-family: monospace; font-size: 20px; font-weight: bold; background: rgba(0,0,0,0.8); padding: 8px 15px; border-radius: 6px; z-index: 10000;">
@@ -261,7 +262,7 @@ def show_client_screen():
                 
                 components.html(video_html, height=900)
             else:
-                # --- MODO LISTA DE ESPERA ---
+                # --- MODO LISTA DE ESPERA (Mostra mal o cliente faz o pedido) ---
                 st.title("📺 FFKaraoke — Próximos Cantores na Fila")
                 st.markdown("---")
                 
