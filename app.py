@@ -52,15 +52,35 @@ st.set_page_config(
     layout="wide"
 )
 
-# --- OCULTAR BARRA SUPERIOR (TOOLBAR E MENU DE 3 PONTOS) ---
+# --- OCULTAR BARRA SUPERIOR E BOTÃO "GERENCIAR APLICATIVO" ---
 st.markdown("""
     <style>
-    /* Oculta completamente a barra superior do Streamlit */
+    /* Oculta completamente a barra superior do Streamlit (toolbar) */
     div[data-testid="stToolbar"] {
         display: none !important;
     }
     header {
         visibility: hidden !important;
+    }
+    
+    /* Oculta o botão e barra inferior de 'Gerenciar aplicativo' (App Viewer Badge / Footer) */
+    div[data-testid="stDecoration"] {
+        display: none !important;
+    }
+    #MainMenu {
+        visibility: hidden !important;
+    }
+    footer {
+        visibility: hidden !important;
+    }
+    .stAppViewerBadge {
+        display: none !important;
+    }
+    div[class*="viewerBadge"] {
+        display: none !important;
+    }
+    button[title="Manage app"] {
+        display: none !important;
     }
     </style>
 """, unsafe_allow_html=True)
