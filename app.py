@@ -231,13 +231,14 @@ def show_client_screen():
                 url_video = obter_url_video_cloudinary(musica_obj, titulo_limpo)
                 cantor_nome = tocando_agora.get('cliente', 'Convidado')
                 
-                video_html = f"""
+                # Uso do método .format() para evitar conflitos de chaves nas f-strings do Python
+                video_html = """
                 <div style="position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: black; display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 9999;">
                     <div style="position: absolute; top: 15px; left: 25px; color: #4CAF50; font-family: monospace; font-size: 20px; font-weight: bold; background: rgba(0,0,0,0.8); padding: 8px 15px; border-radius: 6px; z-index: 10000;">
-                        🎵 A Tocar: {titulo_limpo} <span style="font-size:14px; color:#ccc;">(Cantor: {cantor_nome})</span>
+                        🎵 A Tocar: {titulo} <span style="font-size:14px; color:#ccc;">(Cantor: {cantor})</span>
                     </div>
                     <video id="karaoke-player" width="100%" height="100%" controls autoplay playsinline style="object-fit: contain; background: black;">
-                        <source src="{url_video}" type="video/mp4">
+                        <source src="{url}" type="video/mp4">
                         O seu navegador não suporta a reprodução deste vídeo.
                     </video>
                     <div id="play-warning" style="position: absolute; bottom: 30px; background: rgba(255, 193, 7, 0.9); color: #000; padding: 10px 20px; border-radius: 8px; font-family: monospace; font-size: 16px; font-weight: bold; display: none; cursor: pointer; z-index: 10000;" onclick="document.getElementById('karaoke-player').play(); this.style.display='none';">
@@ -249,14 +250,15 @@ def show_client_screen():
                     var warning = document.getElementById('play-warning');
                     
                     var playPromise = video.play();
-                    if (playPromise !== undefined) {
-                        playPromise.catch(function(error) {
+                    if (playPromise !== undefined) {{
+                        playPromise.catch(function(error) {{
                             console.log("Autoplay bloqueado pelo browser:", error);
                             warning.style.display = 'block';
-                        });
-                    }
+                        }});
+                    }}
                 </script>
-                """
+                """.format(titulo=titulo_limpo, cantor=cantor_nome, url=url_video)
+                
                 components.html(video_html, height=900)
             else:
                 # --- MODO LISTA DE ESPERA ---
