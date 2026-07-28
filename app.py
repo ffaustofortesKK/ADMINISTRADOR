@@ -52,10 +52,9 @@ st.set_page_config(
     layout="wide"
 )
 
-# --- OCULTAR TOTALMENTE BARRA SUPERIOR, MENU E "GERENCIAR APLICATIVO" ---
+# --- BLOQUEIO TOTAL E RADICAL DO BOTÃO GERENCIAR APLICATIVO E ELEMENTOS CLOUD ---
 st.markdown("""
     <style>
-    /* Oculta barras de navegação, cabeçalhos, rodapés e badges do Streamlit */
     div[data-testid="stToolbar"], header, footer, 
     div[data-testid="stDecoration"], #MainMenu, 
     .stAppViewerBadge, div[class*="viewerBadge"], 
@@ -65,25 +64,43 @@ st.markdown("""
         opacity: 0 !important;
         pointer-events: none !important;
     }
-    
-    /* Remove elementos flutuantes no canto inferior direito */
-    body > div:last-child:has(button) {
-        display: none !important;
-    }
     </style>
 
     <script>
-    // Script JS para remover dinamicamente qualquer botão ou badge de gerenciamento injetado pelo host
-    function removeManageButton() {
-        const elements = document.querySelectorAll('button, div');
-        elements.forEach(el => {
-            if (el.innerText && (el.innerText.includes("Gerenciar") || el.innerText.includes("Manage app") || el.innerText.includes("Hosted with"))) {
-                let target = el.closest('div[style*="position: fixed"]') || el;
-                target.remove();
+    function annihilateManageButton() {
+        // Varredura profunda incluindo elementos normais e Shadow DOMs
+        const walkDOM = (node) => {
+            if (node.shadowRoot) {
+                walkDOM(node.shadowRoot);
             }
-        });
+            let children = node.children || node.childNodes;
+            for (let i = 0; i < children.length; i++) {
+                let child = children[i];
+                if (child.nodeType === 1) { // Element node
+                    let text = child.innerText || child.textContent || "";
+                    let titleAttr = child.getAttribute ? (child.getAttribute('title') || '') : '';
+                    let ariaLabel = child.getAttribute ? (child.getAttribute('aria-label') || '') : '';
+                    
+                    if (
+                        text.includes("Gerenciar") || 
+                        text.includes("Manage app") || 
+                        text.includes("Hosted with") ||
+                        titleAttr.includes("Manage app") ||
+                        ariaLabel.includes("Manage app")
+                    ) {
+                        // Sobe na árvore para apagar o container flutuante inteiro
+                        let target = child.closest('div[style*="position: fixed"]') || child.parentElement || child;
+                        target.remove();
+                    }
+                    walkDOM(child);
+                }
+            }
+        };
+        walkDOM(document.body);
     }
-    setInterval(removeManageButton, 500);
+    
+    // Executa continuamente para garantir que não volte a aparecer após atualizações da página
+    setInterval(annihilateManageButton, 300);
     </script>
 """, unsafe_allow_html=True)
 
