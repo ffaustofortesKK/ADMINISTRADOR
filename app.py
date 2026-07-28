@@ -68,7 +68,7 @@ def show_client_page():
         st.session_state.autenticado = False
 
     # 🔒 SISTEMA DE PROTEÇÃO POR PALAVRA-PASSE
-    PALAVRA_PASSE_MESTRE = "ffkaraoke2026"  # Pode alterar aqui a sua senha se desejar
+    PALAVRA_PASSE_MESTRE = "ffkaraoke2026"
 
     if not st.session_state.autenticado:
         st.markdown("<h2 style='color: #FFC107;'>🔒 Acesso Restrito - FF Karaoke</h2>", unsafe_allow_html=True)
@@ -81,7 +81,7 @@ def show_client_page():
                 st.rerun()
             else:
                 st.error("❌ Palavra-passe incorreta!")
-        return  # Interrompe a execução para não carregar o resto enquanto não autenticar
+        return  # Interrompe a execução enquanto não autenticar
 
     # Configuração de estilos gerais após autenticação
     st.markdown("""
@@ -131,11 +131,8 @@ def show_client_page():
     """, unsafe_allow_html=True)
 
     query_params = st.query_params
-    provider_token = query_params.get("prestador") or query_params.get("provider", None)
-
-    if not provider_token:
-        st.error("❌ Link de pedido inválido. Falta o código do prestador.")
-        return
+    # Se não vier prestador no link, assume "geral" para nunca dar erro de link inválido
+    provider_token = query_params.get("prestador") or query_params.get("provider", "geral")
 
     # Agenda em rodapé / letreiro superior lento
     agenda_texto = (
@@ -197,7 +194,7 @@ def show_client_page():
                 <div class="spinning-mic">🎤</div>
                 <h2 style="color: #FFC107; margin-top: 20px; font-size: 28px;">Aguarde pela sua vez</h2>
                 <p style="color: #ddd; font-size: 16px; margin-top: 10px;">Fica dentro da agenda de karaoke do grupo FF. O seu pedido já está registado na fila.</p>
-                """ + (f"<p style='color: #4CAF50; font-weight: bold; font-size: 18px; margin-top: 15px;'>📍 Encontra-se na posição <b>{posicao_fila}º</b> da fila do prestador.</p>" if posicao_fila else "") + """
+                """ + (f"<p style='color: #4CAF50; font-weight: bold; font-size: 18px; margin-top: 15px;'>📍 Encontra-se na posição <b>{posicao_fila}º</b> da fila.</p>" if posicao_fila else "") + """
             </div>
         """, unsafe_allow_html=True)
     else:
@@ -268,6 +265,7 @@ def show_client_page():
     # Secção chamativa para redes sociais e contactos
     st.markdown("""
         <div style="background: linear-gradient(135deg, #1f1c2c, #928dab); padding: 25px; border-radius: 12px; text-align: center; color: white; margin-top: 30px;">
+            <h3 style="margin-bottom: 10px; color: #FFC107;">Quer saber mais do serviço de Karaoke do Grupo FF, clica abaixo.</h3>
             <p style="font-size: 16px; margin: 8px 0;">📸 <b>Instagram:</b> <a href="https://instagram.com/ff.karaoke" target="_blank" style="color: #00d2ff; text-decoration: none;">ff.karaoke</a></p>
             <p style="font-size: 16px; margin: 8px 0;">📞 <b>Contacto para Eventos Privados:</b> 955099159</p>
             <p style="font-size: 16px; margin: 8px 0;">💬 <b>WhatsApp:</b> <a href="https://wa.me/244955099159" target="_blank" style="color: #25D366; text-decoration: none;">955099159</a></p>
