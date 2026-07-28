@@ -7,7 +7,7 @@ from utils.db_manager import get_all_providers
 
 FIREBASE_URL = "https://grupoffkaraoke-default-rtdb.firebaseio.com"
 
-# Configuração do Cloudinary
+# Configuração correta do Cloudinary (Cloud Name: yhwgjh7g)
 cloudinary.config(
     cloud_name="yhwgjh7g",
     api_key="852434629995691",
