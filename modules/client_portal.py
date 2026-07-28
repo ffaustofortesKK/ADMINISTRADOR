@@ -9,9 +9,9 @@ FIREBASE_URL = "https://grupoffkaraoke-default-rtdb.firebaseio.com"
 
 # Configuração do Cloudinary
 cloudinary.config(
-    cloud_name="ejil7wKYY15xHjDcRVfbk6Ow",
-    api_key="766164269958181",
-    api_secret="oWTTGfF8KRtd4ojFiS",
+    cloud_name="yhwgjh7g",
+    api_key="852434629995691",
+    api_secret="TU_ejil7wKYY15xHjDcRVfbk6Ow",
     secure=True
 )
 
