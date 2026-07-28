@@ -59,6 +59,12 @@ def atualizar_estado_pedido(provider_token, pedido_id, novo_estado):
     except Exception:
         return False
 
+def terminar_todas_musicas_ativas(provider_token, pedidos):
+    """Garante que apenas uma música fica aprovada de cada vez, terminando as restantes."""
+    for p in pedidos:
+        if p.get("estado") == "aprovado":
+            atualizar_estado_pedido(provider_token, p.get("id"), "terminado")
+
 def limpar_nome_musica(musica_raw):
     if isinstance(musica_raw, dict):
         titulo = musica_raw.get("titulo", musica_raw.get("nome", "Karaoke"))
@@ -158,9 +164,11 @@ def show_provider_panel_custom(provider_token):
                         st.write(f"**#{idx}** - {titulo_musica} *(Cliente: {cliente_nome})*")
                     with col_btn:
                         if st.button(f"▶️ Play #{idx}", key=f"btn_play_{p.get('id')}"):
-                            if tocando_agora:
-                                atualizar_estado_pedido(provider_token, tocando_agora.get('id'), 'terminado')
+                            # Termina qualquer outra música que estivesse a tocar antes
+                            terminar_todas_musicas_ativas(provider_token, pedidos)
+                            # Aprova imediatamente a música selecionada
                             atualizar_estado_pedido(provider_token, p.get('id'), 'aprovado')
+                            st.success(f"Música '{titulo_musica}' enviada para a tela!")
                             st.rerun()
         else:
             st.write("Fila vazia.")
@@ -185,12 +193,12 @@ def show_client_screen():
     st.title("📺 FFKaraoke — Diretor Palco")
     st.markdown("---")
 
-    # Script automático para atualizar a tela do cliente a cada 4 segundos e buscar novas músicas instantaneamente
+    # Atualiza a tela automaticamente a cada 3 segundos para apanhar novas músicas sem precisar de atualizar manualmente
     st.markdown("""
         <script>
             setTimeout(function() {
                 window.location.reload();
-            }, 4000);
+            }, 3000);
         </script>
     """, unsafe_allow_html=True)
 
@@ -222,13 +230,13 @@ def show_client_screen():
                 <script>
                     var video = document.getElementById('karaoke-player');
                     video.play().catch(function(error) {{
-                        console.log("Reprodução automática bloqueada pelo navegador, clique no play:", error);
+                        console.log("Autoplay bloqueado pelo browser, clique no play:", error);
                     }});
                 </script>
                 """
                 components.html(video_html, height=580)
             else:
-                st.info("A aguardar início de reprodução...")
+                st.info("A aguardar início de reprodução... Selecione 'Play' no painel do prestador.")
         else:
             st.info("Nenhum pedido ativo na TV.")
     except Exception as e:
