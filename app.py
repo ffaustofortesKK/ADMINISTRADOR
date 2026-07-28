@@ -225,7 +225,7 @@ def show_client_screen():
             tocando_agora = next((p for p in pedidos_ativos if p.get("estado") == "aprovado"), None)
             
             if tocando_agora:
-                # --- MODO REPRODUÇÃO: VÍDEO EM TELA INTEIRA (Sem Lista) ---
+                # --- MODO REPRODUÇÃO: VÍDEO EM TELA INTEIRA ---
                 musica_obj = tocando_agora.get("musica", {})
                 titulo_limpo = limpar_nome_musica(musica_obj)
                 url_video = obter_url_video_cloudinary(musica_obj, titulo_limpo)
