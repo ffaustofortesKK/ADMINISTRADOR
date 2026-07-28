@@ -52,37 +52,39 @@ st.set_page_config(
     layout="wide"
 )
 
-# --- OCULTAR BARRA SUPERIOR E BOTÃO "GERENCIAR APLICATIVO" ---
+# --- OCULTAR TOTALMENTE BARRA SUPERIOR, MENU E "GERENCIAR APLICATIVO" ---
 st.markdown("""
     <style>
-    /* Oculta completamente a barra superior do Streamlit (toolbar) */
-    div[data-testid="stToolbar"] {
+    /* Oculta barras de navegação, cabeçalhos, rodapés e badges do Streamlit */
+    div[data-testid="stToolbar"], header, footer, 
+    div[data-testid="stDecoration"], #MainMenu, 
+    .stAppViewerBadge, div[class*="viewerBadge"], 
+    iframe[src*="analytics"], div[class*="settings"] {
         display: none !important;
-    }
-    header {
         visibility: hidden !important;
+        opacity: 0 !important;
+        pointer-events: none !important;
     }
     
-    /* Oculta o botão e barra inferior de 'Gerenciar aplicativo' (App Viewer Badge / Footer) */
-    div[data-testid="stDecoration"] {
-        display: none !important;
-    }
-    #MainMenu {
-        visibility: hidden !important;
-    }
-    footer {
-        visibility: hidden !important;
-    }
-    .stAppViewerBadge {
-        display: none !important;
-    }
-    div[class*="viewerBadge"] {
-        display: none !important;
-    }
-    button[title="Manage app"] {
+    /* Remove elementos flutuantes no canto inferior direito */
+    body > div:last-child:has(button) {
         display: none !important;
     }
     </style>
+
+    <script>
+    // Script JS para remover dinamicamente qualquer botão ou badge de gerenciamento injetado pelo host
+    function removeManageButton() {
+        const elements = document.querySelectorAll('button, div');
+        elements.forEach(el => {
+            if (el.innerText && (el.innerText.includes("Gerenciar") || el.innerText.includes("Manage app") || el.innerText.includes("Hosted with"))) {
+                let target = el.closest('div[style*="position: fixed"]') || el;
+                target.remove();
+            }
+        });
+    }
+    setInterval(removeManageButton, 500);
+    </script>
 """, unsafe_allow_html=True)
 
 try:
