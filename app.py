@@ -100,42 +100,8 @@ def obter_url_video_cloudinary(musica_obj, titulo_limpo):
     encoded_title = urllib.parse.quote(titulo_limpo + ".mp4")
     return f"https://res.cloudinary.com/{cloud_name}/video/upload/f_auto,q_auto/{encoded_title}"
 
-def show_provider_panel_custom(provider_token):
-    st.markdown("### 🎤 Painel do Prestador — FF Karaoke")
-    st.markdown(f"<p style='color: #888; font-size: 13px;'>Token Ativo: <code>{provider_token}</code></p>", unsafe_allow_html=True)
-    st.markdown("---")
-    
-    # Auto-refresh a cada 3 segundos para capturar novos pedidos instantaneamente
-    st.markdown("""
-        <script>
-            setTimeout(function() {
-                window.location.reload();
-            }, 3000);
-        </script>
-    """, unsafe_allow_html=True)
-
-    link_cliente_rel = f"/?page=client_register&prestador={provider_token}"
-    link_tv_rel = f"/?page=client_screen&prestador={provider_token}"
-    
-    host_dominio = st.context.headers.get('Host', 'grupoffkaraoke.streamlit.app')
-    link_cliente_absoluto = f"https://{host_dominio}{link_cliente_rel}"
-    qr_url_cliente = f"https://api.qrserver.com/v1/create-qr-code/?size=180x180&data={urllib.parse.quote(link_cliente_absoluto)}"
-
-    col_link, col_qr = st.columns([3, 1])
-    with col_link:
-        st.markdown(f"""
-            <div style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 15px;">
-                <div style="background-color: #e8f0fe; border: 1px solid #d2e3fc; padding: 10px 15px; border-radius: 8px;">
-                    <span style="font-size: 14px; color: #202124;">📎 <b>Link do Cliente:</b> <a href="{link_cliente_rel}" target="_blank" rel="noopener noreferrer" style="color: #1a73e8; text-decoration: none;">{link_cliente_rel}</a></span>
-                </div>
-                <div style="background-color: #e8f0fe; border: 1px solid #d2e3fc; padding: 10px 15px; border-radius: 8px;">
-                    <span style="font-size: 14px; color: #202124;">📺 <b>Link da TV:</b> <a href="{link_tv_rel}" target="_blank" rel="noopener noreferrer" style="color: #1a73e8; text-decoration: none;">{link_tv_rel}</a></span>
-                </div>
-            </div>
-        """, unsafe_allow_html=True)
-    with col_qr:
-        st.image(qr_url_cliente, width=130, caption="QR Code Cliente")
-
+@st.fragment(run_every=3)
+def renderizar_gestao_fila_prestador(provider_token):
     st.markdown("### 🎬 Fila de Pedidos Atual")
 
     try:
@@ -205,31 +171,37 @@ def show_provider_panel_custom(provider_token):
     except Exception as e:
         st.error(f"Erro ao carregar os pedidos do Firebase: {e}")
 
-def show_client_screen():
-    query_params = st.query_params
-    provider_token = query_params.get("prestador") or query_params.get("provider", None)
-
-    if not provider_token:
-        st.error("Tela inválida. Falta o parâmetro do prestador.")
-        return
-
-    st.markdown("""
-    <style>
-    .stApp { background-color: #000000; color: white; }
-    </style>
-    """, unsafe_allow_html=True)
-
-    st.markdown("""
-        <script>
-            setTimeout(function() {
-                window.location.reload();
-            }, 3000);
-        </script>
-    """, unsafe_allow_html=True)
-
-    st.title("📺 FFKaraoke — Diretor Palco")
+def show_provider_panel_custom(provider_token):
+    st.markdown("### 🎤 Painel do Prestador — FF Karaoke")
+    st.markdown(f"<p style='color: #888; font-size: 13px;'>Token Ativo: <code>{provider_token}</code></p>", unsafe_allow_html=True)
     st.markdown("---")
+    
+    link_cliente_rel = f"/?page=client_register&prestador={provider_token}"
+    link_tv_rel = f"/?page=client_screen&prestador={provider_token}"
+    
+    host_dominio = st.context.headers.get('Host', 'grupoffkaraoke.streamlit.app')
+    link_cliente_absoluto = f"https://{host_dominio}{link_cliente_rel}"
+    qr_url_cliente = f"https://api.qrserver.com/v1/create-qr-code/?size=180x180&data={urllib.parse.quote(link_cliente_absoluto)}"
 
+    col_link, col_qr = st.columns([3, 1])
+    with col_link:
+        st.markdown(f"""
+            <div style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 15px;">
+                <div style="background-color: #e8f0fe; border: 1px solid #d2e3fc; padding: 10px 15px; border-radius: 8px;">
+                    <span style="font-size: 14px; color: #202124;">📎 <b>Link do Cliente:</b> <a href="{link_cliente_rel}" target="_blank" rel="noopener noreferrer" style="color: #1a73e8; text-decoration: none;">{link_cliente_rel}</a></span>
+                </div>
+                <div style="background-color: #e8f0fe; border: 1px solid #d2e3fc; padding: 10px 15px; border-radius: 8px;">
+                    <span style="font-size: 14px; color: #202124;">📺 <b>Link da TV:</b> <a href="{link_tv_rel}" target="_blank" rel="noopener noreferrer" style="color: #1a73e8; text-decoration: none;">{link_tv_rel}</a></span>
+                </div>
+            </div>
+        """, unsafe_allow_html=True)
+    with col_qr:
+        st.image(qr_url_cliente, width=130, caption="QR Code Cliente")
+
+    renderizar_gestao_fila_prestador(provider_token)
+
+@st.fragment(run_every=3)
+def renderizar_ecra_tv(provider_token):
     try:
         url_firebase = f"{FIREBASE_URL}/pedidos/{provider_token}.json?_t={time.time()}"
         response = requests.get(url_firebase, timeout=10)
@@ -292,6 +264,25 @@ def show_client_screen():
             st.info("Nenhum pedido ativo na TV no momento.")
     except Exception as e:
         st.error(f"Erro de sincronização: {e}")
+
+def show_client_screen():
+    query_params = st.query_params
+    provider_token = query_params.get("prestador") or query_params.get("provider", None)
+
+    if not provider_token:
+        st.error("Tela inválida. Falta o parâmetro do prestador.")
+        return
+
+    st.markdown("""
+    <style>
+    .stApp { background-color: #000000; color: white; }
+    </style>
+    """, unsafe_allow_html=True)
+
+    st.title("📺 FFKaraoke — Diretor Palco")
+    st.markdown("---")
+
+    renderizar_ecra_tv(provider_token)
 
 def main():
     try:
