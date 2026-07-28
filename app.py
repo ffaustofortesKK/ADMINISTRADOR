@@ -118,6 +118,23 @@ def terminar_todas_musicas_ativas(provider_token, pedidos):
         if p.get("estado") in ["aprovado", "pendente"]:
             atualizar_estado_pedido(provider_token, p.get("id"), "terminado")
 
+def definir_video_fundo(provider_token, url_clipe):
+    try:
+        url = f"{FIREBASE_URL}/config/{provider_token}/video_fundo.json"
+        requests.put(url, json=url_clipe, timeout=10)
+    except Exception:
+        pass
+
+def obter_video_fundo(provider_token):
+    try:
+        url = f"{FIREBASE_URL}/config/{provider_token}/video_fundo.json"
+        res = requests.get(url, timeout=5)
+        if res.status_code == 200:
+            return res.json() or ""
+    except Exception:
+        pass
+    return ""
+
 def limpar_nome_musica(musica_raw):
     if isinstance(musica_raw, dict):
         titulo = musica_raw.get("titulo", musica_raw.get("nome", "Karaoke"))
@@ -150,6 +167,19 @@ def obter_url_video_cloudinary(musica_obj, titulo_limpo):
 
 @st.fragment(run_every=3)
 def renderizar_gestao_fila_prestador(provider_token):
+    st.markdown("### 🎬 Configuração de Vídeo Clipe de Fundo (Tela)")
+    
+    video_fundo_atual = obter_video_fundo(provider_token)
+    
+    with st.form(key="form_video_fundo"):
+        novo_video_fundo = st.text_input("URL ou Nome do Vídeo Clipe para a Tela (Pasta Cloudinary / Ex: clipe_fundo.mp4)", value=video_fundo_atual)
+        btn_salvar_fundo = st.form_submit_button("💾 Atualizar Vídeo Clipe de Fundo")
+        if btn_salvar_fundo:
+            definir_video_fundo(provider_token, novo_video_fundo)
+            st.success("Vídeo clipe de fundo atualizado com sucesso para a tela!")
+            st.rerun()
+
+    st.markdown("---")
     st.markdown("### 🎬 Fila de Pedidos Atual")
 
     try:
@@ -164,7 +194,7 @@ def renderizar_gestao_fila_prestador(provider_token):
             pedidos_ativos.sort(key=lambda x: x.get("timestamp", 0))
             
             tocando_agora = next((p for p in pedidos_ativos if p.get("estado") == "aprovado"), None)
-            pendentes = [p for p in pedidos_ativos if p.get("estado") == "pendente"]
+            pendentes = [p for p in pedidos_ativos if p.get("estado"] == "pendente"]
 
             if pedidos_ativos:
                 html_lista = '<div style="background-color: #111111; border: 2px solid #333333; padding: 15px; border-radius: 8px; color: #ffffff; max-width: 550px; font-family: monospace; font-size: 15px; margin-bottom: 20px;">'
@@ -254,93 +284,140 @@ def renderizar_ecra_tv(provider_token):
         url_firebase = f"{FIREBASE_URL}/pedidos/{provider_token}.json?_t={time.time()}"
         response = requests.get(url_firebase, timeout=10)
         
+        pedidos_ativos = []
+        tocando_agora = None
+        
         if response.status_code == 200 and response.json():
             data = response.json()
             pedidos = [{"id": k, **v} for k, v in data.items()]
             pedidos_ativos = [p for p in pedidos if p.get("estado") in ["pendente", "aprovado"]]
             pedidos_ativos.sort(key=lambda x: x.get("timestamp", 0))
-            
             tocando_agora = next((p for p in pedidos_ativos if p.get("estado") == "aprovado"), None)
-            
-            if tocando_agora:
-                musica = tocando_agora.get("musica", {})
-                
-                if isinstance(musica, dict):
-                    titulo = musica.get("titulo", musica.get("nome", "Karaoke"))
-                    url_video = musica.get("url_cloudinary", "") or musica.get("url", "")
-                else:
-                    titulo = str(musica)
-                    url_video = ""
-                
-                titulo_limpo = limpar_nome_musica(titulo)
-                url_video = obter_url_video_cloudinary(musica, titulo_limpo)
-                cantor_name = tocando_agora.get('cliente', 'Convidado')
-                
-                st.markdown(f"<h2>A tocar: {titulo_limpo} <span style='font-size:16px; color:#aaa;'>(Cantor: {cantor_name})</span></h2>", unsafe_allow_html=True)
-
-                # Player com remoção de 3 pontos e retorno automático à lista ao terminar o vídeo
-                video_html = f"""
-                <div style="display: flex; justify-content: center; background: black; padding: 10px; width: 100%;">
-                    <video id="karaoke-player" width="100%" height="500px" controls autoplay playsinline controlslist="nodownload noremoteplayback" disablepictureinpicture style="object-fit: contain; background: black;">
-                        <source src="{url_video}" type="video/mp4">
-                        O seu navegador não suporta a reprodução deste vídeo.
-                    </video>
-                </div>
-                <script>
-                    var video = document.getElementById('karaoke-player');
-                    video.muted = false;
-                    var playPromise = video.play();
-                    if (playPromise !== undefined) {{
-                        playPromise.then(_ => {{
-                            // Reprodução automática iniciada com sucesso
-                        }}).catch(error => {{
-                            video.muted = true;
-                            video.play();
-                        }});
-                    }}
-
-                    // Quando o vídeo termina, atualiza o estado para terminado e recarrega a tela
-                    video.onended = function() {{
-                        var pedidoId = "{tocando_agora.get('id')}";
-                        var token = "{provider_token}";
-                        var firebaseURL = "{FIREBASE_URL}/pedidos/" + token + "/" + pedidoId + "/estado.json";
-                        
-                        fetch(firebaseURL, {{
-                            method: 'PUT',
-                            body: JSON.stringify('terminado'),
-                            headers: {{
-                                'Content-Type': 'application/json'
-                            }}
-                        }}).then(response => {{
-                            setTimeout(function() {{
-                                window.location.reload();
-                            }}, 500);
-                        }}).catch(err => {{
-                            window.location.reload();
-                        }});
-                    }};
-
-                    video.onerror = function() {{
-                        console.error("Erro ao carregar o vídeo do Cloudinary.");
-                    }};
-                </script>
-                """
-                components.html(video_html, height=580)
+        
+        # SE HOUVER UM KARAOKE A TOCAR: Fecha tudo e abre apenas o ecrã completo do karaoke
+        if tocando_agora:
+            musica = tocando_agora.get("musica", {})
+            if isinstance(musica, dict):
+                titulo = musica.get("titulo", musica.get("nome", "Karaoke"))
+                url_video = musica.get("url_cloudinary", "") or musica.get("url", "")
             else:
-                st.info("📺 Fila em espera. A aguardar que o prestador aprove um pedido...")
-                if pedidos_ativos:
-                    html_lista_geral = '<div style="background-color: #111111; border: 2px solid #333333; padding: 20px; border-radius: 10px; color: #ffffff; font-family: monospace; font-size: 18px; max-width: 800px; margin: 20px auto;">'
-                    html_lista_geral += '<div style="color: #FFC107; font-weight: bold; margin-bottom: 10px; border-bottom: 1px solid #444; padding-bottom: 5px;">PRÓXIMOS NA FILA:</div>'
-                    for idx, p in enumerate(pedidos_ativos, start=1):
-                        t_limpo = limpar_nome_musica(p.get("musica", {}))
-                        c_nome = p.get("cliente", "Convidado")
-                        html_lista_geral += f'<div style="padding: 6px 0;"><b>{idx}.</b> <span style="color: #4CAF50;">{t_limpo}</span> <span style="color: #aaa; font-size: 14px;">(Cantor: {c_nome})</span></div>'
-                    html_lista_geral += '</div>'
-                    st.markdown(html_lista_geral, unsafe_allow_html=True)
+                titulo = str(musica)
+                url_video = ""
+            
+            titulo_limpo = limpar_nome_musica(titulo)
+            url_video = obter_url_video_cloudinary(musica, titulo_limpo)
+            cantor_name = tocando_agora.get('cliente', 'Convidado')
+            
+            st.markdown(f"<h2 style='text-align:center; color: #FFC107;'>A tocar: {titulo_limpo} <span style='font-size:16px; color:#aaa;'>(Cantor: {cantor_name})</span></h2>", unsafe_allow_html=True)
+
+            video_html = f"""
+            <div style="display: flex; justify-content: center; background: black; padding: 0px; width: 100%;">
+                <video id="karaoke-player" width="100%" height="560px" controls autoplay playsinline controlslist="nodownload noremoteplayback" disablepictureinpicture style="object-fit: contain; background: black;">
+                    <source src="{url_video}" type="video/mp4">
+                    O seu navegador não suporta a reprodução deste vídeo.
+                </video>
+            </div>
+            <script>
+                var video = document.getElementById('karaoke-player');
+                video.muted = false;
+                var playPromise = video.play();
+                if (playPromise !== undefined) {{
+                    playPromise.then(_ => {{}}).catch(error => {{
+                        video.muted = true;
+                        video.play();
+                    }});
+                }}
+
+                video.onended = function() {{
+                    var pedidoId = "{tocando_agora.get('id')}";
+                    var token = "{provider_token}";
+                    var firebaseURL = "{FIREBASE_URL}/pedidos/" + token + "/" + pedidoId + "/estado.json";
+                    
+                    fetch(firebaseURL, {{
+                        method: 'PUT',
+                        body: JSON.stringify('terminado'),
+                        headers: {{ 'Content-Type': 'application/json' }}
+                    }}).then(response => {{
+                        setTimeout(function() {{ window.location.reload(); }}, 300);
+                    }}).catch(err => {{
+                        window.location.reload();
+                    }});
+                }};
+            </script>
+            """
+            components.html(video_html, height=620)
+            
         else:
-            st.info("Nenhum pedido ativo na TV no momento.")
+            # SE NÃO HOUVER KARAOKE A TOCAR: Mostra o layout de Duas Colunas (Fila de Espera vs Vídeo Clipe de Fundo)
+            url_clipe_fundo = obter_video_fundo(provider_token)
+            if url_clipe_fundo and not url_clipe_fundo.startswith("http"):
+                url_clipe_fundo = obter_url_video_cloudinary({"url": ""}, limpar_nome_musica(url_clipe_fundo))
+
+            # Preparar dados do "Á Seguir" e da lista de espera
+            proximo_cantor = pedidos_ativos[0] if pedidos_ativos else None
+            
+            col_esq, col_dir = st.columns([1, 1])
+            
+            with col_esq:
+                st.markdown("""
+                    <div style="border: 2px solid #FFC107; border-radius: 10px; padding: 15px; text-align: center; background: #111; margin-bottom: 15px;">
+                        <h2 style="color: #FFC107; margin: 0; font-family: monospace;">🎤 FILA DE ESPERA</h2>
+                    </div>
+                """, unsafe_allow_html=True)
+                
+                if proximo_cantor:
+                    t_prox = limpar_nome_musica(proximo_cantor.get("musica", {}))
+                    c_prox = proximo_cantor.get("cliente", "Convidado")
+                    st.markdown(f"""
+                        <div style="background: linear-gradient(135deg, #2b1035, #111); border: 2px solid #9c27b0; border-radius: 12px; padding: 15px; margin-bottom: 15px; text-align: center;">
+                            <span style="color: #FFC107; font-size: 14px; font-weight: bold;">1 — Á Seguir —</span>
+                            <h3 style="color: #ffffff; margin: 5px 0 0 0; font-family: monospace;">{c_prox}</h3>
+                            <p style="color: #4CAF50; font-size: 14px; margin: 5px 0 0 0;">🎵 {t_prox}</p>
+                        </div>
+                    """, unsafe_allow_html=True)
+                
+                # Listagem dos restantes (2 a 6)
+                html_caixas = '<div style="display: flex; flex-direction: column; gap: 8px;">'
+                for idx in range(2, 7):
+                    p_item = pedidos_ativos[idx-1] if len(pedidos_ativos) >= idx else None
+                    if p_item:
+                        t_item = limpar_nome_musica(p_item.get("musica", {}))
+                        c_item = p_item.get("cliente", "Convidado")
+                        texto_caixa = f"<b>{idx}.</b> {c_item} — {t_item}"
+                    else:
+                        texto_caixa = f"<b>{idx}.</b>"
+                    
+                    html_caixas += f'<div style="background: #111; border: 2px solid #FFC107; border-radius: 8px; padding: 12px; color: #fff; font-family: monospace; font-size: 16px;">{texto_caixa}</div>'
+                html_caixas += '</div>'
+                st.markdown(html_caixas, unsafe_allow_html=True)
+
+            with col_dir:
+                st.markdown("""
+                    <div style="border: 2px solid #FFC107; border-radius: 10px; padding: 15px; text-align: center; background: #111; margin-bottom: 15px;">
+                        <h2 style="color: #FFC107; margin: 0; font-family: monospace;">📺 VÍDEO CLIPE (FUNDO)</h2>
+                    </div>
+                """, unsafe_allow_html=True)
+                
+                if url_clipe_fundo:
+                    video_fundo_html = f"""
+                    <div style="display: flex; justify-content: center; background: black; border: 2px solid #FFC107; border-radius: 10px; padding: 5px; width: 100%;">
+                        <video id="fundo-player" width="100%" height="470px" autoplay loop muted playsinline style="object-fit: contain; background: black; border-radius: 8px;">
+                            <source src="{url_clipe_fundo}" type="video/mp4">
+                            O seu navegador não suporta vídeo.
+                        </video>
+                    </div>
+                    """
+                    components.html(video_fundo_html, height=500)
+                else:
+                    st.markdown("""
+                        <div style="border: 2px solid #FFC107; border-radius: 10px; padding: 80px 20px; text-align: center; background: #000; color: #FFC107; font-family: monospace;">
+                            <div style="font-size: 40px; margin-bottom: 10px;">📺</div>
+                            <p style="color: #aaa; font-size: 16px; margin: 0;">Aguardando o prestador selecionar um vídeo clipe no painel de controle...</p>
+                        </div>
+                    """, unsafe_allow_html=True)
+
     except Exception as e:
-        st.error(f"Erro de sincronização: {e}")
+        st.error(f"Erro de sincronização na TV: {e}")
 
 def show_client_screen():
     query_params = st.query_params
@@ -356,9 +433,6 @@ def show_client_screen():
     </style>
     """, unsafe_allow_html=True)
 
-    st.title("📺 FFKaraoke — Diretor Palco")
-    st.markdown("---")
-
     renderizar_ecra_tv(provider_token)
 
 def main():
@@ -369,7 +443,7 @@ def main():
             show_register_page()
             return
 
-        if "page" in query_params and query_params["page"] == "client_register":
+        if "page" in query_params && query_params["page"] == "client_register":
             show_client_page()
             return
 
