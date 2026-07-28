@@ -176,6 +176,37 @@ def show_client_page():
     else:
         st.success("✅ Já poderá enviar o seu pedido!")
 
+    # Se selecionou uma música, exibe a confirmação LOGO NO TOPO (antes da pesquisa)
+    if st.session_state.musica_selecionada:
+        musica_atual = st.session_state.musica_selecionada
+        st.markdown(f"""
+            <div style="background: #161a23; padding: 30px; border-radius: 12px; border: 2px solid #4CAF50; text-align: center; margin: 10px 0 25px 0;">
+                <h2 style="color: #4CAF50; margin-bottom: 15px; font-size: 24px;">Confirmação de Pedido</h2>
+                <p style="font-size: 20px; font-weight: bold; margin-bottom: 25px;">Quer tocar <b>{musica_atual['titulo']}</b>?</p>
+            </div>
+        """, unsafe_allow_html=True)
+        
+        col_espaco1, col_c1, col_c2, col_espaco2 = st.columns([1, 2, 2, 1])
+        with col_c1:
+            if st.button("✅ Sim, Enviar", use_container_width=True, key="btn_sim_enviar"):
+                if tem_pedido_ativo:
+                    st.error("❌ Não pode enviar outro pedido enquanto o pedido anterior não for cantado.")
+                else:
+                    sucesso = enviar_pedido_firebase(provider_token, cliente_nome, musica_atual)
+                    if sucesso:
+                        st.success(f"Pedido de '{musica_atual['titulo']}' enviado com sucesso!")
+                        st.session_state.pesquisa_input = ""
+                        st.session_state.musica_selecionada = None
+                        time.sleep(1)
+                        st.rerun()
+                    else:
+                        st.error("Erro ao enviar o pedido para o DJ.")
+        with col_c2:
+            if st.button("❌ Não / Cancelar", use_container_width=True, key="btn_nao_cancelar"):
+                st.session_state.musica_selecionada = None
+                st.rerun()
+        st.markdown("---")
+
     # Caixa de pesquisa de música com lista rolável (scroll)
     st.markdown("### 🔍 Pesquisar Música")
     pesquisa = st.text_input("Digite o nome da música ou artista:", value=st.session_state.pesquisa_input, placeholder="Ex: Landrick, Nani...")
@@ -205,37 +236,6 @@ def show_client_page():
                             st.rerun()
         else:
             st.warning("Nenhuma música encontrada com esse termo.")
-
-    # Se selecionou uma música, abre o pop-up / caixa centralizada em ponto grande com os botões bem próximos
-    if st.session_state.musica_selecionada:
-        musica_atual = st.session_state.musica_selecionada
-        st.markdown("---")
-        st.markdown(f"""
-            <div style="background: #161a23; padding: 30px; border-radius: 12px; border: 2px solid #4CAF50; text-align: center; margin: 20px auto; max-width: 650px;">
-                <h2 style="color: #4CAF50; margin-bottom: 15px; font-size: 24px;">Confirmação de Pedido</h2>
-                <p style="font-size: 20px; font-weight: bold; margin-bottom: 25px;">Quer tocar <b>{musica_atual['titulo']}</b>?</p>
-            </div>
-        """, unsafe_allow_html=True)
-        
-        col_espaco1, col_c1, col_c2, col_espaco2 = st.columns([1, 2, 2, 1])
-        with col_c1:
-            if st.button("✅ Sim, Enviar", use_container_width=True):
-                if tem_pedido_ativo:
-                    st.error("❌ Não pode enviar outro pedido enquanto o pedido anterior não for cantado.")
-                else:
-                    sucesso = enviar_pedido_firebase(provider_token, cliente_nome, musica_atual)
-                    if sucesso:
-                        st.success(f"Pedido de '{musica_atual['titulo']}' enviado com sucesso!")
-                        st.session_state.pesquisa_input = ""
-                        st.session_state.musica_selecionada = None
-                        time.sleep(1)
-                        st.rerun()
-                    else:
-                        st.error("Erro ao enviar o pedido para o DJ.")
-        with col_c2:
-            if st.button("❌ Não / Cancelar", use_container_width=True):
-                st.session_state.musica_selecionada = None
-                st.rerun()
 
     st.markdown("---")
 
