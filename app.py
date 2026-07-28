@@ -89,7 +89,7 @@ def obter_url_video_cloudinary(musica_obj, titulo_limpo):
                 return url_direta.replace("/upload/", "/upload/f_auto,q_auto/")
             return url_direta
 
-    cloud_name = "ejil7wKYY15xHjDcRVfbk6Ow"
+    cloud_name = "yhwgjh7g"
     titulo_lower = titulo_limpo.lower()
     
     if "mulheres e mulheres" in titulo_lower or "landrick" in titulo_lower:
@@ -115,19 +115,18 @@ def show_provider_panel_custom(provider_token):
     link_cliente = f"/?page=client_register&prestador={provider_token}"
     link_tv = f"/?page=client_screen&prestador={provider_token}"
 
-    # Forçado com target='_blank' via componente HTML seguro para abrir em separadores diferentes
     st.markdown(f"""
         <div style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 25px; max-width: 850px;">
             <div style="background-color: #e8f0fe; border: 1px solid #d2e3fc; padding: 10px 15px; border-radius: 8px; display: flex; align-items: center; justify-content: space-between;">
-                <span style="font-size: 14px; color: #202124;">📎 <b>Cliente:</b> <a href="{link_cliente}" target="_blank" rel="noopener noreferrer" style="color: #1a73e8; text-decoration: none;">{link_cliente}</a></span>
+                <span style="font-size: 14px; color: #202124;">📎 <b>Link do Cliente (Partilhe com os clientes):</b> <a href="{link_cliente}" target="_blank" rel="noopener noreferrer" style="color: #1a73e8; text-decoration: none;">{link_cliente}</a></span>
             </div>
             <div style="background-color: #e8f0fe; border: 1px solid #d2e3fc; padding: 10px 15px; border-radius: 8px; display: flex; align-items: center; justify-content: space-between;">
-                <span style="font-size: 14px; color: #202124;">📺 <b>TV:</b> <a href="{link_tv}" target="_blank" rel="noopener noreferrer" style="color: #1a73e8; text-decoration: none;">{link_tv}</a></span>
+                <span style="font-size: 14px; color: #202124;">📺 <b>Link da TV (Abrir no Ecrã/Projetor):</b> <a href="{link_tv}" target="_blank" rel="noopener noreferrer" style="color: #1a73e8; text-decoration: none;">{link_tv}</a></span>
             </div>
         </div>
     """, unsafe_allow_html=True)
 
-    st.markdown("### 🎬 Playlist de Vídeos Clipes (Fundo da TV)")
+    st.markdown("### 🎬 Fila de Pedidos Atual")
 
     try:
         response = requests.get(f"{FIREBASE_URL}/pedidos/{provider_token}.json", timeout=10)
@@ -142,22 +141,26 @@ def show_provider_panel_custom(provider_token):
             pendentes = [p for p in pedidos_ativos if p.get("estado") == "pendente"]
 
             if pedidos_ativos:
-                html_lista = '<div style="background-color: #000000; border: 3px solid #000000; padding: 15px; border-radius: 6px; color: #ffffff; max-width: 450px; font-family: monospace; font-size: 15px; margin-bottom: 20px;">'
+                html_lista = '<div style="background-color: #111111; border: 2px solid #333333; padding: 15px; border-radius: 8px; color: #ffffff; max-width: 550px; font-family: monospace; font-size: 15px; margin-bottom: 20px;">'
+                html_lista += '<div style="color: #4CAF50; font-weight: bold; margin-bottom: 8px; border-bottom: 1px solid #333; padding-bottom: 4px;">ESTADO DA FILA:</div>'
                 for idx, p in enumerate(pedidos_ativos, start=1):
                     titulo_musica = limpar_nome_musica(p.get("musica", {}))
                     cliente_nome = p.get("cliente", "Convidado")
-                    html_lista += f'<div style="padding: 3px 0;"><b>{idx}-</b> {titulo_musica} <span style="color:#aaa; font-size:12px;">({cliente_nome})</span></div>'
+                    estado_atual = p.get("estado")
+                    badge = "🎵 [A Tocar]" if estado_atual == "aprovado" else "⏳ [Pendente]"
+                    cor_badge = "#4CAF50" if estado_atual == "aprovado" else "#FFC107"
+                    html_lista += f'<div style="padding: 4px 0;"><b>{idx}.</b> {titulo_musica} <span style="color:#aaa; font-size:13px;">({cliente_nome})</span> <span style="color:{cor_badge}; font-size:12px; float:right;">{badge}</span></div>'
                 html_lista += '</div>'
                 st.markdown(html_lista, unsafe_allow_html=True)
             else:
                 st.markdown("""
-                    <div style="background-color: #000000; border: 3px solid #000000; padding: 15px; border-radius: 6px; color: #888; max-width: 450px; font-family: monospace; font-size: 15px; margin-bottom: 20px;">
-                        <div>Nenhum pedido na lista.</div>
+                    <div style="background-color: #111111; border: 2px solid #333333; padding: 15px; border-radius: 8px; color: #888; max-width: 550px; font-family: monospace; font-size: 15px; margin-bottom: 20px;">
+                        <div>Nenhum pedido na lista neste momento.</div>
                     </div>
                 """, unsafe_allow_html=True)
 
             st.markdown("---")
-            st.markdown("### 📋 Gestão de Fila")
+            st.markdown("### 📋 Gestão de Fila e Controlo")
 
             if tocando_agora:
                 titulo_tocando = limpar_nome_musica(tocando_agora.get("musica", {}))
@@ -167,17 +170,18 @@ def show_provider_panel_custom(provider_token):
                     st.rerun()
 
             if not pendentes:
-                st.write("Fila vazia. À espera de novos pedidos...")
+                st.write("Fila de pendentes vazia. À espera de novos pedidos...")
             else:
+                st.write("### Pedidos Pendentes para Aprovar:")
                 for idx, p in enumerate(pendentes, start=1):
                     titulo_musica = limpar_nome_musica(p.get("musica", {}))
                     cliente_nome = p.get("cliente", "Convidado")
                     
                     col_info, col_btn = st.columns([3, 1])
                     with col_info:
-                        st.write(f"**#{idx}** - {titulo_musica} *(Cliente: {cliente_nome})*")
+                        st.write(f"**Pedido** - {titulo_musica} *(Cliente: {cliente_nome})*")
                     with col_btn:
-                        if st.button(f"▶️ Play #{idx}", key=f"btn_play_{p.get('id')}"):
+                        if st.button(f"▶️ Play", key=f"btn_play_{p.get('id')}"):
                             terminar_todas_musicas_ativas(provider_token, pedidos)
                             atualizar_estado_pedido(provider_token, p.get('id'), 'aprovado')
                             st.success(f"Música '{titulo_musica}' enviada para a tela!")
@@ -202,7 +206,7 @@ def show_client_screen():
     </style>
     """, unsafe_allow_html=True)
 
-    st.title("📺 FFKaraoke — Diretor Palco")
+    st.title("📺 FFKaraoke — Ecrã / Palco")
     st.markdown("---")
 
     st.markdown("""
@@ -223,30 +227,51 @@ def show_client_screen():
             
             tocando_agora = next((p for p in pedidos_ativos if p.get("estado") == "aprovado"), None)
             
-            if tocando_agora:
-                musica_obj = tocando_agora.get("musica", {})
-                titulo_limpo = limpar_nome_musica(musica_obj)
-                url_video = obter_url_video_cloudinary(musica_obj, titulo_limpo)
-                
-                st.markdown(f"<h2>A tocar: {titulo_limpo}</h2>", unsafe_allow_html=True)
+            # Layout na TV dividido em Duas Colunas: Vídeo a tocar e Lista Numerada da Fila
+            col_video, col_fila = st.columns([2.5, 1])
 
-                video_html = f"""
-                <div style="display: flex; justify-content: center; background: black; padding: 10px; width: 100%;">
-                    <video id="karaoke-player" width="100%" height="500px" controls autoplay playsinline style="object-fit: contain; background: black;">
-                        <source src="{url_video}" type="video/mp4">
-                        O seu navegador não suporta a reprodução deste vídeo.
-                    </video>
-                </div>
-                <script>
-                    var video = document.getElementById('karaoke-player');
-                    video.play().catch(function(error) {{
-                        console.log("Autoplay bloqueado pelo browser:", error);
-                    }});
-                </script>
-                """
-                components.html(video_html, height=580)
-            else:
-                st.info("A aguardar início de reprodução... Selecione 'Play' no painel do prestador.")
+            with col_video:
+                if tocando_agora:
+                    musica_obj = tocando_agora.get("musica", {})
+                    titulo_limpo = limpar_nome_musica(musica_obj)
+                    url_video = obter_url_video_cloudinary(musica_obj, titulo_limpo)
+                    
+                    st.markdown(f"<h3 style='color: #4CAF50;'>🎵 A Tocar: {titulo_limpo} <span style='font-size:16px; color:#ccc;'>(Req: {tocando_agora.get('cliente', 'Convidado')})</span></h3>", unsafe_allow_html=True)
+
+                    video_html = f"""
+                    <div style="display: flex; justify-content: center; background: black; padding: 5px; width: 100%;">
+                        <video id="karaoke-player" width="100%" height="450px" controls autoplay playsinline style="object-fit: contain; background: black; border-radius: 8px;">
+                            <source src="{url_video}" type="video/mp4">
+                            O seu navegador não suporta a reprodução deste vídeo.
+                        </video>
+                    </div>
+                    <script>
+                        var video = document.getElementById('karaoke-player');
+                        video.play().catch(function(error) {{
+                            console.log("Autoplay bloqueado pelo browser:", error);
+                        }});
+                    </script>
+                    """
+                    components.html(video_html, height=500)
+                else:
+                    st.info("📺 A aguardar início de reprodução... Selecione 'Play' no painel do prestador.")
+
+            with col_fila:
+                st.markdown("### 📋 Fila de Espera")
+                if pedidos_ativos:
+                    html_fila_tv = '<div style="background-color: #111111; border: 2px solid #333333; padding: 12px; border-radius: 8px; color: #ffffff; font-family: monospace; font-size: 14px;">'
+                    for idx, p in enumerate(pedidos_ativos, start=1):
+                        t_limpo = limpar_nome_musica(p.get("musica", {}))
+                        c_nome = p.get("cliente", "Convidado")
+                        estado = p.get("estado")
+                        if estado == "aprovado":
+                            html_fila_tv += f'<div style="padding: 5px 0; color: #4CAF50;"><b>{idx}. {t_limpo}</b><br><span style="font-size:11px; color:#888;">👤 {c_nome} (A tocar)</span></div><hr style="border-color:#222; margin:4px 0;">'
+                        else:
+                            html_fila_tv += f'<div style="padding: 5px 0; color: #ddd;"><b>{idx}. {t_limpo}</b><br><span style="font-size:11px; color:#888;">👤 {c_nome} (Pendente)</span></div><hr style="border-color:#222; margin:4px 0;">'
+                    html_fila_tv += '</div>'
+                    st.markdown(html_fila_tv, unsafe_allow_html=True)
+                else:
+                    st.markdown("<p style='color: #888;'>Fila vazia.</p>", unsafe_allow_html=True)
         else:
             st.info("Nenhum pedido ativo na TV.")
     except Exception as e:
