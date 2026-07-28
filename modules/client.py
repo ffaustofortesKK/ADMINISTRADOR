@@ -5,10 +5,10 @@ import cloudinary.api
 
 FIREBASE_URL = "https://grupoffkaraoke-default-rtdb.firebaseio.com"
 
-# Configuração com as suas credenciais exatas do Cloudinary
+# Configuração atualizada com as suas credenciais reais do Cloudinary
 cloudinary.config(
-    cloud_name="TU_ejil7wKYY15xHjDcRVfbk6Ow",
-    api_key="852434629995691",
+    cloud_name="ejil7wKYY15xHjDcRVfbk6Ow",
+    api_key="766164269958181",
     api_secret="oWTTGfF8KRtd4ojFiS",
     secure=True
 )
@@ -17,7 +17,6 @@ cloudinary.config(
 def obter_catalogo_cloudinary():
     catalogo = []
     try:
-        # Tenta listar os vídeos da nuvem (incluindo a pasta de vídeos se aplicável)
         result = cloudinary.api.resources(
             resource_type="video",
             max_results=100
@@ -34,21 +33,7 @@ def obter_catalogo_cloudinary():
             })
     except Exception as e:
         print(f"Erro ao ligar ao Cloudinary SDK: {e}")
-
-    # Fallback de segurança caso a ligação demore ou a nuvem esteja vazia
-    if not catalogo:
-        catalogo = [
-            {
-                "titulo": "Há Mulheres e Mulheres", 
-                "artista": "Landrick", 
-                "url": "https://res.cloudinary.com/TU_ejil7wKYY15xHjDcRVfbk6Ow/video/upload/f_auto,q_auto/v1784592601/Karaoke_H%C3%81_MULHERES_E_MULHERES_-_Landrick_rnomfr.mp4"
-            },
-            {
-                "titulo": "Nani Tá Quieto", 
-                "artista": "Kudurista", 
-                "url": "https://res.cloudinary.com/TU_ejil7wKYY15xHjDcRVfbk6Ow/video/upload/f_auto,q_auto/Nani_Ta_Quieto_f35hpj.mp4"
-            }
-        ]
+    
     return catalogo
 
 def enviar_pedido_firebase(provider_token, cliente_nome, musica_escolhida):
@@ -61,7 +46,7 @@ def enviar_pedido_firebase(provider_token, cliente_nome, musica_escolhida):
             "timestamp": int(time.time() * 1000)
         }
         url = f"{FIREBASE_URL}/pedidos/{provider_token}.json"
-        response = requests.post(url, json=novo_pedido)
+        response = requests.post(url, json=novo_pedido, timeout=10)
         return response.status_code == 200
     except Exception:
         return False
