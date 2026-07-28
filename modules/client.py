@@ -1,9 +1,20 @@
-import streamlit as st
-import requests
+import sys
+import os
 import time
+import requests
+import urllib.parse
+import streamlit as st
+import streamlit.components.v1 as components
 
 FIREBASE_URL = "https://grupoffkaraoke-default-rtdb.firebaseio.com"
 
+st.set_page_config(
+    page_title="FFKaraoke - Gestão de Acessos",
+    page_icon="🎤",
+    layout="wide"
+)
+
+# --- FUNÇÕES DE SUPORTE ---
 def obter_pedidos_cliente(provider_token):
     try:
         url = f"{FIREBASE_URL}/pedidos/{provider_token}.json?_t={time.time()}"
@@ -29,7 +40,51 @@ def enviar_pedido_firebase(provider_token, cliente_nome, musica_escolhida):
     except Exception:
         return False
 
-# Usamos um fragmento com atualização automática a cada 4 segundos para o telemóvel do cliente acompanhar a fila em tempo real
+def atualizar_estado_pedido(provider_token, pedido_id, novo_estado):
+    try:
+        url = f"{FIREBASE_URL}/pedidos/{provider_token}/{pedido_id}/estado.json"
+        response = requests.put(url, json=novo_estado, timeout=10)
+        return response.status_code == 200
+    except Exception:
+        return False
+
+def terminar_todas_musicas_ativas(provider_token, pedidos):
+    for p in pedidos:
+        if p.get("estado") in ["aprovado", "pendente"]:
+            atualizar_estado_pedido(provider_token, p.get("id"), "terminado")
+
+def limpar_nome_musica(musica_raw):
+    if isinstance(musica_raw, dict):
+        titulo = musica_raw.get("titulo", musica_raw.get("nome", "Karaoke"))
+    else:
+        titulo = str(musica_raw)
+    
+    titulo = titulo.strip('"\'')
+    if titulo.lower().endswith('.cdg'):
+        titulo = titulo[:-4]
+    return titulo.strip()
+
+def obter_url_video_cloudinary(musica_obj, titulo_limpo):
+    if isinstance(musica_obj, dict):
+        url_direta = musica_obj.get("url_cloudinary", "") or musica_obj.get("url", "")
+        if url_direta and "http" in url_direta:
+            if "res.cloudinary.com" in url_direta and "/upload/" in url_direta and "f_auto,q_auto" not in url_direta:
+                return url_direta.replace("/upload/", "/upload/f_auto,q_auto/")
+            return url_direta
+
+    cloud_name = "yhwgjh7g"
+    titulo_lower = titulo_limpo.lower()
+    
+    if "mulheres e mulheres" in titulo_lower or "landrick" in titulo_lower:
+        return f"https://res.cloudinary.com/{cloud_name}/video/upload/f_auto,q_auto/v1784592601/Karaoke_H%C3%81_MULHERES_E_MULHERES_-_Landrick_rnomfr.mp4"
+    elif "nani ta quieto" in titulo_lower:
+        return f"https://res.cloudinary.com/{cloud_name}/video/upload/f_auto,q_auto/Nani_Ta_Quieto_f35hpj.mp4"
+    
+    encoded_title = urllib.parse.quote(titulo_limpo + ".mp4")
+    return f"https://res.cloudinary.com/{cloud_name}/video/upload/f_auto,q_auto/{encoded_title}"
+
+
+# --- COMPONENTE DINÂMICO DO CLIENTE (COM ALERTAS EM TEMPO REAL) ---
 @st.fragment(run_every=4)
 def relogio_fila_cliente(provider_token, cliente_nome):
     st.markdown("""
@@ -47,35 +102,26 @@ def relogio_fila_cliente(provider_token, cliente_nome):
     """, unsafe_allow_html=True)
 
     pedidos = obter_pedidos_cliente(provider_token)
-    
-    # Filtrar apenas pedidos ativos (pendentes ou aprovados/a tocar)
     pedidos_ativos = [p for p in pedidos if p.get("estado") in ["pendente", "aprovado"]]
     pedidos_ativos.sort(key=lambda x: x.get("timestamp", 0))
 
-    # Verificar se o cliente tem pedido ativo
     meu_pedido = None
-    minha_posicao = None
     tocando_agora = None
 
-    for idx, p in enumerate(pedidos_ativos, start=1):
+    for p in pedidos_ativos:
         if p.get("estado") == "aprovado" and not tocando_agora:
             tocando_agora = p
-        if p.get("cliente", "").lower() == cliente_nome.lower():
-            if not meu_pedido:
-                meu_pedido = p
-                minha_posicao = idx
+        if p.get("cliente", "").lower() == cliente_nome.lower() and not meu_pedido:
+            meu_pedido = p
 
     if not meu_pedido:
         st.info("ℹ️ Não tem nenhum pedido ativo na fila neste momento. Escolha uma música abaixo para cantar!")
         return
 
-    # Calcular quantas músicas estão estritamente à frente na fila de espera pendente
-    # (Exclui o que está a tocar agora da contagem de músicas à frente)
     pendentes_frente = [p for p in pedidos_ativos if p.get("estado") == "pendente" and p.get("timestamp", 0) < meu_pedido.get("timestamp", 0)]
     musicas_a_frente = len(pendentes_frente)
 
     if meu_pedido.get("estado") == "aprovado":
-        # Chegou a vez!
         st.markdown("""
             <div style="text-align: center; padding: 30px; background: rgba(76, 175, 80, 0.15); border: 3px solid #4CAF50; border-radius: 15px; margin: 15px 0;">
                 <div class="spinning-mic">🎤</div>
@@ -84,7 +130,6 @@ def relogio_fila_cliente(provider_token, cliente_nome):
             </div>
         """, unsafe_allow_html=True)
     else:
-        # Ainda na fila, exibir alerta dinâmico de quantas músicas faltam
         titulo_musica = meu_pedido.get("musica", {}).get("titulo", "A sua música") if isinstance(meu_pedido.get("musica"), dict) else str(meu_pedido.get("musica"))
         
         if musicas_a_frente == 0:
@@ -105,10 +150,12 @@ def relogio_fila_cliente(provider_token, cliente_nome):
                 <div class="spinning-mic">🎤</div>
                 <h3 style="color: #FFC107; margin-top: 15px; font-size: 22px;">Pedido: {titulo_musica}</h3>
                 <h2 style="color: {cor_alerta}; font-size: 26px; margin-top: 10px; font-weight: bold;">{aviso_texto}</h2>
-                <p style="color: #aaa; font-size: 14px; margin-top: 8px;">Acompanhe o painel no telemóvel. O estado atualiza automaticamente.</p>
+                <p style="color: #aaa; font-size: 14px; margin-top: 8px;">O seu estado atualiza automaticamente no telemóvel.</p>
             </div>
         """, unsafe_allow_html=True)
 
+
+# --- PÁGINA DO CLIENTE ---
 def show_client_page():
     st.markdown("""
     <style>
@@ -161,7 +208,6 @@ def show_client_page():
     if 'musica_selecionada' not in st.session_state:
         st.session_state.musica_selecionada = None
 
-    # Registo inicial do nome do cliente
     if not st.session_state.cliente_registado:
         st.markdown("## 🎤 Bem-vindo ao FF Karaoke")
         st.markdown("Insira o seu nome ou alcunha para começar:")
@@ -180,10 +226,8 @@ def show_client_page():
     st.markdown(f"<h1 style='color: #4CAF50; font-size: 26px; margin-bottom: 0;'>Benvindo, {cliente_nome}</h1>", unsafe_allow_html=True)
     st.markdown("<hr style='margin-top: 10px; margin-bottom: 15px;'>", unsafe_allow_html=True)
 
-    # Executar o componente dinâmico de contagem regressiva da fila
     relogio_fila_cliente(provider_token, cliente_nome)
 
-    # Se selecionou uma música, exibe a confirmação para envio
     if st.session_state.musica_selecionada:
         musica_atual = st.session_state.musica_selecionada
         titulo_m = musica_atual.get('titulo', 'Música')
@@ -201,11 +245,11 @@ def show_client_page():
                 tem_ativo = any(p.get("cliente", "").lower() == cliente_nome.lower() and p.get("estado") in ["pendente", "aprovado"] for p in pedidos_atuais)
                 
                 if tem_ativo:
-                    st.error("❌ Já tem um pedido ativo na fila. Aguarde que seja concluído para pedir outra música.")
+                    st.error("❌ Já tem um pedido ativo na fila.")
                 else:
                     sucesso = enviar_pedido_firebase(provider_token, cliente_nome, musica_atual)
                     if sucesso:
-                        st.success(f"Pedido enviado com sucesso!")
+                        st.success("Pedido enviado com sucesso!")
                         st.session_state.pesquisa_input = ""
                         st.session_state.musica_selecionada = None
                         time.sleep(1)
@@ -218,26 +262,18 @@ def show_client_page():
                 st.rerun()
         st.markdown("---")
 
-    # Caixa de pesquisa de músicas
     st.markdown("### 🔍 Pesquisar Música no Catálogo")
     pesquisa = st.text_input("Digite o nome da música ou artista:", value=st.session_state.pesquisa_input, placeholder="Ex: Landrick, Nani...")
     st.session_state.pesquisa_input = pesquisa
 
-    # Catálogo simulado/carregado
-    from modules.admin import obter_catalogo_cloudinary if 'obter_catalogo_cloudinary' in globals() else lambda: []
-    # Fallback básico caso a função de catálogo esteja noutro ficheiro
-    try:
-        from app import obter_catalogo_cloudinary
-        catalogo = obter_catalogo_cloudinary()
-    except Exception:
-        catalogo = []
+    # Catálogo exemplo
+    catalogo = [
+        {"id": "1", "titulo": "Mulheres e Mulheres", "artista": "Landrick"},
+        {"id": "2", "titulo": "Nani Ta Quieto", "artista": "Nani"}
+    ]
 
-    if pesquisa and catalogo:
-        musicas_filtradas = [
-            m for m in catalogo 
-            if pesquisa.lower() in m["titulo"].lower() or pesquisa.lower() in m["artista"].lower()
-        ]
-
+    if pesquisa:
+        musicas_filtradas = [m for m in catalogo if pesquisa.lower() in m["titulo"].lower() or pesquisa.lower() in m["artista"].lower()]
         if musicas_filtradas:
             st.write(f"Encontradas {len(musicas_filtradas)} músicas:")
             container_lista = st.container(height=280)
@@ -251,4 +287,18 @@ def show_client_page():
                             st.session_state.musica_selecionada = musica
                             st.rerun()
         else:
-            st.warning("Nenhuma música encontrada com esse termo.")
+            st.warning("Nenhuma música encontrada.")
+
+
+# --- ROTEAMENTO PRINCIPAL ---
+def main():
+    query_params = st.query_params
+    if "page" in query_params and query_params["page"] == "client_register":
+        show_client_page()
+        return
+    
+    st.title("🔒 FFKaraoke - Área Restrita")
+    st.write("Aceda através do link do seu painel de prestador ou utilize os parâmetros corretos.")
+
+if __name__ == "__main__":
+    main()
