@@ -27,9 +27,7 @@ def obter_catalogo_cloudinary():
             public_id = item.get("public_id", "")
             titulo_limpo = public_id.split("/")[-1].replace("_", " ").replace("-", " ").title()
             url_video = item.get("secure_url", "")
-            # Usar o public_id como identificador único seguro
             catalogo.append({
-                "id": public_id,
                 "titulo": titulo_limpo,
                 "artista": "FFKaraoke",
                 "url": url_video
@@ -38,34 +36,13 @@ def obter_catalogo_cloudinary():
         print(f"Erro ao ligar ao Cloudinary SDK: {e}")
     return catalogo
 
-def enviar_pedido_firebase(provider_token, cliente_nome, musica_escolhida):
-    try:
-        novo_pedido = {
-            "cliente": cliente_nome if cliente_nome else "Convidado",
-            "musica": musica_escolhida,
-            "estado": "pendente",
-            "timestamp": int(time.time() * 1000)
-        }
-        url = f"{FIREBASE_URL}/pedidos/{provider_token}.json"
-        response = requests.post(url, json=novo_pedido, timeout=10)
-        return response.status_code == 200
-    except Exception:
-        return False
-
-def show_client_page():
-    query_params = st.query_params
-    provider_token = query_params.get("prestador") or query_params.get("provider", None)
-
-    if not provider_token:
-        st.error("❌ Link de pedido inválido. Falta o código do prestador.")
-        return
-
-    # Validar se o prestador existe e está ativo na base de dados local
+def show_client_portal(provider_token):
+    # Validar se o token do prestador existe e está ativo na base de dados local
     df_prov = get_all_providers()
     prestador = df_prov[df_prov['token'] == provider_token]
     
     if prestador.empty:
-        st.error("❌ Link de prestador inválido ou inexistente na base de dados.")
+        st.error("❌ Link de prestador inválido ou inexistente.")
         return
 
     row_prov = prestador.iloc[0]
@@ -73,54 +50,145 @@ def show_client_page():
         st.warning("⏳ Este painel de prestador encontra-se temporariamente inativo ou expirado.")
         return
 
-    st.markdown("""
-    <style>
-    .stApp { background-color: #0e1117; color: white; }
-    </style>
-    """, unsafe_allow_html=True)
+    if 'registado' not in st.session_state: st.session_state.registado = False
+    if 'musica_pendente_confirmacao' not in st.session_state: st.session_state.musica_pendente_confirmacao = None
+    if 'aviso_personalizado_ativo' not in st.session_state: st.session_state.aviso_personalizado_ativo = False
+    if 'texto_pedido_anterior' not in st.session_state: st.session_state.texto_pedido_anterior = ""
 
-    st.markdown(f"## 🎤 FFKaraoke — {row_prov['name']}")
-    st.markdown("Pesquise e escolha a sua música diretamente da nuvem!")
-    st.markdown("---")
+    URL_PEDIDOS = f"{FIREBASE_URL}/pedidos/{provider_token}.json"
+    URL_STATUS = f"{FIREBASE_URL}/status_{provider_token}.json"
 
-    # Guardar nome na sessão para não obrigar a reescrever a cada clique
-    if 'cliente_nome_input' not in st.session_state:
-        st.session_state.cliente_nome_input = ""
-
-    cliente_nome = st.text_input("O seu Nome / alcunha:", value=st.session_state.cliente_nome_input, placeholder="Ex: João da Silva")
-    st.session_state.cliente_nome_input = cliente_nome
-
-    pesquisa = st.text_input("🔍 Pesquisar música:", placeholder="Digite o nome da música...")
-
-    catalogo = obter_catalogo_cloudinary()
-
-    if not pesquisa:
-        st.info("💡 Digite algo na caixa de pesquisa acima para encontrar as músicas disponíveis.")
-        musicas_filtradas = []
+    if not st.session_state.registado:
+        st.title(f"🎤 FF Karaoke - {row_prov['name']}")
+        nome = st.text_input("Como quer ser chamado?")
+        if st.button("Entrar"):
+            if nome: 
+                st.session_state.nome = nome
+                st.session_state.registado = True
+                st.rerun()
     else:
-        musicas_filtradas = [
-            m for m in catalogo 
-            if pesquisa.lower() in m["titulo"].lower() or pesquisa.lower() in m["artista"].lower()
-        ]
+        try:
+            response_pedidos = requests.get(f"{URL_PEDIDOS}?nocache={time.time()}", timeout=5)
+            pedidos_data = response_pedidos.json() if response_pedidos.status_code == 200 else {}
+            status_data = requests.get(f"{URL_STATUS}?nocache={time.time()}", timeout=5).json() or {}
+        except: 
+            pedidos_data = {}
+            status_data = {}
 
-    if pesquisa and not musicas_filtradas:
-        st.warning("Nenhuma música encontrada com esse termo.")
-    elif musicas_filtradas:
-        st.write(f"Encontradas {len(musicas_filtradas)} músicas:")
-        # Limitar a exibição a 30 resultados por segurança de performance no telemóvel
-        for musica in musicas_filtradas[:30]:
-            col1, col2 = st.columns([4, 1])
-            with col1:
-                st.markdown(f"🎵 **{musica['titulo']}**")
-            with col2:
-                # Chave única baseada no ID do Cloudinary para evitar conflitos no Streamlit
-                safe_key = f"btn_cloud_{musica['id']}"
-                if st.button("📤 Pedir", key=safe_key):
-                    if not cliente_nome.strip():
-                        st.warning("⚠️ Por favor, insira o seu nome antes de pedir.")
+        pedidos = [{"id": k, **v} for k, v in pedidos_data.items()] if pedidos_data else []
+        pedidos_ativos = [p for p in pedidos if p.get("estado") in ["pendente", "aprovado"]]
+        pedidos_ativos.sort(key=lambda x: x.get("timestamp", 0))
+
+        meu_nome = str(st.session_state.nome).strip().lower()
+        meu_pedido_na_fila = next((p for p in pedidos_ativos if str(p.get('cliente', '')).strip().lower() == meu_nome), None)
+        posicao = pedidos_ativos.index(meu_pedido_na_fila) if meu_pedido_na_fila else -1
+
+        tem_pedido_na_fila = posicao != -1
+        nome_firebase = str(status_data.get("cantor", "")).strip().lower()
+        esta_a_cantar = (nome_firebase == meu_nome) or (meu_pedido_na_fila and meu_pedido_na_fila.get("estado") == "aprovado")
+        comando_atual = status_data.get("comando")
+
+        if esta_a_cantar:
+            if comando_atual == "aguardando_play":
+                st.success("🎉 É a tua vez! Prepara-te, o vídeo vai começar a tocar na tela...")
+            elif comando_atual == "play":
+                st.info("🎵 A tua música está a passar na tela!")
+            else:
+                st.info("🎵 A tua música foi aprovada / está a tocar!")
+        elif tem_pedido_na_fila:
+            st.warning("⚠️ O seu pedido foi enviado. Aguarde a sua vez.")
+            if posicao == 0:
+                st.info("📢 Estás quase lá, aguarde o sinal para começar.")
+            else:
+                st.write(f"🔢 Existem **{posicao}** músicas à sua frente.")
+        else:
+            st.success("✅ Já podes enviar a tua próxima música!")
+
+        st.divider()
+        st.subheader("🔍 Pesquisa de Música")
+        
+        termo = st.text_input("Pesquisar música no catálogo:")
+        catalogo = obter_catalogo_cloudinary()
+        
+        resultados = [
+            m for m in catalogo 
+            if termo.lower() in m["titulo"].lower() or termo.lower() in m["artista"].lower()
+        ] if termo else []
+
+        if termo:
+            if resultados:
+                opcoes_map = {f"{m['titulo']} — {m['artista']}": m for m in resultados}
+                escolha_txt = st.selectbox("Escolha a música:", list(opcoes_map.keys()), key="select_busca_musica")
+                musica_sel = opcoes_map[escolha_txt]
+                
+                if st.button("➕ Enviar esta música para o DJ", use_container_width=True):
+                    st.session_state.musica_pendente_confirmacao = musica_sel
+                    st.rerun()
+            else:
+                st.warning("Nenhuma música encontrada com esse termo.")
+
+        if st.session_state.musica_pendente_confirmacao:
+            m_obj = st.session_state.musica_pendente_confirmacao
+            st.warning(f"⚠️ Tens a certeza que queres escolher a música: **{m_obj['titulo']}**?")
+            col_sim, col_nao = st.columns(2)
+            with col_sim:
+                if st.button("Sim, enviar!", use_container_width=True):
+                    if tem_pedido_na_fila or esta_a_cantar:
+                        st.error("⛔ Só podes enviar outra música assim que a tua atuação atual terminar!")
                     else:
-                        if enviar_pedido_firebase(provider_token, cliente_nome, musica):
-                            st.success(f"Pedido de '{musica['titulo']}' enviado com sucesso!")
-                            st.balloons()
-                        else:
-                            st.error("Erro ao enviar o pedido para o DJ.")
+                        novo_pedido = {
+                            "cliente": st.session_state.nome,
+                            "musica": m_obj,
+                            "estado": "pendente",
+                            "timestamp": int(time.time() * 1000)
+                        }
+                        requests.post(URL_PEDIDOS, json=novo_pedido, timeout=5)
+                        st.session_state.musica_pendente_confirmacao = None
+                        st.rerun()
+            with col_nao:
+                if st.button("Não, quero escolher outra", use_container_width=True):
+                    st.session_state.musica_pendente_confirmacao = None
+                    st.rerun()
+
+        st.divider()
+        st.subheader("📝 Pedido Personalizado")
+        
+        if st.session_state.aviso_personalizado_ativo:
+            st.info("ℹ️ Seu pedido personalizado foi enviado com sucesso!")
+
+        pedido_extra = st.text_input("Não encontrou? Escreva o seu pedido:", key="input_pedido_extra")
+        
+        if pedido_extra != st.session_state.texto_pedido_anterior:
+            st.session_state.aviso_personalizado_ativo = False
+            st.session_state.texto_pedido_anterior = pedido_extra
+
+        if st.button("🚀 Enviar Pedido Personalizado", use_container_width=True):
+            if tem_pedido_na_fila or esta_a_cantar:
+                st.error("⛔ Só podes enviar outra música assim que a tua atuação atual terminar!")
+            elif not pedido_extra:
+                st.warning("Escreva um pedido personalizado antes de enviar.")
+            else:
+                musica_custom_obj = {
+                    "titulo": f"PEDIDO: {pedido_extra}",
+                    "artista": "Personalizado",
+                    "url": ""
+                }
+                novo_pedido = {
+                    "cliente": st.session_state.nome,
+                    "musica": musica_custom_obj,
+                    "estado": "pendente",
+                    "timestamp": int(time.time() * 1000)
+                }
+                requests.post(URL_PEDIDOS, json=novo_pedido, timeout=5)
+                st.session_state.aviso_personalizado_ativo = True
+                st.rerun()
+
+        st.divider()
+        if st.button("Sair"): 
+            st.session_state.registado = False
+            st.session_state.musica_pendente_confirmacao = None
+            st.session_state.aviso_personalizado_ativo = False
+            st.rerun()
+        
+        time.sleep(3)
+        st.rerun()
