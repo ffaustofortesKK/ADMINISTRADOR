@@ -105,6 +105,7 @@ def show_provider_panel_custom(provider_token):
     st.markdown(f"<p style='color: #888; font-size: 13px;'>Token do Prestador: <code>{provider_token}</code></p>", unsafe_allow_html=True)
     st.markdown("---")
     
+    # Auto-refresh otimizado via JS a cada 3 segundos para detetar novos pedidos instantaneamente
     st.markdown("""
         <script>
             setTimeout(function() {
@@ -130,7 +131,8 @@ def show_provider_panel_custom(provider_token):
     st.markdown("### 🎬 Fila de Pedidos Atual")
 
     try:
-        url_firebase = f"{FIREBASE_URL}/pedidos/{provider_token}.json"
+        # Adicionado timestamp para evitar cache agressivo do requests
+        url_firebase = f"{FIREBASE_URL}/pedidos/{provider_token}.json?_t={time.time()}"
         response = requests.get(url_firebase, timeout=10)
         
         if response.status_code == 200 and response.json():
@@ -191,7 +193,7 @@ def show_provider_panel_custom(provider_token):
                             st.success(f"Música '{titulo_musica}' enviada para a tela!")
                             st.rerun()
         else:
-            st.info("Nenhum pedido encontrado no Firebase para este prestador. Faça um teste abrindo o link do cliente e enviando uma música.")
+            st.info("Nenhum pedido encontrado no Firebase para este prestador. Abra o link do cliente e envie uma música para testar.")
             
     except Exception as e:
         st.error(f"Erro ao carregar os pedidos do Firebase: {e}")
@@ -210,6 +212,7 @@ def show_client_screen():
     </style>
     """, unsafe_allow_html=True)
 
+    # Recarregamento automático da tela a cada 3 segundos para sincronizar com o Play do prestador
     st.markdown("""
         <script>
             setTimeout(function() {
@@ -218,8 +221,13 @@ def show_client_screen():
         </script>
     """, unsafe_allow_html=True)
 
+    st.title("📺 FFKaraoke — Diretor Palco")
+    st.markdown("---")
+
     try:
-        response = requests.get(f"{FIREBASE_URL}/pedidos/{provider_token}.json", timeout=10)
+        url_firebase = f"{FIREBASE_URL}/pedidos/{provider_token}.json?_t={time.time()}"
+        response = requests.get(url_firebase, timeout=10)
+        
         if response.status_code == 200 and response.json():
             data = response.json()
             pedidos = [{"id": k, **v} for k, v in data.items()]
@@ -229,66 +237,53 @@ def show_client_screen():
             tocando_agora = next((p for p in pedidos_ativos if p.get("estado") == "aprovado"), None)
             
             if tocando_agora:
-                # --- MODO REPRODUÇÃO: VÍDEO EM TELA INTEIRA ---
-                musica_obj = tocando_agora.get("musica", {})
-                titulo_limpo = limpar_nome_musica(musica_obj)
-                url_video = obter_url_video_cloudinary(musica_obj, titulo_limpo)
-                cantor_nome = tocando_agora.get('cliente', 'Convidado')
+                musica = tocando_agora.get("musica", {})
                 
-                video_html = """
-                <div style="position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: black; display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 9999;">
-                    <div style="position: absolute; top: 15px; left: 25px; color: #4CAF50; font-family: monospace; font-size: 20px; font-weight: bold; background: rgba(0,0,0,0.8); padding: 8px 15px; border-radius: 6px; z-index: 10000;">
-                        🎵 A Tocar: {titulo} <span style="font-size:14px; color:#ccc;">(Cantor: {cantor})</span>
-                    </div>
-                    <video id="karaoke-player" width="100%" height="100%" controls autoplay playsinline style="object-fit: contain; background: black;">
-                        <source src="{url}" type="video/mp4">
+                if isinstance(musica, dict):
+                    titulo = musica.get("titulo", musica.get("nome", "Karaoke"))
+                    url_video = musica.get("url_cloudinary", "") or musica.get("url", "")
+                else:
+                    titulo = str(musica)
+                    url_video = ""
+                
+                titulo_limpo = limpar_nome_musica(titulo)
+                url_video = obter_url_video_cloudinary(musica, titulo_limpo)
+                cantor_name = tocando_agora.get('cliente', 'Convidado')
+                
+                st.markdown(f"<h2>A tocar: {titulo_limpo} <span style='font-size:16px; color:#aaa;'>(Cantor: {cantor_name})</span></h2>", unsafe_allow_html=True)
+                st.caption(f"Link do Vídeo: {url_video}")
+
+                video_html = f"""
+                <div style="display: flex; justify-content: center; background: black; padding: 10px; width: 100%;">
+                    <video id="karaoke-player" width="100%" height="500px" controls autoplay playsinline style="object-fit: contain; background: black;">
+                        <source src="{url_video}" type="video/mp4">
                         O seu navegador não suporta a reprodução deste vídeo.
                     </video>
-                    <div id="play-warning" style="position: absolute; bottom: 30px; background: rgba(255, 193, 7, 0.9); color: #000; padding: 10px 20px; border-radius: 8px; font-family: monospace; font-size: 16px; font-weight: bold; display: none; cursor: pointer; z-index: 10000;" onclick="document.getElementById('karaoke-player').play(); this.style.display='none';">
-                        ⚠️ Clique aqui se o vídeo não iniciar automaticamente
-                    </div>
                 </div>
                 <script>
                     var video = document.getElementById('karaoke-player');
-                    var warning = document.getElementById('play-warning');
-                    
-                    var playPromise = video.play();
-                    if (playPromise !== undefined) {{
-                        playPromise.catch(function(error) {{
-                            console.log("Autoplay bloqueado pelo browser:", error);
-                            warning.style.display = 'block';
-                        }});
-                    }}
+                    video.play().catch(function(error) {{
+                        console.log("Autoplay bloqueado pelo browser:", error);
+                    }});
+                    video.onerror = function() {{
+                        console.error("Erro ao carregar o vídeo do Cloudinary. Verifique se o ficheiro existe na nuvem com o nome correto.");
+                    }};
                 </script>
-                """.format(titulo=titulo_limpo, cantor=cantor_nome, url=url_video)
-                
-                components.html(video_html, height=900)
+                """
+                components.html(video_html, height=580)
             else:
-                # --- MODO LISTA DE ESPERA ---
-                st.title("📺 FFKaraoke — Próximos Cantores na Fila")
-                st.markdown("---")
-                
+                # Se não houver música aprovada, mostra a lista de espera geral para a TV
+                st.info("📺 Fila em espera. A aguardar que o prestador aprove um pedido...")
                 if pedidos_ativos:
-                    html_lista_geral = '<div style="background-color: #111111; border: 2px solid #333333; padding: 25px; border-radius: 12px; color: #ffffff; font-family: monospace; font-size: 20px; max-width: 900px; margin: 0 auto;">'
-                    html_lista_geral += '<div style="color: #FFC107; font-weight: bold; margin-bottom: 15px; border-bottom: 2px solid #444; padding-bottom: 8px; font-size: 24px;">📋 LISTA DE ESPERA (À espera de vez):</div>'
-                    
+                    html_lista_geral = '<div style="background-color: #111111; border: 2px solid #333333; padding: 20px; border-radius: 10px; color: #ffffff; font-family: monospace; font-size: 18px; max-width: 800px; margin: 20px auto;">'
+                    html_lista_geral += '<div style="color: #FFC107; font-weight: bold; margin-bottom: 10px; border-bottom: 1px solid #444; padding-bottom: 5px;">PRÓXIMOS NA FILA:</div>'
                     for idx, p in enumerate(pedidos_ativos, start=1):
                         t_limpo = limpar_nome_musica(p.get("musica", {}))
                         c_nome = p.get("cliente", "Convidado")
-                        html_lista_geral += f'<div style="padding: 10px 0; border-bottom: 1px solid #222;"><b>{idx}.</b> <span style="color: #4CAF50;">{t_limpo}</span> <span style="color: #aaa; font-size: 16px;">— Cantor: <b>{c_nome}</b></span></div>'
-                    
+                        html_lista_geral += f'<div style="padding: 6px 0;"><b>{idx}.</b> <span style="color: #4CAF50;">{t_limpo}</span> <span style="color: #aaa; font-size: 14px;">(Cantor: {c_nome})</span></div>'
                     html_lista_geral += '</div>'
                     st.markdown(html_lista_geral, unsafe_allow_html=True)
-                else:
-                    st.markdown("""
-                        <div style="text-align: center; margin-top: 100px; color: #888; font-family: monospace;">
-                            <h2>Fila de espera vazia.</h2>
-                            <p style="font-size: 18px;">Faça o seu pedido através do telemóvel!</p>
-                        </div>
-                    """, unsafe_allow_html=True)
         else:
-            st.title("📺 FFKaraoke — Ecrã / Palco")
-            st.markdown("---")
             st.info("Nenhum pedido ativo na TV no momento.")
     except Exception as e:
         st.error(f"Erro de sincronização: {e}")
