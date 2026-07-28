@@ -1,7 +1,35 @@
 import streamlit as st
 import requests
 import time
+import cloudinary
+import cloudinary.api
 from utils.db_manager import get_all_providers
+
+FIREBASE_URL = "https://grupoffkaraoke-default-rtdb.firebaseio.com"
+
+# Configuração do Cloudinary para corresponder ao resto do sistema
+cloudinary.config(
+    cloud_name="ejil7wKYY15xHjDcRVfbk6Ow",
+    api_key="766164269958181",
+    api_secret="oWTTGfF8KRtd4ojFiS",
+    secure=True
+)
+
+@st.cache_data(ttl=60)
+def obter_catalogo_cloudinary():
+    catalogo = []
+    try:
+        result = cloudinary.api.resources(
+            resource_type="video",
+            max_results=200
+        )
+        for item in result.get("resources", []):
+            public_id = item.get("public_id", "")
+            titulo_limpo = public_id.split("/")[-1].replace("_", " ").replace("-", " ").title()
+            catalogo.append(titulo_limpo)
+    except Exception as e:
+        print(f"Erro ao ligar ao Cloudinary SDK: {e}")
+    return catalogo
 
 def show_client_portal(provider_token):
     # Validar se o token do prestador existe e está ativo na base de dados local
@@ -17,24 +45,14 @@ def show_client_portal(provider_token):
         st.warning("⏳ Este painel de prestador encontra-se temporariamente inativo ou expirado.")
         return
 
-    # Usar o token como identificador único (slug) para as chaves do Firebase
-    prestador_slug = provider_token
-
     if 'registado' not in st.session_state: st.session_state.registado = False
     if 'musica_pendente_confirmacao' not in st.session_state: st.session_state.musica_pendente_confirmacao = None
     if 'aviso_personalizado_ativo' not in st.session_state: st.session_state.aviso_personalizado_ativo = False
     if 'texto_pedido_anterior' not in st.session_state: st.session_state.texto_pedido_anterior = ""
 
-    URL_STATUS = f"https://grupoffkaraoke-default-rtdb.firebaseio.com/status_{prestador_slug}.json"
-    URL_PEDIDOS = f"https://grupoffkaraoke-default-rtdb.firebaseio.com/pedidos_{prestador_slug}.json"
-    URL_CATALOGO = "https://grupoffkaraoke-default-rtdb.firebaseio.com/catalogo.json"
-
-    @st.cache_data(ttl=300)
-    def obter_catalogo():
-        try:
-            res = requests.get(URL_CATALOGO).json()
-            return list(res.values()) if isinstance(res, dict) else (res or [])
-        except: return []
+    # URLs alinhadas exatamente com a estrutura global do app.py e do painel do prestador
+    URL_STATUS = f"{FIREBASE_URL}/status_{provider_token}.json"
+    URL_PEDIDOS = f"{FIREBASE_URL}/pedidos/{provider_token}.json"
 
     if not st.session_state.registado:
         st.title(f"🎤 FF Karaoke - {row_prov['name']}")
@@ -55,8 +73,12 @@ def show_client_portal(provider_token):
         nome_firebase = str(status.get("cantor", "")).strip().lower()
         meu_nome = str(st.session_state.nome).strip().lower()
         
-        fila = list(pedidos_json.items()) if pedidos_json else []
-        posicao = next((i for i, (p_id, p) in enumerate(fila) if str(p.get('cantor')).strip().lower() == meu_nome), -1)
+        # Converter dados para a estrutura de lista utilizada pelo app.py
+        pedidos = [{"id": k, **v} for k, v in pedidos_json.items()] if pedidos_json else []
+        pedidos_ativos = [p for p in pedidos if p.get("estado") in ["pendente", "aprovado"]]
+        pedidos_ativos.sort(key=lambda x: x.get("timestamp", 0))
+
+        posicao = next((i for i, p in enumerate(pedidos_ativos) if str(p.get('cliente', '')).strip().lower() == meu_nome), -1)
 
         tem_pedido_na_fila = posicao != -1
         esta_a_cantar_ou_chamado = (nome_firebase == meu_nome)
@@ -80,7 +102,8 @@ def show_client_portal(provider_token):
         st.subheader("🔍 Pesquisa de Música")
         
         termo = st.text_input("Pesquisar música no catálogo:")
-        resultados = [m for m in obter_catalogo() if termo.lower() in str(m).lower()] if termo else []
+        catalogo = obter_catalogo_cloudinary()
+        resultados = [m for m in catalogo if termo.lower() in m.lower()] if termo else []
         
         if termo and resultados:
             musica_sel = st.selectbox("Escolha a música:", resultados, key="select_busca_musica")
@@ -98,7 +121,13 @@ def show_client_portal(provider_token):
                     if tem_pedido_na_fila or esta_a_cantar_ou_chamado:
                         st.error("⛔ Só podes enviar outra música assim que a tua atuação atual terminar!")
                     else:
-                        requests.post(URL_PEDIDOS, json={"cantor": st.session_state.nome, "musica": st.session_state.musica_pendente_confirmacao})
+                        novo_pedido = {
+                            "cliente": st.session_state.nome,
+                            "musica": st.session_state.musica_pendente_confirmacao,
+                            "estado": "pendente",
+                            "timestamp": int(time.time() * 1000)
+                        }
+                        requests.post(URL_PEDIDOS, json=novo_pedido, timeout=5)
                         st.session_state.musica_pendente_confirmacao = None
                         st.rerun()
             with col_nao:
@@ -124,7 +153,13 @@ def show_client_portal(provider_token):
             elif not pedido_extra:
                 st.warning("Escreva um pedido personalizado antes de enviar.")
             else:
-                requests.post(URL_PEDIDOS, json={"cantor": st.session_state.nome, "musica": f"PEDIDO: {pedido_extra}"})
+                novo_pedido = {
+                    "cliente": st.session_state.nome,
+                    "musica": f"PEDIDO: {pedido_extra}",
+                    "estado": "pendente",
+                    "timestamp": int(time.time() * 1000)
+                }
+                requests.post(URL_PEDIDOS, json=novo_pedido, timeout=5)
                 st.session_state.aviso_personalizado_ativo = True
                 st.rerun()
 
