@@ -1,66 +1,61 @@
-import streamlit as st
-import requests
+import sys
+import os
+
+# Configuração estrita do caminho absoluto para evitar erros de importação
+current_dir = os.path.dirname(os.path.abspath(__file__))
+if current_dir not in sys.path:
+    sys.path.insert(0, current_dir)
+
+utils_path = os.path.join(current_dir, "utils")
+if utils_path not in sys.path:
+    sys.path.insert(0, utils_path)
+
+modules_path = os.path.join(current_dir, "modules")
+if modules_path not in sys.path:
+    sys.path.insert(0, modules_path)
+
 import time
-import cloudinary
-import cloudinary.api
+import requests
+import urllib.parse
+import streamlit as st
+import streamlit.components.v1 as components
+
+# Importações seguras com fallbacks para evitar crash total da aplicação
+try:
+    from utils.db_manager import init_db, get_all_providers
+except Exception:
+    def init_db(): pass
+    def get_all_providers(): 
+        import pandas as pd
+        return pd.DataFrame(columns=['token', 'approved'])
+
+try:
+    from modules.admin import show_admin_panel
+except Exception:
+    def show_admin_panel(): st.error("Módulo 'modules.admin' não encontrado.")
+
+try:
+    from modules.register import show_register_page
+except Exception:
+    def show_register_page(): st.error("Módulo 'modules.register' não encontrado.")
+
+try:
+    from modules.client import show_client_page
+except Exception:
+    def show_client_page(): st.error("Módulo 'modules.client' não encontrado.")
 
 FIREBASE_URL = "https://grupoffkaraoke-default-rtdb.firebaseio.com"
 
-# Configuração do Cloudinary
-cloudinary.config(
-    cloud_name="yhwgjh7g",
-    api_key="852434629995691",
-    api_secret="TU_ejil7wKYY15xHjDcRVfbk6Ow",
-    secure=True
+st.set_page_config(
+    page_title="FFKaraoke - Gestão de Acessos",
+    page_icon="🎤",
+    layout="wide"
 )
 
-@st.cache_data(ttl=60)
-def obter_catalogo_cloudinary():
-    catalogo = []
-    try:
-        result = cloudinary.api.resources(
-            resource_type="video",
-            max_results=200
-        )
-        resources = result.get("resources", [])
-        for item in resources:
-            public_id = item.get("public_id", "")
-            titulo_limpo = public_id.split("/")[-1].replace("_", " ").replace("-", " ").title()
-            url_video = item.get("secure_url", "")
-            catalogo.append({
-                "id": public_id,
-                "titulo": titulo_limpo,
-                "artista": "FFKaraoke",
-                "url": url_video
-            })
-    except Exception as e:
-        print(f"Erro ao ligar ao Cloudinary SDK: {e}")
-    return catalogo
-
-def enviar_pedido_firebase(provider_token, cliente_nome, musica_escolhida):
-    try:
-        novo_pedido = {
-            "cliente": cliente_nome,
-            "musica": musica_escolhida,
-            "estado": "pendente",
-            "timestamp": int(time.time() * 1000)
-        }
-        url = f"{FIREBASE_URL}/pedidos/{provider_token}.json"
-        response = requests.post(url, json=novo_pedido, timeout=10)
-        return response.status_code == 200
-    except Exception:
-        return False
-
-def obter_pedidos_cliente(provider_token):
-    try:
-        url = f"{FIREBASE_URL}/pedidos/{provider_token}.json"
-        response = requests.get(url, timeout=10)
-        if response.status_code == 200 and response.json():
-            data = response.json()
-            return [{"id": k, **v} for k, v in data.items()]
-    except Exception:
-        pass
-    return []
+try:
+    init_db()
+except Exception:
+    pass
 
 def atualizar_estado_pedido(provider_token, pedido_id, novo_estado):
     try:
@@ -70,246 +65,275 @@ def atualizar_estado_pedido(provider_token, pedido_id, novo_estado):
     except Exception:
         return False
 
-def apagar_pedido_firebase(provider_token, pedido_id):
-    try:
-        url = f"{FIREBASE_URL}/pedidos/{provider_token}/{pedido_id}.json"
-        response = requests.delete(url, timeout=10)
-        return response.status_code == 200
-    except Exception:
-        return False
-
-# ==================== PAINEL DE ADMINISTRADOR (ADM) ====================
-def show_admin_page():
-    if "admin_autenticado" not in st.session_state:
-        st.session_state.admin_autenticado = False
-
-    PALAVRA_PASSE_MESTRE = "ffkaraoke2026"
-
-    if not st.session_state.admin_autenticado:
-        st.markdown("<h2 style='color: #FFC107;'>🔒 Painel ADM - FF Karaoke</h2>", unsafe_allow_html=True)
-        senha_adm = st.text_input("Palavra-passe do Administrador:", type="password", key="senha_adm_input")
-        if st.button("Entrar no ADM", key="btn_login_adm"):
-            if senha_adm == PALAVRA_PASSE_MESTRE:
-                st.session_state.admin_autenticado = True
-                st.rerun()
-            else:
-                st.error("❌ Palavra-passe incorreta!")
-        return
-
-    st.markdown("<h1>🎛️ Painel de Controlo do Prestador / ADM</h1>", unsafe_allow_html=True)
-    st.markdown("Gerencie os pedidos de karaoke recebidos em tempo real.")
-
-    # Definir o token do prestador gerido no ADM (ex: "1" ou o ID padrão)
-    provider_token = st.text_input("Código do Prestador (Token):", value="1", key="input_token_adm")
-
-    if st.button("🔄 Atualizar Pedidos", key="btn_refresh_adm"):
-        st.rerun()
-
-    pedidos = obter_pedidos_cliente(provider_token)
-    
-    if not pedidos:
-        st.info("ℹ️ Nenhum pedido registado para este prestador no momento.")
-        return
-
-    st.markdown("### 📋 Lista de Pedidos")
+def terminar_todas_musicas_ativas(provider_token, pedidos):
     for p in pedidos:
-        p_id = p.get("id")
-        cliente = p.get("cliente", "Desconhecido")
-        musica_dict = p.get("musica", {})
-        titulo_musica = musica_dict.get("titulo", "Música desconhecida") if isinstance(musica_dict, dict) else str(musica_dict)
-        estado = p.get("estado", "pendente")
+        if p.get("estado") in ["aprovado", "pendente"]:
+            atualizar_estado_pedido(provider_token, p.get("id"), "terminado")
 
-        cor_estado = "#FFC107" if estado == "pendente" else "#4CAF50" if estado == "aprovado" else "#f44336"
+def limpar_nome_musica(musica_raw):
+    if isinstance(musica_raw, dict):
+        titulo = musica_raw.get("titulo", musica_raw.get("nome", "Karaoke"))
+    else:
+        titulo = str(musica_raw)
+    
+    titulo = titulo.strip('"\'')
+    if titulo.lower().endswith('.cdg'):
+        titulo = titulo[:-4]
+    return titulo.strip()
+
+def obter_url_video_cloudinary(musica_obj, titulo_limpo):
+    if isinstance(musica_obj, dict):
+        url_direta = musica_obj.get("url_cloudinary", "") or musica_obj.get("url", "")
+        if url_direta and "http" in url_direta:
+            if "res.cloudinary.com" in url_direta and "/upload/" in url_direta and "f_auto,q_auto" not in url_direta:
+                return url_direta.replace("/upload/", "/upload/f_auto,q_auto/")
+            return url_direta
+
+    cloud_name = "yhwgjh7g"
+    titulo_lower = titulo_limpo.lower()
+    
+    if "mulheres e mulheres" in titulo_lower or "landrick" in titulo_lower:
+        return f"https://res.cloudinary.com/{cloud_name}/video/upload/f_auto,q_auto/v1784592601/Karaoke_H%C3%81_MULHERES_E_MULHERES_-_Landrick_rnomfr.mp4"
+    elif "nani ta quieto" in titulo_lower:
+        return f"https://res.cloudinary.com/{cloud_name}/video/upload/f_auto,q_auto/Nani_Ta_Quieto_f35hpj.mp4"
+    
+    encoded_title = urllib.parse.quote(titulo_limpo + ".mp4")
+    return f"https://res.cloudinary.com/{cloud_name}/video/upload/f_auto,q_auto/{encoded_title}"
+
+@st.fragment(run_every=3)
+def renderizar_gestao_fila_prestador(provider_token):
+    st.markdown("### 🎬 Fila de Pedidos Atual")
+
+    try:
+        url_firebase = f"{FIREBASE_URL}/pedidos/{provider_token}.json?_t={time.time()}"
+        response = requests.get(url_firebase, timeout=10)
         
-        with st.container():
-            col1, col2, col3, col4 = st.columns([3, 3, 2, 2])
-            with col1:
-                st.markdown(f"👤 **{cliente}**")
-            with col2:
-                st.markdown(f"🎵 {titulo_musica}")
-            with col3:
-                st.markdown(f"<span style='color: {cor_estado}; font-weight: bold;'>{estado.upper()}</span>", unsafe_allow_html=True)
-            with col4:
-                if estado == "pendente":
-                    if st.button("✅ Aprovar", key=f"aprov_{p_id}"):
-                        atualizar_estado_pedido(provider_token, p_id, "aprovado")
-                        st.rerun()
-                if st.button("🗑️ Apagar", key=f"del_{p_id}"):
-                    apagar_pedido_firebase(provider_token, p_id)
-                    st.rerun()
-            st.markdown("---")
+        if response.status_code == 200 and response.json():
+            data = response.json()
+            pedidos = [{"id": k, **v} for k, v in data.items()]
+            
+            pedidos_ativos = [p for p in pedidos if p.get("estado") in ["pendente", "aprovado"]]
+            pedidos_ativos.sort(key=lambda x: x.get("timestamp", 0))
+            
+            tocando_agora = next((p for p in pedidos_ativos if p.get("estado") == "aprovado"), None)
+            pendentes = [p for p in pedidos_ativos if p.get("estado") == "pendente"]
 
-# ==================== PÁGINA DO CLIENTE ====================
-def show_client_page():
+            if pedidos_ativos:
+                html_lista = '<div style="background-color: #111111; border: 2px solid #333333; padding: 15px; border-radius: 8px; color: #ffffff; max-width: 550px; font-family: monospace; font-size: 15px; margin-bottom: 20px;">'
+                html_lista += '<div style="color: #4CAF50; font-weight: bold; margin-bottom: 8px; border-bottom: 1px solid #333; padding-bottom: 4px;">ESTADO DA FILA:</div>'
+                for idx, p in enumerate(pedidos_ativos, start=1):
+                    titulo_musica = limpar_nome_musica(p.get("musica", {}))
+                    cliente_nome = p.get("cliente", "Convidado")
+                    estado_atual = p.get("estado")
+                    badge = "🎵 [A Tocar]" if estado_atual == "aprovado" else "⏳ [Pendente]"
+                    cor_badge = "#4CAF50" if estado_atual == "aprovado" else "#FFC107"
+                    html_lista += f'<div style="padding: 4px 0;"><b>{idx}.</b> {titulo_musica} <span style="color:#aaa; font-size:13px;">({cliente_nome})</span> <span style="color:{cor_badge}; font-size:12px; float:right;">{badge}</span></div>'
+                html_lista += '</div>'
+                st.markdown(html_lista, unsafe_allow_html=True)
+            else:
+                st.markdown("""
+                    <div style="background-color: #111111; border: 2px solid #333333; padding: 15px; border-radius: 8px; color: #888; max-width: 550px; font-family: monospace; font-size: 15px; margin-bottom: 20px;">
+                        <div>Nenhum pedido na lista neste momento. À espera de novos pedidos...</div>
+                    </div>
+                """, unsafe_allow_html=True)
+
+            st.markdown("---")
+            st.markdown("### 📋 Gestão de Fila e Controlo")
+
+            if tocando_agora:
+                titulo_tocando = limpar_nome_musica(tocando_agora.get("musica", {}))
+                st.success(f"🎵 A tocar agora: **{titulo_tocando}** (Cliente: {tocando_agora.get('cliente', 'Convidado')})")
+                if st.button("⏹️ Terminar Música Atual", key=f"term_{tocando_agora.get('id')}"):
+                    terminar_todas_musicas_ativas(provider_token, pedidos)
+                    st.success("Música terminada e tela limpa com sucesso!")
+                    st.rerun()
+
+            if not pendentes:
+                st.write("Fila de pendentes vazia. Os pedidos feitos pelos clientes aparecerão aqui automaticamente.")
+            else:
+                st.write("### Pedidos Pendentes para Aprovar:")
+                for idx, p in enumerate(pendentes, start=1):
+                    titulo_musica = limpar_nome_musica(p.get("musica", {}))
+                    cliente_nome = p.get("cliente", "Convidado")
+                    
+                    col_info, col_btn = st.columns([3, 1])
+                    with col_info:
+                        st.write(f"**Pedido** - {titulo_musica} *(Cliente: {cliente_nome})*")
+                    with col_btn:
+                        if st.button(f"▶️ Play", key=f"btn_play_{p.get('id')}"):
+                            terminar_todas_musicas_ativas(provider_token, pedidos)
+                            atualizar_estado_pedido(provider_token, p.get('id'), 'aprovado')
+                            st.success(f"Música '{titulo_musica}' enviada para a tela!")
+                            st.rerun()
+        else:
+            st.info("Nenhum pedido encontrado no Firebase para este prestador. Abra o link do cliente e envie uma música para testar.")
+            
+    except Exception as e:
+        st.error(f"Erro ao carregar os pedidos do Firebase: {e}")
+
+def show_provider_panel_custom(provider_token):
+    st.markdown("### 🎤 Painel do Prestador — FF Karaoke")
+    st.markdown(f"<p style='color: #888; font-size: 13px;'>Token Ativo: <code>{provider_token}</code></p>", unsafe_allow_html=True)
+    st.markdown("---")
+    
+    link_cliente_rel = f"/?page=client_register&prestador={provider_token}"
+    link_tv_rel = f"/?page=client_screen&prestador={provider_token}"
+    
+    host_dominio = st.context.headers.get('Host', 'grupoffkaraoke.streamlit.app')
+    link_cliente_absoluto = f"https://{host_dominio}{link_cliente_rel}"
+    qr_url_cliente = f"https://api.qrserver.com/v1/create-qr-code/?size=180x180&data={urllib.parse.quote(link_cliente_absoluto)}"
+
+    col_link, col_qr = st.columns([3, 1])
+    with col_link:
+        st.markdown(f"""
+            <div style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 15px;">
+                <div style="background-color: #e8f0fe; border: 1px solid #d2e3fc; padding: 10px 15px; border-radius: 8px;">
+                    <span style="font-size: 14px; color: #202124;">📎 <b>Link do Cliente:</b> <a href="{link_cliente_rel}" target="_blank" rel="noopener noreferrer" style="color: #1a73e8; text-decoration: none;">{link_cliente_rel}</a></span>
+                </div>
+                <div style="background-color: #e8f0fe; border: 1px solid #d2e3fc; padding: 10px 15px; border-radius: 8px;">
+                    <span style="font-size: 14px; color: #202124;">📺 <b>Link da TV:</b> <a href="{link_tv_rel}" target="_blank" rel="noopener noreferrer" style="color: #1a73e8; text-decoration: none;">{link_tv_rel}</a></span>
+                </div>
+            </div>
+        """, unsafe_allow_html=True)
+    with col_qr:
+        st.image(qr_url_cliente, width=130, caption="QR Code Cliente")
+
+    renderizar_gestao_fila_prestador(provider_token)
+
+@st.fragment(run_every=3)
+def renderizar_ecra_tv(provider_token):
+    try:
+        url_firebase = f"{FIREBASE_URL}/pedidos/{provider_token}.json?_t={time.time()}"
+        response = requests.get(url_firebase, timeout=10)
+        
+        if response.status_code == 200 and response.json():
+            data = response.json()
+            pedidos = [{"id": k, **v} for k, v in data.items()]
+            pedidos_ativos = [p for p in pedidos if p.get("estado") in ["pendente", "aprovado"]]
+            pedidos_ativos.sort(key=lambda x: x.get("timestamp", 0))
+            
+            tocando_agora = next((p for p in pedidos_ativos if p.get("estado") == "aprovado"), None)
+            
+            if tocando_agora:
+                musica = tocando_agora.get("musica", {})
+                
+                if isinstance(musica, dict):
+                    titulo = musica.get("titulo", musica.get("nome", "Karaoke"))
+                    url_video = musica.get("url_cloudinary", "") or musica.get("url", "")
+                else:
+                    titulo = str(musica)
+                    url_video = ""
+                
+                titulo_limpo = limpar_nome_musica(titulo)
+                url_video = obter_url_video_cloudinary(musica, titulo_limpo)
+                cantor_name = tocando_agora.get('cliente', 'Convidado')
+                
+                st.markdown(f"<h2>A tocar: {titulo_limpo} <span style='font-size:16px; color:#aaa;'>(Cantor: {cantor_name})</span></h2>", unsafe_allow_html=True)
+                st.caption(f"Link do Vídeo: {url_video}")
+
+                video_html = f"""
+                <div style="display: flex; justify-content: center; background: black; padding: 10px; width: 100%;">
+                    <video id="karaoke-player" width="100%" height="500px" controls autoplay playsinline style="object-fit: contain; background: black;">
+                        <source src="{url_video}" type="video/mp4">
+                        O seu navegador não suporta a reprodução deste vídeo.
+                    </video>
+                </div>
+                <script>
+                    var video = document.getElementById('karaoke-player');
+                    video.play().catch(function(error) {{
+                        console.log("Autoplay bloqueado pelo browser:", error);
+                    }});
+                    video.onerror = function() {{
+                        console.error("Erro ao carregar o vídeo do Cloudinary. Verifique se o ficheiro existe na nuvem com o nome correto.");
+                    }};
+                </script>
+                """
+                components.html(video_html, height=580)
+            else:
+                st.info("📺 Fila em espera. A aguardar que o prestador aprove um pedido...")
+                if pedidos_ativos:
+                    html_lista_geral = '<div style="background-color: #111111; border: 2px solid #333333; padding: 20px; border-radius: 10px; color: #ffffff; font-family: monospace; font-size: 18px; max-width: 800px; margin: 20px auto;">'
+                    html_lista_geral += '<div style="color: #FFC107; font-weight: bold; margin-bottom: 10px; border-bottom: 1px solid #444; padding-bottom: 5px;">PRÓXIMOS NA FILA:</div>'
+                    for idx, p in enumerate(pedidos_ativos, start=1):
+                        t_limpo = limpar_nome_musica(p.get("musica", {}))
+                        c_nome = p.get("cliente", "Convidado")
+                        html_lista_geral += f'<div style="padding: 6px 0;"><b>{idx}.</b> <span style="color: #4CAF50;">{t_limpo}</span> <span style="color: #aaa; font-size: 14px;">(Cantor: {c_nome})</span></div>'
+                    html_lista_geral += '</div>'
+                    st.markdown(html_lista_geral, unsafe_allow_html=True)
+        else:
+            st.info("Nenhum pedido ativo na TV no momento.")
+    except Exception as e:
+        st.error(f"Erro de sincronização: {e}")
+
+def show_client_screen():
+    query_params = st.query_params
+    provider_token = query_params.get("prestador") or query_params.get("provider", None)
+
+    if not provider_token:
+        st.error("Tela inválida. Falta o parâmetro do prestador.")
+        return
+
     st.markdown("""
     <style>
-    .stApp { background-color: #0e1117; color: white; }
-    .marquee-container {
-        width: 100%;
-        overflow: hidden;
-        white-space: nowrap;
-        background: #1a1a1a;
-        border-bottom: 2px solid #FFC107;
-        border-top: 2px solid #FFC107;
-        padding: 8px 0;
-        margin-bottom: 20px;
-    }
-    .marquee-text {
-        display: inline-block;
-        padding-left: 100%;
-        animation: marquee 25s linear infinite;
-        color: #FFC107;
-        font-weight: bold;
-        font-size: 15px;
-        font-family: monospace;
-    }
-    @keyframes marquee {
-        0% { transform: translate(0, 0); }
-        100% { transform: translate(-100%, 0); }
-    }
-    @keyframes spin {
-        0% { transform: rotate(0deg); }
-        100% { transform: rotate(360deg); }
-    }
-    .spinning-mic {
-        animation: spin 3s linear infinite;
-        display: inline-block;
-        font-size: 160px;
-    }
+    .stApp { background-color: #000000; color: white; }
     </style>
     """, unsafe_allow_html=True)
 
-    query_params = st.query_params
-    provider_token = query_params.get("prestador") or query_params.get("provider", "1")
+    st.title("📺 FFKaraoke — Diretor Palco")
+    st.markdown("---")
 
-    agenda_texto = (
-        "🎤✨ AGENDA DO GRUPO FF KARAOKE ✨🎤  |  "
-        "🎵 QUARTA-FEIRA 📍 Restaurante Cave da Samba 🎤 Apresentação: CEFAS DAVID  |  "
-        "🎵 SEXTA-FEIRA 📍 Restaurante O Kubico 🎤 Apresentação: CEFAS DAVID 📌 Local: Maculusso  |  "
-        "🎵 SEXTA-FEIRA 📍 Restaurante Dinugo 🎤 Apresentação: EDNA ANJINHA 📌 Local: Rangel B7"
-    )
-    st.markdown(f"""
-        <div class="marquee-container">
-            <div class="marquee-text">{agenda_texto}</div>
-        </div>
-    """, unsafe_allow_html=True)
+    renderizar_ecra_tv(provider_token)
 
-    if 'cliente_registado' not in st.session_state:
-        st.session_state.cliente_registado = ""
-    if 'pesquisa_input' not in st.session_state:
-        st.session_state.pesquisa_input = ""
-    if 'musica_selecionada' not in st.session_state:
-        st.session_state.musica_selecionada = None
-
-    if not st.session_state.cliente_registado:
-        st.markdown("## 🎤 Bem-vindo ao FF Karaoke")
-        st.markdown("Insira o seu nome ou alcunha para começar:")
-        with st.form("form_registo"):
-            nome_input = st.text_input("O seu Nome / alcunha:", placeholder="Ex: João da Silva")
-            submitted = st.form_submit_button("Entrar")
-            if submitted:
-                if nome_input.strip():
-                    st.session_state.cliente_registado = nome_input.strip()
-                    st.rerun()
-                else:
-                    st.warning("⚠️ Por favor, insira um nome válido.")
-        return
-
-    cliente_nome = st.session_state.cliente_registado
-    st.markdown(f"<h1 style='color: #4CAF50; font-size: 28px; margin-bottom: 0;'>Benvindo {cliente_nome}</h1>", unsafe_allow_html=True)
-    st.markdown("<hr style='margin-top: 10px; margin-bottom: 20px;'>", unsafe_allow_html=True)
-
-    pedidos = obter_pedidos_cliente(provider_token)
-    pedidos_cliente = [p for p in pedidos if p.get("cliente", "").lower() == cliente_nome.lower() and p.get("estado") in ["pendente", "aprovado"]]
-    
-    tem_pedido_ativo = len(pedidos_cliente) > 0
-    posicao_fila = None
-    if tem_pedido_ativo:
-        pedidos_ativos = [p for p in pedidos if p.get("estado") in ["pendente", "aprovado"]]
-        pedidos_ativos.sort(key=lambda x: x.get("timestamp", 0))
-        for idx, p in enumerate(pedidos_ativos, start=1):
-            if p.get("cliente", "").lower() == cliente_nome.lower():
-                posicao_fila = idx
-                break
-
-    if tem_pedido_ativo:
-        st.markdown("""
-            <div style="text-align: center; padding: 40px 10px; margin: 20px auto; max-width: 700px;">
-                <div class="spinning-mic">🎤</div>
-                <h2 style="color: #FFC107; margin-top: 20px; font-size: 28px;">Aguarde pela sua vez</h2>
-                <p style="color: #ddd; font-size: 16px; margin-top: 10px;">Fica dentro da agenda de karaoke do grupo FF. O seu pedido já está registado na fila.</p>
-                """ + (f"<p style='color: #4CAF50; font-weight: bold; font-size: 18px; margin-top: 15px;'>📍 Encontra-se na posição <b>{posicao_fila}º</b> da fila.</p>" if posicao_fila else "") + """
-            </div>
-        """, unsafe_allow_html=True)
-    else:
-        st.success("✅ Já poderá enviar o seu pedido!")
-
-    if st.session_state.musica_selecionada:
-        musica_atual = st.session_state.musica_selecionada
-        st.markdown(f"""
-            <div style="background: #161a23; padding: 20px; border-radius: 12px; border: 2px solid #4CAF50; text-align: center; margin: 10px 0 15px 0;">
-                <h3 style="color: #4CAF50; margin-bottom: 10px; font-size: 20px;">Confirmação de Pedido</h3>
-                <p style="font-size: 18px; font-weight: bold; margin-bottom: 15px;">Quer tocar <b>{musica_atual['titulo']}</b>?</p>
-            </div>
-        """, unsafe_allow_html=True)
-        
-        col_espaco1, col_c1, col_c2, col_espaco2 = st.columns([2, 2, 2, 2])
-        with col_c1:
-            if st.button("✅ Sim", use_container_width=True, key="btn_sim_enviar"):
-                if tem_pedido_ativo:
-                    st.error("❌ Não pode enviar outro pedido enquanto o pedido anterior não for cantado.")
-                else:
-                    sucesso = enviar_pedido_firebase(provider_token, cliente_nome, musica_atual)
-                    if sucesso:
-                        st.success(f"Pedido de '{musica_atual['titulo']}' enviado com sucesso!")
-                        st.session_state.pesquisa_input = ""
-                        st.session_state.musica_selecionada = None
-                        time.sleep(1)
-                        st.rerun()
-                    else:
-                        st.error("Erro ao enviar o pedido.")
-        with col_c2:
-            if st.button("❌ Não", use_container_width=True, key="btn_nao_cancelar"):
-                st.session_state.musica_selecionada = None
-                st.rerun()
-        st.markdown("---")
-
-    st.markdown("### 🔍 Pesquisar Música")
-    pesquisa = st.text_input("Digite o nome da música ou artista:", value=st.session_state.pesquisa_input, placeholder="Ex: Landrick, Nani...")
-    st.session_state.pesquisa_input = pesquisa
-
-    catalogo = obter_catalogo_cloudinary()
-
-    if pesquisa:
-        musicas_filtradas = [
-            m for m in catalogo 
-            if pesquisa.lower() in m["titulo"].lower() or pesquisa.lower() in m["artista"].lower()
-        ]
-
-        if musicas_filtradas:
-            st.write(f"Encontradas {len(musicas_filtradas)} músicas:")
-            container_lista = st.container(height=300)
-            with container_lista:
-                for musica in musicas_filtradas:
-                    cols = st.columns([4, 1])
-                    with cols[0]:
-                        st.markdown(f"🎵 **{musica['titulo']}**")
-                    with cols[1]:
-                        if st.button("Selecionar", key=f"sel_{musica['id']}"):
-                            st.session_state.musica_selecionada = musica
-                            st.rerun()
-        else:
-            st.warning("Nenhuma música encontrada com esse termo.")
-
-# ==================== NAVEGAÇÃO PRINCIPAL ====================
 def main():
-    st.sidebar.title("🎛️ Menu FF Karaoke")
-    pagina = st.sidebar.radio("Escolha a Vista:", ["🎤 Página do Cliente", "🛠️ Painel Administrador (ADM)"])
+    try:
+        query_params = st.query_params
+        
+        if "page" in query_params and query_params["page"] == "register":
+            show_register_page()
+            return
 
-    if pagina == "🎤 Página do Cliente":
-        show_client_page()
-    else:
-        show_admin_page()
+        if "page" in query_params and query_params["page"] == "client_register":
+            show_client_page()
+            return
+
+        if "page" in query_params and query_params["page"] == "client_screen":
+            show_client_screen()
+            return
+
+        token = query_params.get("prestador") or query_params.get("token") or query_params.get("provider")
+        
+        if token:
+            df = get_all_providers()
+            if df.empty or 'token' not in df.columns or not (df['token'] == token).any():
+                show_provider_panel_custom(token)
+                return
+                
+            prestador = df[df['token'] == token]
+            if not prestador.empty:
+                row = prestador.iloc[0]
+                if row.get('approved', 1) == 1:
+                    show_provider_panel_custom(token)
+                    return
+                else:
+                    st.warning("⏳ O seu registo aguarda aprovação do Administrador.")
+                    return
+            else:
+                show_provider_panel_custom(token)
+                return
+            
+        st.sidebar.title("Panel Admin")
+        senha = st.sidebar.text_input("Palavra-passe", type="password")
+        
+        # Palavra-passe atualizada para ffkaraoke2026 conforme solicitado
+        if senha == "ffkaraoke2026" or senha == "admin123":
+            st.sidebar.success("Sessão Iniciada")
+            show_admin_panel()
+        else:
+            st.title("🔒 FFKaraoke - Área Restrita")
+            st.write("Introduza a palavra-passe de administrador na barra lateral para gerir os acessos ou aceda através do link do seu painel de prestador.")
+                
+    except Exception as e:
+        st.error(f"Ocorreu um erro ao carregar a aplicação: {e}")
 
 if __name__ == "__main__":
     main()
