@@ -1,12 +1,13 @@
 import sys
 import os
 import time
+import datetime
 from datetime import datetime, timedelta
 import requests
 import urllib.parse
+import pandas as pd
 import streamlit as st
 import streamlit.components.v1 as components
-import pandas as pd
 import cloudinary
 import cloudinary.api
 import cloudinary.uploader
@@ -25,7 +26,7 @@ modules_path = os.path.join(current_dir, "modules")
 if modules_path not in sys.path:
     sys.path.insert(0, modules_path)
 
-# Configuração do Cloudinary
+# Configuração do Cloudinary com as suas credenciais oficiais
 cloudinary.config(
     cloud_name="yhwgjh7g",
     api_key="852434629995691",
@@ -33,28 +34,18 @@ cloudinary.config(
     secure=True
 )
 
-# Importações seguras com fallbacks para evitar falha total da aplicação
+# Importações seguras com fallbacks para garantir robustez da aplicação
 try:
-    from utils.db_manager import init_db, get_all_providers, delete_provider, add_provider
+    from utils.db_manager import init_db, get_all_providers
 except Exception:
     def init_db(): pass
     def get_all_providers(): 
-        if "db_providers_fallback" not in st.session_state:
-            st.session_state["db_providers_fallback"] = pd.DataFrame(
-                columns=['token', 'nome', 'approved', 'data_registo']
-            )
-        return st.session_state["db_providers_fallback"]
-    def delete_provider(token):
-        df = get_all_providers()
-        df = df[df['token'] != token]
-        st.session_state["db_providers_fallback"] = df
-    def add_provider(token, nome, approved=1):
-        df = get_all_providers()
-        data_atual = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
-        novo_reg = pd.DataFrame([{
-            'token': token, 'nome': nome, 'approved': approved, 'data_registo': data_atual
-        }])
-        st.session_state["db_providers_fallback"] = pd.concat([df, novo_reg], ignore_index=True)
+        return pd.DataFrame(columns=['token', 'approved', 'data_registo'])
+
+try:
+    from modules.admin import show_admin_panel
+except Exception:
+    def show_admin_panel(): st.error("Módulo 'modules.admin' não encontrado.")
 
 try:
     from modules.register import show_register_page
@@ -74,7 +65,7 @@ st.set_page_config(
     layout="wide"
 )
 
-# --- BLOQUEIO TOTAL DE BOTÕES DA BARRA SUPERIOR E DO AMBIENTE ---
+# --- BLOQUEIO TOTAL E RADICAL DO BOTÃO GERENCIAR APLICATIVO E ELEMENTOS CLOUD ---
 st.markdown("""
     <style>
     div[data-testid="stToolbar"], header, footer, 
@@ -127,136 +118,6 @@ try:
 except Exception:
     pass
 
-# =====================================================================
-# NOVO PAINEL DE ADMINISTRAÇÃO TOTAL (COM RELÓGIO, HISTÓRICO E ESTATÍSTICA)
-# =====================================================================
-def show_admin_panel_custom():
-    st.title("⚙️ FFKaraoke - Administração & Gestão Total")
-    
-    tab_gestao, tab_historico, tab_estatisticas = st.tabs([
-        "📊 Gestão Total", "🗂️ Histórico & Prestadores", "📈 Relatório de Estatística"
-    ])
-    
-    # -----------------------------------------------------------------
-    # ABA 1: GESTÃO TOTAL COM TEMPO A CONTAR
-    # -----------------------------------------------------------------
-    with tab_gestao:
-        st.markdown("### ⏱️ Estado Operacional da Plataforma")
-        
-        # Iniciar contador da sessão administrativa se ainda não existir
-        if "admin_start_time" not in st.session_state:
-            st.session_state["admin_start_time"] = time.time()
-        
-        elapsed_seconds = int(time.time() - st.session_state["admin_start_time"])
-        td = timedelta(seconds=elapsed_seconds)
-        tempo_formatado = str(td)
-        
-        col_rel1, col_rel2 = st.columns([2, 2])
-        with col_rel1:
-            st.markdown(f"""
-                <div style="background:#111827; border:2px solid #FFC107; border-radius:10px; padding:15px; text-align:center;">
-                    <span style="color:#9ca3af; font-size:14px; font-family:monospace;">TEMPO EM ATIVIDADE NA SESSÃO</span>
-                    <h2 style="color:#FFC107; font-family:monospace; font-size:32px; margin:5px 0 0 0;">⏱️ {tempo_formatado}</h2>
-                </div>
-            """, unsafe_allow_html=True)
-        with col_rel2:
-            df_provs = get_all_providers()
-            total_prestadores = len(df_provs) if not df_provs.empty else 0
-            st.markdown(f"""
-                <div style="background:#111827; border:2px solid #4CAF50; border-radius:10px; padding:15px; text-align:center;">
-                    <span style="color:#9ca3af; font-size:14px; font-family:monospace;">TOTAL DE PRESTADORES REGISTADOS</span>
-                    <h2 style="color:#4CAF50; font-family:monospace; font-size:32px; margin:5px 0 0 0;">🎤 {total_prestadores}</h2>
-                </div>
-            """, unsafe_allow_html=True)
-
-        if st.button("🔄 Atualizar Relógio"):
-            st.rerun()
-
-    # -----------------------------------------------------------------
-    # ABA 2: HISTÓRICO COM DATA DE REGISTO E OPÇÃO DE APAGAR
-    # -----------------------------------------------------------------
-    with tab_historico:
-        st.markdown("### 📅 Registo e Controlo de Prestadores no Histórico")
-        df = get_all_providers()
-        
-        if df.empty:
-            st.info("Nenhum prestador registado no sistema ainda.")
-        else:
-            # Apresentar tabela estruturada com a Data de Registo
-            df_exibicao = df.copy()
-            if 'data_registo' not in df_exibicao.columns:
-                df_exibicao['data_registo'] = "Não Registado"
-                
-            st.dataframe(
-                df_exibicao[['token', 'nome', 'approved', 'data_registo']].rename(columns={
-                    'token': 'Token Identificador',
-                    'nome': 'Nome do Prestador',
-                    'approved': 'Aprovado (1=Sim, 0=Não)',
-                    'data_registo': 'Data de Registo no Sistema'
-                }),
-                use_container_width=True
-            )
-            
-            st.markdown("---")
-            st.markdown("#### 🗑️ Gestão de Supressão do Histórico")
-            
-            col_del1, col_del2 = st.columns([3, 1])
-            with col_del1:
-                token_para_apagar = st.selectbox(
-                    "Selecione um prestador para apagar o registo:",
-                    options=df['token'].tolist()
-                )
-            with col_del2:
-                st.markdown("<div style='height: 28px;'></div>", unsafe_allow_html=True)
-                if st.button("❌ Apagar Registo", type="primary", use_container_width=True):
-                    if token_para_apagar:
-                        try:
-                            delete_provider(token_para_apagar)
-                        except Exception:
-                            # Caso o delete_provider seja o fallback session_state
-                            df_mod = df[df['token'] != token_para_apagar]
-                            st.session_state["db_providers_fallback"] = df_mod
-                        st.success(f"O prestador {token_para_apagar} foi apagado do histórico com sucesso!")
-                        st.rerun()
-
-    # -----------------------------------------------------------------
-    # ABA 3: ESTATÍSTICAS COM TOTALIZAÇÃO SEMANAL VS MENSAL
-    # -----------------------------------------------------------------
-    with tab_estatisticas:
-        st.markdown("### 📈 Relatório de Estatística (Comparativo Semanal / Mensal)")
-        
-        # Simulação de dados operacionais agregados ou recolhidos na BD do Firebase
-        dados_estatistica = {
-            "Item de Controlo": [
-                "Músicas Reproduzidas", 
-                "Pedidos Enviados pelo Cliente", 
-                "Vídeo Clipes Exibidos", 
-                "Sessões de Karaoke Criadas"
-            ],
-            "Total Semanal (Últimos 7 Dias)": [342, 410, 89, 12],
-            "Total Mensal (Mês em Curso)": [1480, 1720, 390, 48]
-        }
-        
-        df_stat = pd.DataFrame(dados_estatistica)
-        
-        # Linha de totalização dos valores de cada coluna
-        linha_totais = pd.DataFrame({
-            "Item de Controlo": ["TOTAL GERAL DE ITENS"],
-            "Total Semanal (Últimos 7 Dias)": [df_stat["Total Semanal (Últimos 7 Dias)"].sum()],
-            "Total Mensal (Mês em Curso)": [df_stat["Total Mensal (Mês em Curso)"].sum()]
-        })
-        
-        tabela_final = pd.concat([df_stat, linha_totais], ignore_index=True)
-        
-        st.dataframe(
-            tabela_final,
-            use_container_width=True,
-            hide_index=True
-        )
-
-# =====================================================================
-# ROTINAS AUXILIARES DO PRESTADOR E DA TV
-# =====================================================================
 def atualizar_estado_pedido(provider_token, pedido_id, novo_estado):
     try:
         url = f"{FIREBASE_URL}/pedidos/{provider_token}/{pedido_id}/estado.json"
@@ -300,12 +161,31 @@ def listar_videos_pasta_clipes():
             if url_secure:
                 if "/upload/" in url_secure and "f_auto,q_auto" not in url_secure:
                     url_secure = url_secure.replace("/upload/", "/upload/f_auto,q_auto/")
+                
                 filename = recurso.get("filename", "")
                 public_id = recurso.get("public_id", "")
                 nome_amigavel = filename if filename else public_id.split("/")[-1]
+                
                 videos_encontrados.append({"nome": nome_amigavel, "url": url_secure})
-    except Exception:
-        pass
+    except Exception as e:
+        try:
+            resultado_alt = cloudinary.api.resources(
+                resource_type="video",
+                type="upload",
+                max_results=500
+            )
+            for recurso in resultado_alt.get("resources", []):
+                public_id = recurso.get("public_id", "")
+                if "clipes" in public_id.lower():
+                    url_secure = recurso.get("secure_url", "")
+                    if url_secure:
+                        if "/upload/" in url_secure and "f_auto,q_auto" not in url_secure:
+                            url_secure = url_secure.replace("/upload/", "/upload/f_auto,q_auto/")
+                        nome_amigavel = public_id.split("/")[-1]
+                        videos_encontrados.append({"nome": nome_amigavel, "url": url_secure})
+        except Exception as err:
+            print(f"Erro crítico ao listar vídeos do Cloudinary: {err}")
+            
     return videos_encontrados
 
 def limpar_nome_musica(musica_raw):
@@ -313,6 +193,7 @@ def limpar_nome_musica(musica_raw):
         titulo = musica_raw.get("titulo", musica_raw.get("nome", "Karaoke"))
     else:
         titulo = str(musica_raw)
+    
     titulo = titulo.strip('"\'')
     if titulo.lower().endswith('.cdg'):
         titulo = titulo[:-4]
@@ -325,6 +206,7 @@ def obter_url_video_cloudinary(musica_obj, titulo_limpo):
             if "res.cloudinary.com" in url_direta and "/upload/" in url_direta and "f_auto,q_auto" not in url_direta:
                 return url_direta.replace("/upload/", "/upload/f_auto,q_auto/")
             return url_direta
+
     cloud_name = "yhwgjh7g"
     encoded_title = urllib.parse.quote(titulo_limpo + ".mp4")
     return f"https://res.cloudinary.com/{cloud_name}/video/upload/f_auto,q_auto/{encoded_title}"
@@ -347,6 +229,7 @@ def renderizar_gestao_fila_prestador(provider_token):
         pendentes = [p for p in pedidos_ativos if p.get("estado") == "pendente"]
 
         col_fila, col_botoes = st.columns([3, 1])
+        
         with col_fila:
             if pedidos_ativos:
                 html_lista = '<div style="background-color: #111111; border: 2px solid #333333; padding: 15px; border-radius: 8px; color: #ffffff; width: 100%; font-family: monospace; font-size: 15px; margin-bottom: 20px;">'
@@ -434,6 +317,7 @@ def renderizar_gestao_fila_prestador(provider_token):
                     valor_a_guardar = ""
                 else:
                     valor_a_guardar = mapa_url_por_label.get(escolha_video, "")
+                    
                 definir_video_fundo(provider_token, valor_a_guardar)
                 st.success("Vídeo clipe de fundo iniciado com sucesso na tela!")
                 st.rerun()
@@ -486,41 +370,182 @@ def renderizar_ecra_tv(provider_token):
             pedidos_ativos.sort(key=lambda x: x.get("timestamp", 0))
             tocando_agora = next((p for p in pedidos_ativos if p.get("estado") == "aprovado"), None)
         
+        frame_styles = """
+            <style>
+                @keyframes pulseSpeaker {
+                    0% { transform: scale(1); filter: drop-shadow(0 0 2px #FFC107); }
+                    50% { transform: scale(1.12); filter: drop-shadow(0 0 14px #FFC107); }
+                    100% { transform: scale(1); filter: drop-shadow(0 0 2px #FFC107); }
+                }
+                @keyframes bounceIcon {
+                    0%, 100% { transform: translateY(0) rotate(0deg); }
+                    50% { transform: translateY(-5px) rotate(10deg); }
+                }
+                @keyframes marqueeFast {
+                    0% { transform: translateX(0%); }
+                    100% { transform: translateX(-50%); }
+                }
+                .speaker-box {
+                    position: fixed;
+                    z-index: 99998;
+                    width: 90px;
+                    height: 140px;
+                    background: #111;
+                    border: 3px solid #FFC107;
+                    border-radius: 10px;
+                    display: flex;
+                    flex-direction: column;
+                    align-items: center;
+                    justify-content: space-around;
+                    padding: 8px 0;
+                    box-shadow: 0 0 15px rgba(255, 193, 7, 0.4);
+                    pointer-events: none;
+                    animation: pulseSpeaker 0.55s infinite ease-in-out;
+                }
+                .woofer {
+                    width: 55px;
+                    height: 55px;
+                    border: 3px solid #FFC107;
+                    border-radius: 50%;
+                    background: radial-gradient(circle, #333 30%, #000 90%);
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    box-shadow: inset 0 0 8px #FFC107;
+                }
+                .woofer-inner {
+                    width: 22px;
+                    height: 22px;
+                    background: #FFC107;
+                    border-radius: 50%;
+                }
+                
+                .speaker-tl { top: 15px; left: 15px; }
+                .speaker-tr { top: 15px; right: 15px; }
+                .speaker-bl { bottom: 50px; left: 15px; }
+                .speaker-br { bottom: 50px; right: 15px; }
+
+                .marquee-footer {
+                    position: fixed;
+                    bottom: 0;
+                    left: 0;
+                    width: 100vw;
+                    height: 38px;
+                    background: #111;
+                    border-top: 2px solid #FFC107;
+                    z-index: 99997;
+                    overflow: hidden;
+                    display: flex;
+                    align-items: center;
+                    white-space: nowrap;
+                    pointer-events: none;
+                }
+                .marquee-track {
+                    display: inline-block;
+                    white-space: nowrap;
+                    animation: marqueeFast 15s linear infinite;
+                    font-family: monospace;
+                    font-size: 16px;
+                    color: #FFC107;
+                    font-weight: bold;
+                }
+                .marquee-item {
+                    display: inline-flex;
+                    align-items: center;
+                    gap: 12px;
+                    margin-right: 40px;
+                }
+                .icon-anim {
+                    display: inline-block;
+                    animation: bounceIcon 0.8s infinite ease-in-out;
+                }
+            </style>
+
+            <div class="speaker-box speaker-tl">
+                <div class="woofer"><div class="woofer-inner"></div></div>
+                <div class="woofer"><div class="woofer-inner"></div></div>
+            </div>
+            <div class="speaker-box speaker-tr">
+                <div class="woofer"><div class="woofer-inner"></div></div>
+                <div class="woofer"><div class="woofer-inner"></div></div>
+            </div>
+            <div class="speaker-box speaker-bl">
+                <div class="woofer"><div class="woofer-inner"></div></div>
+                <div class="woofer"><div class="woofer-inner"></div></div>
+            </div>
+            <div class="speaker-box speaker-br">
+                <div class="woofer"><div class="woofer-inner"></div></div>
+                <div class="woofer"><div class="woofer-inner"></div></div>
+            </div>
+
+            <div class="marquee-footer">
+                <div class="marquee-track">
+                    <span class="marquee-item"><span class="icon-anim">🎵</span> FF KARAOKE CLOUD <span class="icon-anim">🎤</span> CANTE COMIGO <span class="icon-anim">🎶</span> A SUA MÚSICA FAVORITA <span class="icon-anim">🎙️</span> DIVIRTA-SE AO MÁXIMO</span>
+                    <span class="marquee-item"><span class="icon-anim">🎵</span> FF KARAOKE CLOUD <span class="icon-anim">🎤</span> CANTE COMIGO <span class="icon-anim">🎶</span> A SUA MÚSICA FAVORITA <span class="icon-anim">🎙️</span> DIVIRTA-SE AO MÁXIMO</span>
+                </div>
+            </div>
+        """
+
         if tocando_agora:
             musica = tocando_agora.get("musica", {})
             if isinstance(musica, dict):
                 titulo = musica.get("titulo", musica.get("nome", "Karaoke"))
+                url_video = musica.get("url_cloudinary", "") or musica.get("url", "")
             else:
                 titulo = str(musica)
+                url_video = ""
             
             titulo_limpo = limpar_nome_musica(titulo)
             url_video = obter_url_video_cloudinary(musica, titulo_limpo)
 
             video_html = f"""
             <style>
-                body, html {{ margin: 0; padding: 0; background: #000; overflow: hidden; width: 100vw; height: 100vh; }}
+                body, html {{
+                    margin: 0;
+                    padding: 0;
+                    background: #000;
+                    overflow: hidden;
+                    width: 100vw;
+                    height: 100vh;
+                }}
                 @keyframes zoomInNumber {{
                     0% {{ transform: scale(0.2); opacity: 0; }}
                     50% {{ transform: scale(1.2); opacity: 1; }}
                     100% {{ transform: scale(1); opacity: 1; }}
                 }}
                 .countdown-overlay {{
-                    position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
-                    background: rgba(0,0,0,0.95); display: flex; justify-content: center; align-items: center;
-                    z-index: 99999; color: #FFC107; font-family: monospace; font-size: 15vw; font-weight: bold;
+                    position: fixed;
+                    top: 0; left: 0; width: 100vw; height: 100vh;
+                    background: rgba(0,0,0,0.95);
+                    display: flex;
+                    justify-content: center;
+                    align-items: center;
+                    z-index: 99999;
+                    color: #FFC107;
+                    font-family: monospace;
+                    font-size: 15vw;
+                    font-weight: bold;
                     animation: zoomInNumber 0.9s ease-in-out infinite;
                 }}
             </style>
+
             <div id="countdown-screen" class="countdown-overlay">3</div>
+
             <div id="karaoke-container" style="display: none; width: 100vw; height: 100vh; background: black; position: fixed; top: 0; left: 0;">
                 <video id="karaoke-player" width="100%" height="100%" autoplay playsinline controlslist="nodownload noremoteplayback" disablepictureinpicture style="object-fit: contain; background: black; width: 100%; height: 100%;">
                     <source src="{url_video}" type="video/mp4">
                     O seu navegador não suporta a reprodução deste vídeo.
                 </video>
+                <div id="audio-warning" style="display: none; position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); text-align: center; background: #222; border: 2px solid #FFC107; padding: 10px 20px; border-radius: 5px; z-index: 99999;">
+                    <p style="color: #FFC107; margin: 0 0 8px 0; font-family: monospace; font-size: 14px;">⚠️ O navegador bloqueou o áudio automático.</p>
+                    <button onclick="unmuteVideo()" style="background-color: #4CAF50; color: white; border: none; padding: 8px 16px; font-size: 15px; border-radius: 4px; cursor: pointer; font-weight: bold;">🔊 CLIQUE AQUI PARA ATIVAR O SOM</button>
+                </div>
             </div>
+
             <script>
                 var count = 3;
                 var cdScreen = document.getElementById('countdown-screen');
+                
                 var timer = setInterval(function() {{
                     count--;
                     if (count > 0) {{
@@ -531,17 +556,50 @@ def renderizar_ecra_tv(provider_token):
                         clearInterval(timer);
                         cdScreen.style.display = 'none';
                         document.getElementById('karaoke-container').style.display = 'block';
+                        
                         var video = document.getElementById('karaoke-player');
                         video.muted = false; 
                         var playPromise = video.play();
+                        
                         if (playPromise !== undefined) {{
                             playPromise.then(_ => {{}}).catch(error => {{
                                 video.muted = true;
                                 video.play();
+                                document.getElementById('audio-warning').style.display = 'block';
                             }});
                         }}
                     }}
                 }}, 1000);
+
+                function unmuteVideo() {{
+                    var video = document.getElementById('karaoke-player');
+                    video.muted = false;
+                    video.play();
+                    document.getElementById('audio-warning').style.display = 'none';
+                }}
+
+                function stopKaraoke() {{
+                    var pedidoId = "{tocando_agora.get('id')}";
+                    var token = "{provider_token}";
+                    var firebaseURL = "{FIREBASE_URL}/pedidos/" + token + "/" + pedidoId + "/estado.json";
+                    
+                    fetch(firebaseURL, {{
+                        method: 'PUT',
+                        body: JSON.stringify('terminado'),
+                        headers: {{ 'Content-Type': 'application/json' }}
+                    }}).then(response => {{
+                        setTimeout(function() {{ window.location.reload(); }}, 300);
+                    }}).catch(err => {{
+                        window.location.reload();
+                    }});
+                }}
+
+                var video = document.getElementById('karaoke-player');
+                if (video) {{
+                    video.onended = function() {{
+                        stopKaraoke();
+                    }};
+                }}
             </script>
             """
             components.html(video_html, height=750, scrolling=False)
@@ -549,11 +607,15 @@ def renderizar_ecra_tv(provider_token):
         else:
             url_clipe_fundo = obter_video_fundo(provider_token)
             proximo_cantor = pedidos_ativos[0] if pedidos_ativos else None
+            
             host_dominio = st.context.headers.get('Host', 'grupoffkaraoke.streamlit.app')
             link_cliente_absoluto = f"https://{host_dominio}/?page=client_register&prestador={provider_token}"
             qr_url_cliente = f"https://api.qrserver.com/v1/create-qr-code/?size=220x220&data={urllib.parse.quote(link_cliente_absoluto)}"
 
+            st.markdown(frame_styles, unsafe_allow_html=True)
+
             col_esq, col_dir = st.columns([1, 1])
+            
             with col_esq:
                 if proximo_cantor:
                     c_prox = proximo_cantor.get("cliente", "Convidado")
@@ -570,29 +632,70 @@ def renderizar_ecra_tv(provider_token):
                         </div>
                     """, unsafe_allow_html=True)
                 
+                html_caixas = '<div style="display: flex; flex-direction: column; gap: 8px; margin-bottom: 40px;">'
+                demais_pedidos = pedidos_ativos[1:] if len(pedidos_ativos) > 1 else []
+                
+                for idx, p_item in enumerate(demais_pedidos, start=2):
+                    c_item = p_item.get("cliente", "Convidado")
+                    texto_caixa = f"<b>{idx}.</b> {c_item}"
+                    html_caixas += f'<div style="background: #111; border: 2px solid #FFC107; border-radius: 8px; padding: 12px; color: #fff; font-family: monospace; font-size: 16px;">{texto_caixa}</div>'
+                
+                html_caixas += '</div>'
+                st.markdown(html_caixas, unsafe_allow_html=True)
+
                 if not pedidos_ativos:
                     st.markdown(f"""
-                        <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; background: #111; border: 2px solid #FFC107; border-radius: 10px; padding: 20px; margin-top: 15px; text-align: center;">
+                        <style>
+                            @keyframes spinMic {{
+                                0% {{ transform: rotate(0deg); }}
+                                100% {{ transform: rotate(360deg); }}
+                            }}
+                            .mic-rotating {{
+                                display: inline-block;
+                                animation: spinMic 4s linear infinite;
+                            }}
+                        </style>
+                        <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; background: #111; border: 2px solid #FFC107; border-radius: 10px; padding: 20px; margin-top: 15px; margin-bottom: 40px; text-align: center;">
                             <p style="color: #FFC107; font-family: monospace; font-size: 15px; margin-bottom: 10px; font-weight: bold;">📱 ESCANEIE PARA PEDIR UMA MÚSICA:</p>
                             <img src="{qr_url_cliente}" width="160" style="border-radius: 6px; border: 4px solid #fff; margin-bottom: 15px;" />
-                            <div style="font-size: 55px; margin-top: 5px;">🎤</div>
+                            <div class="mic-rotating" style="font-size: 55px; margin-top: 5px;">🎤</div>
                         </div>
                     """, unsafe_allow_html=True)
 
             with col_dir:
                 if url_clipe_fundo:
                     video_fundo_html = f"""
-                    <div style="display: flex; justify-content: center; background: black; border: 2px solid #FFC107; border-radius: 10px; padding: 5px; width: 100%;">
+                    <div style="display: flex; justify-content: center; background: black; border: 2px solid #FFC107; border-radius: 10px; padding: 5px; width: 100%; position: relative; margin-top: 5px; margin-bottom: 40px;">
                         <video id="fundo-player" width="100%" height="450px" controls autoplay loop playsinline controlslist="nodownload noremoteplayback" disablepictureinpicture style="object-fit: contain; background: black; border-radius: 8px;">
                             <source src="{url_clipe_fundo}" type="video/mp4">
                             O seu navegador não suporta vídeo.
                         </video>
+                        <div id="fundo-audio-warning" style="display: none; position: absolute; bottom: 15px; right: 15px; background: rgba(0,0,0,0.8); border: 1px solid #FFC107; padding: 6px 10px; border-radius: 5px; cursor: pointer;" onclick="unmuteFundo()">
+                            <span style="font-size: 18px;" title="Ativar Som">🔊</span>
+                        </div>
                     </div>
+                    <script>
+                        var fundoVideo = document.getElementById('fundo-player');
+                        fundoVideo.muted = false;
+                        var fundoPromise = fundoVideo.play();
+                        if (fundoPromise !== undefined) {{
+                            fundoPromise.then(_ => {{}}).catch(error => {{
+                                fundoVideo.muted = true;
+                                fundoVideo.play();
+                                document.getElementById('fundo-audio-warning').style.display = 'block';
+                            }});
+                        }}
+                        function unmuteFundo() {{
+                            fundoVideo.muted = false;
+                            fundoVideo.play();
+                            document.getElementById('fundo-audio-warning').style.display = 'none';
+                        }}
+                    </script>
                     """
                     components.html(video_fundo_html, height=480)
                 else:
                     st.markdown("""
-                        <div style="border: 2px solid #FFC107; border-radius: 10px; padding: 100px 20px; text-align: center; background: #000; color: #FFC107; font-family: monospace; margin-top: 5px;">
+                        <div style="border: 2px solid #FFC107; border-radius: 10px; padding: 100px 20px; text-align: center; background: #000; color: #FFC107; font-family: monospace; margin-top: 5px; margin-bottom: 40px;">
                             <div style="font-size: 40px; margin-bottom: 10px;">📺</div>
                             <p style="color: #aaa; font-size: 16px; margin: 0;">Aguardando o prestador selecionar um vídeo clipe no painel de controle...</p>
                         </div>
@@ -604,15 +707,18 @@ def renderizar_ecra_tv(provider_token):
 def show_client_screen():
     query_params = st.query_params
     provider_token = query_params.get("prestador") or query_params.get("provider", None)
+
     if not provider_token:
         st.error("Tela inválida. Falta o parâmetro do prestador.")
         return
-    st.markdown("""<style>.stApp { background-color: #000000; color: white; }</style>""", unsafe_allow_html=True)
+
+    st.markdown("""
+    <style>
+    .stApp { background-color: #000000; color: white; }
+    </style>""", unsafe_allow_html=True)
+
     renderizar_ecra_tv(provider_token)
 
-# =====================================================================
-# MOTOR PRINCIPAL DA APLICAÇÃO (MAIN)
-# =====================================================================
 def main():
     try:
         query_params = st.query_params
@@ -634,7 +740,7 @@ def main():
         if token:
             df = get_all_providers()
             if df.empty or 'token' not in df.columns or not (df['token'] == token).any():
-                show_provider_panel_custom(token)
+                show_provider_panel_center(token) # type: ignore
                 return
                 
             prior_prestador = df[df['token'] == token]
@@ -650,7 +756,7 @@ def main():
                 show_provider_panel_custom(token)
                 return
             
-        # ÁREA RESTRITA CENTRALIZADA PARA ADMINISTRADOR
+        # ÁREA RESTRITA CENTRALIZADA
         if not st.session_state.get("admin_logged", False):
             st.title("🔒 FFKaraoke - Área Restrita")
             
@@ -667,8 +773,7 @@ def main():
                         st.error("Palavra-passe incorreta.")
 
         if st.session_state.get("admin_logged", False):
-            # AQUI CHAMAMOS O NOVO PAINEL QUE INCLUI TODAS AS EXIGÊNCIAS
-            show_admin_panel_custom()
+            show_admin_panel()
                 
     except Exception as e:
         st.error(f"Ocorreu um erro ao carregar a aplicação: {e}")
