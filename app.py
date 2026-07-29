@@ -321,7 +321,7 @@ def renderizar_gestao_fila_prestador(provider_token):
                         if st.button(f"▶️ Play", key=f"btn_play_{p.get('id')}"):
                             terminar_todas_musicas_ativas(provider_token, pedidos)
                             atualizar_estado_pedido(provider_token, p.get('id'), 'aprovado')
-                            st.success(f"Música '{titulo_musica}' enviada para la tela!")
+                            st.success(f"Música '{titulo_musica}' enviada para a tela!")
                             st.rerun()
         else:
             st.info("Nenhum pedido encontrado no Firebase para este prestador. Abra o link do cliente e envie uma música para testar.")
@@ -389,7 +389,6 @@ def renderizar_ecra_tv(provider_token):
             
             st.markdown(f"<h2 style='text-align:center; color: #FFC107;'>A tocar: {titulo_limpo} <span style='font-size:16px; color:#aaa;'>(Cantor: {cantor_name})</span></h2>", unsafe_allow_html=True)
 
-            # Solução com botão de ativação de som visível na tela em caso de bloqueio do navegador
             video_html = f"""
             <div style="display: flex; justify-content: center; background: black; padding: 0px; width: 100%;">
                 <video id="karaoke-player" width="100%" height="520px" controls autoplay playsinline controlslist="nodownload noremoteplayback" disablepictureinpicture style="object-fit: contain; background: black;">
@@ -410,10 +409,7 @@ def renderizar_ecra_tv(provider_token):
                 var playPromise = video.play();
                 
                 if (playPromise !== undefined) {{
-                    playPromise.then(_ => {{
-                        // Áudio iniciado com sucesso
-                    }}).catch(error => {{
-                        // Se o navegador barrar o som, exibe o botão interativo para o usuário
+                    playPromise.then(_ => {{}}).catch(error => {{
                         video.muted = true;
                         video.play();
                         document.getElementById('audio-warning').style.display = 'block';
@@ -495,13 +491,34 @@ def renderizar_ecra_tv(provider_token):
                 """, unsafe_allow_html=True)
                 
                 if url_clipe_fundo:
+                    # Adicionado controlos de áudio e botão explicito de ativação de som para o vídeo clipe de fundo
                     video_fundo_html = f"""
                     <div style="display: flex; justify-content: center; background: black; border: 2px solid #FFC107; border-radius: 10px; padding: 5px; width: 100%;">
-                        <video id="fundo-player" width="100%" height="470px" autoplay loop muted playsinline style="object-fit: contain; background: black; border-radius: 8px;">
+                        <video id="fundo-player" width="100%" height="420px" controls autoplay loop playsinline style="object-fit: contain; background: black; border-radius: 8px;">
                             <source src="{url_clipe_fundo}" type="video/mp4">
                             O seu navegador não suporta vídeo.
                         </video>
                     </div>
+                    <div id="fundo-audio-warning" style="display: none; text-align: center; background: #222; border: 1px solid #FFC107; padding: 8px; margin-top: 5px; border-radius: 5px;">
+                        <button onclick="unmuteFundo()" style="background-color: #4CAF50; color: white; border: none; padding: 6px 12px; font-size: 13px; border-radius: 4px; cursor: pointer; font-weight: bold;">🔊 ATIVAR SOM DO VÍDEO CLIPE</button>
+                    </div>
+                    <script>
+                        var fundoVideo = document.getElementById('fundo-player');
+                        fundoVideo.muted = false;
+                        var fundoPromise = fundoVideo.play();
+                        if (fundoPromise !== undefined) {{
+                            fundoPromise.then(_ => {}).catch(error => {{
+                                fundoVideo.muted = true;
+                                fundoVideo.play();
+                                document.getElementById('fundo-audio-warning').style.display = 'block';
+                            }});
+                        }}
+                        function unmuteFundo() {{
+                            fundoVideo.muted = false;
+                            fundoVideo.play();
+                            document.getElementById('fundo-audio-warning').style.display = 'none';
+                        }}
+                    </script>
                     """
                     components.html(video_fundo_html, height=500)
                 else:
