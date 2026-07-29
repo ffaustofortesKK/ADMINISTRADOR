@@ -240,7 +240,6 @@ def renderizar_gestao_fila_prestador(provider_token):
     video_fundo_atual, modo_atual = obter_config_fundo(provider_token)
     lista_clipes_cloudinary = listar_videos_pasta_clipes()
     
-    # Opções para escolher comportamento global ou vídeo específico da pasta clipes
     opcoes_labels = ["🔁 Repetir Todas (Sequencial)", "🔀 Modo Aleatório", "🔂 Repetir Uma (Vídeo Específico abaixo)"]
     mapa_url_por_label = {}
     
@@ -270,7 +269,6 @@ def renderizar_gestao_fila_prestador(provider_token):
         index=index_atual
     )
 
-    # Definição exata dos modos solicitados
     if escolha_video == "🔁 Repetir Todas (Sequencial)":
         modo_guardar = "repetir_todos"
         valor_a_guardar = ""
@@ -281,10 +279,9 @@ def renderizar_gestao_fila_prestador(provider_token):
         modo_guardar = "repetir_1"
         valor_a_guardar = lista_clipes_cloudinary[0]['url'] if lista_clipes_cloudinary else ""
     else:
-        modo_guardar = "repetir_1" # Repetir apenas o clipe escolhido
+        modo_guardar = "repetir_1"
         valor_a_guardar = mapa_url_por_label.get(escolha_video, "")
 
-    # Botões de controlo do prestador pedidos (Iniciar / Stop)
     col_btn1, col_btn2 = st.columns(2)
     with col_btn1:
         if st.button("▶️ Iniciar Configuração de Fundo", use_container_width=True):
@@ -312,7 +309,7 @@ def renderizar_gestao_fila_prestador(provider_token):
             pedidos_ativos.sort(key=lambda x: x.get("timestamp", 0))
             
             tocando_agora = next((p for p in pedidos_ativos if p.get("estado") == "aprovado"), None)
-            pendentes = [p for p in pedidos_ativos if p.get("estado"] == "pendente"]
+            pendentes = [p for p in pedidos_ativos if p.get("estado") == "pendente"]
 
             if pedidos_ativos:
                 html_lista = '<div style="background-color: #111111; border: 2px solid #333333; padding: 15px; border-radius: 8px; color: #ffffff; max-width: 550px; font-family: monospace; font-size: 15px; margin-bottom: 20px;">'
@@ -471,7 +468,6 @@ def renderizar_ecra_tv(provider_token):
             import json
             urls_playlist = [c['url'] for c in lista_clipes]
             
-            # Ajuste de playlist consoante o modo selecionado pelo prestador
             if modo_reproducao == 'repetir_1' and url_clipe_fundo:
                 urls_playlist = [url_clipe_fundo]
             elif not urls_playlist and url_clipe_fundo:
