@@ -240,7 +240,6 @@ def renderizar_gestao_fila_prestador(provider_token):
             index=index_atual
         )
 
-        # Botão substituído de "Atualizar Vídeo Clipe de Fundo" para "Play"
         btn_salvar_fundo = st.form_submit_button("▶️ Play Vídeo Clipe de Fundo")
         if btn_salvar_fundo:
             if escolha_video == "Nenhum (Ecrã Preto)":
@@ -303,7 +302,7 @@ def renderizar_gestao_fila_prestador(provider_token):
                 with col_t2:
                     if st.button("🛑 Stop Geral", key=f"stop_{tocando_agora.get('id')}"):
                         terminar_todas_musicas_ativas(provider_token, pedidos)
-                        definir_video_fundo(provider_token, "") # Limpa também o vídeo de fundo opcionalmente
+                        definir_video_fundo(provider_token, "")
                         st.warning("Reprodução parada (Stop) com sucesso!")
                         st.rerun()
 
@@ -390,7 +389,7 @@ def renderizar_ecra_tv(provider_token):
             
             st.markdown(f"<h2 style='text-align:center; color: #FFC107;'>A tocar: {titulo_limpo} <span style='font-size:16px; color:#aaa;'>(Cantor: {cantor_name})</span></h2>", unsafe_allow_html=True)
 
-            # Correção do som: Definimos explicitamente muted=false e tratamos a promessa de reprodução com áudio ativado
+            # Força o som ativo nativamente no script HTML/JS do leitor de karaokê
             video_html = f"""
             <div style="display: flex; justify-content: center; background: black; padding: 0px; width: 100%;">
                 <video id="karaoke-player" width="100%" height="560px" controls autoplay playsinline controlslist="nodownload noremoteplayback" disablepictureinpicture style="object-fit: contain; background: black;">
@@ -403,11 +402,13 @@ def renderizar_ecra_tv(provider_token):
             </div>
             <script>
                 var video = document.getElementById('karaoke-player');
-                video.muted = false; // Garante som ativado
+                video.muted = false; 
                 var playPromise = video.play();
                 if (playPromise !== undefined) {{
-                    playPromise.then(_ => {{}}).catch(error => {{
-                        // Fallback caso o navegador bloqueie o autoplay com som
+                    playPromise.then(_ => {{
+                        // Reprodução com som iniciada com sucesso
+                    }}).catch(error => {{
+                        // Fallback de segurança estrito para navegadores restritivos
                         video.muted = true;
                         video.play();
                     }});
