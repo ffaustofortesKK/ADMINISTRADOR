@@ -374,7 +374,6 @@ def renderizar_ecra_tv(provider_token):
             pedidos_ativos.sort(key=lambda x: x.get("timestamp", 0))
             tocando_agora = next((p for p in pedidos_ativos if p.get("estado") == "aprovado"), None)
         
-        # Estilos globais e componentes visuais (aplicados APENAS na tela de espera/idle)
         frame_styles = """
             <style>
                 @keyframes pulseSpeaker {
@@ -502,11 +501,18 @@ def renderizar_ecra_tv(provider_token):
             
             titulo_limpo = limpar_nome_musica(titulo)
             url_video = obter_url_video_cloudinary(musica, titulo_limpo)
-            cantor_name = tocando_agora.get('cliente', 'Convidado')
 
-            # Quando o vídeo do cliente está a tocar, NENHUM efeito ou rodapé é renderizado (apenas o vídeo puro e limpo)
+            # Ecrã totalmente limpo quando o vídeo do cliente está a tocar (sem efeitos, caixas, colunas ou rodapé)
             video_html = f"""
             <style>
+                body, html {{
+                    margin: 0;
+                    padding: 0;
+                    background: #000;
+                    overflow: hidden;
+                    width: 100vw;
+                    height: 100vh;
+                }}
                 @keyframes zoomInNumber {{
                     0% {{ transform: scale(0.2); opacity: 0; }}
                     50% {{ transform: scale(1.2); opacity: 1; }}
@@ -530,20 +536,14 @@ def renderizar_ecra_tv(provider_token):
 
             <div id="countdown-screen" class="countdown-overlay">3</div>
 
-            <div id="karaoke-container" style="display: none; padding-bottom: 20px;">
-                <h2 style='text-align:center; color: #FFC107; margin-bottom: 5px;'>A tocar: {titulo_limpo} <span style='font-size:16px; color:#aaa;'>(Cantor: {cantor_name})</span></h2>
-                <div style="display: flex; justify-content: center; background: black; padding: 0px; width: 100%;">
-                    <video id="karaoke-player" width="100%" height="520px" controls autoplay playsinline controlslist="nodownload noremoteplayback" disablepictureinpicture style="object-fit: contain; background: black;">
-                        <source src="{url_video}" type="video/mp4">
-                        O seu navegador não suporta a reprodução deste vídeo.
-                    </video>
-                </div>
-                <div id="audio-warning" style="display: none; text-align: center; background: #222; border: 2px solid #FFC107; padding: 10px; margin-top: 5px; border-radius: 5px;">
+            <div id="karaoke-container" style="display: none; width: 100vw; height: 100vh; background: black; position: fixed; top: 0; left: 0;">
+                <video id="karaoke-player" width="100%" height="100%" autoplay playsinline controlslist="nodownload noremoteplayback" disablepictureinpicture style="object-fit: contain; background: black; width: 100%; height: 100%;">
+                    <source src="{url_video}" type="video/mp4">
+                    O seu navegador não suporta a reprodução deste vídeo.
+                </video>
+                <div id="audio-warning" style="display: none; position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); text-align: center; background: #222; border: 2px solid #FFC107; padding: 10px 20px; border-radius: 5px; z-index: 99999;">
                     <p style="color: #FFC107; margin: 0 0 8px 0; font-family: monospace; font-size: 14px;">⚠️ O navegador bloqueou o áudio automático.</p>
                     <button onclick="unmuteVideo()" style="background-color: #4CAF50; color: white; border: none; padding: 8px 16px; font-size: 15px; border-radius: 4px; cursor: pointer; font-weight: bold;">🔊 CLIQUE AQUI PARA ATIVAR O SOM</button>
-                </div>
-                <div style="display: flex; justify-content: center; gap: 10px; margin-top: 10px;">
-                    <button onclick="stopKaraoke()" style="background-color: #d9534f; color: white; border: none; padding: 10px 20px; font-size: 16px; border-radius: 5px; cursor: pointer; font-weight: bold;">🛑 Stop</button>
                 </div>
             </div>
 
@@ -607,7 +607,7 @@ def renderizar_ecra_tv(provider_token):
                 }}
             </script>
             """
-            components.html(video_html, height=660)
+            components.html(video_html, height=750, scrolling=False)
             
         else:
             url_clipe_fundo = obter_video_fundo(provider_token)
