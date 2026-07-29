@@ -211,47 +211,6 @@ def obter_url_video_cloudinary(musica_obj, titulo_limpo):
     encoded_title = urllib.parse.quote(titulo_limpo + ".mp4")
     return f"https://res.cloudinary.com/{cloud_name}/video/upload/f_auto,q_auto/{encoded_title}"
 
-def pesquisar_youtube_karaoke(termo_pesquisa):
-    try:
-        query_formatada = urllib.parse.quote(f"{termo_pesquisa} karaoke")
-        url_busca = f"https://www.youtube.com/results?search_query={query_formatada}"
-        headers = {"User-Agent": "Mozilla/5.0"}
-        res = requests.get(url_busca, headers=headers, timeout=5)
-        if res.status_code == 200:
-            import re
-            match = re.search(r'"videoId":"([a-zA-Z0-9_-]{11})"', res.text)
-            if match:
-                video_id = match.group(1)
-                return f"https://www.youtube.com/watch?v={video_id}"
-    except Exception:
-        pass
-    return f"https://www.youtube.com/results?search_query={urllib.parse.quote(termo_pesquisa + ' karaoke')}"
-
-def guardar_pedido_extra(provider_token, cliente_nome, musica_pedida):
-    try:
-        url = f"{FIREBASE_URL}/pedidos_extras/{provider_token}.json"
-        dados = {
-            "cliente": cliente_nome,
-            "musica": musica_pedida,
-            "timestamp": int(time.time() * 1000),
-            "estado": "pendente",
-            "resposta": ""
-        }
-        res = requests.post(url, json=dados, timeout=10)
-        
-        # Enviar também para a caixa do Administrador global
-        url_adm = f"{FIREBASE_URL}/admin_pedidos_extras.json"
-        link_encontrado = pesquisar_youtube_karaoke(musica_pedida)
-        dados_adm = {
-            **dados,
-            "prestador": provider_token,
-            "link_youtube_sugerido": link_encontrado
-        }
-        requests.post(url_adm, json=dados_adm, timeout=10)
-        return res.status_code == 200
-    except Exception:
-        return False
-
 @st.fragment(run_every=3)
 def renderizar_gestao_fila_prestador(provider_token):
     try:
@@ -323,36 +282,38 @@ def renderizar_gestao_fila_prestador(provider_token):
                     st.warning("Reprodução parada (Stop) com sucesso!")
                     st.rerun()
 
+        # --- SECÇÃO DE PEDIDOS EXTRA DE MÚSICA PARA O PRESTADOR ---
         st.markdown("---")
-        st.markdown("### 📥 Aba de Pedidos Extras (Fora da Lista)")
+        st.markdown("### 📥 Aba de Pedidos Extra de Música (Cliente não encontrou)")
         try:
-            url_extras = f"{FIREBASE_URL}/pedidos_extras/{provider_token}.json?_t={time.time()}"
-            res_extras = requests.get(url_extras, timeout=5)
+            res_extras = requests.get(f"{FIREBASE_URL}/pedidos_extras/{provider_token}.json", timeout=10)
             if res_extras.status_code == 200 and res_extras.json():
                 extras_data = res_extras.json()
-                for k_ext, v_ext in extras_data.items():
-                    c_nome = v_ext.get("cliente", "Cliente")
-                    m_pedida = v_ext.get("musica", "")
-                    estado_ext = v_ext.get("estado", "pendente")
-                    
-                    st.markdown(f"""
-                        <div style="background: #151515; border: 1px solid #FFC107; border-radius: 8px; padding: 10px; margin-bottom: 8px; font-family: monospace;">
-                            <b>Cliente:</b> {c_nome} | <b>Música Solicitada:</b> <span style="color: #FFC107;">{m_pedida}</span>
-                        </div>
-                    """, unsafe_allow_html=True)
-                    
-                    if estado_ext == "pendente":
-                        if st.button(f"Responder: 'Infelizmente não temos disponível essa música, pode solicitar outra.'", key=f"resp_ext_{k_ext}"):
-                            requests.put(f"{FIREBASE_URL}/pedidos_extras/{provider_token}/{k_ext}/estado.json", json="respondido", timeout=5)
-                            requests.put(f"{FIREBASE_URL}/pedidos_extras/{provider_token}/{k_ext}/resposta.json", json="Infelizmente não temos disponível essa música, pode solicitar outra.", timeout=5)
-                            st.success("Mensagem de resposta enviada ao cliente com sucesso!")
-                            st.rerun()
-                    else:
-                        st.info("📨 Resposta enviada ao cliente.")
+                for extra_id, extra_val in extras_data.items():
+                    if extra_val.get("estado") == "pendente":
+                        c_nome = extra_val.get("cliente", "Cliente")
+                        mus_pedida = extra_val.get("musica", "")
+                        st.markdown(f"""
+                            <div style="background: #111; border: 2px solid #FFC107; border-radius: 8px; padding: 12px; margin-bottom: 10px; font-family: monospace;">
+                                <b>Cliente:</b> {c_nome} | <b>Música Extra Solicitada:</b> <span style="color: #4CAF50;">{mus_pedida}</span>
+                            </div>
+                        """, unsafe_allow_html=True)
+                        
+                        col_bt1, col_bt2 = st.columns(2)
+                        with col_bt1:
+                            if st.button("🟩 Confirmar (Disponível/Outro local)", key=f"btn_verde_{extra_id}", use_container_width=True):
+                                requests.put(f"{FIREBASE_URL}/pedidos_extras/{provider_token}/{extra_id}/estado.json", json="confirmado")
+                                st.success("Pedido extra confirmado!")
+                                st.rerun()
+                        with col_bt2:
+                            if st.button("🟥 Não temos (Aviso ao Cliente)", key=f"btn_vermelho_{extra_id}", use_container_width=True):
+                                requests.put(f"{FIREBASE_URL}/pedidos_extras/{provider_token}/{extra_id}/estado.json", json="nao_temos")
+                                st.success("Mensagem de indispobilidade enviada ao cliente com sucesso!")
+                                st.rerun()
             else:
-                st.markdown("<p style='color: #888; font-family: monospace;'>Nenhum pedido extra recebido de momento.</p>", unsafe_allow_html=True)
-        except Exception:
-            pass
+                st.info("Nenhum pedido extra pendente no momento.")
+        except Exception as err:
+            st.warning(f"Erro ao carregar pedidos extras: {err}")
 
         st.markdown("---")
         st.markdown("### 🎬 Configuração de Vídeo Clipe de Fundo (Tela)")
