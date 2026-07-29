@@ -155,24 +155,24 @@ def obter_config_fundo(provider_token):
     return "", "repetir_todos"
 
 def listar_videos_pasta_clipes():
-    """Lista todos os ficheiros da pasta 'clipes' do Cloudinary, independentemente do tipo de recurso (image/video/raw)."""
+    """Lista exclusivamente os vídeos que estão dentro da pasta 'clipes' do Cloudinary de forma totalmente robusta."""
     videos_encontrados = []
     vistos = set()
     
-    # Verificar múltiplos tipos de recursos para abranger tudo o que estiver na pasta 'clipes'
-    for r_type in ["image", "video", "raw"]:
-        try:
-            resultado = cloudinary.api.resources(
-                resource_type=r_type,
-                type="upload",
-                prefix="clipes/",
-                max_results=500
-            )
-            for recurso in resultado.get("resources", []):
-                public_id = recurso.get("public_id", "")
+    # 1. Listar via prefixo "clipes/"
+    try:
+        resultado = cloudinary.api.resources(
+            resource_type="video",
+            type="upload",
+            prefix="clipes/",
+            max_results=500
+        )
+        for recurso in resultado.get("resources", []):
+            public_id = recurso.get("public_id", "")
+            if public_id.startswith("clipes/"):
                 url_secure = recurso.get("secure_url", "")
                 if url_secure:
-                    if "/upload/" in url_secure and "f_auto,q_auto" not in url_secure and r_type != "raw":
+                    if "/upload/" in url_secure and "f_auto,q_auto" not in url_secure:
                         url_secure = url_secure.replace("/upload/", "/upload/f_auto,q_auto/")
                     
                     filename = recurso.get("filename", "")
@@ -181,21 +181,24 @@ def listar_videos_pasta_clipes():
                     if url_secure not in vistos:
                         vistos.add(url_secure)
                         videos_encontrados.append({"nome": nome_amigavel, "url": url_secure})
-        except Exception as e:
-            print(f"Erro ao listar resource_type={r_type}: {e}")
+    except Exception as e:
+        print(f"Erro ao listar via prefix 'clipes/': {e}")
 
-    # Fallback geral via Search API caso a listagem por prefixo falhe
+    # 2. Pesquisa de apoio Search API estrita para a pasta clipes
     if not videos_encontrados:
         try:
             resultado_search = cloudinary.search.Search()\
-                .expression('folder=clipes')\
+                .expression('resource_type:video AND folder=clipes')\
                 .max_results(500)\
                 .execute()
                 
             for recurso in resultado_search.get("resources", []):
                 public_id = recurso.get("public_id", "")
                 url_secure = recurso.get("secure_url", "")
-                if url_secure:
+                if url_secure and public_id.startswith("clipes/"):
+                    if "/upload/" in url_secure and "f_auto,q_auto" not in url_secure:
+                        url_secure = url_secure.replace("/upload/", "/upload/f_auto,q_auto/")
+                    
                     filename = recurso.get("filename", "")
                     nome_amigavel = filename if filename else public_id.split("/")[-1]
                     
@@ -236,13 +239,16 @@ def renderizar_gestao_fila_prestador(provider_token):
     
     lista_clipes_cloudinary = listar_videos_pasta_clipes()
     
-    termo_pesquisa = st.text_input("🔍 Localizar ficheiro na pasta 'clipes':", placeholder="Digite o nome...")
+    # Campo de pesquisa de vídeos da pasta clipes
+    termo_pesquisa = st.text_input("🔍 Localizar vídeo clipe na pasta 'clipes':", placeholder="Digite o nome do artista ou música...")
     
+    # Filtrar clipes com base na pesquisa
     if termo_pesquisa.strip():
         clipes_filtrados = [c for c in lista_clipes_cloudinary if termo_pesquisa.lower() in c['nome'].lower()]
     else:
         clipes_filtrados = lista_clipes_cloudinary
 
+    # BOTÕES DE CONTROLO GERAL LOGO ABAIXO DA PESQUISA
     st.markdown("#### 🎛️ Controlos de Reprodução")
     col_btn1, col_btn2, col_btn3 = st.columns(3)
     with col_btn1:
@@ -260,6 +266,7 @@ def renderizar_gestao_fila_prestador(provider_token):
             st.rerun()
 
     st.markdown("---")
+    st.markdown("### 📁 Vídeos Encontrados na Pasta 'clipes'")
 
     if clipes_filtrados:
         for clipe in clipes_filtrados:
@@ -272,7 +279,7 @@ def renderizar_gestao_fila_prestador(provider_token):
                     st.success(f"A reproduzir: {clipe['nome']}")
                     st.rerun()
     else:
-        st.info("Nenhum ficheiro encontrado com esse termo na pasta 'clipes'.")
+        st.info("Nenhum vídeo clipe encontrado com esse termo na pasta 'clipes'.")
 
     st.markdown("---")
     st.markdown("### 🎬 Fila de Pedidos Atual")
@@ -545,7 +552,7 @@ def renderizar_ecra_tv(provider_token):
                     st.markdown("""
                         <div style="border: 2px solid #FFC107; border-radius: 10px; padding: 80px 20px; text-align: center; background: #000; color: #FFC107; font-family: monospace;">
                             <div style="font-size: 40px; margin-bottom: 10px;">📺</div>
-                            <p style="color: #aaa; font-size: 16px; margin: 0;">Nenhum ficheiro encontrado na pasta 'clipes' do Cloudinary...</p>
+                            <p style="color: #aaa; font-size: 16px; margin: 0;">Nenhum vídeo encontrado na pasta 'clipes' do Cloudinary...</p>
                         </div>
                     """, unsafe_allow_html=True)
 
