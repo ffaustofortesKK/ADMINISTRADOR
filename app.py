@@ -212,7 +212,6 @@ def obter_url_video_cloudinary(musica_obj, titulo_limpo):
 
 @st.fragment(run_every=3)
 def renderizar_gestao_fila_prestador(provider_token):
-    # 1. ESTADO DA FILA E PEDIDOS PENDENTES (PRIMEIRO)
     try:
         url_firebase = f"{FIREBASE_URL}/pedidos/{provider_token}.json?_t={time.time()}"
         response = requests.get(url_firebase, timeout=10)
@@ -228,20 +227,47 @@ def renderizar_gestao_fila_prestador(provider_token):
             pendentes = [p for p in pedidos_ativos if p.get("estado") == "pendente"]
 
             if pedidos_ativos:
-                html_lista = '<div style="background-color: #111111; border: 2px solid #333333; padding: 15px; border-radius: 8px; color: #ffffff; max-width: 550px; font-family: monospace; font-size: 15px; margin-bottom: 20px;">'
+                html_lista = '<div style="background-color: #111111; border: 2px solid #333333; padding: 15px; border-radius: 8px; color: #ffffff; max-width: 650px; font-family: monospace; font-size: 15px; margin-bottom: 20px;">'
                 html_lista += '<div style="color: #4CAF50; font-weight: bold; margin-bottom: 8px; border-bottom: 1px solid #333; padding-bottom: 4px;">ESTADO DA FILA:</div>'
+                
                 for idx, p in enumerate(pedidos_ativos, start=1):
                     titulo_musica = limpar_nome_musica(p.get("musica", {}))
                     cliente_nome = p.get("cliente", "Convidado")
                     estado_atual = p.get("estado")
-                    badge = "🎵 [A Tocar]" if estado_atual == "aprovado" else "⏳ [Pendente]"
-                    cor_badge = "#4CAF50" if estado_atual == "aprovado" else "#FFC107"
-                    html_lista += f'<div style="padding: 4px 0;"><b>{idx}.</b> {titulo_musica} <span style="color:#aaa; font-size:13px;">({cliente_nome})</span> <span style="color:{cor_badge}; font-size:12px; float:right;">{badge}</span></div>'
+                    
+                    if estado_atual == "aprovado":
+                        badge = '🎵 [A Tocar]'
+                        cor_badge = '#4CAF50'
+                        html_lista += f'<div style="padding: 6px 0; border-bottom: 1px solid #222;"><b>{idx}.</b> {titulo_musica} <span style="color:#aaa; font-size:13px;">({cliente_nome})</span> <span style="color:{cor_badge}; font-size:12px; float:right;">{badge}</span></div>'
+                    else:
+                        badge = '⏳ [Pendente]'
+                        cor_badge = '#FFC107'
+                        # Linha com botão integrado à direita estilo a imagem enviada
+                        html_lista += f'''
+                        <div style="display: flex; justify-content: space-between; align-items: center; padding: 6px 0; border-bottom: 1px solid #222;">
+                            <div><b>{idx}.</b> {titulo_musica} <span style="color:#aaa; font-size:13px;">({cliente_nome})</span> <span style="color:{cor_badge}; font-size:12px; margin-left: 8px;">{badge}</span></div>
+                        '''
                 html_lista += '</div>'
                 st.markdown(html_lista, unsafe_allow_html=True)
+                
+                # Renderizar botões Streamlit para os pendentes logo abaixo/integrados de forma limpa
+                if pendentes:
+                    for p in pendentes:
+                        titulo_musica = limpar_nome_musica(p.get("musica", {}))
+                        cliente_nome = p.get("cliente", "Convidado")
+                        
+                        col_info, col_btn = st.columns([4, 1])
+                        with col_info:
+                            st.markdown(f"**Pedido Pendente** — {titulo_musica} *(Cliente: {cliente_nome})*")
+                        with col_btn:
+                            if st.button("▶️ Play", key=f"btn_play_{p.get('id')}"):
+                                terminar_todas_musicas_ativas(provider_token, pedidos)
+                                atualizar_estado_pedido(provider_token, p.get('id'), 'aprovado')
+                                st.success(f"Música '{titulo_musica}' enviada para a tela!")
+                                st.rerun()
             else:
                 st.markdown("""
-                    <div style="background-color: #111111; border: 2px solid #333333; padding: 15px; border-radius: 8px; color: #888; max-width: 550px; font-family: monospace; font-size: 15px; margin-bottom: 20px;">
+                    <div style="background-color: #111111; border: 2px solid #333333; padding: 15px; border-radius: 8px; color: #888; max-width: 650px; font-family: monospace; font-size: 15px; margin-bottom: 20px;">
                         <div>Nenhum pedido na lista neste momento. À espera de novos pedidos...</div>
                     </div>
                 """, unsafe_allow_html=True)
@@ -261,22 +287,6 @@ def renderizar_gestao_fila_prestador(provider_token):
                         definir_video_fundo(provider_token, "")
                         st.warning("Reprodução parada (Stop) com sucesso!")
                         st.rerun()
-
-            if pendentes:
-                st.markdown("### Pedidos Pendentes para Aprovar:")
-                for idx, p in enumerate(pendentes, start=1):
-                    titulo_musica = limpar_nome_musica(p.get("musica", {}))
-                    cliente_nome = p.get("cliente", "Convidado")
-                    
-                    col_info, col_btn = st.columns([3, 1])
-                    with col_info:
-                        st.write(f"**Pedido** - {titulo_musica} *(Cliente: {cliente_nome})*")
-                    with col_btn:
-                        if st.button(f"▶️ Play", key=f"btn_play_{p.get('id')}"):
-                            terminar_todas_musicas_ativas(provider_token, pedidos)
-                            atualizar_estado_pedido(provider_token, p.get('id'), 'aprovado')
-                            st.success(f"Música '{titulo_musica}' enviada para a tela!")
-                            st.rerun()
         else:
             st.info("Nenhum pedido encontrado no Firebase para este prestador. Abra o link do cliente e envie uma música para testar.")
             
@@ -285,7 +295,7 @@ def renderizar_gestao_fila_prestador(provider_token):
 
     st.markdown("---")
 
-    # 2. CONFIGURAÇÃO DE VÍDEO CLIPE DE FUNDO (POR ÚLTIMO, COMO NA IMAGEM)
+    # CONFIGURAÇÃO DE VÍDEO CLIPE DE FUNDO (POR ÚLTIMO)
     st.markdown("### 🎬 Configuração de Vídeo Clipe de Fundo (Tela)")
     
     video_fundo_atual = obter_video_fundo(provider_token)
@@ -337,7 +347,7 @@ def show_provider_panel_custom(provider_token):
     link_cliente_absoluto = f"https://{host_dominio}{link_cliente_rel}"
     qr_url_cliente = f"https://api.qrserver.com/v1/create-qr-code/?size=180x180&data={urllib.parse.quote(link_cliente_absoluto)}"
 
-    # LINKS E QR CODE NO TOPO (COMO NA IMAGEM)
+    # LINKS E QR CODE NO TOPO
     col_link, col_qr = st.columns([3, 1])
     with col_link:
         st.markdown(f"""
