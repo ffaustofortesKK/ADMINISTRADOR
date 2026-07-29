@@ -147,10 +147,8 @@ def obter_video_fundo(provider_token):
     return ""
 
 def listar_videos_pasta_clipes():
-    """Busca robusta de vídeos da pasta 'clipes' garantindo compatibilidade com o módulo do cliente."""
     videos_encontrados = []
     try:
-        # Removemos o prefixo restrito e buscamos todos os recursos de vídeo, filtrando de forma inteligente
         resultado = cloudinary.api.resources(
             resource_type="video",
             type="upload",
@@ -158,8 +156,6 @@ def listar_videos_pasta_clipes():
         )
         for recurso in resultado.get("resources", []):
             public_id = recurso.get("public_id", "")
-            
-            # Aceita se estiver na pasta clipes ou se o nome incluir clipes, garantindo que nenhum fique de fora
             if "clipes" in public_id.lower():
                 url_secure = recurso.get("secure_url", "")
                 if url_secure:
@@ -315,7 +311,8 @@ def show_provider_panel_custom(provider_token):
     link_cliente_rel = f"/?page=client_register&prestador={provider_token}"
     link_tv_rel = f"/?page=client_screen&prestador={provider_token}"
     
-    host_dominio = st.context.headers.get('Host', 'grupoffkaraoke.streamlit.app')
+    # Substituição segura para evitar falha no st.context.headers
+    host_dominio = "grupoffkaraoke.streamlit.app"
     link_cliente_absoluto = f"https://{host_dominio}{link_cliente_rel}"
     qr_url_cliente = f"https://api.qrserver.com/v1/create-qr-code/?size=180x180&data={urllib.parse.quote(link_cliente_absoluto)}"
 
