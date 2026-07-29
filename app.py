@@ -484,16 +484,10 @@ def renderizar_ecra_tv(provider_token):
                 st.markdown(html_caixas, unsafe_allow_html=True)
 
             with col_dir:
-                st.markdown("""
-                    <div style="border: 2px solid #FFC107; border-radius: 10px; padding: 15px; text-align: center; background: #111; margin-bottom: 15px;">
-                        <h2 style="color: #FFC107; margin: 0; font-family: monospace;">📺 VÍDEO CLIPE (FUNDO)</h2>
-                    </div>
-                """, unsafe_allow_html=True)
-                
                 if url_clipe_fundo:
                     video_fundo_html = f"""
-                    <div style="display: flex; justify-content: center; background: black; border: 2px solid #FFC107; border-radius: 10px; padding: 5px; width: 100%; position: relative;">
-                        <video id="fundo-player" width="100%" height="420px" controls autoplay loop playsinline controlslist="nodownload noremoteplayback" disablepictureinpicture style="object-fit: contain; background: black; border-radius: 8px;">
+                    <div style="display: flex; justify-content: center; background: black; border: 2px solid #FFC107; border-radius: 10px; padding: 5px; width: 100%; position: relative; margin-top: 5px;">
+                        <video id="fundo-player" width="100%" height="470px" controls autoplay loop playsinline controlslist="nodownload noremoteplayback" disablepictureinpicture style="object-fit: contain; background: black; border-radius: 8px;">
                             <source src="{url_clipe_fundo}" type="video/mp4">
                             O seu navegador não suporta vídeo.
                         </video>
@@ -522,7 +516,7 @@ def renderizar_ecra_tv(provider_token):
                     components.html(video_fundo_html, height=500)
                 else:
                     st.markdown("""
-                        <div style="border: 2px solid #FFC107; border-radius: 10px; padding: 80px 20px; text-align: center; background: #000; color: #FFC107; font-family: monospace;">
+                        <div style="border: 2px solid #FFC107; border-radius: 10px; padding: 110px 20px; text-align: center; background: #000; color: #FFC107; font-family: monospace; margin-top: 5px;">
                             <div style="font-size: 40px; margin-bottom: 10px;">📺</div>
                             <p style="color: #aaa; font-size: 16px; margin: 0;">Aguardando o prestador selecionar um vídeo clipe no painel de controle...</p>
                         </div>
