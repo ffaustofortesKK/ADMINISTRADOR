@@ -492,14 +492,14 @@ def renderizar_ecra_tv(provider_token):
                 
                 if url_clipe_fundo:
                     video_fundo_html = f"""
-                    <div style="display: flex; justify-content: center; background: black; border: 2px solid #FFC107; border-radius: 10px; padding: 5px; width: 100%;">
+                    <div style="display: flex; justify-content: center; background: black; border: 2px solid #FFC107; border-radius: 10px; padding: 5px; width: 100%; position: relative;">
                         <video id="fundo-player" width="100%" height="420px" controls autoplay loop playsinline style="object-fit: contain; background: black; border-radius: 8px;">
                             <source src="{url_clipe_fundo}" type="video/mp4">
                             O seu navegador não suporta vídeo.
                         </video>
-                    </div>
-                    <div id="fundo-audio-warning" style="display: none; text-align: center; background: #222; border: 1px solid #FFC107; padding: 8px; margin-top: 5px; border-radius: 5px;">
-                        <button onclick="unmuteFundo()" style="background-color: #4CAF50; color: white; border: none; padding: 6px 12px; font-size: 13px; border-radius: 4px; cursor: pointer; font-weight: bold;">🔊 ATIVAR SOM DO VÍDEO CLIPE</button>
+                        <div id="fundo-audio-warning" style="display: none; position: absolute; bottom: 15px; right: 15px; background: rgba(0,0,0,0.8); border: 1px solid #FFC107; padding: 6px 10px; border-radius: 5px; cursor: pointer;" onclick="unmuteFundo()">
+                            <span style="font-size: 18px;" title="Ativar Som">🔊</span>
+                        </div>
                     </div>
                     <script>
                         var fundoVideo = document.getElementById('fundo-player');
