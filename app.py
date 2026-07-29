@@ -374,12 +374,12 @@ def renderizar_ecra_tv(provider_token):
             pedidos_ativos.sort(key=lambda x: x.get("timestamp", 0))
             tocando_agora = next((p for p in pedidos_ativos if p.get("estado") == "aprovado"), None)
         
-        # Estilos globais e componentes visuais (rodapé animado + colunas pulsantes nos cantos)
+        # Estilos globais e componentes visuais (rodapé animado + caixas de som quadradas grandes com 2 altifalantes pulsantes)
         frame_styles = """
             <style>
                 @keyframes pulseSpeaker {
                     0% { transform: scale(1); filter: drop-shadow(0 0 2px #FFC107); }
-                    50% { transform: scale(1.18); filter: drop-shadow(0 0 12px #FFC107); }
+                    50% { transform: scale(1.12); filter: drop-shadow(0 0 14px #FFC107); }
                     100% { transform: scale(1); filter: drop-shadow(0 0 2px #FFC107); }
                 }
                 @keyframes bounceIcon {
@@ -390,25 +390,45 @@ def renderizar_ecra_tv(provider_token):
                     0% { transform: translateX(0%); }
                     100% { transform: translateX(-50%); }
                 }
-                .speaker-corner {
+                .speaker-box {
                     position: fixed;
                     z-index: 99998;
-                    font-size: 38px;
-                    animation: pulseSpeaker 0.6s infinite ease-in-out;
+                    width: 90px;
+                    height: 140px;
+                    background: #111;
+                    border: 3px solid #FFC107;
+                    border-radius: 10px;
+                    display: flex;
+                    flex-direction: column;
+                    align-items: center;
+                    justify-content: space-around;
+                    padding: 8px 0;
+                    box-shadow: 0 0 15px rgba(255, 193, 7, 0.4);
                     pointer-events: none;
-                    background: rgba(0,0,0,0.6);
-                    border: 2px solid #FFC107;
+                    animation: pulseSpeaker 0.55s infinite ease-in-out;
+                }
+                .woofer {
+                    width: 55px;
+                    height: 55px;
+                    border: 3px solid #FFC107;
                     border-radius: 50%;
-                    width: 65px;
-                    height: 65px;
+                    background: radial-gradient(circle, #333 30%, #000 90%);
                     display: flex;
                     align-items: center;
                     justify-content: center;
+                    box-shadow: inset 0 0 8px #FFC107;
                 }
+                .woofer-inner {
+                    width: 22px;
+                    height: 22px;
+                    background: #FFC107;
+                    border-radius: 50%;
+                }
+                
                 .speaker-tl { top: 15px; left: 15px; }
                 .speaker-tr { top: 15px; right: 15px; }
-                .speaker-bl { bottom: 45px; left: 15px; }
-                .speaker-br { bottom: 45px; right: 15px; }
+                .speaker-bl { bottom: 50px; left: 15px; }
+                .speaker-br { bottom: 50px; right: 15px; }
 
                 .marquee-footer {
                     position: fixed;
@@ -446,10 +466,22 @@ def renderizar_ecra_tv(provider_token):
                 }
             </style>
 
-            <div class="speaker-corner speaker-tl">🔊</div>
-            <div class="speaker-corner speaker-tr">🔊</div>
-            <div class="speaker-corner speaker-bl">🔊</div>
-            <div class="speaker-corner speaker-br">🔊</div>
+            <div class="speaker-box speaker-tl">
+                <div class="woofer"><div class="woofer-inner"></div></div>
+                <div class="woofer"><div class="woofer-inner"></div></div>
+            </div>
+            <div class="speaker-box speaker-tr">
+                <div class="woofer"><div class="woofer-inner"></div></div>
+                <div class="woofer"><div class="woofer-inner"></div></div>
+            </div>
+            <div class="speaker-box speaker-bl">
+                <div class="woofer"><div class="woofer-inner"></div></div>
+                <div class="woofer"><div class="woofer-inner"></div></div>
+            </div>
+            <div class="speaker-box speaker-br">
+                <div class="woofer"><div class="woofer-inner"></div></div>
+                <div class="woofer"><div class="woofer-inner"></div></div>
+            </div>
 
             <div class="marquee-footer">
                 <div class="marquee-track">
@@ -585,7 +617,6 @@ def renderizar_ecra_tv(provider_token):
             link_cliente_absoluto = f"https://{host_dominio}/?page=client_register&prestador={provider_token}"
             qr_url_cliente = f"https://api.qrserver.com/v1/create-qr-code/?size=220x220&data={urllib.parse.quote(link_cliente_absoluto)}"
 
-            # Injeta os elementos decorativos (rodapé + colunas) na vista de espera via wrapper HTML/JS
             st.markdown(frame_styles, unsafe_allow_html=True)
 
             col_esq, col_dir = st.columns([1, 1])
