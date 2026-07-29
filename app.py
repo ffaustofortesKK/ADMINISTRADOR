@@ -130,80 +130,63 @@ def terminar_todas_musicas_ativas(provider_token, pedidos):
         if p.get("estado") in ["aprovado", "pendente"]:
             atualizar_estado_pedido(provider_token, p.get("id"), "terminado")
 
-def definir_config_fundo(provider_token, url_clipe, modo_reproducao):
+def definir_video_fundo(provider_token, url_clipe):
     try:
-        dados = {
-            "video_fundo": url_clipe,
-            "modo": modo_reproducao
-        }
-        url = f"{FIREBASE_URL}/config/{provider_token}.json"
-        requests.put(url, json=dados, timeout=10)
+        url = f"{FIREBASE_URL}/config/{provider_token}/video_fundo.json"
+        requests.put(url, json=url_clipe, timeout=10)
     except Exception:
         pass
 
-def obter_config_fundo(provider_token):
+def obter_video_fundo(provider_token):
     try:
-        url = f"{FIREBASE_URL}/config/{provider_token}.json"
+        url = f"{FIREBASE_URL}/config/{provider_token}/video_fundo.json"
         res = requests.get(url, timeout=5)
-        if res.status_code == 200 and res.json():
-            data = res.json()
-            if isinstance(data, dict):
-                return data.get("video_fundo", ""), data.get("modo", "repetir_todos")
-            return str(data), "repetir_todos"
+        if res.status_code == 200:
+            return res.json() or ""
     except Exception:
         pass
-    return "", "repetir_todos"
+    return ""
 
 def listar_videos_pasta_clipes():
-    """Lista todos os vídeos disponíveis na conta Cloudinary, garantindo que nenhum vídeo fique oculto."""
+    """Usa o motor de Search do Cloudinary para listar com precisão absoluta todos os vídeos na pasta 'clipes'."""
     videos_encontrados = []
-    vistos = set()
-    
     try:
-        resultado = cloudinary.api.resources(
-            resource_type="video",
-            type="upload",
-            max_results=500
-        )
+        # Pesquisa avançada focada na pasta 'clipes'
+        resultado = cloudinary.search.Search()\
+            .expression('resource_type:video AND asset_folder=clipes')\
+            .max_results(500)\
+            .execute()
+            
         for recurso in resultado.get("resources", []):
             url_secure = recurso.get("secure_url", "")
             if url_secure:
                 if "/upload/" in url_secure and "f_auto,q_auto" not in url_secure:
                     url_secure = url_secure.replace("/upload/", "/upload/f_auto,q_auto/")
                 
-                public_id = recurso.get("public_id", "")
                 filename = recurso.get("filename", "")
+                public_id = recurso.get("public_id", "")
                 nome_amigavel = filename if filename else public_id.split("/")[-1]
                 
-                if url_secure not in vistos:
-                    vistos.add(url_secure)
-                    videos_encontrados.append({"nome": nome_amigavel, "url": url_secure})
+                videos_encontrados.append({"nome": nome_amigavel, "url": url_secure})
     except Exception as e:
-        print(f"Erro ao listar via resources: {e}")
-
-    # Fallback com Search API caso necessário
-    if not videos_encontrados:
+        # Fallback de segurança caso a API de search exija índices específicos, varrendo via resource genérico
         try:
-            resultado_search = cloudinary.search.Search()\
-                .expression('resource_type:video')\
-                .max_results(500)\
-                .execute()
-                
-            for recurso in resultado_search.get("resources", []):
-                url_secure = recurso.get("secure_url", "")
-                if url_secure:
-                    if "/upload/" in url_secure and "f_auto,q_auto" not in url_secure:
-                        url_secure = url_secure.replace("/upload/", "/upload/f_auto,q_auto/")
-                    
-                    filename = recurso.get("filename", "")
-                    public_id = recurso.get("public_id", "")
-                    nome_amigavel = filename if filename else public_id.split("/")[-1]
-                    
-                    if url_secure not in vistos:
-                        vistos.add(url_secure)
+            resultado_alt = cloudinary.api.resources(
+                resource_type="video",
+                type="upload",
+                max_results=500
+            )
+            for recurso in resultado_alt.get("resources", []):
+                public_id = recurso.get("public_id", "")
+                if "clipes" in public_id.lower():
+                    url_secure = recurso.get("secure_url", "")
+                    if url_secure:
+                        if "/upload/" in url_secure and "f_auto,q_auto" not in url_secure:
+                            url_secure = url_secure.replace("/upload/", "/upload/f_auto,q_auto/")
+                        nome_amigavel = public_id.split("/")[-1]
                         videos_encontrados.append({"nome": nome_amigavel, "url": url_secure})
         except Exception as err:
-            print(f"Erro na pesquisa Search Cloudinary: {err}")
+            print(f"Erro crítico ao listar vídeos do Cloudinary: {err}")
             
     return videos_encontrados
 
@@ -234,7 +217,7 @@ def obter_url_video_cloudinary(musica_obj, titulo_limpo):
 def renderizar_gestao_fila_prestador(provider_token):
     st.markdown("### 🎬 Configuração de Vídeo Clipe de Fundo (Tela)")
     
-    video_fundo_atual, modo_atual = obter_config_fundo(provider_token)
+    video_fundo_atual = obter_video_fundo(provider_token)
     lista_clipes_cloudinary = listar_videos_pasta_clipes()
     
     opcoes_labels = ["Nenhum (Ecrã Preto)"]
@@ -253,33 +236,22 @@ def renderizar_gestao_fila_prestador(provider_token):
                 index_atual = idx
                 break
 
-    mapa_modos = {
-        "🔁 Repetir Todos (Sequencial)": "repetir_todos",
-        "🔀 Aleatório (Shuffle)": "aleatorio",
-        "🔂 Repetir Apenas 1": "repetir_1"
-    }
-    inverso_modos = {v: k for k, v in mapa_modos.items()}
-    modo_label_inicial = inverso_modos.get(modo_atual, "🔁 Repetir Todos (Sequencial)")
+    with st.form(key="form_video_fundo"):
+        escolha_video = st.selectbox(
+            "Selecione o Vídeo Clipe da pasta 'clipes':", 
+            options=opcoes_labels, 
+            index=index_atual
+        )
 
-    escolha_video = st.selectbox(
-        "Selecione o Vídeo Clipe Inicial ou Deixe em Branco:", 
-        options=opcoes_labels, 
-        index=index_atual
-    )
-
-    escolha_modo = st.selectbox(
-        "Modo de Reprodução dos Vídeos Clipes:",
-        options=list(mapa_modos.keys()),
-        index=list(mapa_modos.keys()).index(modo_label_inicial) if modo_label_inicial in mapa_modos else 0
-    )
-
-    col_btn1, col_btn2 = st.columns(2)
-    with col_btn1:
-        if st.button("▶️ Iniciar / Aplicar Fundo"):
-            valor_a_guardar = "" if escolha_video == "Nenhum (Ecrã Preto)" else mapa_url_por_label.get(escolha_video, "")
-            modo_guardar = mapa_modos.get(escolha_modo, "repetir_todos")
-            definir_config_fundo(provider_token, valor_a_guardar, modo_guardar)
-            st.success("Configuração de fundo aplicada com sucesso!")
+        btn_salvar_fundo = st.form_submit_button("💾 Atualizar Vídeo Clipe de Fundo")
+        if btn_salvar_fundo:
+            if escolha_video == "Nenhum (Ecrã Preto)":
+                valor_a_guardar = ""
+            else:
+                valor_a_guardar = mapa_url_por_label.get(escolha_video, "")
+                
+            definir_video_fundo(provider_token, valor_a_guardar)
+            st.success("Vídeo clipe de fundo atualizado com sucesso para a tela!")
             st.rerun()
 
     st.markdown("---")
@@ -450,16 +422,7 @@ def renderizar_ecra_tv(provider_token):
             components.html(video_html, height=620)
             
         else:
-            url_clipe_fundo, modo_reproducao = obter_config_fundo(provider_token)
-            lista_clipes = listar_videos_pasta_clipes()
-            
-            import json
-            urls_playlist = [c['url'] for c in lista_clipes]
-            if not urls_playlist and url_clipe_fundo:
-                urls_playlist = [url_clipe_fundo]
-            
-            urls_json = json.dumps(urls_playlist)
-            
+            url_clipe_fundo = obter_video_fundo(provider_token)
             proximo_cantor = pedidos_ativos[0] if pedidos_ativos else None
             
             col_esq, col_dir = st.columns([1, 1])
@@ -503,61 +466,21 @@ def renderizar_ecra_tv(provider_token):
                     </div>
                 """, unsafe_allow_html=True)
                 
-                if urls_playlist:
+                if url_clipe_fundo:
                     video_fundo_html = f"""
                     <div style="display: flex; justify-content: center; background: black; border: 2px solid #FFC107; border-radius: 10px; padding: 5px; width: 100%;">
-                        <video id="fundo-player" width="100%" height="470px" controls autoplay playsinline style="object-fit: contain; background: black; border-radius: 8px;">
-                            <source src="" type="video/mp4">
+                        <video id="fundo-player" width="100%" height="470px" autoplay loop muted playsinline style="object-fit: contain; background: black; border-radius: 8px;">
+                            <source src="{url_clipe_fundo}" type="video/mp4">
                             O seu navegador não suporta vídeo.
                         </video>
                     </div>
-                    <script>
-                        var playlist = {urls_json};
-                        var modoPlay = "{modo_reproducao}";
-                        var videoElement = document.getElementById('fundo-player');
-                        var currentIndex = 0;
-
-                        if (modoPlay === 'aleatorio' && playlist.length > 0) {{
-                            currentIndex = Math.floor(Math.random() * playlist.length);
-                        }}
-
-                        function playCurrentVideo() {{
-                            if (playlist.length === 0) return;
-                            videoElement.src = playlist[currentIndex];
-                            videoElement.muted = false;
-                            var p = videoElement.play();
-                            if (p !== undefined) {{
-                                p.catch(err => {{
-                                    videoElement.muted = true;
-                                    videoElement.play();
-                                }});
-                            }}
-                        }}
-
-                        videoElement.onended = function() {{
-                            if (modoPlay === 'repetir_1') {{
-                                videoElement.currentTime = 0;
-                                videoElement.play();
-                            }} else if (modoPlay === 'aleatorio') {{
-                                currentIndex = Math.floor(Math.random() * playlist.length);
-                                playCurrentVideo();
-                            }} else {{
-                                currentIndex = (currentIndex + 1) % playlist.length;
-                                playCurrentVideo();
-                            }}
-                        }};
-
-                        if (playlist.length > 0) {{
-                            playCurrentVideo();
-                        }}
-                    </script>
                     """
                     components.html(video_fundo_html, height=500)
                 else:
                     st.markdown("""
                         <div style="border: 2px solid #FFC107; border-radius: 10px; padding: 80px 20px; text-align: center; background: #000; color: #FFC107; font-family: monospace;">
                             <div style="font-size: 40px; margin-bottom: 10px;">📺</div>
-                            <p style="color: #aaa; font-size: 16px; margin: 0;">Nenhum vídeo clipe encontrado na conta do Cloudinary...</p>
+                            <p style="color: #aaa; font-size: 16px; margin: 0;">Aguardando o prestador selecionar um vídeo clipe no painel de controle...</p>
                         </div>
                     """, unsafe_allow_html=True)
 
