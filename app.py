@@ -15,10 +15,8 @@ if modules_path not in sys.path:
     sys.path.insert(0, modules_path)
 
 import time
-import datetime
 import requests
 import urllib.parse
-import pandas as pd
 import streamlit as st
 import streamlit.components.v1 as components
 import cloudinary
@@ -36,18 +34,27 @@ cloudinary.config(
 
 # Importações seguras com fallbacks para evitar crash total da aplicação
 try:
-    from utils.db_manager import init_db, get_all_providers, delete_provider, add_provider_record
+    from utils.db_manager import init_db, get_all_providers
 except Exception:
     def init_db(): pass
     def get_all_providers(): 
-        return pd.DataFrame(columns=['token', 'approved', 'nome_prestador', 'data_registo'])
-    def delete_provider(token): pass
-    def add_provider_record(token, nome): pass
+        import pandas as pd
+        return pd.DataFrame(columns=['token', 'approved'])
+
+try:
+    from modules.admin import show_admin_panel
+except Exception:
+    def show_admin_panel(): st.error("Módulo 'modules.admin' não encontrado.")
+
+try:
+    from modules.register import show_register_page
+except Exception:
+    def show_register_page(): st.error("Módulo 'modules.register' não encontrado.")
 
 FIREBASE_URL = "https://grupoffkaraoke-default-rtdb.firebaseio.com"
 
 st.set_page_config(
-    page_title="FFKaraoke - Painel de Administração e Gestão",
+    page_title="FFKaraoke - Painel do Cliente",
     page_icon="🎤",
     layout="wide"
 )
@@ -72,191 +79,270 @@ try:
 except Exception:
     pass
 
-def carregar_todos_pedidos_historico():
-    """Carrega todos os pedidos do Firebase para relatórios e estatísticas"""
-    pedidos_totais = []
+def carregar_catalogo_musicas():
+    musicas = []
     try:
-        url = f"{FIREBASE_URL}/pedidos.json"
-        res = requests.get(url, timeout=10)
-        if res.status_code == 200 and res.json():
-            data = res.json()
-            for token_prestador, lista_p in data.items():
-                if isinstance(lista_p, dict):
-                    for pid, pdata in lista_p.items():
-                        if isinstance(pdata, dict):
-                            pdata["token_prestador"] = token_prestador
-                            pdata["id"] = pid
-                            # Converter timestamp em datetime
-                            ts = pdata.get("timestamp", 0)
-                            if ts:
-                                try:
-                                    pdata["datetime"] = datetime.datetime.fromtimestamp(ts / 1000.0)
-                                except Exception:
-                                    pdata["datetime"] = datetime.datetime.now()
-                            else:
-                                pdata["datetime"] = datetime.datetime.now()
-                            pedidos_totais.append(pdata)
+        resultado = cloudinary.search.Search()\
+            .expression('resource_type:video AND asset_folder=karaoke')\
+            .max_results(500)\
+            .execute()
+        for r in resultado.get("resources", []):
+            url_secure = r.get("secure_url", "")
+            if url_secure and "/upload/" in url_secure and "f_auto,q_auto" not in url_secure:
+                url_secure = url_secure.replace("/upload/", "/upload/f_auto,q_auto/")
+            filename = r.get("filename", "") or r.get("public_id", "").split("/")[-1]
+            if filename.lower().endswith('.cdg'):
+                filename = filename[:-4]
+            musicas.append({"titulo": filename, "url": url_secure})
     except Exception:
         pass
-    return pedidos_totais
+    
+    if not musicas:
+        # Fallback local se Cloudinary falhar
+        try:
+            res_alt = cloudinary.api.resources(resource_type="video", type="upload", max_results=200)
+            for r in res_alt.get("resources", []):
+                public_id = r.get("public_id", "")
+                if "karaoke" in public_id.lower():
+                    url_secure = r.get("secure_url", "")
+                    if url_secure and "/upload/" in url_secure and "f_auto,q_auto" not in url_secure:
+                        url_secure = url_secure.replace("/upload/", "/upload/f_auto,q_auto/")
+                    filename = public_id.split("/")[-1]
+                    musicas.append({"titulo": filename, "url": url_secure})
+        except Exception:
+            pass
+            
+    return musicas
 
-def show_admin_panel_extended():
-    st.markdown("## ⚙️ Painel de Administração — FF Karaoke Cloud")
-    st.markdown("Gerenciamento completo de prestadores, filas ativas, histórico e relatórios estatísticos.")
-    st.markdown("---")
+def enviar_pedido_firebase(provider_token, cliente_nome, musica_obj):
+    try:
+        novo_pedido = {
+            "cliente": cliente_nome,
+            "musica": musica_obj,
+            "estado": "pendente",
+            "timestamp": int(time.time() * 1000)
+        }
+        url = f"{FIREBASE_URL}/pedidos/{provider_token}.json"
+        res = requests.post(url, json=novo_pedido, timeout=10)
+        return res.status_code == 200
+    except Exception:
+        return False
 
-    aba_gestao, aba_historico, aba_estatisticas = st.tabs([
-        "📊 Gestão Total (Tempo Real)", 
-        "📜 Histórico de Prestadores", 
-        "📈 Relatório e Estatísticas"
-    ])
+def obter_pedidos_prestador(provider_token):
+    try:
+        url = f"{FIREBASE_URL}/pedidos/{provider_token}.json?_t={time.time()}"
+        res = requests.get(url, timeout=5)
+        if res.status_code == 200 and res.json():
+            data = res.json()
+            pedidos = [{"id": k, **v} for k, v in data.items()]
+            pedidos_ativos = [p for p in pedidos if p.get("estado") in ["pendente", "aprovado"]]
+            pedidos_ativos.sort(key=lambda x: x.get("timestamp", 0))
+            return pedidos_ativos
+    except Exception:
+        pass
+    return []
 
-    with aba_gestao:
-        st.markdown("### ⏱️ Gestão Total — Prestadores Ativos e Tempo a Contar")
-        df_prestadores = get_all_providers()
+@st.fragment(run_every=3)
+def renderizar_painel_cliente_por_prestador(provider_token):
+    st.markdown("""
+        <style>
+            .stApp { background-color: #0b0f19; color: #ffffff; }
+            .main-title { color: #ffffff; font-family: monospace; font-size: 26px; font-weight: bold; margin-bottom: 5px; display: flex; align-items: center; gap: 10px; }
+            .subtitle { color: #9ca3af; font-family: monospace; font-size: 14px; margin-bottom: 25px; }
+            .footer-box {
+                background: #1e293b;
+                border: 1px solid #334155;
+                border-radius: 8px;
+                padding: 12px 20px;
+                margin-top: 40px;
+                font-family: monospace;
+                font-size: 13px;
+                color: #e2e8f0;
+                display: flex;
+                flex-direction: column;
+                gap: 6px;
+                max-width: 420px;
+            }
+            .status-card {
+                background: #111827;
+                border: 2px solid #FFC107;
+                border-radius: 12px;
+                padding: 30px 20px;
+                text-align: center;
+                margin-top: 20px;
+                box-shadow: 0 0 20px rgba(255, 193, 7, 0.2);
+            }
+            @keyframes bounceMic {
+                0%, 100% { transform: translateY(0) rotate(0deg); }
+                50% { transform: translateY(-8px) rotate(5deg); }
+            }
+            .mic-icon-big {
+                font-size: 70px;
+                display: inline-block;
+                animation: bounceMic 1s infinite ease-in-out;
+                margin: 15px 0;
+            }
+        </style>
+    """, unsafe_allow_html=True)
+
+    # Verificar se o cliente já tem um pedido ativo nesta sessão
+    pedido_ativo_id = st.session_state.get(f"pedido_id_{provider_token}")
+    cliente_nome_sessao = st.session_state.get(f"cliente_nome_{provider_token}", "")
+
+    pedidos_atuais = obter_pedidos_prestador(provider_token)
+    
+    # Encontrar a posição do pedido do cliente na fila ativa
+    posicao_encontrada = None
+    estado_atual = None
+    if pedido_ativo_id:
+        for idx, p in enumerate(pedidos_atuais, start=1):
+            if p.get("id") == pedido_ativo_id:
+                posicao_encontrada = idx
+                estado_atual = p.get("estado")
+                break
+
+    # Se o pedido foi concluído ou removido, limpa a sessão
+    if pedido_ativo_id and not posicao_encontrada:
+        st.session_state.pop(f"pedido_id_{provider_token}", None)
+        st.rerun()
+
+    if posicao_encontrada is not None:
+        # TELA EXATA SOLICITADA QUANDO O CLIENTE FAZ O PEDIDO
+        col_esq, col_dir = st.columns([1, 1])
         
-        if df_prestadores.empty:
-            st.info("Nenhum prestador registado no sistema.")
-        else:
-            # Adicionar contagem de tempo desde o registo
-            dados_exibicao = []
-            agora = datetime.datetime.now()
+        with col_esq:
+            st.markdown('<div class="main-title">🔍 Pesquisar Música</div>', unsafe_allow_html=True)
+            st.markdown('<div class="subtitle">Digite o nome da música ou artista:</div>', unsafe_allow_html=True)
+            st.text_input("", placeholder="Ex: Landrick, Nani...", disabled=True, key="input_disabled_search")
             
-            for idx, row in df_prestadores.iterrows():
-                token = row.get("token", "")
-                nome = row.get("nome_prestador", "Prestador Sem Nome")
-                data_reg_str = row.get("data_registo", str(agora))
-                
-                # Calcular tempo decorrido
-                try:
-                    data_reg = datetime.datetime.strptime(data_reg_str, "%Y-%m-%d %H:%M:%S")
-                except Exception:
-                    try:
-                        data_reg = datetime.datetime.fromisoformat(data_reg_str)
-                    except Exception:
-                        data_reg = agora
-                
-                delta = agora - data_reg
-                dias = delta.days
-                horas, resto = divmod(delta.seconds, 3600)
-                minutos, segundos = divmod(resto, 60)
-                
-                tempo_decorrido_str = f"{dias} dias, {horas:02d}h {minutos:02d}m {segundos:02d}s" if dias > 0 else f"{horas:02d}h {minutos:02d}m {segundos:02d}s"
-                
-                dados_exibicao.append({
-                    "Token": token,
-                    "Nome / Prestador": nome,
-                    "Data de Registo": data_reg_str,
-                    "Tempo Ativo / Corrido": tempo_decorrido_str
-                })
+            # Caixa de rodapé idêntica à referência visual
+            st.markdown("""
+                <div class="footer-box">
+                    <div>🛍️ <b>Instagram:</b> ff.karaoke</div>
+                    <div>📞 <b>Contacto para Eventos Privados:</b> 955099159</div>
+                    <div>💬 <b>WhatsApp:</b> 955099159</div>
+                </div>
+            """, unsafe_allow_html=True)
+
+        with col_dir:
+            st.markdown(f"""
+                <div style="display: flex; align-items: center; justify-content: flex-end; gap: 8px; margin-top: 10px;">
+                    <span style="font-size: 24px;">🎤</span>
+                    <span style="color: #4CAF50; font-family: monospace; font-size: 22px; font-weight: bold;">Encontra-se na posição {posicao_encontrada}º</span>
+                </div>
+            """, unsafe_allow_html=True)
+
+            st.markdown("""
+                <div class="status-card">
+                    <div class="mic-icon-big">🎙️</div>
+                    <div style="color: #FFC107; font-family: monospace; font-size: 18px; font-weight: bold; margin-top: 10px;">Aguarde pela sua vez</div>
+                </div>
+            """, unsafe_allow_html=True)
             
-            df_display = pd.DataFrame(dados_exibicao)
-            st.dataframe(df_display, use_container_width=True)
-            
-            if st.button("🔄 Atualizar Tempos e Fila"):
+            if st.button("🔄 Atualizar / Fazer Novo Pedido", key="btn_cancelar_pedido"):
+                st.session_state.pop(f"pedido_id_{provider_token}", None)
                 st.rerun()
 
-    with aba_historico:
-        st.markdown("### 📜 Histórico de Prestadores Registados")
-        st.markdown("Consulte a data exata em que cada prestador fez o registo e execute a remoção se necessário.")
+    else:
+        # TELA NORMAL DE PESQUISA E PEDIDO DE MÚSICA
+        col_esq, col_dir = st.columns([1, 1])
         
-        df_prestadores = get_all_providers()
-        if df_prestadores.empty:
-            st.info("Nenhum registo encontrado no histórico.")
-        else:
-            for idx, row in df_prestadores.iterrows():
-                token = row.get("token", "")
-                nome = row.get("nome_prestador", "Prestador Sem Nome")
-                data_reg = row.get("data_registo", "Data não registada")
-                
-                col_info, col_del = [st.collab_column if hasattr(st, 'collab_column') else st.columns([4, 1])[0], st.columns([4, 1])[1]] if False else st.columns([4, 1])
-                
-                with col_info:
-                    st.markdown(f"""
-                        <div style="background: #111827; border: 1px solid #374151; padding: 12px; border-radius: 8px; margin-bottom: 8px; font-family: monospace;">
-                            <b>Prestador:</b> {nome} <br>
-                            <span style="color: #9ca3af; font-size: 13px;">Token: <code>{token}</code></span><br>
-                            <span style="color: #4CAF50; font-size: 13px;">📅 Data do Registo: {data_reg}</span>
-                        </div>
-                    """, unsafe_allow_html=True)
-                
-                with col_del:
-                    st.markdown("<div style='height: 15px;'></div>", unsafe_allow_html=True)
-                    if st.button("🗑️ Apagar", key=f"del_hist_{token}"):
-                        try:
-                            delete_provider(token)
-                            st.success(f"Registo de '{nome}' apagado com sucesso!")
-                            st.rerun()
-                        except Exception as e:
-                            st.error(f"Erro ao apagar registo: {e}")
-
-    with aba_estatisticas:
-        st.markdown("### 📈 Relatório e Estatísticas de Pedidos")
-        st.markdown("Totalização de itens pedidos divididos por períodos semanal e mensal.")
-        
-        todos_pedidos = carregar_todos_pedidos_historico()
-        
-        if not todos_pedidos:
-            st.warning("Ainda não existem dados de pedidos suficientes para gerar o relatório estatístico.")
-        else:
-            df_peds = pd.DataFrame(todos_pedidos)
+        with col_esq:
+            st.markdown('<div class="main-title">🔍 Pesquisar Música</div>', unsafe_allow_html=True)
+            st.markdown('<div class="subtitle">Digite o nome da música ou artista:</div>', unsafe_allow_html=True)
             
-            # Garantir coluna datetime válida
-            if "datetime" in df_peds.columns:
-                agora = datetime.datetime.now()
+            with st.form(key="form_pedido_cliente"):
+                cliente_nome = st.text_input("Seu Nome / Apelido:", value=cliente_nome_sessao, placeholder="Digite o seu nome...")
+                termo_busca = st.text_input("Pesquisa de Música:", placeholder="Ex: Landrick, Nani...")
                 
-                # Adicionar colunas auxiliares para agrupamento
-                df_peds["Semana"] = df_peds["datetime"].dt.strftime("%Y-W%V")
-                df_peds["Mês"] = df_peds["datetime"].dt.strftime("%Y-%m")
+                lista_musicas = carregar_catalogo_musicas()
                 
-                st.markdown("#### 📅 Resumo Mensal")
-                resumo_mensal = df_peds.groupby("Mês").size().reset_index(name="Total de Pedidos")
-                st.dataframe(resumo_mensal, use_container_width=True)
+                # Filtrar músicas com base no termo digitado
+                musicas_filtradas = []
+                if termo_busca:
+                    termo_lower = termo_busca.lower()
+                    musicas_filtradas = [m for m in lista_musicas if termo_lower in m['titulo'].lower()]
+                else:
+                    musicas_filtradas = lista_musicas[:50] # Mostrar primeiras 50 por defeito
+
+                escolha_musica_label = "Selecione a música na lista abaixo:"
+                opcoes_musicas = {m['titulo']: m for m in musicas_filtradas}
                 
-                st.markdown("#### 📅 Resumo Semanal")
-                resumo_semanal = df_peds.groupby("Semana").size().reset_index(name="Total de Pedidos")
-                st.dataframe(resumo_semanal, use_container_width=True)
+                musica_selecionada_titulo = st.selectbox(
+                    escolha_musica_label, 
+                    options=list(opcoes_musicas.keys()) if opcoes_musicas else ["Nenhuma música encontrada"]
+                )
                 
-                st.markdown("#### 🎵 Músicas Mais Pedidas (Top Geral)")
-                if "musica" in df_peds.columns:
-                    def extrair_titulo_musica(m):
-                        if isinstance(m, dict):
-                            return m.get("titulo", m.get("nome", "Desconhecida"))
-                        return str(m)
-                    
-                    df_peds["Titulo_Musica"] = df_peds["musica"].apply(extrair_titulo_musica)
-                    top_musicas = df_peds["Titulo_Musica"].value_counts().reset_index()
-                    top_musicas.columns = ["Música", "Total de Execuções/Pedidos"]
-                    st.dataframe(top_musicas.head(10), use_container_width=True)
-            else:
-                st.error("Erro ao processar as datas dos pedidos.")
+                submitted_pedido = st.form_submit_button("🎤 Pedir Música")
+                
+                if submitted_pedido:
+                    if not cliente_nome.strip():
+                        st.error("Por favor, insira o seu nome antes de fazer o pedido.")
+                    elif not opcoes_musicas or musica_selecionada_titulo == "Nenhuma música encontrada":
+                        st.error("Por favor, selecione uma música válida.")
+                    else:
+                        musica_obj = opcoes_musicas[musica_selecionada_titulo]
+                        st.session_state[f"cliente_nome_{provider_token}"] = cliente_nome
+                        
+                        sucesso = enviar_pedido_firebase(provider_token, cliente_nome, musica_obj)
+                        if sucesso:
+                            time.sleep(0.5)
+                            # Obter o ID do pedido recém-criado para fixar na tela
+                            novos_pedidos = obter_pedidos_prestador(provider_token)
+                            if novos_pedidos:
+                                # O último pedido do cliente na lista
+                                meu_pedido = [p for p in novos_pedidos if p.get("cliente") == cliente_nome]
+                                if meu_pedido:
+                                    st.session_state[f"pedido_id_{provider_token}"] = meu_pedido[-1].get("id")
+                            st.success("Pedido enviado com sucesso!")
+                            st.rerun()
+                        else:
+                            st.error("Erro ao enviar o pedido. Tente novamente.")
+
+            st.markdown("""
+                <div class="footer-box">
+                    <div>🛍️ <b>Instagram:</b> ff.karaoke</div>
+                    <div>📞 <b>Contacto para Eventos Privados:</b> 955099159</div>
+                    <div>💬 <b>WhatsApp:</b> 955099159</div>
+                </div>
+            """, unsafe_allow_html=True)
+
+        with col_dir:
+            st.markdown("""
+                <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; border: 2px dashed #334155; border-radius: 12px; padding: 40px; text-align: center; margin-top: 30px;">
+                    <div style="font-size: 60px; margin-bottom: 15px;">🎵</div>
+                    <h3 style="color: #FFC107; font-family: monospace; margin-bottom: 10px;">FF KARAOKE CLOUD</h3>
+                    <p style="color: #9ca3af; font-family: monospace; font-size: 14px; max-width: 300px; line-height: 1.5;">Pesquise a sua música favorita, insira o seu nome e envie o seu pedido diretamente para a fila do evento!</p>
+                </div>
+            """, unsafe_allow_html=True)
+
+def show_client_page_custom():
+    query_params = st.query_params
+    provider_token = query_params.get("prestador") or query_params.get("provider", None)
+
+    if not provider_token:
+        st.error("Link de cliente inválido. Falta o parâmetro do prestador.")
+        return
+
+    renderizar_painel_cliente_por_prestador(provider_token)
 
 def main():
     try:
         query_params = st.query_params
-        token = query_params.get("prestador") or query_params.get("token") or query_params.get("provider")
         
-        if not token:
-            # Painel de Administração Central
-            if not st.session_state.get("admin_logged", False):
-                st.title("🔒 FFKaraoke - Área Restrita de Administrador")
-                with st.form("form_admin_login"):
-                    senha = st.text_input("Palavra-passe de Administrador", type="password")
-                    submitted = st.form_submit_button("Entrar")
-                    if submitted:
-                        if senha == "ffkaraoke2026" or senha == "admin123":
-                            st.session_state["admin_logged"] = True
-                            st.success("Sessão iniciada com sucesso!")
-                            st.rerun()
-                        else:
-                            st.error("Palavra-passe incorreta.")
+        if "page" in query_params and query_params["page"] == "client_register":
+            show_client_page_custom()
+            return
             
-            if st.session_state.get("admin_logged", False):
-                show_admin_panel_extended()
+        # Caso acedido diretamente sem rota específica
+        token = query_params.get("prestador") or query_params.get("provider")
+        if token:
+            renderizar_painel_cliente_por_prestador(token)
         else:
-            st.error("Acesso direcionado por token inválido para este endpoint de administração.")
+            st.error("Parâmetro de prestador em falta. Utilize o link oficial fornecido pelo prestador.")
+            
     except Exception as e:
-        st.error(f"Ocorreu um erro crítico na aplicação: {e}")
+        st.error(f"Ocorreu um erro ao carregar a página: {e}")
 
 if __name__ == "__main__":
     main()
