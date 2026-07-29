@@ -148,11 +148,31 @@ def obter_video_fundo(provider_token):
     return ""
 
 def listar_videos_pasta_clipes():
-    """Lista todos os vídeos disponíveis na conta Cloudinary com estratégia tripla de resiliência."""
+    """Lista todos os vídeos disponíveis na conta Cloudinary com foco na pasta 'clipes'."""
     videos_encontrados = []
     urls_vistas = set()
     
-    # 1. Pesquisa por Search API
+    # 1. Pesquisa direta na pasta 'clipes'
+    try:
+        res_pasta = cloudinary.api.resources_by_prefix(
+            prefix="clipes/",
+            resource_type="video",
+            max_results=500
+        )
+        for recurso in res_pasta.get("resources", []):
+            url_secure = recurso.get("secure_url", "")
+            public_id = recurso.get("public_id", "")
+            if url_secure and url_secure not in urls_vistas:
+                if "/upload/" in url_secure and "f_auto,q_auto" not in url_secure:
+                    url_secure = url_secure.replace("/upload/", "/upload/f_auto,q_auto/")
+                filename = recurso.get("filename", "")
+                nome_amigavel = filename if filename else public_id.split("/")[-1]
+                urls_vistas.add(url_secure)
+                videos_encontrados.append({"nome": nome_amigavel, "url": url_secure, "public_id": public_id})
+    except Exception:
+        pass
+
+    # 2. Pesquisa geral na Search API caso haja ficheiros noutros locais
     try:
         resultado = cloudinary.search.Search()\
             .expression('resource_type:video')\
@@ -172,7 +192,7 @@ def listar_videos_pasta_clipes():
     except Exception:
         pass
 
-    # 2. Pesquisa por Admin API (resources)
+    # 3. Pesquisa por Admin API geral (resources)
     try:
         resultado_alt = cloudinary.api.resources(
             resource_type="video",
@@ -188,30 +208,6 @@ def listar_videos_pasta_clipes():
                 nome_amigavel = public_id.split("/")[-1]
                 urls_vistas.add(url_secure)
                 videos_encontrados.append({"nome": nome_amigavel, "url": url_secure, "public_id": public_id})
-    except Exception:
-        pass
-
-    # 3. Pesquisa por sub-pastas específicas (caso os ficheiros estejam organizados em pastas no Cloudinary)
-    try:
-        pastas = ["clip", "clips", "videos", "fundo"]
-        for pasta in pastas:
-            try:
-                res_pasta = cloudinary.api.resources_by_prefix(
-                    prefix=f"{pasta}/",
-                    resource_type="video",
-                    max_results=100
-                )
-                for recurso in res_pasta.get("resources", []):
-                    url_secure = recurso.get("secure_url", "")
-                    public_id = recurso.get("public_id", "")
-                    if url_secure and url_secure not in urls_vistas:
-                        if "/upload/" in url_secure and "f_auto,q_auto" not in url_secure:
-                            url_secure = url_secure.replace("/upload/", "/upload/f_auto,q_auto/")
-                        nome_amigavel = public_id.split("/")[-1]
-                        urls_vistas.add(url_secure)
-                        videos_encontrados.append({"nome": nome_amigavel, "url": url_secure, "public_id": public_id})
-            except Exception:
-                continue
     except Exception:
         pass
           
@@ -282,7 +278,7 @@ def renderizar_gestao_fila_prestador(provider_token):
             st.rerun()
 
     if not lista_clipes_cloudinary:
-        st.warning("⚠️ Nenhum vídeo foi retornado pelo Cloudinary. Verifique se os vídeos foram carregados corretamente na sua conta do Cloudinary.")
+        st.warning("⚠️ Nenhum vídeo foi retornado pelo Cloudinary na pasta 'clipes'.")
 
     st.markdown("---")
     st.markdown("### 🎬 Fila de Pedidos Atual")
