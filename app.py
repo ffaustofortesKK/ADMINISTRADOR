@@ -147,13 +147,12 @@ def obter_video_fundo(provider_token):
     return ""
 
 def listar_videos_pasta_clipes():
-    """Busca dinamicamente os vídeos diretamente da pasta 'clipes' no Cloudinary."""
+    """Busca todos os vídeos disponíveis na conta ou na pasta do Cloudinary de forma robusta."""
     videos_encontrados = []
     try:
         resultado = cloudinary.api.resources(
             resource_type="video",
             type="upload",
-            prefix="clipes/",
             max_results=100
         )
         for recurso in resultado.get("resources", []):
@@ -166,7 +165,7 @@ def listar_videos_pasta_clipes():
                 nome_amigavel = public_id.split("/")[-1]
                 videos_encontrados.append({"nome": nome_amigavel, "url": url_secure})
     except Exception as e:
-        print(f"Erro ao listar pasta clipes do Cloudinary: {e}")
+        print(f"Erro ao listar vídeos do Cloudinary: {e}")
     
     return videos_encontrados
 
@@ -218,7 +217,7 @@ def renderizar_gestao_fila_prestador(provider_token):
 
     with st.form(key="form_video_fundo"):
         escolha_video = st.selectbox(
-            "Selecione o Vídeo Clipe da pasta 'clipes' do Cloudinary:", 
+            "Selecione o Vídeo Clipe do Cloudinary:", 
             options=opcoes_labels, 
             index=index_atual
         )
