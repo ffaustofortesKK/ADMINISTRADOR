@@ -155,58 +155,54 @@ def obter_config_fundo(provider_token):
     return "", "repetir_todos"
 
 def listar_videos_pasta_clipes():
-    """Lista exclusivamente os vídeos que estão dentro da pasta 'clipes' do Cloudinary de forma totalmente robusta."""
+    """Lista todos os vídeos disponíveis na conta Cloudinary com total robustez."""
     videos_encontrados = []
     vistos = set()
     
-    # 1. Listar via prefixo "clipes/"
     try:
         resultado = cloudinary.api.resources(
             resource_type="video",
             type="upload",
-            prefix="clipes/",
             max_results=500
         )
         for recurso in resultado.get("resources", []):
-            public_id = recurso.get("public_id", "")
-            if public_id.startswith("clipes/"):
+            url_secure = recurso.get("secure_url", "")
+            if url_secure:
+                if "/upload/" in url_secure and "f_auto,q_auto" not in url_secure:
+                    url_secure = url_secure.replace("/upload/", "/upload/f_auto,q_auto/")
+                
+                public_id = recurso.get("public_id", "")
+                filename = recurso.get("filename", "")
+                nome_amigavel = filename if filename else public_id.split("/")[-1]
+                
+                if url_secure not in vistos:
+                    vistos.add(url_secure)
+                    videos_encontrados.append({"nome": nome_amigavel, "url": url_secure})
+    except Exception as e:
+        print(f"Erro ao listar via resources: {e}")
+
+    if not videos_encontrados:
+        try:
+            resultado_search = cloudinary.search.Search()\
+                .expression('resource_type:video')\
+                .max_results(500)\
+                .execute()
+                
+            for recurso in resultado_search.get("resources", []):
                 url_secure = recurso.get("secure_url", "")
                 if url_secure:
                     if "/upload/" in url_secure and "f_auto,q_auto" not in url_secure:
                         url_secure = url_secure.replace("/upload/", "/upload/f_auto,q_auto/")
                     
                     filename = recurso.get("filename", "")
-                    nome_amigavel = filename if filename else public_id.split("/")[-1]
-                    
-                    if url_secure not in vistos:
-                        vistos.add(url_secure)
-                        videos_encontrados.append({"nome": nome_amigavel, "url": url_secure})
-    except Exception as e:
-        print(f"Erro ao listar via prefix 'clipes/': {e}")
-
-    # 2. Pesquisa de apoio Search API estrita para a pasta clipes
-    if not videos_encontrados:
-        try:
-            resultado_search = cloudinary.search.Search()\
-                .expression('resource_type:video AND folder=clipes')\
-                .max_results(500)\
-                .execute()
-                
-            for recurso in resultado_search.get("resources", []):
-                public_id = recurso.get("public_id", "")
-                url_secure = recurso.get("secure_url", "")
-                if url_secure and public_id.startswith("clipes/"):
-                    if "/upload/" in url_secure and "f_auto,q_auto" not in url_secure:
-                        url_secure = url_secure.replace("/upload/", "/upload/f_auto,q_auto/")
-                    
-                    filename = recurso.get("filename", "")
+                    public_id = recurso.get("public_id", "")
                     nome_amigavel = filename if filename else public_id.split("/")[-1]
                     
                     if url_secure not in vistos:
                         vistos.add(url_secure)
                         videos_encontrados.append({"nome": nome_amigavel, "url": url_secure})
         except Exception as err:
-            print(f"Erro na pesquisa Search Cloudinary (folder=clipes): {err}")
+            print(f"Erro na pesquisa Search Cloudinary: {err}")
             
     return videos_encontrados
 
@@ -235,35 +231,22 @@ def obter_url_video_cloudinary(musica_obj, titulo_limpo):
 
 @st.fragment(run_every=3)
 def renderizar_gestao_fila_prestador(provider_token):
-    st.markdown("### 🎬 Gestão de Vídeos e Modos (Pasta 'clipes')")
+    st.markdown("### 🎬 Configuração de Vídeo Clipe de Fundo (Tela)")
     
     video_fundo_atual, modo_atual = obter_config_fundo(provider_token)
     lista_clipes_cloudinary = listar_videos_pasta_clipes()
     
-    # Campo de pesquisa de vídeos da pasta clipes
-    termo_pesquisa = st.text_input("🔍 Localizar vídeo clipe na pasta 'clipes':", placeholder="Digite o nome do artista ou música...")
-    
-    # Filtrar clipes com base na pesquisa
-    if termo_pesquisa.strip():
-        clipes_filtrados = [c for c in lista_clipes_cloudinary if termo_pesquisa.lower() in c['nome'].lower()]
-    else:
-        clipes_filtrados = lista_clipes_cloudinary
-
-    opcoes_labels = ["🔁 Repetir Todas (Sequencial)", "🔀 Modo Aleatório", "🔂 Repetir Uma (Vídeo Específico abaixo)"]
+    opcoes_labels = ["🔁 Reproduzir Todos da Pasta (Sequencial)", "🔀 Modo Aleatório (Shuffle)"]
     mapa_url_por_label = {}
     
-    for clipe in clipes_filtrados:
-        label = f"📁 [Clipe] {clipe['nome']}"
+    for clipe in lista_clipes_cloudinary:
+        label = f"📁 [Especifico] {clipe['nome']}"
         opcoes_labels.append(label)
         mapa_url_por_label[label] = clipe['url']
         
     index_atual = 0
-    if modo_atual == "repetir_todos":
-        index_atual = 0
-    elif modo_atual == "aleatorio":
+    if modo_atual == "aleatorio":
         index_atual = 1
-    elif modo_atual == "repetir_1" and not video_fundo_atual:
-        index_atual = 2
     elif video_fundo_atual:
         for idx, label in enumerate(opcoes_labels):
             if label.startswith("📁"):
@@ -273,40 +256,26 @@ def renderizar_gestao_fila_prestador(provider_token):
                     break
 
     escolha_video = st.selectbox(
-        "Selecione o modo ou escolha o vídeo filtrado:", 
+        "Modo de Reprodução ou Vídeo Específico:", 
         options=opcoes_labels, 
-        index=min(index_atual, len(opcoes_labels)-1)
+        index=index_atual
     )
 
-    if escolha_video == "🔁 Repetir Todas (Sequencial)":
+    # Define o modo com base na escolha
+    if escolha_video == "🔁 Reproduzir Todos da Pasta (Sequencial)":
         modo_guardar = "repetir_todos"
         valor_a_guardar = ""
-    elif escolha_video == "🔀 Modo Aleatório":
+    elif escolha_video == "🔀 Modo Aleatório (Shuffle)":
         modo_guardar = "aleatorio"
         valor_a_guardar = ""
-    elif escolha_video == "🔂 Repetir Uma (Vídeo Específico abaixo)":
-        modo_guardar = "repetir_1"
-        valor_a_guardar = clipes_filtrados[0]['url'] if clipes_filtrados else (lista_clipes_cloudinary[0]['url'] if lista_clipes_cloudinary else "")
     else:
-        modo_guardar = "repetir_1"
+        modo_guardar = "repetir_1" # Repetir apenas o vídeo escolhido
         valor_a_guardar = mapa_url_por_label.get(escolha_video, "")
 
-    # BOTÕES EXATOS PEDIDOS LOGO ABAIXO DA PESQUISA/SELEÇÃO NA PÁGINA DO PRESTADOR
-    st.markdown("#### 🎛️ Controlos de Reprodução")
-    col_btn1, col_btn2, col_btn3 = st.columns(3)
-    with col_btn1:
-        if st.button("▶️ Iniciar", use_container_width=True):
-            definir_config_fundo(provider_token, valor_a_guardar, modo_guardar)
-            st.success("Configuração iniciada na TV!")
-            st.rerun()
-    with col_btn2:
-        if st.button("⏹️ Stop", use_container_width=True):
-            definir_config_fundo(provider_token, "", "repetir_todos")
-            st.warning("Reprodução parada / reiniciada.")
-            st.rerun()
-    with col_btn3:
-        if st.button("🔄 Atualizar Lista", use_container_width=True):
-            st.rerun()
+    if st.button("▶️ Iniciar / Aplicar Configuração de Fundo"):
+        definir_config_fundo(provider_token, valor_a_guardar, modo_guardar)
+        st.success("Configuração de fundo aplicada com sucesso!")
+        st.rerun()
 
     st.markdown("---")
     st.markdown("### 🎬 Fila de Pedidos Atual")
@@ -482,6 +451,7 @@ def renderizar_ecra_tv(provider_token):
             import json
             urls_playlist = [c['url'] for c in lista_clipes]
             
+            # Se o modo for 'repetir_1' e houver um vídeo específico guardado, a playlist terá apenas esse vídeo
             if modo_reproducao == 'repetir_1' and url_clipe_fundo:
                 urls_playlist = [url_clipe_fundo]
             elif not urls_playlist and url_clipe_fundo:
@@ -528,7 +498,7 @@ def renderizar_ecra_tv(provider_token):
             with col_dir:
                 st.markdown("""
                     <div style="border: 2px solid #FFC107; border-radius: 10px; padding: 15px; text-align: center; background: #111; margin-bottom: 15px;">
-                        <h2 style="color: #FFC107; margin: 0; font-family: monospace;">📺 VÍDEO CLIPE (PASTA 'CLIPES')</h2>
+                        <h2 style="color: #FFC107; margin: 0; font-family: monospace;">📺 VÍDEO CLIPE (FUNDO)</h2>
                     </div>
                 """, unsafe_allow_html=True)
                 
@@ -586,7 +556,7 @@ def renderizar_ecra_tv(provider_token):
                     st.markdown("""
                         <div style="border: 2px solid #FFC107; border-radius: 10px; padding: 80px 20px; text-align: center; background: #000; color: #FFC107; font-family: monospace;">
                             <div style="font-size: 40px; margin-bottom: 10px;">📺</div>
-                            <p style="color: #aaa; font-size: 16px; margin: 0;">Nenhum vídeo encontrado na pasta 'clipes' do Cloudinary...</p>
+                            <p style="color: #aaa; font-size: 16px; margin: 0;">Nenhum vídeo clipe encontrado na conta do Cloudinary...</p>
                         </div>
                     """, unsafe_allow_html=True)
 
