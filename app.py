@@ -584,21 +584,22 @@ def main():
                 show_provider_panel_custom(token)
                 return
             
-        # ÁREA RESTRITA CENTRALIZADA NA TELA
-        st.title("🔒 FFKaraoke - Área Restrita")
-        st.write("Introduza a palavra-passe de administrador abaixo para gerir os acessos ou aceda através do link do seu painel de prestador.")
-        
-        with st.form("form_admin_login"):
-            senha = st.text_input("Palavra-passe de Administrador", type="password")
-            submitted = st.form_submit_button("Entrar")
+        # ÁREA RESTRITA CENTRALIZADA
+        if not st.session_state.get("admin_logged", False):
+            st.title("🔒 FFKaraoke - Área Restrita")
+            st.write("Introduza a palavra-passe de administrador abaixo para gerir os acessos ou aceda através do link do seu painel de prestador.")
             
-            if submitted:
-                if senha == "ffkaraoke2026" or senha == "admin123":
-                    st.success("Sessão Iniciada com sucesso!")
-                    st.session_state["admin_logged"] = True
-                    st.rerun()
-                else:
-                    st.error("Palavra-passe incorreta.")
+            with st.form("form_admin_login"):
+                senha = st.text_input("Palavra-passe de Administrador", type="password")
+                submitted = st.form_submit_button("Entrar")
+                
+                if submitted:
+                    if senha == "ffkaraoke2026" or senha == "admin123":
+                        st.session_state["admin_logged"] = True
+                        st.success("Sessão iniciada com sucesso!")
+                        st.rerun()
+                    else:
+                        st.error("Palavra-passe incorreta.")
 
         if st.session_state.get("admin_logged", False):
             show_admin_panel()
