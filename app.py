@@ -211,6 +211,47 @@ def obter_url_video_cloudinary(musica_obj, titulo_limpo):
     encoded_title = urllib.parse.quote(titulo_limpo + ".mp4")
     return f"https://res.cloudinary.com/{cloud_name}/video/upload/f_auto,q_auto/{encoded_title}"
 
+def pesquisar_youtube_karaoke(termo_pesquisa):
+    try:
+        query_formatada = urllib.parse.quote(f"{termo_pesquisa} karaoke")
+        url_busca = f"https://www.youtube.com/results?search_query={query_formatada}"
+        headers = {"User-Agent": "Mozilla/5.0"}
+        res = requests.get(url_busca, headers=headers, timeout=5)
+        if res.status_code == 200:
+            import re
+            match = re.search(r'"videoId":"([a-zA-Z0-9_-]{11})"', res.text)
+            if match:
+                video_id = match.group(1)
+                return f"https://www.youtube.com/watch?v={video_id}"
+    except Exception:
+        pass
+    return f"https://www.youtube.com/results?search_query={urllib.parse.quote(termo_pesquisa + ' karaoke')}"
+
+def guardar_pedido_extra(provider_token, cliente_nome, musica_pedida):
+    try:
+        url = f"{FIREBASE_URL}/pedidos_extras/{provider_token}.json"
+        dados = {
+            "cliente": cliente_nome,
+            "musica": musica_pedida,
+            "timestamp": int(time.time() * 1000),
+            "estado": "pendente",
+            "resposta": ""
+        }
+        res = requests.post(url, json=dados, timeout=10)
+        
+        # Enviar também para a caixa do Administrador global
+        url_adm = f"{FIREBASE_URL}/admin_pedidos_extras.json"
+        link_encontrado = pesquisar_youtube_karaoke(musica_pedida)
+        dados_adm = {
+            **dados,
+            "prestador": provider_token,
+            "link_youtube_sugerido": link_encontrado
+        }
+        requests.post(url_adm, json=dados_adm, timeout=10)
+        return res.status_code == 200
+    except Exception:
+        return False
+
 @st.fragment(run_every=3)
 def renderizar_gestao_fila_prestador(provider_token):
     try:
@@ -232,8 +273,8 @@ def renderizar_gestao_fila_prestador(provider_token):
         
         with col_fila:
             if pedidos_ativos:
-                html_lista = '<div style="background-color: #111111; border: 2px solid #333333; padding: 15px; border-radius: 8px; color: #ffffff; width: 100%; font-family: monospace; font-size: 15px; margin-bottom: 20px;">'
-                html_lista += '<div style="color: #4CAF50; font-weight: bold; margin-bottom: 8px; border-bottom: 1px solid #333; padding-bottom: 4px;">ESTADO DA FILA:</div>'
+                html_lista = '<div style="background-color: #111111; border: 2px solid #FFC107; padding: 15px; border-radius: 8px; color: #ffffff; width: 100%; font-family: monospace; font-size: 15px; margin-bottom: 20px;">'
+                html_lista += '<div style="color: #FFC107; font-weight: bold; margin-bottom: 8px; border-bottom: 1px solid #333; padding-bottom: 4px;">ESTADO DA FILA:</div>'
                 for idx, p in enumerate(pedidos_ativos, start=1):
                     titulo_musica = limpar_nome_musica(p.get("musica", {}))
                     cliente_nome = p.get("cliente", "Convidado")
@@ -245,8 +286,8 @@ def renderizar_gestao_fila_prestador(provider_token):
                 st.markdown(html_lista, unsafe_allow_html=True)
             else:
                 st.markdown("""
-                    <div style="background-color: #111111; border: 2px solid #333333; padding: 15px; border-radius: 8px; color: #888; width: 100%; font-family: monospace; font-size: 15px; margin-bottom: 20px;">
-                        <div>Nenhum pedido na lista neste momento. À espera de novos pedidos...</div>
+                    <div style="background-color: #111111; border: 2px solid #FFC107; border-radius: 8px; padding: 15px; color: #FFC107; width: 100%; font-family: monospace; font-size: 15px; margin-bottom: 20px;">
+                        <div>NENHUM PEDIDO NA LISTA NESTE MOMENTO.<br>À ESPERA DE NOVOS PEDIDOS...</div>
                     </div>
                 """, unsafe_allow_html=True)
 
@@ -283,6 +324,37 @@ def renderizar_gestao_fila_prestador(provider_token):
                     st.rerun()
 
         st.markdown("---")
+        st.markdown("### 📥 Aba de Pedidos Extras (Fora da Lista)")
+        try:
+            url_extras = f"{FIREBASE_URL}/pedidos_extras/{provider_token}.json?_t={time.time()}"
+            res_extras = requests.get(url_extras, timeout=5)
+            if res_extras.status_code == 200 and res_extras.json():
+                extras_data = res_extras.json()
+                for k_ext, v_ext in extras_data.items():
+                    c_nome = v_ext.get("cliente", "Cliente")
+                    m_pedida = v_ext.get("musica", "")
+                    estado_ext = v_ext.get("estado", "pendente")
+                    
+                    st.markdown(f"""
+                        <div style="background: #151515; border: 1px solid #FFC107; border-radius: 8px; padding: 10px; margin-bottom: 8px; font-family: monospace;">
+                            <b>Cliente:</b> {c_nome} | <b>Música Solicitada:</b> <span style="color: #FFC107;">{m_pedida}</span>
+                        </div>
+                    """, unsafe_allow_html=True)
+                    
+                    if estado_ext == "pendente":
+                        if st.button(f"Responder: 'Infelizmente não temos disponível essa música, pode solicitar outra.'", key=f"resp_ext_{k_ext}"):
+                            requests.put(f"{FIREBASE_URL}/pedidos_extras/{provider_token}/{k_ext}/estado.json", json="respondido", timeout=5)
+                            requests.put(f"{FIREBASE_URL}/pedidos_extras/{provider_token}/{k_ext}/resposta.json", json="Infelizmente não temos disponível essa música, pode solicitar outra.", timeout=5)
+                            st.success("Mensagem de resposta enviada ao cliente com sucesso!")
+                            st.rerun()
+                    else:
+                        st.info("📨 Resposta enviada ao cliente.")
+            else:
+                st.markdown("<p style='color: #888; font-family: monospace;'>Nenhum pedido extra recebido de momento.</p>", unsafe_allow_html=True)
+        except Exception:
+            pass
+
+        st.markdown("---")
         st.markdown("### 🎬 Configuração de Vídeo Clipe de Fundo (Tela)")
         
         video_fundo_atual = obter_video_fundo(provider_token)
@@ -306,12 +378,12 @@ def renderizar_gestao_fila_prestador(provider_token):
 
         with st.form(key="form_video_fundo"):
             escolha_video = st.selectbox(
-                "Selecione o Vídeo Clipe da pasta 'clipes':", 
+                "SELECIONE O VÍDEO CLIPE DA PASTA 'CLIPES':", 
                 options=opcoes_labels, 
                 index=index_atual
             )
 
-            btn_salvar_fundo = st.form_submit_button("▶️ Play Vídeo Clipe de Fundo")
+            btn_salvar_fundo = st.form_submit_button("▶️ PLAY VÍDEO CLIPE DE FUNDO")
             if btn_salvar_fundo:
                 if escolha_video == "Nenhum (Ecrã Preto)":
                     valor_a_guardar = ""
@@ -326,9 +398,66 @@ def renderizar_gestao_fila_prestador(provider_token):
         st.error(f"Erro ao carregar os pedidos do Firebase: {e}")
 
 def show_provider_panel_custom(provider_token):
-    st.markdown("### 🎤 Painel do Prestador — FF Karaoke")
-    st.markdown(f"<p style='color: #888; font-size: 13px;'>Token Ativo: <code>{provider_token}</code></p>", unsafe_allow_html=True)
-    st.markdown("---")
+    st.markdown("""
+    <style>
+    .stApp {
+        background-color: #0b0b0b;
+        color: #ffffff;
+    }
+    .panel-header {
+        display: flex;
+        align-items: center;
+        gap: 15px;
+        border-bottom: 2px solid #FFC107;
+        padding-bottom: 10px;
+        margin-bottom: 20px;
+    }
+    .card-link {
+        background: linear-gradient(90deg, #0d1b2a 0%, #1b263b 100%);
+        border: 2px solid #FFC107;
+        border-radius: 12px;
+        padding: 15px 20px;
+        margin-bottom: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        box-shadow: 0 4px 15px rgba(255, 193, 7, 0.15);
+    }
+    .card-tv {
+        background: linear-gradient(90deg, #1f1a24 0%, #2e1a38 100%);
+        border: 2px solid #9c27b0;
+        border-radius: 12px;
+        padding: 15px 20px;
+        margin-bottom: 20px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        box-shadow: 0 4px 15px rgba(156, 39, 176, 0.15);
+    }
+    .link-text {
+        font-family: monospace;
+        color: #FFC107;
+        font-size: 14px;
+        text-decoration: none;
+    }
+    .link-text-tv {
+        font-family: monospace;
+        color: #e1bee7;
+        font-size: 14px;
+        text-decoration: none;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
+    st.markdown(f"""
+        <div class="panel-header">
+            <span style="font-size: 32px;">🎤</span>
+            <div>
+                <h1 style="margin: 0; color: #FFC107; font-family: monospace; font-size: 26px; text-transform: uppercase;">PAINEL DO PRESTADOR — FF KARAOKE</h1>
+                <p style="margin: 5px 0 0 0; color: #aaa; font-size: 13px; font-family: monospace;">TOKEN ATIVO: <code style="background: #222; color: #4CAF50; padding: 2px 6px; border-radius: 4px;">{provider_token}</code></p>
+            </div>
+        </div>
+    """, unsafe_allow_html=True)
     
     link_cliente_rel = f"/?page=client_register&prestador={provider_token}"
     link_tv_rel = f"/?page=client_screen&prestador={provider_token}"
@@ -337,20 +466,30 @@ def show_provider_panel_custom(provider_token):
     link_cliente_absoluto = f"https://{host_dominio}{link_cliente_rel}"
     qr_url_cliente = f"https://api.qrserver.com/v1/create-qr-code/?size=180x180&data={urllib.parse.quote(link_cliente_absoluto)}"
 
-    col_link, col_qr = st.columns([3, 1])
-    with col_link:
+    col_links, col_qr = st.columns([3, 1])
+    
+    with col_links:
         st.markdown(f"""
-            <div style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 15px;">
-                <div style="background-color: #e8f0fe; border: 1px solid #d2e3fc; padding: 10px 15px; border-radius: 8px;">
-                    <span style="font-size: 14px; color: #202124;">📎 <b>Link do Cliente:</b> <a href="{link_cliente_rel}" target="_blank" rel="noopener noreferrer" style="color: #1a73e8; text-decoration: none;">{link_cliente_rel}</a></span>
+            <div class="card-link">
+                <div>
+                    <div style="font-weight: bold; color: #fff; font-family: monospace; margin-bottom: 4px; font-size: 15px;">👥 LINK DO CLIENTE</div>
+                    <a href="{link_cliente_rel}" target="_blank" class="link-text">{link_cliente_rel}</a>
                 </div>
-                <div style="background-color: #e8f0fe; border: 1px solid #d2e3fc; padding: 10px 15px; border-radius: 8px;">
-                    <span style="font-size: 14px; color: #202124;">📺 <b>Link da TV:</b> <a href="{link_tv_rel}" target="_blank" rel="noopener noreferrer" style="color: #1a73e8; text-decoration: none;">{link_tv_rel}</a></span>
+            </div>
+            <div class="card-tv">
+                <div>
+                    <div style="font-weight: bold; color: #fff; font-family: monospace; margin-bottom: 4px; font-size: 15px;">📺 LINK DA TV</div>
+                    <a href="{link_tv_rel}" target="_blank" class="link-text-tv">{link_tv_rel}</a>
                 </div>
             </div>
         """, unsafe_allow_html=True)
+        
     with col_qr:
-        st.image(qr_url_cliente, width=130, caption="QR Code Cliente")
+        st.markdown("""
+            <div style="background: #111; border: 2px solid #FFC107; border-radius: 12px; padding: 10px; text-align: center; box-shadow: 0 4px 15px rgba(255, 193, 7, 0.2);">
+        """, unsafe_allow_html=True)
+        st.image(qr_url_cliente, width=135, caption="")
+        st.markdown("<div style='color: #FFC107; font-family: monospace; font-size: 12px; font-weight: bold; margin-top: 5px;'>QR CODE CLIENTE</div></div>", unsafe_allow_html=True)
 
     renderizar_gestao_fila_prestador(provider_token)
 
