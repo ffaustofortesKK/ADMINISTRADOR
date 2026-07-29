@@ -212,64 +212,27 @@ def obter_url_video_cloudinary(musica_obj, titulo_limpo):
 
 @st.fragment(run_every=3)
 def renderizar_gestao_fila_prestador(provider_token):
-    st.markdown("### 🎬 Configuração de Vídeo Clipe de Fundo (Tela)")
-    
-    video_fundo_atual = obter_video_fundo(provider_token)
-    lista_clipes_cloudinary = listar_videos_pasta_clipes()
-    
-    opcoes_labels = ["Nenhum (Ecrã Preto)"]
-    mapa_url_por_label = {}
-    
-    for clipe in lista_clipes_cloudinary:
-        label = f"📁 {clipe['nome']}"
-        opcoes_labels.append(label)
-        mapa_url_por_label[label] = clipe['url']
-        
-    index_atual = 0
-    for idx, label in enumerate(opcoes_labels):
-        if label != "Nenhum (Ecrã Preto)":
-            url_mapeada = mapa_url_por_label.get(label, "")
-            if video_fundo_atual and (video_fundo_atual in url_mapeada or url_mapeada in video_fundo_atual):
-                index_atual = idx
-                break
-
-    with st.form(key="form_video_fundo"):
-        escolha_video = st.selectbox(
-            "Selecione o Vídeo Clipe da pasta 'clipes':", 
-            options=opcoes_labels, 
-            index=index_atual
-        )
-
-        btn_salvar_fundo = st.form_submit_button("▶️ Play Vídeo Clipe de Fundo")
-        if btn_salvar_fundo:
-            if escolha_video == "Nenhum (Ecrã Preto)":
-                valor_a_guardar = ""
-            else:
-                valor_a_guardar = mapa_url_por_label.get(escolha_video, "")
-                
-            definir_video_fundo(provider_token, valor_a_guardar)
-            st.success("Vídeo clipe de fundo iniciado com sucesso na tela!")
-            st.rerun()
-
-    st.markdown("---")
-    st.markdown("### 🎬 Fila de Pedidos Atual")
-
     try:
         url_firebase = f"{FIREBASE_URL}/pedidos/{provider_token}.json?_t={time.time()}"
         response = requests.get(url_firebase, timeout=10)
         
+        pedidos = []
         if response.status_code == 200 and response.json():
             data = response.json()
             pedidos = [{"id": k, **v} for k, v in data.items()]
             
-            pedidos_ativos = [p for p in pedidos if p.get("estado") in ["pendente", "aprovado"]]
-            pedidos_ativos.sort(key=lambda x: x.get("timestamp", 0))
-            
-            tocando_agora = next((p for p in pedidos_ativos if p.get("estado") == "aprovado"), None)
-            pendentes = [p for p in pedidos_ativos if p.get("estado") == "pendente"]
+        pedidos_ativos = [p for p in pedidos if p.get("estado") in ["pendente", "aprovado"]]
+        pedidos_ativos.sort(key=lambda x: x.get("timestamp", 0))
+        
+        tocando_agora = next((p for p in pedidos_ativos if p.get("estado") == "aprovado"), None)
+        pendentes = [p for p in pedidos_ativos if p.get("estado") == "pendente"]
 
+        # Layout reorganizado exatamente conforme solicitado: Fila com botões Play ao lado, seguidos pela Configuração de Vídeo Clipe abaixo.
+        col_fila, col_botoes = st.columns([3, 1])
+        
+        with col_fila:
             if pedidos_ativos:
-                html_lista = '<div style="background-color: #111111; border: 2px solid #333333; padding: 15px; border-radius: 8px; color: #ffffff; max-width: 550px; font-family: monospace; font-size: 15px; margin-bottom: 20px;">'
+                html_lista = '<div style="background-color: #111111; border: 2px solid #333333; padding: 15px; border-radius: 8px; color: #ffffff; width: 100%; font-family: monospace; font-size: 15px; margin-bottom: 20px;">'
                 html_lista += '<div style="color: #4CAF50; font-weight: bold; margin-bottom: 8px; border-bottom: 1px solid #333; padding-bottom: 4px;">ESTADO DA FILA:</div>'
                 for idx, p in enumerate(pedidos_ativos, start=1):
                     titulo_musica = limpar_nome_musica(p.get("musica", {}))
@@ -277,54 +240,87 @@ def renderizar_gestao_fila_prestador(provider_token):
                     estado_atual = p.get("estado")
                     badge = "🎵 [A Tocar]" if estado_atual == "aprovado" else "⏳ [Pendente]"
                     cor_badge = "#4CAF50" if estado_atual == "aprovado" else "#FFC107"
-                    html_lista += f'<div style="padding: 4px 0;"><b>{idx}.</b> {titulo_musica} <span style="color:#aaa; font-size:13px;">({cliente_nome})</span> <span style="color:{cor_badge}; font-size:12px; float:right;">{badge}</span></div>'
+                    html_lista += f'<div style="padding: 6px 0; border-bottom: 1px solid #222;"><b>{idx}.</b> {titulo_musica} <span style="color:#aaa; font-size:13px;">({cliente_nome})</span> <span style="color:{cor_badge}; font-size:12px; float:right;">{badge}</span></div>'
                 html_lista += '</div>'
                 st.markdown(html_lista, unsafe_allow_html=True)
             else:
                 st.markdown("""
-                    <div style="background-color: #111111; border: 2px solid #333333; padding: 15px; border-radius: 8px; color: #888; max-width: 550px; font-family: monospace; font-size: 15px; margin-bottom: 20px;">
+                    <div style="background-color: #111111; border: 2px solid #333333; padding: 15px; border-radius: 8px; color: #888; width: 100%; font-family: monospace; font-size: 15px; margin-bottom: 20px;">
                         <div>Nenhum pedido na lista neste momento. À espera de novos pedidos...</div>
                     </div>
                 """, unsafe_allow_html=True)
 
-            st.markdown("---")
-            st.markdown("### 📋 Gestão de Fila e Controlo")
-
+        with col_botoes:
+            st.markdown("<div style='height: 28px;'></div>", unsafe_allow_html=True) # Espaçamento para alinhar com a caixa
             if tocando_agora:
-                titulo_tocando = limpar_nome_musica(tocando_agora.get("musica", {}))
-                st.success(f"🎵 A tocar agora: **{titulo_tocando}** (Cliente: {tocando_agora.get('cliente', 'Convidado')})")
-                col_t1, col_t2 = st.columns([1, 1])
-                with col_t1:
-                    if st.button("⏹️ Terminar Música Atual", key=f"term_{tocando_agora.get('id')}"):
-                        terminar_todas_musicas_ativas(provider_token, pedidos)
-                        st.success("Música terminada e tela limpa com sucesso!")
-                        st.rerun()
-                with col_t2:
-                    if st.button("🛑 Stop Geral", key=f"stop_{tocando_agora.get('id')}"):
-                        terminar_todas_musicas_ativas(provider_token, pedidos)
-                        definir_video_fundo(provider_token, "")
-                        st.warning("Reprodução parada (Stop) com sucesso!")
-                        st.rerun()
+                if st.button("⏹️ Terminar", key=f"term_top_{tocando_agora.get('id')}", use_container_width=True):
+                    terminar_todas_musicas_ativas(provider_token, pedidos)
+                    st.success("Música terminada!")
+                    st.rerun()
+            
+            for p in pendentes:
+                titulo_p = limpar_nome_musica(p.get("musica", {}))
+                if st.button("▶️ Play", key=f"btn_play_side_{p.get('id')}", use_container_width=True):
+                    terminar_todas_musicas_ativas(provider_token, pedidos)
+                    atualizar_estado_pedido(provider_token, p.get('id'), 'aprovado')
+                    st.success(f"Música '{titulo_p}' enviada para a tela!")
+                    st.rerun()
 
-            if not pendentes:
-                st.write("Fila de pendentes vazia. Os pedidos feitos pelos clientes aparecerão aqui automaticamente.")
-            else:
-                st.write("### Pedidos Pendentes para Aprovar:")
-                for idx, p in enumerate(pendentes, start=1):
-                    titulo_musica = limpar_nome_musica(p.get("musica", {}))
-                    cliente_nome = p.get("cliente", "Convidado")
+        if tocando_agora:
+            titulo_tocando = limpar_nome_musica(tocando_agora.get("musica", {}))
+            st.success(f"🎵 A tocar agora: **{titulo_tocando}** (Cliente: {tocando_agora.get('cliente', 'Convidado')})")
+            col_s1, col_s2 = st.columns([1, 1])
+            with col_s1:
+                if st.button("⏹️ Terminar Música Atual", key=f"term_{tocando_agora.get('id')}"):
+                    terminar_todas_musicas_ativas(provider_token, pedidos)
+                    st.success("Música terminada e tela limpa com sucesso!")
+                    st.rerun()
+            with col_s2:
+                if st.button("🛑 Stop Geral", key=f"stop_{tocando_agora.get('id')}"):
+                    terminar_todas_musicas_ativas(provider_token, pedidos)
+                    definir_video_fundo(provider_token, "")
+                    st.warning("Reprodução parada (Stop) com sucesso!")
+                    st.rerun()
+
+        st.markdown("---")
+        st.markdown("### 🎬 Configuração de Vídeo Clipe de Fundo (Tela)")
+        
+        video_fundo_atual = obter_video_fundo(provider_token)
+        lista_clipes_cloudinary = listar_videos_pasta_clipes()
+        
+        opcoes_labels = ["Nenhum (Ecrã Preto)"]
+        mapa_url_por_label = {}
+        
+        for clipe in lista_clipes_cloudinary:
+            label = f"📁 {clipe['nome']}"
+            opcoes_labels.append(label)
+            mapa_url_por_label[label] = clipe['url']
+            
+        index_atual = 0
+        for idx, label in enumerate(opcoes_labels):
+            if label != "Nenhum (Ecrã Preto)":
+                url_mapeada = mapa_url_por_label.get(label, "")
+                if video_fundo_atual and (video_fundo_atual in url_mapeada or url_mapeada in video_fundo_atual):
+                    index_atual = idx
+                    break
+
+        with st.form(key="form_video_fundo"):
+            escolha_video = st.selectbox(
+                "Selecione o Vídeo Clipe da pasta 'clipes':", 
+                options=opcoes_labels, 
+                index=index_atual
+            )
+
+            btn_salvar_fundo = st.form_submit_button("▶️ Play Vídeo Clipe de Fundo")
+            if btn_salvar_fundo:
+                if escolha_video == "Nenhum (Ecrã Preto)":
+                    valor_a_guardar = ""
+                else:
+                    valor_a_guardar = mapa_url_por_label.get(escolha_video, "")
                     
-                    col_info, col_btn = st.columns([3, 1])
-                    with col_info:
-                        st.write(f"**Pedido** - {titulo_musica} *(Cliente: {cliente_nome})*")
-                    with col_btn:
-                        if st.button(f"▶️ Play", key=f"btn_play_{p.get('id')}"):
-                            terminar_todas_musicas_ativas(provider_token, pedidos)
-                            atualizar_estado_pedido(provider_token, p.get('id'), 'aprovado')
-                            st.success(f"Música '{titulo_musica}' enviada para a tela!")
-                            st.rerun()
-        else:
-            st.info("Nenhum pedido encontrado no Firebase para este prestador. Abra o link do cliente e envie uma música para testar.")
+                definir_video_fundo(provider_token, valor_a_guardar)
+                st.success("Vídeo clipe de fundo iniciado com sucesso na tela!")
+                st.rerun()
             
     except Exception as e:
         st.error(f"Erro ao carregar os pedidos do Firebase: {e}")
