@@ -23,12 +23,12 @@ import cloudinary
 import cloudinary.api
 import cloudinary.uploader
 
-# Configuração do Cloudinary
+# Configuração do Cloudinary com as suas credenciais oficiais
 cloudinary.config(
-    cloud_name = "yhwgjh7g",
-    api_key = "SEU_API_KEY",
-    api_secret = "SEU_API_SECRET",
-    secure = True
+    cloud_name="yhwgjh7g",
+    api_key="852434629995691",
+    api_secret="TU_ejil7wKYY15xHjDcRVfbk6Ow",
+    secure=True
 )
 
 # Importações seguras com fallbacks para evitar crash total da aplicação
@@ -483,50 +483,6 @@ def show_client_screen():
 
     renderizar_ecra_tv(provider_token)
 
-def show_client_page_custom(provider_token):
-    """Página adaptada do cliente para também buscar músicas/vídeos diretamente da pasta clipes do Cloudinary."""
-    st.markdown("### 🎶 Escolha a sua Música / Vídeo")
-    st.markdown(f"<p style='color: #888; font-size: 13px;'>Prestador: <code>{provider_token}</code></p>", unsafe_allow_html=True)
-    st.markdown("---")
-
-    # Lista os vídeos diretamente da pasta clipes do Cloudinary para o cliente escolher
-    clipes_disponiveis = listar_videos_pasta_clipes()
-
-    if not clipes_disponiveis:
-        st.warning("Nenhum vídeo encontrado na pasta 'clipes' do Cloudinary.")
-        return
-
-    nome_cliente = st.text_input("O seu Nome / Alcunha:", placeholder="Ex: João Silva")
-
-    opcoes_clipes = {f"📁 {c['nome']}": c['url'] for c in clipes_disponiveis}
-    escolha_cli = st.selectbox("Selecione a música/vídeo pretendido:", options=list(opcoes_clipes.keys()))
-
-    if st.button("🚀 Enviar Pedido para a Fila"):
-        if not nome_cliente.strip():
-            st.error("Por favor, introduza o seu nome antes de enviar.")
-        else:
-            url_escolhida = opcoes_clipes[escolha_cli]
-            nome_musica_limpo = escolha_cli.replace("📁 ", "")
-
-            novo_pedido = {
-                "cliente": nome_cliente.strip(),
-                "musica": {
-                    "titulo": nome_musica_limpo,
-                    "url_cloudinary": url_escolhida
-                },
-                "estado": "pendente",
-                "timestamp": int(time.time() * 1000)
-            }
-
-            try:
-                res = requests.post(f"{FIREBASE_URL}/pedidos/{provider_token}.json", json=novo_pedido, timeout=10)
-                if res.status_code == 200:
-                    st.success(f"Pedido de '{nome_musica_limpo}' enviado com sucesso para a fila!")
-                else:
-                    st.error("Erro ao comunicar com o servidor de pedidos.")
-            except Exception as ex:
-                st.error(f"Erro de conexão: {ex}")
-
 def main():
     try:
         query_params = st.query_params
@@ -536,11 +492,7 @@ def main():
             return
 
         if "page" in query_params and query_params["page"] == "client_register":
-            token_prestador = query_params.get("prestador") or query_params.get("provider", "")
-            if token_prestador:
-                show_client_page_custom(token_prestador)
-            else:
-                show_client_page()
+            show_client_page()
             return
 
         if "page" in query_params and query_params["page"] == "client_screen":
