@@ -151,7 +151,6 @@ def listar_videos_pasta_clipes():
     """Usa o motor de Search do Cloudinary para listar com precisão absoluta todos os vídeos na pasta 'clipes'."""
     videos_encontrados = []
     try:
-        # Pesquisa avançada focada na pasta 'clipes'
         resultado = cloudinary.search.Search()\
             .expression('resource_type:video AND asset_folder=clipes')\
             .max_results(500)\
@@ -169,7 +168,6 @@ def listar_videos_pasta_clipes():
                 
                 videos_encontrados.append({"nome": nome_amigavel, "url": url_secure})
     except Exception as e:
-        # Fallback de segurança caso a API de search exija índices específicos, varrendo via resource genérico
         try:
             resultado_alt = cloudinary.api.resources(
                 resource_type="video",
@@ -220,7 +218,7 @@ def renderizar_gestao_fila_prestador(provider_token):
     video_fundo_atual = obter_video_fundo(provider_token)
     lista_clipes_cloudinary = listar_videos_pasta_clipes()
     
-    opcoes_labels = ["Nenhum (Ecrã Preto)"]
+    opcoes_labels = ["Modo Automático (Rotação de Todos os Clipes)"]
     mapa_url_por_label = {}
     
     for clipe in lista_clipes_cloudinary:
@@ -230,7 +228,7 @@ def renderizar_gestao_fila_prestador(provider_token):
         
     index_atual = 0
     for idx, label in enumerate(opcoes_labels):
-        if label != "Nenhum (Ecrã Preto)":
+        if label != "Modo Automático (Rotação de Todos os Clipes)":
             url_mapeada = mapa_url_por_label.get(label, "")
             if video_fundo_atual and (video_fundo_atual in url_mapeada or url_mapeada in video_fundo_atual):
                 index_atual = idx
@@ -238,20 +236,20 @@ def renderizar_gestao_fila_prestador(provider_token):
 
     with st.form(key="form_video_fundo"):
         escolha_video = st.selectbox(
-            "Selecione o Vídeo Clipe da pasta 'clipes':", 
+            "Selecione o Vídeo Clipe ou o Modo Automático:", 
             options=opcoes_labels, 
             index=index_atual
         )
 
-        btn_salvar_fundo = st.form_submit_button("💾 Atualizar Vídeo Clipe de Fundo")
+        btn_salvar_fundo = st.form_submit_button("💾 Atualizar Configuração de Fundo")
         if btn_salvar_fundo:
-            if escolha_video == "Nenhum (Ecrã Preto)":
-                valor_a_guardar = ""
+            if escolha_video == "Modo Automático (Rotação de Todos os Clipes)":
+                valor_a_guardar = "AUTO_PLAYLIST"
             else:
                 valor_a_guardar = mapa_url_por_label.get(escolha_video, "")
                 
             definir_video_fundo(provider_token, valor_a_guardar)
-            st.success("Vídeo clipe de fundo atualizado com sucesso para a tela!")
+            st.success("Configuração de fundo atualizada com sucesso para a tela!")
             st.rerun()
 
     st.markdown("---")
@@ -423,6 +421,7 @@ def renderizar_ecra_tv(provider_token):
             
         else:
             url_clipe_fundo = obter_video_fundo(provider_token)
+            lista_clipes = listar_videos_pasta_clipes()
             proximo_cantor = pedidos_ativos[0] if pedidos_ativos else None
             
             col_esq, col_dir = st.columns([1, 1])
@@ -466,7 +465,48 @@ def renderizar_ecra_tv(provider_token):
                     </div>
                 """, unsafe_allow_html=True)
                 
-                if url_clipe_fundo:
+                urls_json = [c['url'] for c in lista_clipes]
+                
+                if not url_clipe_fundo or url_clipe_fundo == "AUTO_PLAYLIST":
+                    # Converte a lista do python para formato seguro em JavaScript
+                    import json
+                    urls_js = json.dumps(urls_json)
+                    
+                    playlist_html = f"""
+                    <div style="display: flex; justify-content: center; background: black; border: 2px solid #FFC107; border-radius: 10px; padding: 5px; width: 100%;">
+                        <video id="playlist-player" width="100%" height="470px" autoplay playsinline controlslist="nodownload" style="object-fit: contain; background: black; border-radius: 8px;">
+                            O seu navegador não suporta vídeo.
+                        </video>
+                    </div>
+                    <script>
+                        var playlist = {urls_js};
+                        var currentIndex = 0;
+                        var videoElement = document.getElementById('playlist-player');
+
+                        function playVideoAtIndex(index) {{
+                            if (playlist.length === 0) return;
+                            videoElement.src = playlist[index];
+                            videoElement.muted = false;
+                            var p = videoElement.play();
+                            if (p !== undefined) {{
+                                p.catch(err => {{
+                                    videoElement.muted = true;
+                                    videoElement.play();
+                                }});
+                            }}
+                        }}
+
+                        if (playlist.length > 0) {{
+                            playVideoAtIndex(0);
+                            videoElement.onended = function() {{
+                                currentIndex = (currentIndex + 1) % playlist.length;
+                                playVideoAtIndex(currentIndex);
+                            }};
+                        }}
+                    </script>
+                    """
+                    components.html(playlist_html, height=500)
+                else:
                     video_fundo_html = f"""
                     <div style="display: flex; justify-content: center; background: black; border: 2px solid #FFC107; border-radius: 10px; padding: 5px; width: 100%;">
                         <video id="fundo-player" width="100%" height="470px" autoplay loop muted playsinline style="object-fit: contain; background: black; border-radius: 8px;">
@@ -474,15 +514,13 @@ def renderizar_ecra_tv(provider_token):
                             O seu navegador não suporta vídeo.
                         </video>
                     </div>
+                    <script>
+                        var fPlayer = document.getElementById('fundo-player');
+                        fPlayer.muted = false;
+                        fPlayer.play().catch(e => {{ fPlayer.muted = true; fPlayer.play(); }});
+                    </script>
                     """
                     components.html(video_fundo_html, height=500)
-                else:
-                    st.markdown("""
-                        <div style="border: 2px solid #FFC107; border-radius: 10px; padding: 80px 20px; text-align: center; background: #000; color: #FFC107; font-family: monospace;">
-                            <div style="font-size: 40px; margin-bottom: 10px;">📺</div>
-                            <p style="color: #aaa; font-size: 16px; margin: 0;">Aguardando o prestador selecionar um vídeo clipe no painel de controle...</p>
-                        </div>
-                    """, unsafe_allow_html=True)
 
     except Exception as e:
         st.error(f"Erro de sincronização na TV: {e}")
