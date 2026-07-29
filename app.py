@@ -155,11 +155,11 @@ def obter_config_fundo(provider_token):
     return "", "repetir_todos"
 
 def listar_videos_pasta_clipes():
-    """Lista exclusivamente os vídeos que estão dentro da pasta 'clipes' do Cloudinary."""
+    """Lista estritamente e com total robustez os vídeos da pasta 'clipes' do Cloudinary."""
     videos_encontrados = []
     vistos = set()
     
-    # 1. Tentar listar filtrando estritamente pelo prefixo "clipes/"
+    # Tentativa 1: Pesquisa por prefixo exato "clipes/"
     try:
         resultado = cloudinary.api.resources(
             resource_type="video",
@@ -169,7 +169,6 @@ def listar_videos_pasta_clipes():
         )
         for recurso in resultado.get("resources", []):
             public_id = recurso.get("public_id", "")
-            # Garantir que pertence mesmo à pasta clipes
             if public_id.startswith("clipes/"):
                 url_secure = recurso.get("secure_url", "")
                 if url_secure:
@@ -183,9 +182,9 @@ def listar_videos_pasta_clipes():
                         vistos.add(url_secure)
                         videos_encontrados.append({"nome": nome_amigavel, "url": url_secure})
     except Exception as e:
-        print(f"Erro ao listar via prefix 'clipes/': {e}")
+        print(f"Erro ao listar pasta clipes por prefix: {e}")
 
-    # 2. Se não encontrou nada pelo prefixo, tentar via Search API com filtro de pasta
+    # Tentativa 2: Busca por pasta exata através da Search API do Cloudinary
     if not videos_encontrados:
         try:
             resultado_search = cloudinary.search.Search()\
@@ -207,7 +206,31 @@ def listar_videos_pasta_clipes():
                         vistos.add(url_secure)
                         videos_encontrados.append({"nome": nome_amigavel, "url": url_secure})
         except Exception as err:
-            print(f"Erro na pesquisa Search Cloudinary (folder=clipes): {err}")
+            print(f"Erro na pesquisa Search folder=clipes: {err}")
+
+    # Tentativa 3: Fallback geral de segurança caso os ficheiros estejam na raiz mas o utilizador queira ver listado
+    if not videos_encontrados:
+        try:
+            resultado_geral = cloudinary.api.resources(
+                resource_type="video",
+                type="upload",
+                max_results=100
+            )
+            for recurso in resultado_geral.get("resources", []):
+                public_id = recurso.get("public_id", "")
+                url_secure = recurso.get("secure_url", "")
+                if url_secure:
+                    if "/upload/" in url_secure and "f_auto,q_auto" not in url_secure:
+                        url_secure = url_secure.replace("/upload/", "/upload/f_auto,q_auto/")
+                    
+                    filename = recurso.get("filename", "")
+                    nome_amigavel = filename if filename else public_id.split("/")[-1]
+                    
+                    if url_secure not in vistos:
+                        vistos.add(url_secure)
+                        videos_encontrados.append({"nome": nome_amigavel, "url": url_secure})
+        except Exception as e:
+            print(f"Erro no fallback geral: {e}")
             
     return videos_encontrados
 
@@ -456,14 +479,12 @@ def renderizar_ecra_tv(provider_token):
             import json
             urls_playlist = [c['url'] for c in lista_clipes]
             
-            # Se o modo for 'repetir_1' e houver um vídeo específico guardado, a playlist terá apenas esse vídeo
             if modo_reproducao == 'repetir_1' and url_clipe_fundo:
                 urls_playlist = [url_clipe_fundo]
             elif not urls_playlist and url_clipe_fundo:
                 urls_playlist = [url_clipe_fundo]
             
             urls_json = json.dumps(urls_playlist)
-            
             proximo_cantor = pedidos_ativos[0] if pedidos_ativos else None
             
             col_esq, col_dir = st.columns([1, 1])
@@ -510,11 +531,19 @@ def renderizar_ecra_tv(provider_token):
                 if urls_playlist:
                     video_fundo_html = f"""
                     <div style="display: flex; justify-content: center; background: black; border: 2px solid #FFC107; border-radius: 10px; padding: 5px; width: 100%;">
-                        <video id="fundo-player" width="100%" height="470px" controls autoplay playsinline style="object-fit: contain; background: black; border-radius: 8px;">
+                        <video id="fundo-player" width="100%" height="420px" controls autoplay playsinline style="object-fit: contain; background: black; border-radius: 8px;">
                             <source src="" type="video/mp4">
                             O seu navegador não suporta vídeo.
                         </video>
                     </div>
+                    <!-- Botões de Controlo do Leitor de Vídeo Clipe -->
+                    <div style="display: flex; justify-content: center; gap: 10px; margin-top: 10px; flex-wrap: wrap;">
+                        <button onclick="controlarVideo('iniciar')" style="background-color: #4CAF50; color: white; border: none; padding: 8px 14px; border-radius: 5px; cursor: pointer; font-weight: bold; font-family: monospace;">▶️ Iniciar</button>
+                        <button onclick="controlarVideo('repetir_todas')" style="background-color: #2196F3; color: white; border: none; padding: 8px 14px; border-radius: 5px; cursor: pointer; font-weight: bold; font-family: monospace;">🔁 Repetir Todas</button>
+                        <button onclick="controlarVideo('repetir_uma')" style="background-color: #FF9800; color: white; border: none; padding: 8px 14px; border-radius: 5px; cursor: pointer; font-weight: bold; font-family: monospace;">🔂 Repetir Uma</button>
+                        <button onclick="controlarVideo('stop')" style="background-color: #f44336; color: white; border: none; padding: 8px 14px; border-radius: 5px; cursor: pointer; font-weight: bold; font-family: monospace;">⏹️ Stop</button>
+                    </div>
+
                     <script>
                         var playlist = {urls_json};
                         var modoPlay = "{modo_reproducao}";
@@ -535,6 +564,21 @@ def renderizar_ecra_tv(provider_token):
                                     videoElement.muted = true;
                                     videoElement.play();
                                 }});
+                            }}
+                        }}
+
+                        function controlarVideo(acao) {{
+                            if (acao === 'iniciar') {{
+                                videoElement.play();
+                            }} else if (acao === 'repetir_todas') {{
+                                modoPlay = 'repetir_todos';
+                                videoElement.play();
+                            }} else if (acao === 'repetir_uma') {{
+                                modoPlay = 'repetir_1';
+                                videoElement.play();
+                            }} else if (acao === 'stop') {{
+                                videoElement.pause();
+                                videoElement.currentTime = 0;
                             }}
                         }}
 
