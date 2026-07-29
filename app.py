@@ -147,25 +147,28 @@ def obter_video_fundo(provider_token):
     return ""
 
 def listar_videos_pasta_clipes():
-    """Busca todos os vídeos disponíveis na conta ou na pasta do Cloudinary de forma robusta."""
+    """Busca e filtra estritamente apenas os vídeos guardados na pasta 'clipes' do Cloudinary."""
     videos_encontrados = []
     try:
         resultado = cloudinary.api.resources(
             resource_type="video",
             type="upload",
-            max_results=100
+            max_results=500
         )
         for recurso in resultado.get("resources", []):
-            url_secure = recurso.get("secure_url", "")
-            if url_secure:
-                if "/upload/" in url_secure and "f_auto,q_auto" not in url_secure:
-                    url_secure = url_secure.replace("/upload/", "/upload/f_auto,q_auto/")
-                
-                public_id = recurso.get("public_id", "")
-                nome_amigavel = public_id.split("/")[-1]
-                videos_encontrados.append({"nome": nome_amigavel, "url": url_secure})
+            public_id = recurso.get("public_id", "")
+            
+            # Filtro estrito: Garante que o ficheiro pertence especificamente à pasta 'clipes/'
+            if public_id.startswith("clipes/") or "/clipes/" in public_id:
+                url_secure = recurso.get("secure_url", "")
+                if url_secure:
+                    if "/upload/" in url_secure and "f_auto,q_auto" not in url_secure:
+                        url_secure = url_secure.replace("/upload/", "/upload/f_auto,q_auto/")
+                    
+                    nome_amigavel = public_id.split("/")[-1]
+                    videos_encontrados.append({"nome": nome_amigavel, "url": url_secure})
     except Exception as e:
-        print(f"Erro ao listar vídeos do Cloudinary: {e}")
+        print(f"Erro ao listar pasta clipes do Cloudinary: {e}")
     
     return videos_encontrados
 
@@ -217,7 +220,7 @@ def renderizar_gestao_fila_prestador(provider_token):
 
     with st.form(key="form_video_fundo"):
         escolha_video = st.selectbox(
-            "Selecione o Vídeo Clipe do Cloudinary:", 
+            "Selecione o Vídeo Clipe da pasta 'clipes' do Cloudinary:", 
             options=opcoes_labels, 
             index=index_atual
         )
