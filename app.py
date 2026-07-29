@@ -248,41 +248,38 @@ def renderizar_gestao_fila_prestador(provider_token):
     else:
         clipes_filtrados = lista_clipes_cloudinary
 
-    mapa_url_por_label = {}
-    opcoes_labels = []
-    
-    for clipe in clipes_filtrados:
-        label = f"📁 {clipe['nome']}"
-        opcoes_labels.append(label)
-        mapa_url_por_label[label] = clipe['url']
-
-    escolha_video = st.selectbox(
-        "Selecione o vídeo clipe encontrado:", 
-        options=opcoes_labels if opcoes_labels else ["Nenhum vídeo encontrado"]
-    )
-
-    valor_a_guardar = mapa_url_por_label.get(escolha_video, "")
-    modo_guardar = "repetir_1" if valor_a_guardar else "repetir_todos"
-
-    # BOTÕES EXATOS PEDIDOS LOGO ABAIXO DA PESQUISA/SELEÇÃO NA PÁGINA DO PRESTADOR
+    # BOTÕES DE CONTROLO GERAL LOGO ABAIXO DA PESQUISA
     st.markdown("#### 🎛️ Controlos de Reprodução")
     col_btn1, col_btn2, col_btn3 = st.columns(3)
     with col_btn1:
-        if st.button("▶️ Iniciar", use_container_width=True):
-            if valor_a_guardar:
-                definir_config_fundo(provider_token, valor_a_guardar, modo_guardar)
-                st.success("Vídeo clipe selecionado iniciado na TV!")
-            else:
-                st.warning("Selecione um vídeo válido para iniciar.")
+        if st.button("▶️ Modo Sequencial (Todas)", use_container_width=True):
+            definir_config_fundo(provider_token, "", "repetir_todos")
+            st.success("Modo sequência de clipes ativado na TV!")
             st.rerun()
     with col_btn2:
-        if st.button("⏹️ Stop", use_container_width=True):
+        if st.button("⏹️ Stop / Limpar", use_container_width=True):
             definir_config_fundo(provider_token, "", "repetir_todos")
-            st.warning("Reprodução parada / reiniciada para padrão.")
+            st.warning("Reprodução parada / reiniciada.")
             st.rerun()
     with col_btn3:
         if st.button("🔄 Atualizar Lista", use_container_width=True):
             st.rerun()
+
+    st.markdown("---")
+    st.markdown("### 📁 Vídeos Encontrados na Pasta 'clipes'")
+
+    if clipes_filtrados:
+        for clipe in clipes_filtrados:
+            col_nome, col_play = st.columns([4, 1])
+            with col_nome:
+                st.markdown(f"🎞️ **{clipe['nome']}**")
+            with col_play:
+                if st.button("▶️ Iniciar", key=f"btn_play_clipe_{clipe['url']}"):
+                    definir_config_fundo(provider_token, clipe['url'], "repetir_1")
+                    st.success(f"A reproduzir: {clipe['nome']}")
+                    st.rerun()
+    else:
+        st.info("Nenhum vídeo clipe encontrado com esse termo na pasta 'clipes'.")
 
     st.markdown("---")
     st.markdown("### 🎬 Fila de Pedidos Atual")
