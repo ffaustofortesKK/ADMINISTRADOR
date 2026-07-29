@@ -148,10 +148,8 @@ def obter_video_fundo(provider_token):
     return ""
 
 def listar_videos_pasta_clipes():
-    """Usa o motor de Search do Cloudinary para listar com precisão absoluta todos os vídeos na pasta 'clipes'."""
     videos_encontrados = []
     try:
-        # Pesquisa avançada focada na pasta 'clipes'
         resultado = cloudinary.search.Search()\
             .expression('resource_type:video AND asset_folder=clipes')\
             .max_results(500)\
@@ -169,7 +167,6 @@ def listar_videos_pasta_clipes():
                 
                 videos_encontrados.append({"nome": nome_amigavel, "url": url_secure})
     except Exception as e:
-        # Fallback de segurança caso a API de search exija índices específicos, varrendo via resource genérico
         try:
             resultado_alt = cloudinary.api.resources(
                 resource_type="video",
@@ -243,7 +240,8 @@ def renderizar_gestao_fila_prestador(provider_token):
             index=index_atual
         )
 
-        btn_salvar_fundo = st.form_submit_button("💾 Atualizar Vídeo Clipe de Fundo")
+        # Botão substituído de "Atualizar Vídeo Clipe de Fundo" para "Play"
+        btn_salvar_fundo = st.form_submit_button("▶️ Play Vídeo Clipe de Fundo")
         if btn_salvar_fundo:
             if escolha_video == "Nenhum (Ecrã Preto)":
                 valor_a_guardar = ""
@@ -251,7 +249,7 @@ def renderizar_gestao_fila_prestador(provider_token):
                 valor_a_guardar = mapa_url_por_label.get(escolha_video, "")
                 
             definir_video_fundo(provider_token, valor_a_guardar)
-            st.success("Vídeo clipe de fundo atualizado com sucesso para a tela!")
+            st.success("Vídeo clipe de fundo iniciado com sucesso na tela!")
             st.rerun()
 
     st.markdown("---")
@@ -296,10 +294,18 @@ def renderizar_gestao_fila_prestador(provider_token):
             if tocando_agora:
                 titulo_tocando = limpar_nome_musica(tocando_agora.get("musica", {}))
                 st.success(f"🎵 A tocar agora: **{titulo_tocando}** (Cliente: {tocando_agora.get('cliente', 'Convidado')})")
-                if st.button("⏹️ Terminar Música Atual", key=f"term_{tocando_agora.get('id')}"):
-                    terminar_todas_musicas_ativas(provider_token, pedidos)
-                    st.success("Música terminada e tela limpa com sucesso!")
-                    st.rerun()
+                col_t1, col_t2 = st.columns([1, 1])
+                with col_t1:
+                    if st.button("⏹️ Terminar Música Atual", key=f"term_{tocando_agora.get('id')}"):
+                        terminar_todas_musicas_ativas(provider_token, pedidos)
+                        st.success("Música terminada e tela limpa com sucesso!")
+                        st.rerun()
+                with col_t2:
+                    if st.button("🛑 Stop Geral", key=f"stop_{tocando_agora.get('id')}"):
+                        terminar_todas_musicas_ativas(provider_token, pedidos)
+                        definir_video_fundo(provider_token, "") # Limpa também o vídeo de fundo opcionalmente
+                        st.warning("Reprodução parada (Stop) com sucesso!")
+                        st.rerun()
 
             if not pendentes:
                 st.write("Fila de pendentes vazia. Os pedidos feitos pelos clientes aparecerão aqui automaticamente.")
@@ -384,6 +390,7 @@ def renderizar_ecra_tv(provider_token):
             
             st.markdown(f"<h2 style='text-align:center; color: #FFC107;'>A tocar: {titulo_limpo} <span style='font-size:16px; color:#aaa;'>(Cantor: {cantor_name})</span></h2>", unsafe_allow_html=True)
 
+            # Correção do som: Definimos explicitamente muted=false e tratamos a promessa de reprodução com áudio ativado
             video_html = f"""
             <div style="display: flex; justify-content: center; background: black; padding: 0px; width: 100%;">
                 <video id="karaoke-player" width="100%" height="560px" controls autoplay playsinline controlslist="nodownload noremoteplayback" disablepictureinpicture style="object-fit: contain; background: black;">
@@ -391,18 +398,22 @@ def renderizar_ecra_tv(provider_token):
                     O seu navegador não suporta a reprodução deste vídeo.
                 </video>
             </div>
+            <div style="display: flex; justify-content: center; gap: 10px; margin-top: 10px;">
+                <button onclick="stopKaraoke()" style="background-color: #d9534f; color: white; border: none; padding: 10px 20px; font-size: 16px; border-radius: 5px; cursor: pointer; font-weight: bold;">🛑 Stop</button>
+            </div>
             <script>
                 var video = document.getElementById('karaoke-player');
-                video.muted = false;
+                video.muted = false; // Garante som ativado
                 var playPromise = video.play();
                 if (playPromise !== undefined) {{
                     playPromise.then(_ => {{}}).catch(error => {{
+                        // Fallback caso o navegador bloqueie o autoplay com som
                         video.muted = true;
                         video.play();
                     }});
                 }}
 
-                video.onended = function() {{
+                function stopKaraoke() {{
                     var pedidoId = "{tocando_agora.get('id')}";
                     var token = "{provider_token}";
                     var firebaseURL = "{FIREBASE_URL}/pedidos/" + token + "/" + pedidoId + "/estado.json";
@@ -416,10 +427,14 @@ def renderizar_ecra_tv(provider_token):
                     }}).catch(err => {{
                         window.location.reload();
                     }});
+                }}
+
+                video.onended = function() {{
+                    stopKaraoke();
                 }};
             </script>
             """
-            components.html(video_html, height=620)
+            components.html(video_html, height=650)
             
         else:
             url_clipe_fundo = obter_video_fundo(provider_token)
