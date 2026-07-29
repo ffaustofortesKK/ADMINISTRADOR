@@ -155,11 +155,11 @@ def obter_config_fundo(provider_token):
     return "", "repetir_todos"
 
 def listar_videos_pasta_clipes():
-    """Lista estritamente e com total robustez os vídeos da pasta 'clipes' do Cloudinary."""
+    """Lista exclusivamente os vídeos que estão dentro da pasta 'clipes' do Cloudinary de forma totalmente robusta."""
     videos_encontrados = []
     vistos = set()
     
-    # Tentativa 1: Pesquisa por prefixo exato "clipes/"
+    # 1. Listar via prefixo "clipes/"
     try:
         resultado = cloudinary.api.resources(
             resource_type="video",
@@ -182,9 +182,9 @@ def listar_videos_pasta_clipes():
                         vistos.add(url_secure)
                         videos_encontrados.append({"nome": nome_amigavel, "url": url_secure})
     except Exception as e:
-        print(f"Erro ao listar pasta clipes por prefix: {e}")
+        print(f"Erro ao listar via prefix 'clipes/': {e}")
 
-    # Tentativa 2: Busca por pasta exata através da Search API do Cloudinary
+    # 2. Pesquisa de apoio Search API estrita para a pasta clipes
     if not videos_encontrados:
         try:
             resultado_search = cloudinary.search.Search()\
@@ -195,7 +195,7 @@ def listar_videos_pasta_clipes():
             for recurso in resultado_search.get("resources", []):
                 public_id = recurso.get("public_id", "")
                 url_secure = recurso.get("secure_url", "")
-                if url_secure:
+                if url_secure and public_id.startswith("clipes/"):
                     if "/upload/" in url_secure and "f_auto,q_auto" not in url_secure:
                         url_secure = url_secure.replace("/upload/", "/upload/f_auto,q_auto/")
                     
@@ -206,31 +206,7 @@ def listar_videos_pasta_clipes():
                         vistos.add(url_secure)
                         videos_encontrados.append({"nome": nome_amigavel, "url": url_secure})
         except Exception as err:
-            print(f"Erro na pesquisa Search folder=clipes: {err}")
-
-    # Tentativa 3: Fallback geral de segurança caso os ficheiros estejam na raiz mas o utilizador queira ver listado
-    if not videos_encontrados:
-        try:
-            resultado_geral = cloudinary.api.resources(
-                resource_type="video",
-                type="upload",
-                max_results=100
-            )
-            for recurso in resultado_geral.get("resources", []):
-                public_id = recurso.get("public_id", "")
-                url_secure = recurso.get("secure_url", "")
-                if url_secure:
-                    if "/upload/" in url_secure and "f_auto,q_auto" not in url_secure:
-                        url_secure = url_secure.replace("/upload/", "/upload/f_auto,q_auto/")
-                    
-                    filename = recurso.get("filename", "")
-                    nome_amigavel = filename if filename else public_id.split("/")[-1]
-                    
-                    if url_secure not in vistos:
-                        vistos.add(url_secure)
-                        videos_encontrados.append({"nome": nome_amigavel, "url": url_secure})
-        except Exception as e:
-            print(f"Erro no fallback geral: {e}")
+            print(f"Erro na pesquisa Search Cloudinary (folder=clipes): {err}")
             
     return videos_encontrados
 
@@ -264,17 +240,22 @@ def renderizar_gestao_fila_prestador(provider_token):
     video_fundo_atual, modo_atual = obter_config_fundo(provider_token)
     lista_clipes_cloudinary = listar_videos_pasta_clipes()
     
-    opcoes_labels = ["🔁 Reproduzir Todos da Pasta 'clipes' (Sequencial)", "🔀 Modo Aleatório na Pasta 'clipes' (Shuffle)"]
+    # Opções para escolher comportamento global ou vídeo específico da pasta clipes
+    opcoes_labels = ["🔁 Repetir Todas (Sequencial)", "🔀 Modo Aleatório", "🔂 Repetir Uma (Vídeo Específico abaixo)"]
     mapa_url_por_label = {}
     
     for clipe in lista_clipes_cloudinary:
-        label = f"📁 [Especifico] {clipe['nome']}"
+        label = f"📁 [Clipe Específico] {clipe['nome']}"
         opcoes_labels.append(label)
         mapa_url_por_label[label] = clipe['url']
         
     index_atual = 0
-    if modo_atual == "aleatorio":
+    if modo_atual == "repetir_todos":
+        index_atual = 0
+    elif modo_atual == "aleatorio":
         index_atual = 1
+    elif modo_atual == "repetir_1" and not video_fundo_atual:
+        index_atual = 2
     elif video_fundo_atual:
         for idx, label in enumerate(opcoes_labels):
             if label.startswith("📁"):
@@ -284,26 +265,37 @@ def renderizar_gestao_fila_prestador(provider_token):
                     break
 
     escolha_video = st.selectbox(
-        "Modo de Reprodução ou Vídeo Específico da Pasta 'clipes':", 
+        "Selecione o modo ou clipe individual da pasta 'clipes':", 
         options=opcoes_labels, 
         index=index_atual
     )
 
-    # Define o modo com base na escolha
-    if escolha_video == "🔁 Reproduzir Todos da Pasta 'clipes' (Sequencial)":
+    # Definição exata dos modos solicitados
+    if escolha_video == "🔁 Repetir Todas (Sequencial)":
         modo_guardar = "repetir_todos"
         valor_a_guardar = ""
-    elif escolha_video == "🔀 Modo Aleatório na Pasta 'clipes' (Shuffle)":
+    elif escolha_video == "🔀 Modo Aleatório":
         modo_guardar = "aleatorio"
         valor_a_guardar = ""
+    elif escolha_video == "🔂 Repetir Uma (Vídeo Específico abaixo)":
+        modo_guardar = "repetir_1"
+        valor_a_guardar = lista_clipes_cloudinary[0]['url'] if lista_clipes_cloudinary else ""
     else:
-        modo_guardar = "repetir_1" # Repetir apenas o vídeo escolhido
+        modo_guardar = "repetir_1" # Repetir apenas o clipe escolhido
         valor_a_guardar = mapa_url_por_label.get(escolha_video, "")
 
-    if st.button("▶️ Iniciar / Aplicar Configuração de Fundo"):
-        definir_config_fundo(provider_token, valor_a_guardar, modo_guardar)
-        st.success("Configuração de fundo aplicada com sucesso!")
-        st.rerun()
+    # Botões de controlo do prestador pedidos (Iniciar / Stop)
+    col_btn1, col_btn2 = st.columns(2)
+    with col_btn1:
+        if st.button("▶️ Iniciar Configuração de Fundo", use_container_width=True):
+            definir_config_fundo(provider_token, valor_a_guardar, modo_guardar)
+            st.success("Configuração de fundo iniciada e aplicada na TV!")
+            st.rerun()
+    with col_btn2:
+        if st.button("⏹️ Stop / Limpar Fundo", use_container_width=True):
+            definir_config_fundo(provider_token, "", "repetir_todos")
+            st.warning("Reprodução de fundo parada/reiniciada para o padrão.")
+            st.rerun()
 
     st.markdown("---")
     st.markdown("### 🎬 Fila de Pedidos Atual")
@@ -320,7 +312,7 @@ def renderizar_gestao_fila_prestador(provider_token):
             pedidos_ativos.sort(key=lambda x: x.get("timestamp", 0))
             
             tocando_agora = next((p for p in pedidos_ativos if p.get("estado") == "aprovado"), None)
-            pendentes = [p for p in pedidos_ativos if p.get("estado") == "pendente"]
+            pendentes = [p for p in pedidos_ativos if p.get("estado"] == "pendente"]
 
             if pedidos_ativos:
                 html_lista = '<div style="background-color: #111111; border: 2px solid #333333; padding: 15px; border-radius: 8px; color: #ffffff; max-width: 550px; font-family: monospace; font-size: 15px; margin-bottom: 20px;">'
@@ -479,12 +471,14 @@ def renderizar_ecra_tv(provider_token):
             import json
             urls_playlist = [c['url'] for c in lista_clipes]
             
+            # Ajuste de playlist consoante o modo selecionado pelo prestador
             if modo_reproducao == 'repetir_1' and url_clipe_fundo:
                 urls_playlist = [url_clipe_fundo]
             elif not urls_playlist and url_clipe_fundo:
                 urls_playlist = [url_clipe_fundo]
             
             urls_json = json.dumps(urls_playlist)
+            
             proximo_cantor = pedidos_ativos[0] if pedidos_ativos else None
             
             col_esq, col_dir = st.columns([1, 1])
@@ -531,19 +525,11 @@ def renderizar_ecra_tv(provider_token):
                 if urls_playlist:
                     video_fundo_html = f"""
                     <div style="display: flex; justify-content: center; background: black; border: 2px solid #FFC107; border-radius: 10px; padding: 5px; width: 100%;">
-                        <video id="fundo-player" width="100%" height="420px" controls autoplay playsinline style="object-fit: contain; background: black; border-radius: 8px;">
+                        <video id="fundo-player" width="100%" height="470px" controls autoplay playsinline style="object-fit: contain; background: black; border-radius: 8px;">
                             <source src="" type="video/mp4">
                             O seu navegador não suporta vídeo.
                         </video>
                     </div>
-                    <!-- Botões de Controlo do Leitor de Vídeo Clipe -->
-                    <div style="display: flex; justify-content: center; gap: 10px; margin-top: 10px; flex-wrap: wrap;">
-                        <button onclick="controlarVideo('iniciar')" style="background-color: #4CAF50; color: white; border: none; padding: 8px 14px; border-radius: 5px; cursor: pointer; font-weight: bold; font-family: monospace;">▶️ Iniciar</button>
-                        <button onclick="controlarVideo('repetir_todas')" style="background-color: #2196F3; color: white; border: none; padding: 8px 14px; border-radius: 5px; cursor: pointer; font-weight: bold; font-family: monospace;">🔁 Repetir Todas</button>
-                        <button onclick="controlarVideo('repetir_uma')" style="background-color: #FF9800; color: white; border: none; padding: 8px 14px; border-radius: 5px; cursor: pointer; font-weight: bold; font-family: monospace;">🔂 Repetir Uma</button>
-                        <button onclick="controlarVideo('stop')" style="background-color: #f44336; color: white; border: none; padding: 8px 14px; border-radius: 5px; cursor: pointer; font-weight: bold; font-family: monospace;">⏹️ Stop</button>
-                    </div>
-
                     <script>
                         var playlist = {urls_json};
                         var modoPlay = "{modo_reproducao}";
@@ -564,21 +550,6 @@ def renderizar_ecra_tv(provider_token):
                                     videoElement.muted = true;
                                     videoElement.play();
                                 }});
-                            }}
-                        }}
-
-                        function controlarVideo(acao) {{
-                            if (acao === 'iniciar') {{
-                                videoElement.play();
-                            }} else if (acao === 'repetir_todas') {{
-                                modoPlay = 'repetir_todos';
-                                videoElement.play();
-                            }} else if (acao === 'repetir_uma') {{
-                                modoPlay = 'repetir_1';
-                                videoElement.play();
-                            }} else if (acao === 'stop') {{
-                                videoElement.pause();
-                                videoElement.currentTime = 0;
                             }}
                         }}
 
