@@ -321,7 +321,7 @@ def renderizar_gestao_fila_prestador(provider_token):
                         if st.button(f"▶️ Play", key=f"btn_play_{p.get('id')}"):
                             terminar_todas_musicas_ativas(provider_token, pedidos)
                             atualizar_estado_pedido(provider_token, p.get('id'), 'aprovado')
-                            st.success(f"Música '{titulo_musica}' enviada para a tela!")
+                            st.success(f"Música '{titulo_musica}' enviada para la tela!")
                             st.rerun()
         else:
             st.info("Nenhum pedido encontrado no Firebase para este prestador. Abra o link do cliente e envie uma música para testar.")
@@ -389,13 +389,17 @@ def renderizar_ecra_tv(provider_token):
             
             st.markdown(f"<h2 style='text-align:center; color: #FFC107;'>A tocar: {titulo_limpo} <span style='font-size:16px; color:#aaa;'>(Cantor: {cantor_name})</span></h2>", unsafe_allow_html=True)
 
-            # Força o som ativo nativamente no script HTML/JS do leitor de karaokê
+            # Solução com botão de ativação de som visível na tela em caso de bloqueio do navegador
             video_html = f"""
             <div style="display: flex; justify-content: center; background: black; padding: 0px; width: 100%;">
-                <video id="karaoke-player" width="100%" height="560px" controls autoplay playsinline controlslist="nodownload noremoteplayback" disablepictureinpicture style="object-fit: contain; background: black;">
+                <video id="karaoke-player" width="100%" height="520px" controls autoplay playsinline controlslist="nodownload noremoteplayback" disablepictureinpicture style="object-fit: contain; background: black;">
                     <source src="{url_video}" type="video/mp4">
                     O seu navegador não suporta a reprodução deste vídeo.
                 </video>
+            </div>
+            <div id="audio-warning" style="display: none; text-align: center; background: #222; border: 2px solid #FFC107; padding: 10px; margin-top: 5px; border-radius: 5px;">
+                <p style="color: #FFC107; margin: 0 0 8px 0; font-family: monospace; font-size: 14px;">⚠️ O navegador bloqueou o áudio automático.</p>
+                <button onclick="unmuteVideo()" style="background-color: #4CAF50; color: white; border: none; padding: 8px 16px; font-size: 15px; border-radius: 4px; cursor: pointer; font-weight: bold;">🔊 CLIQUE AQUI PARA ATIVAR O SOM</button>
             </div>
             <div style="display: flex; justify-content: center; gap: 10px; margin-top: 10px;">
                 <button onclick="stopKaraoke()" style="background-color: #d9534f; color: white; border: none; padding: 10px 20px; font-size: 16px; border-radius: 5px; cursor: pointer; font-weight: bold;">🛑 Stop</button>
@@ -404,14 +408,22 @@ def renderizar_ecra_tv(provider_token):
                 var video = document.getElementById('karaoke-player');
                 video.muted = false; 
                 var playPromise = video.play();
+                
                 if (playPromise !== undefined) {{
                     playPromise.then(_ => {{
-                        // Reprodução com som iniciada com sucesso
+                        // Áudio iniciado com sucesso
                     }}).catch(error => {{
-                        // Fallback de segurança estrito para navegadores restritivos
+                        // Se o navegador barrar o som, exibe o botão interativo para o usuário
                         video.muted = true;
                         video.play();
+                        document.getElementById('audio-warning').style.display = 'block';
                     }});
+                }}
+
+                function unmuteVideo() {{
+                    video.muted = false;
+                    video.play();
+                    document.getElementById('audio-warning').style.display = 'none';
                 }}
 
                 function stopKaraoke() {{
@@ -435,7 +447,7 @@ def renderizar_ecra_tv(provider_token):
                 }};
             </script>
             """
-            components.html(video_html, height=650)
+            components.html(video_html, height=640)
             
         else:
             url_clipe_fundo = obter_video_fundo(provider_token)
