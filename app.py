@@ -19,6 +19,17 @@ import requests
 import urllib.parse
 import streamlit as st
 import streamlit.components.v1 as components
+import cloudinary
+import cloudinary.api
+import cloudinary.uploader
+
+# Configuração do Cloudinary (Preencha com os seus dados se necessário)
+cloudinary.config(
+    cloud_name = "yhwgjh7g",
+    api_key = "SEU_API_KEY",      # Substitua se usar autenticação avançada
+    api_secret = "SEU_API_SECRET",  # Substitua se usar autenticação avançada
+    secure = True
+)
 
 # Importações seguras com fallbacks para evitar crash total da aplicação
 try:
@@ -146,6 +157,32 @@ def limpar_nome_musica(musica_raw):
         titulo = titulo[:-4]
     return titulo.strip()
 
+def listar_videos_pasta_clipes():
+    """Busca dinamicamente os vídeos diretamente da pasta 'clipes' no Cloudinary."""
+    videos_encontrados = []
+    try:
+        # Tenta listar recursos do tipo vídeo na pasta específica 'clipes'
+        result = cloudinary.api.resources(
+            resource_type="video",
+            type="upload",
+            prefix="clipes/",
+            max_results=100
+        )
+        for recurso in result.get("resources", []):
+            secure_url = recurso.get("secure_url", "")
+            public_id = recurso.get("public_id", "")
+            # Remove o prefixo 'clipes/' para exibir um nome mais limpo
+            nome_amigavel = public_id.replace("clipes/", "")
+            videos_encontrados.append({
+                "nome": nome_amigavel,
+                "url": secure_url
+            })
+    except Exception as e:
+        # Fallback caso a API administrativa exija credenciais completas de secret ou ocorra erro de rede
+        pass
+    
+    return videos_encontrados
+
 def obter_url_video_cloudinary(musica_obj, titulo_limpo):
     if isinstance(musica_obj, dict):
         url_direta = musica_obj.get("url_cloudinary", "") or musica_obj.get("url", "")
@@ -157,46 +194,61 @@ def obter_url_video_cloudinary(musica_obj, titulo_limpo):
     cloud_name = "yhwgjh7g"
     titulo_lower = titulo_limpo.lower()
     
+    # Se já vier com URL completa ou caminho da pasta clipes
+    if "http" in titulo_limpo:
+        return titulo_limpo
+    if "clipes/" in titulo_lower:
+        encoded_path = urllib.parse.quote(titulo_limpo + ".mp4" if not titulo_limpo.endswith(".mp4") else titulo_limpo)
+        return f"https://res.cloudinary.com/{cloud_name}/video/upload/f_auto,q_auto/{encoded_path}"
+
     if "mulheres e mulheres" in titulo_lower or "landrick" in titulo_lower:
         return f"https://res.cloudinary.com/{cloud_name}/video/upload/f_auto,q_auto/v1784592601/Karaoke_H%C3%81_MULHERES_E_MULHERES_-_Landrick_rnomfr.mp4"
     elif "nani ta quieto" in titulo_lower:
         return f"https://res.cloudinary.com/{cloud_name}/video/upload/f_auto,q_auto/Nani_Ta_Quieto_f35hpj.mp4"
     
-    encoded_title = urllib.parse.quote(titulo_limpo + ".mp4")
+    encoded_title = urllib.parse.quote("clipes/" + titulo_limpo + ".mp4")
     return f"https://res.cloudinary.com/{cloud_name}/video/upload/f_auto,q_auto/{encoded_title}"
 
 @st.fragment(run_every=3)
 def renderizar_gestao_fila_prestador(provider_token):
-    st.markdown("### 🎬 Configuração de Vídeo Clipe de Fundo (Tela)")
+    st.markdown("### 🎬 Configuração de Vídeo Clipe de Fundo (Pasta 'clipes')")
     
     video_fundo_atual = obter_video_fundo(provider_token)
     
-    # Lista de sugestões / vídeos padrão disponíveis na mesma pasta do Cloudinary
-    # Configuração do Cloudinary
-cloudinary.config(
-    cloud_name="yhwgjh7g",
-    api_key="852434629995691",
-    api_secret="TU_ejil7wKYY15xHjDcRVfbk6Ow",
-    secure=True
+    # Buscar vídeos da pasta clipes do Cloudinary dinamicamente
+    lista_clipes_cloud = listar_videos_pasta_clipes()
     
-    # Descobrir a seleção atual com base no que está gravado
+    opcoes_videos_dict = {"Nenhum (Ecrã Preto)": ""}
+    for clipe in lista_clipes_cloud:
+        opcoes_videos_dict[clipe["nome"]] = clipe["url"]
+    
+    # Adicionar itens padrão caso a lista venha vazia por restrição de API key
+    if len(opcoes_videos_dict) == 1:
+        opcoes_videos_dict["HÁ MULHERES E MULHERES - Landrick"] = "https://res.cloudinary.com/yhwgjh7g/video/upload/f_auto,q_auto/v1784592601/Karaoke_H%C3%81_MULHERES_E_MULHERES_-_Landrick_rnomfr.mp4"
+        opcoes_videos_dict["Nani Ta Quieto"] = "https://res.cloudinary.com/yhwgjh7g/video/upload/f_auto,q_auto/Nani_Ta_Quieto_f35hpj.mp4"
+
+    chaves_opcoes = list(opcoes_videos_dict.keys())
+    
+    # Descobrir índice atual selecionado
     index_atual = 0
-    for idx, opt in enumerate(opcoes_videos):
-        if video_fundo_atual and opt.lower() in video_fundo_atual.lower():
+    for idx, nome_opcao in enumerate(chaves_opcoes):
+        url_mapeada = opcoes_videos_dict[nome_opcao]
+        if video_fundo_atual and (url_mapeada == video_fundo_atual or nome_opcao.lower() in video_fundo_atual.lower()):
             index_atual = idx
             break
 
     with st.form(key="form_video_fundo"):
-        escolha_video = st.selectbox("Selecione o Vídeo Clipe de Fundo (Mesma pasta dos Karaokes):", options=opcoes_videos, index=index_atual)
+        escolha_video = st.selectbox("Selecione o Vídeo Clipe da Pasta 'clipes':", options=chaves_opcoes, index=index_atual)
         
-        input_manual = ""
-        if escolha_video == "Outro (Digitar Nome)":
-            input_manual = st.text_input("Digite exatamente o nome do ficheiro do vídeo clipe:", value=video_fundo_atual)
+        url_a_guardar = opcoes_videos_dict.get(escolha_video, "")
+        
+        # Campo para inserir URL ou nome manual caso queira customizar
+        input_manual = st.text_input("Ou digite o nome/URL exata do clipe na pasta:", value=video_fundo_atual if not url_a_guardar else url_a_guardar)
 
         btn_salvar_fundo = st.form_submit_button("💾 Atualizar Vídeo Clipe de Fundo")
         if btn_salvar_fundo:
-            valor_a_guardar = input_manual if escolha_video == "Outro (Digitar Nome)" else (escolha_video if escolha_video != "Nenhum (Ecrã Preto)" else "")
-            definir_video_fundo(provider_token, valor_a_guardar)
+            valor_final = input_manual if input_manual else url_a_guardar
+            definir_video_fundo(provider_token, valor_final)
             st.success("Vídeo clipe de fundo atualizado com sucesso para a tela!")
             st.rerun()
 
@@ -390,7 +442,7 @@ def renderizar_ecra_tv(provider_token):
                     c_prox = proximo_cantor.get("cliente", "Convidado")
                     st.markdown(f"""
                         <div style="background: linear-gradient(135deg, #2b1035, #111); border: 2px solid #9c27b0; border-radius: 12px; padding: 15px; margin-bottom: 15px; text-align: center;">
-                            <span style="color: #FFC107; font-size: 14px; font-weight: bold;">1 — Á Seguir —</span>
+                            <span style="color: #FFC107; font-size: 14px; font-weight: bold;">1 — À Seguir —</span>
                             <h3 style="color: #ffffff; margin: 5px 0 0 0; font-family: monospace;">{c_prox}</h3>
                             <p style="color: #4CAF50; font-size: 14px; margin: 5px 0 0 0;">🎵 {t_prox}</p>
                         </div>
