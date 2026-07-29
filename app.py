@@ -155,43 +155,55 @@ def obter_config_fundo(provider_token):
     return "", "repetir_todos"
 
 def listar_videos_pasta_clipes():
-    """Usa o motor de Search do Cloudinary para listar com precisão absoluta todos os vídeos na pasta 'clipes'."""
+    """Lista todos os vídeos disponíveis na conta Cloudinary, garantindo que nenhum vídeo fique oculto."""
     videos_encontrados = []
+    vistos = set()
+    
     try:
-        resultado = cloudinary.search.Search()\
-            .expression('resource_type:video AND asset_folder=clipes')\
-            .max_results(500)\
-            .execute()
-            
+        resultado = cloudinary.api.resources(
+            resource_type="video",
+            type="upload",
+            max_results=500
+        )
         for recurso in resultado.get("resources", []):
             url_secure = recurso.get("secure_url", "")
             if url_secure:
                 if "/upload/" in url_secure and "f_auto,q_auto" not in url_secure:
                     url_secure = url_secure.replace("/upload/", "/upload/f_auto,q_auto/")
                 
-                filename = recurso.get("filename", "")
                 public_id = recurso.get("public_id", "")
+                filename = recurso.get("filename", "")
                 nome_amigavel = filename if filename else public_id.split("/")[-1]
                 
-                videos_encontrados.append({"nome": nome_amigavel, "url": url_secure})
+                if url_secure not in vistos:
+                    vistos.add(url_secure)
+                    videos_encontrados.append({"nome": nome_amigavel, "url": url_secure})
     except Exception as e:
+        print(f"Erro ao listar via resources: {e}")
+
+    # Fallback com Search API caso necessário
+    if not videos_encontrados:
         try:
-            resultado_alt = cloudinary.api.resources(
-                resource_type="video",
-                type="upload",
-                max_results=500
-            )
-            for recurso in resultado_alt.get("resources", []):
-                public_id = recurso.get("public_id", "")
-                if "clipes" in public_id.lower():
-                    url_secure = recurso.get("secure_url", "")
-                    if url_secure:
-                        if "/upload/" in url_secure and "f_auto,q_auto" not in url_secure:
-                            url_secure = url_secure.replace("/upload/", "/upload/f_auto,q_auto/")
-                        nome_amigavel = public_id.split("/")[-1]
+            resultado_search = cloudinary.search.Search()\
+                .expression('resource_type:video')\
+                .max_results(500)\
+                .execute()
+                
+            for recurso in resultado_search.get("resources", []):
+                url_secure = recurso.get("secure_url", "")
+                if url_secure:
+                    if "/upload/" in url_secure and "f_auto,q_auto" not in url_secure:
+                        url_secure = url_secure.replace("/upload/", "/upload/f_auto,q_auto/")
+                    
+                    filename = recurso.get("filename", "")
+                    public_id = recurso.get("public_id", "")
+                    nome_amigavel = filename if filename else public_id.split("/")[-1]
+                    
+                    if url_secure not in vistos:
+                        vistos.add(url_secure)
                         videos_encontrados.append({"nome": nome_amigavel, "url": url_secure})
         except Exception as err:
-            print(f"Erro crítico ao listar vídeos do Cloudinary: {err}")
+            print(f"Erro na pesquisa Search Cloudinary: {err}")
             
     return videos_encontrados
 
@@ -441,7 +453,6 @@ def renderizar_ecra_tv(provider_token):
             url_clipe_fundo, modo_reproducao = obter_config_fundo(provider_token)
             lista_clipes = listar_videos_pasta_clipes()
             
-            # Constrói array JSON de URLs para o JavaScript rodar a playlist automática de fundo
             import json
             urls_playlist = [c['url'] for c in lista_clipes]
             if not urls_playlist and url_clipe_fundo:
@@ -513,7 +524,7 @@ def renderizar_ecra_tv(provider_token):
                         function playCurrentVideo() {{
                             if (playlist.length === 0) return;
                             videoElement.src = playlist[currentIndex];
-                            videoElement.muted = false; // Permite som ativo
+                            videoElement.muted = false;
                             var p = videoElement.play();
                             if (p !== undefined) {{
                                 p.catch(err => {{
@@ -531,7 +542,6 @@ def renderizar_ecra_tv(provider_token):
                                 currentIndex = Math.floor(Math.random() * playlist.length);
                                 playCurrentVideo();
                             }} else {{
-                                // repetir_todos (sequencial)
                                 currentIndex = (currentIndex + 1) % playlist.length;
                                 playCurrentVideo();
                             }}
@@ -547,7 +557,7 @@ def renderizar_ecra_tv(provider_token):
                     st.markdown("""
                         <div style="border: 2px solid #FFC107; border-radius: 10px; padding: 80px 20px; text-align: center; background: #000; color: #FFC107; font-family: monospace;">
                             <div style="font-size: 40px; margin-bottom: 10px;">📺</div>
-                            <p style="color: #aaa; font-size: 16px; margin: 0;">Nenhum vídeo clipe encontrado na pasta do Cloudinary...</p>
+                            <p style="color: #aaa; font-size: 16px; margin: 0;">Nenhum vídeo clipe encontrado na conta do Cloudinary...</p>
                         </div>
                     """, unsafe_allow_html=True)
 
