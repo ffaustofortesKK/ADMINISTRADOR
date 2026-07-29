@@ -171,36 +171,33 @@ def renderizar_gestao_fila_prestador(provider_token):
     
     video_fundo_atual = obter_video_fundo(provider_token)
     
-    # Lista sugerida de vídeos base na mesma pasta Cloudinary / Biblioteca
+    # Lista de sugestões / vídeos padrão disponíveis na mesma pasta do Cloudinary
     opcoes_videos = [
-        "",
-        "Karaoke_HÁ_MULHERES_E_MULHERES_-_Landrick",
-        "Nani_Ta_Quieto",
-        "video_fundo_padrao",
-        "ambiente_fundo"
+        "Nenhum (Ecrã Preto)",
+        "HÁ MULHERES E MULHERES - Landrick",
+        "Nani Ta Quieto",
+        "Clipe Ambiente 1",
+        "Outro (Digitar Nome)"
     ]
     
-    # Se o valor atual não estiver na lista padrão, adicionamo-lo para evitar erro de índice
-    if video_fundo_atual and video_fundo_atual not in opcoes_videos:
-        opcoes_videos.insert(1, video_fundo_atual)
-        
-    try:
-        index_atual = opcoes_videos.index(video_fundo_atual)
-    except ValueError:
-        index_atual = 0
+    # Descobrir a seleção atual com base no que está gravado
+    index_atual = 0
+    for idx, opt in enumerate(opcoes_videos):
+        if video_fundo_atual and opt.lower() in video_fundo_atual.lower():
+            index_atual = idx
+            break
 
     with st.form(key="form_video_fundo"):
-        st.write("Selecione ou digite o nome do vídeo clipe que passará em loop na tela de fundo:")
+        escolha_video = st.selectbox("Selecione o Vídeo Clipe de Fundo (Mesma pasta dos Karaokes):", options=opcoes_videos, index=index_atual)
         
-        # Campo selectbox combinada ou campo de texto livre para digitação imediata
-        escolha_select = st.selectbox("Escolher da Biblioteca de Vídeos:", options=opcoes_videos, index=index_atual)
-        input_manual = st.text_input("Ou digite o nome exato do ficheiro de vídeo (mesma pasta dos karaokes):", value=video_fundo_atual)
-        
+        input_manual = ""
+        if escolha_video == "Outro (Digitar Nome)":
+            input_manual = st.text_input("Digite exatamente o nome do ficheiro do vídeo clipe:", value=video_fundo_atual)
+
         btn_salvar_fundo = st.form_submit_button("💾 Atualizar Vídeo Clipe de Fundo")
         if btn_salvar_fundo:
-            # Prioriza o texto digitado se preenchido, caso contrário usa o selectbox
-            valor_final = input_manual.strip() if input_manual.strip() else escolha_select
-            definir_video_fundo(provider_token, valor_final)
+            valor_a_guardar = input_manual if escolha_video == "Outro (Digitar Nome)" else (escolha_video if escolha_video != "Nenhum (Ecrã Preto)" else "")
+            definir_video_fundo(provider_token, valor_a_guardar)
             st.success("Vídeo clipe de fundo atualizado com sucesso para a tela!")
             st.rerun()
 
@@ -378,7 +375,6 @@ def renderizar_ecra_tv(provider_token):
             if url_clipe_fundo and not url_clipe_fundo.startswith("http"):
                 url_clipe_fundo = obter_url_video_cloudinary({"url": ""}, limpar_nome_musica(url_clipe_fundo))
 
-            # Preparar dados do "Á Seguir" e da lista de espera
             proximo_cantor = pedidos_ativos[0] if pedidos_ativos else None
             
             col_esq, col_dir = st.columns([1, 1])
@@ -401,7 +397,6 @@ def renderizar_ecra_tv(provider_token):
                         </div>
                     """, unsafe_allow_html=True)
                 
-                # Listagem dos restantes (2 a 6)
                 html_caixas = '<div style="display: flex; flex-direction: column; gap: 8px;">'
                 for idx in range(2, 7):
                     p_item = pedidos_ativos[idx-1] if len(pedidos_ativos) >= idx else None
@@ -505,7 +500,7 @@ def main():
             show_admin_panel()
         else:
             st.title("🔒 FFKaraoke - Área Restrita")
-            st.write("Introduza a palavra-passe de administrador na barra lateral para gerir os acessos ou aceda através do link do seu prestador.")
+            st.write("Introduza a palavra-passe de administrador na barra lateral para gerir os acessos ou aceda através do link do seu painel de prestador.")
                 
     except Exception as e:
         st.error(f"Ocorreu um erro ao carregar a aplicação: {e}")
