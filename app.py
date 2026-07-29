@@ -155,7 +155,7 @@ def obter_config_fundo(provider_token):
     return "", "repetir_todos"
 
 def listar_videos_pasta_clipes():
-    """Lista todos os vídeos disponíveis na conta Cloudinary com total robustez."""
+    """Lista todos os vídeos disponíveis na conta Cloudinary, garantindo que nenhum vídeo fique oculto."""
     videos_encontrados = []
     vistos = set()
     
@@ -181,6 +181,7 @@ def listar_videos_pasta_clipes():
     except Exception as e:
         print(f"Erro ao listar via resources: {e}")
 
+    # Fallback com Search API caso necessário
     if not videos_encontrados:
         try:
             resultado_search = cloudinary.search.Search()\
@@ -236,46 +237,50 @@ def renderizar_gestao_fila_prestador(provider_token):
     video_fundo_atual, modo_atual = obter_config_fundo(provider_token)
     lista_clipes_cloudinary = listar_videos_pasta_clipes()
     
-    opcoes_labels = ["🔁 Reproduzir Todos da Pasta (Sequencial)", "🔀 Modo Aleatório (Shuffle)"]
+    opcoes_labels = ["Nenhum (Ecrã Preto)"]
     mapa_url_por_label = {}
     
     for clipe in lista_clipes_cloudinary:
-        label = f"📁 [Especifico] {clipe['nome']}"
+        label = f"📁 {clipe['nome']}"
         opcoes_labels.append(label)
         mapa_url_por_label[label] = clipe['url']
         
     index_atual = 0
-    if modo_atual == "aleatorio":
-        index_atual = 1
-    elif video_fundo_atual:
-        for idx, label in enumerate(opcoes_labels):
-            if label.startswith("📁"):
-                url_mapeada = mapa_url_por_label.get(label, "")
-                if video_fundo_atual in url_mapeada or url_mapeada in video_fundo_atual:
-                    index_atual = idx
-                    break
+    for idx, label in enumerate(opcoes_labels):
+        if label != "Nenhum (Ecrã Preto)":
+            url_mapeada = mapa_url_por_label.get(label, "")
+            if video_fundo_atual and (video_fundo_atual in url_mapeada or url_mapeada in video_fundo_atual):
+                index_atual = idx
+                break
+
+    mapa_modos = {
+        "🔁 Repetir Todos (Sequencial)": "repetir_todos",
+        "🔀 Aleatório (Shuffle)": "aleatorio",
+        "🔂 Repetir Apenas 1": "repetir_1"
+    }
+    inverso_modos = {v: k for k, v in mapa_modos.items()}
+    modo_label_inicial = inverso_modos.get(modo_atual, "🔁 Repetir Todos (Sequencial)")
 
     escolha_video = st.selectbox(
-        "Modo de Reprodução ou Vídeo Específico:", 
+        "Selecione o Vídeo Clipe Inicial ou Deixe em Branco:", 
         options=opcoes_labels, 
         index=index_atual
     )
 
-    # Define o modo com base na escolha
-    if escolha_video == "🔁 Reproduzir Todos da Pasta (Sequencial)":
-        modo_guardar = "repetir_todos"
-        valor_a_guardar = ""
-    elif escolha_video == "🔀 Modo Aleatório (Shuffle)":
-        modo_guardar = "aleatorio"
-        valor_a_guardar = ""
-    else:
-        modo_guardar = "repetir_1" # Repetir apenas o vídeo escolhido
-        valor_a_guardar = mapa_url_por_label.get(escolha_video, "")
+    escolha_modo = st.selectbox(
+        "Modo de Reprodução dos Vídeos Clipes:",
+        options=list(mapa_modos.keys()),
+        index=list(mapa_modos.keys()).index(modo_label_inicial) if modo_label_inicial in mapa_modos else 0
+    )
 
-    if st.button("▶️ Iniciar / Aplicar Configuração de Fundo"):
-        definir_config_fundo(provider_token, valor_a_guardar, modo_guardar)
-        st.success("Configuração de fundo aplicada com sucesso!")
-        st.rerun()
+    col_btn1, col_btn2 = st.columns(2)
+    with col_btn1:
+        if st.button("▶️ Iniciar / Aplicar Fundo"):
+            valor_a_guardar = "" if escolha_video == "Nenhum (Ecrã Preto)" else mapa_url_por_label.get(escolha_video, "")
+            modo_guardar = mapa_modos.get(escolha_modo, "repetir_todos")
+            definir_config_fundo(provider_token, valor_a_guardar, modo_guardar)
+            st.success("Configuração de fundo aplicada com sucesso!")
+            st.rerun()
 
     st.markdown("---")
     st.markdown("### 🎬 Fila de Pedidos Atual")
@@ -450,11 +455,7 @@ def renderizar_ecra_tv(provider_token):
             
             import json
             urls_playlist = [c['url'] for c in lista_clipes]
-            
-            # Se o modo for 'repetir_1' e houver um vídeo específico guardado, a playlist terá apenas esse vídeo
-            if modo_reproducao == 'repetir_1' and url_clipe_fundo:
-                urls_playlist = [url_clipe_fundo]
-            elif not urls_playlist and url_clipe_fundo:
+            if not urls_playlist and url_clipe_fundo:
                 urls_playlist = [url_clipe_fundo]
             
             urls_json = json.dumps(urls_playlist)
