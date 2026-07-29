@@ -171,11 +171,36 @@ def renderizar_gestao_fila_prestador(provider_token):
     
     video_fundo_atual = obter_video_fundo(provider_token)
     
+    # Lista sugerida de vídeos base na mesma pasta Cloudinary / Biblioteca
+    opcoes_videos = [
+        "",
+        "Karaoke_HÁ_MULHERES_E_MULHERES_-_Landrick",
+        "Nani_Ta_Quieto",
+        "video_fundo_padrao",
+        "ambiente_fundo"
+    ]
+    
+    # Se o valor atual não estiver na lista padrão, adicionamo-lo para evitar erro de índice
+    if video_fundo_atual and video_fundo_atual not in opcoes_videos:
+        opcoes_videos.insert(1, video_fundo_atual)
+        
+    try:
+        index_atual = opcoes_videos.index(video_fundo_atual)
+    except ValueError:
+        index_atual = 0
+
     with st.form(key="form_video_fundo"):
-        novo_video_fundo = st.text_input("URL ou Nome do Vídeo Clipe para a Tela (Pasta Cloudinary / Ex: clipe_fundo.mp4)", value=video_fundo_atual)
+        st.write("Selecione ou digite o nome do vídeo clipe que passará em loop na tela de fundo:")
+        
+        # Campo selectbox combinada ou campo de texto livre para digitação imediata
+        escolha_select = st.selectbox("Escolher da Biblioteca de Vídeos:", options=opcoes_videos, index=index_atual)
+        input_manual = st.text_input("Ou digite o nome exato do ficheiro de vídeo (mesma pasta dos karaokes):", value=video_fundo_atual)
+        
         btn_salvar_fundo = st.form_submit_button("💾 Atualizar Vídeo Clipe de Fundo")
         if btn_salvar_fundo:
-            definir_video_fundo(provider_token, novo_video_fundo)
+            # Prioriza o texto digitado se preenchido, caso contrário usa o selectbox
+            valor_final = input_manual.strip() if input_manual.strip() else escolha_select
+            definir_video_fundo(provider_token, valor_final)
             st.success("Vídeo clipe de fundo atualizado com sucesso para a tela!")
             st.rerun()
 
@@ -480,7 +505,7 @@ def main():
             show_admin_panel()
         else:
             st.title("🔒 FFKaraoke - Área Restrita")
-            st.write("Introduza a palavra-passe de administrador na barra lateral para gerir os acessos ou aceda através do link do seu painel de prestador.")
+            st.write("Introduza a palavra-passe de administrador na barra lateral para gerir os acessos ou aceda através do link do seu prestador.")
                 
     except Exception as e:
         st.error(f"Ocorreu um erro ao carregar a aplicação: {e}")
