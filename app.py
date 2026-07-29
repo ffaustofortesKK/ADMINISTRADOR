@@ -237,7 +237,6 @@ def obter_url_video_cloudinary(musica_obj, titulo_limpo):
 def renderizar_gestao_fila_prestador(provider_token):
     st.markdown("### 🎬 Gestão de Vídeos e Modos (Pasta 'clipes')")
     
-    video_fundo_atual, modo_atual = obter_config_fundo(provider_token)
     lista_clipes_cloudinary = listar_videos_pasta_clipes()
     
     # Campo de pesquisa de vídeos da pasta clipes
@@ -249,60 +248,37 @@ def renderizar_gestao_fila_prestador(provider_token):
     else:
         clipes_filtrados = lista_clipes_cloudinary
 
-    opcoes_labels = ["🔁 Repetir Todas (Sequencial)", "🔀 Modo Aleatório", "🔂 Repetir Uma (Vídeo Específico abaixo)"]
     mapa_url_por_label = {}
+    opcoes_labels = []
     
     for clipe in clipes_filtrados:
-        label = f"📁 [Clipe] {clipe['nome']}"
+        label = f"📁 {clipe['nome']}"
         opcoes_labels.append(label)
         mapa_url_por_label[label] = clipe['url']
-        
-    index_atual = 0
-    if modo_atual == "repetir_todos":
-        index_atual = 0
-    elif modo_atual == "aleatorio":
-        index_atual = 1
-    elif modo_atual == "repetir_1" and not video_fundo_atual:
-        index_atual = 2
-    elif video_fundo_atual:
-        for idx, label in enumerate(opcoes_labels):
-            if label.startswith("📁"):
-                url_mapeada = mapa_url_por_label.get(label, "")
-                if video_fundo_atual in url_mapeada or url_mapeada in video_fundo_atual:
-                    index_atual = idx
-                    break
 
     escolha_video = st.selectbox(
-        "Selecione o modo ou escolha o vídeo filtrado:", 
-        options=opcoes_labels, 
-        index=min(index_atual, len(opcoes_labels)-1)
+        "Selecione o vídeo clipe encontrado:", 
+        options=opcoes_labels if opcoes_labels else ["Nenhum vídeo encontrado"]
     )
 
-    if escolha_video == "🔁 Repetir Todas (Sequencial)":
-        modo_guardar = "repetir_todos"
-        valor_a_guardar = ""
-    elif escolha_video == "🔀 Modo Aleatório":
-        modo_guardar = "aleatorio"
-        valor_a_guardar = ""
-    elif escolha_video == "🔂 Repetir Uma (Vídeo Específico abaixo)":
-        modo_guardar = "repetir_1"
-        valor_a_guardar = clipes_filtrados[0]['url'] if clipes_filtrados else (lista_clipes_cloudinary[0]['url'] if lista_clipes_cloudinary else "")
-    else:
-        modo_guardar = "repetir_1"
-        valor_a_guardar = mapa_url_por_label.get(escolha_video, "")
+    valor_a_guardar = mapa_url_por_label.get(escolha_video, "")
+    modo_guardar = "repetir_1" if valor_a_guardar else "repetir_todos"
 
     # BOTÕES EXATOS PEDIDOS LOGO ABAIXO DA PESQUISA/SELEÇÃO NA PÁGINA DO PRESTADOR
     st.markdown("#### 🎛️ Controlos de Reprodução")
     col_btn1, col_btn2, col_btn3 = st.columns(3)
     with col_btn1:
         if st.button("▶️ Iniciar", use_container_width=True):
-            definir_config_fundo(provider_token, valor_a_guardar, modo_guardar)
-            st.success("Configuração iniciada na TV!")
+            if valor_a_guardar:
+                definir_config_fundo(provider_token, valor_a_guardar, modo_guardar)
+                st.success("Vídeo clipe selecionado iniciado na TV!")
+            else:
+                st.warning("Selecione um vídeo válido para iniciar.")
             st.rerun()
     with col_btn2:
         if st.button("⏹️ Stop", use_container_width=True):
             definir_config_fundo(provider_token, "", "repetir_todos")
-            st.warning("Reprodução parada / reiniciada.")
+            st.warning("Reprodução parada / reiniciada para padrão.")
             st.rerun()
     with col_btn3:
         if st.button("🔄 Atualizar Lista", use_container_width=True):
@@ -546,10 +522,6 @@ def renderizar_ecra_tv(provider_token):
                         var videoElement = document.getElementById('fundo-player');
                         var currentIndex = 0;
 
-                        if (modoPlay === 'aleatorio' && playlist.length > 0) {{
-                            currentIndex = Math.floor(Math.random() * playlist.length);
-                        }}
-
                         function playCurrentVideo() {{
                             if (playlist.length === 0) return;
                             videoElement.src = playlist[currentIndex];
@@ -567,9 +539,6 @@ def renderizar_ecra_tv(provider_token):
                             if (modoPlay === 'repetir_1') {{
                                 videoElement.currentTime = 0;
                                 videoElement.play();
-                            }} else if (modoPlay === 'aleatorio') {{
-                                currentIndex = Math.floor(Math.random() * playlist.length);
-                                playCurrentVideo();
                             }} else {{
                                 currentIndex = (currentIndex + 1) % playlist.length;
                                 playCurrentVideo();
