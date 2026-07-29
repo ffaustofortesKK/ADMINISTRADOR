@@ -649,7 +649,6 @@ def main():
         # ÁREA RESTRITA CENTRALIZADA
         if not st.session_state.get("admin_logged", False):
             st.title("🔒 FFKaraoke - Área Restrita")
-            st.write("Introduza a palavra-passe de administrador abaixo para gerir os acessos ou aceda através do link do seu painel de prestador.")
             
             with st.form("form_admin_login"):
                 senha = st.text_input("Palavra-passe de Administrador", type="password")
