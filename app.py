@@ -148,12 +148,12 @@ def obter_video_fundo(provider_token):
     return ""
 
 def listar_videos_pasta_clipes():
-    """Usa o motor de Search do Cloudinary para listar com precisão absoluta todos os vídeos na pasta 'clipes'."""
+    """Usa o motor de Search do Cloudinary para listar com precisão absoluta todos os vídeos na pasta 'clip'."""
     videos_encontrados = []
     try:
-        # Pesquisa avançada focada na pasta 'clipes'
+        # Pesquisa avançada focada na pasta correta 'clip'
         resultado = cloudinary.search.Search()\
-            .expression('resource_type:video AND asset_folder=clipes')\
+            .expression('resource_type:video AND asset_folder=clip')\
             .max_results(500)\
             .execute()
             
@@ -169,7 +169,7 @@ def listar_videos_pasta_clipes():
                 
                 videos_encontrados.append({"nome": nome_amigavel, "url": url_secure})
     except Exception as e:
-        # Fallback de segurança caso a API de search exija índices específicos, varrendo via resource genérico
+        # Fallback de segurança caso a API de search exija índices específicos, varrendo via resource genérico e filtrando por 'clip'
         try:
             resultado_alt = cloudinary.api.resources(
                 resource_type="video",
@@ -178,7 +178,7 @@ def listar_videos_pasta_clipes():
             )
             for recurso in resultado_alt.get("resources", []):
                 public_id = recurso.get("public_id", "")
-                if "clipes" in public_id.lower():
+                if "clip" in public_id.lower():
                     url_secure = recurso.get("secure_url", "")
                     if url_secure:
                         if "/upload/" in url_secure and "f_auto,q_auto" not in url_secure:
@@ -238,7 +238,7 @@ def renderizar_gestao_fila_prestador(provider_token):
 
     with st.form(key="form_video_fundo"):
         escolha_video = st.selectbox(
-            "Selecione o Vídeo Clipe da pasta 'clipes':", 
+            "Selecione o Vídeo Clipe da pasta 'clip':", 
             options=opcoes_labels, 
             index=index_atual
         )
