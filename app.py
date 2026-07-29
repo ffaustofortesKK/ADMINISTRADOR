@@ -172,13 +172,12 @@ def renderizar_gestao_fila_prestador(provider_token):
     video_fundo_atual = obter_video_fundo(provider_token)
     
     # Lista de sugestões / vídeos padrão disponíveis na mesma pasta do Cloudinary
-    opcoes_videos = [
-        "Nenhum (Ecrã Preto)",
-        "HÁ MULHERES E MULHERES - Landrick",
-        "Nani Ta Quieto",
-        "Clipe Ambiente 1",
-        "Outro (Digitar Nome)"
-    ]
+    # Configuração do Cloudinary
+cloudinary.config(
+    cloud_name="yhwgjh7g",
+    api_key="852434629995691",
+    api_secret="TU_ejil7wKYY15xHjDcRVfbk6Ow",
+    secure=True
     
     # Descobrir a seleção atual com base no que está gravado
     index_atual = 0
