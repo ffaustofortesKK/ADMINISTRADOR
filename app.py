@@ -386,37 +386,80 @@ def renderizar_ecra_tv(provider_token):
             titulo_limpo = limpar_nome_musica(titulo)
             url_video = obter_url_video_cloudinary(musica, titulo_limpo)
             cantor_name = tocando_agora.get('cliente', 'Convidado')
-            
-            st.markdown(f"<h2 style='text-align:center; color: #FFC107;'>A tocar: {titulo_limpo} <span style='font-size:16px; color:#aaa;'>(Cantor: {cantor_name})</span></h2>", unsafe_allow_html=True)
 
             video_html = f"""
-            <div style="display: flex; justify-content: center; background: black; padding: 0px; width: 100%;">
-                <video id="karaoke-player" width="100%" height="520px" controls autoplay playsinline controlslist="nodownload noremoteplayback" disablepictureinpicture style="object-fit: contain; background: black;">
-                    <source src="{url_video}" type="video/mp4">
-                    O seu navegador não suporta a reprodução deste vídeo.
-                </video>
-            </div>
-            <div id="audio-warning" style="display: none; text-align: center; background: #222; border: 2px solid #FFC107; padding: 10px; margin-top: 5px; border-radius: 5px;">
-                <p style="color: #FFC107; margin: 0 0 8px 0; font-family: monospace; font-size: 14px;">⚠️ O navegador bloqueou o áudio automático.</p>
-                <button onclick="unmuteVideo()" style="background-color: #4CAF50; color: white; border: none; padding: 8px 16px; font-size: 15px; border-radius: 4px; cursor: pointer; font-weight: bold;">🔊 CLIQUE AQUI PARA ATIVAR O SOM</button>
-            </div>
-            <div style="display: flex; justify-content: center; gap: 10px; margin-top: 10px;">
-                <button onclick="stopKaraoke()" style="background-color: #d9534f; color: white; border: none; padding: 10px 20px; font-size: 16px; border-radius: 5px; cursor: pointer; font-weight: bold;">🛑 Stop</button>
-            </div>
-            <script>
-                var video = document.getElementById('karaoke-player');
-                video.muted = false; 
-                var playPromise = video.play();
-                
-                if (playPromise !== undefined) {{
-                    playPromise.then(_ => {{}}).catch(error => {{
-                        video.muted = true;
-                        video.play();
-                        document.getElementById('audio-warning').style.display = 'block';
-                    }});
+            <style>
+                @keyframes zoomInNumber {{
+                    0% {{ transform: scale(0.2); opacity: 0; }}
+                    50% {{ transform: scale(1.2); opacity: 1; }}
+                    100% {{ transform: scale(1); opacity: 1; }}
                 }}
+                .countdown-overlay {{
+                    position: fixed;
+                    top: 0; left: 0; width: 100vw; height: 100vh;
+                    background: rgba(0,0,0,0.95);
+                    display: flex;
+                    justify-content: center;
+                    align-items: center;
+                    z-index: 99999;
+                    color: #FFC107;
+                    font-family: monospace;
+                    font-size: 15vw;
+                    font-weight: bold;
+                    animation: zoomInNumber 0.9s ease-in-out infinite;
+                }}
+            </style>
+
+            <div id="countdown-screen" class="countdown-overlay">3</div>
+
+            <div id="karaoke-container" style="display: none;">
+                <h2 style='text-align:center; color: #FFC107; margin-bottom: 5px;'>A tocar: {titulo_limpo} <span style='font-size:16px; color:#aaa;'>(Cantor: {cantor_name})</span></h2>
+                <div style="display: flex; justify-content: center; background: black; padding: 0px; width: 100%;">
+                    <video id="karaoke-player" width="100%" height="520px" controls autoplay playsinline controlslist="nodownload noremoteplayback" disablepictureinpicture style="object-fit: contain; background: black;">
+                        <source src="{url_video}" type="video/mp4">
+                        O seu navegador não suporta a reprodução deste vídeo.
+                    </video>
+                </div>
+                <div id="audio-warning" style="display: none; text-align: center; background: #222; border: 2px solid #FFC107; padding: 10px; margin-top: 5px; border-radius: 5px;">
+                    <p style="color: #FFC107; margin: 0 0 8px 0; font-family: monospace; font-size: 14px;">⚠️ O navegador bloqueou o áudio automático.</p>
+                    <button onclick="unmuteVideo()" style="background-color: #4CAF50; color: white; border: none; padding: 8px 16px; font-size: 15px; border-radius: 4px; cursor: pointer; font-weight: bold;">🔊 CLIQUE AQUI PARA ATIVAR O SOM</button>
+                </div>
+                <div style="display: flex; justify-content: center; gap: 10px; margin-top: 10px;">
+                    <button onclick="stopKaraoke()" style="background-color: #d9534f; color: white; border: none; padding: 10px 20px; font-size: 16px; border-radius: 5px; cursor: pointer; font-weight: bold;">🛑 Stop</button>
+                </div>
+            </div>
+
+            <script>
+                var count = 3;
+                var cdScreen = document.getElementById('countdown-screen');
+                
+                var timer = setInterval(function() {{
+                    count--;
+                    if (count > 0) {{
+                        cdScreen.innerText = count;
+                    }} else if (count === 0) {{
+                        cdScreen.innerText = "🎤 CANTE!";
+                    }} else {{
+                        clearInterval(timer);
+                        cdScreen.style.display = 'none';
+                        document.getElementById('karaoke-container').style.display = 'block';
+                        
+                        var video = document.getElementById('karaoke-player');
+                        video.muted = false; 
+                        var playPromise = video.play();
+                        
+                        if (playPromise !== undefined) {{
+                            playPromise.then(_ => {{}}).catch(error => {{
+                                video.muted = true;
+                                video.play();
+                                document.getElementById('audio-warning').style.display = 'block';
+                            }});
+                        }}
+                    }}
+                }}, 1000);
 
                 function unmuteVideo() {{
+                    var video = document.getElementById('karaoke-player');
                     video.muted = false;
                     video.play();
                     document.getElementById('audio-warning').style.display = 'none';
@@ -438,9 +481,12 @@ def renderizar_ecra_tv(provider_token):
                     }});
                 }}
 
-                video.onended = function() {{
-                    stopKaraoke();
-                }};
+                var video = document.getElementById('karaoke-player');
+                if (video) {{
+                    video.onended = function() {{
+                        stopKaraoke();
+                    }};
+                }}
             </script>
             """
             components.html(video_html, height=640)
@@ -452,34 +498,31 @@ def renderizar_ecra_tv(provider_token):
             col_esq, col_dir = st.columns([1, 1])
             
             with col_esq:
-                st.markdown("""
-                    <div style="border: 2px solid #FFC107; border-radius: 10px; padding: 15px; text-align: center; background: #111; margin-bottom: 15px;">
-                        <h2 style="color: #FFC107; margin: 0; font-family: monospace;">🎤 FILA DE ESPERA</h2>
-                    </div>
-                """, unsafe_allow_html=True)
-                
+                # Caixa superior "Á SEGUIR" com o nome do próximo cantor
                 if proximo_cantor:
-                    t_prox = limpar_nome_musica(proximo_cantor.get("musica", {}))
                     c_prox = proximo_cantor.get("cliente", "Convidado")
                     st.markdown(f"""
-                        <div style="background: linear-gradient(135deg, #2b1035, #111); border: 2px solid #9c27b0; border-radius: 12px; padding: 15px; margin-bottom: 15px; text-align: center;">
-                            <span style="color: #FFC107; font-size: 14px; font-weight: bold;">1 — Á Seguir —</span>
-                            <h3 style="color: #ffffff; margin: 5px 0 0 0; font-family: monospace;">{c_prox}</h3>
-                            <p style="color: #4CAF50; font-size: 14px; margin: 5px 0 0 0;">🎵 {t_prox}</p>
+                        <div style="border: 2px solid #FFC107; border-radius: 10px; padding: 15px; background: #111; margin-bottom: 15px; display: flex; align-items: center; gap: 15px;">
+                            <span style="color: #FFC107; font-size: 20px; font-weight: bold; font-family: monospace;">Á SEGUIR</span>
+                            <span style="color: #ffffff; font-size: 20px; font-weight: bold; font-family: monospace; text-transform: uppercase;">{c_prox}</span>
+                        </div>
+                    """, unsafe_allow_html=True)
+                else:
+                    st.markdown("""
+                        <div style="border: 2px solid #FFC107; border-radius: 10px; padding: 15px; text-align: center; background: #111; margin-bottom: 15px;">
+                            <h2 style="color: #FFC107; margin: 0; font-family: monospace;">🎤 FILA DE ESPERA VAZIA</h2>
                         </div>
                     """, unsafe_allow_html=True)
                 
+                # Renderiza dinamicamente as caixas apenas para os pedidos existentes na fila (a partir do índice 1)
                 html_caixas = '<div style="display: flex; flex-direction: column; gap: 8px;">'
-                for idx in range(2, 7):
-                    p_item = pedidos_ativos[idx-1] if len(pedidos_ativos) >= idx else None
-                    if p_item:
-                        t_item = limpar_nome_musica(p_item.get("musica", {}))
-                        c_item = p_item.get("cliente", "Convidado")
-                        texto_caixa = f"<b>{idx}.</b> {c_item} — {t_item}"
-                    else:
-                        texto_caixa = f"<b>{idx}.</b>"
-                    
+                demais_pedidos = pedidos_ativos[1:] if len(pedidos_ativos) > 1 else []
+                
+                for idx, p_item in enumerate(demais_pedidos, start=2):
+                    c_item = p_item.get("cliente", "Convidado")
+                    texto_caixa = f"<b>{idx}.</b> {c_item}"
                     html_caixas += f'<div style="background: #111; border: 2px solid #FFC107; border-radius: 8px; padding: 12px; color: #fff; font-family: monospace; font-size: 16px;">{texto_caixa}</div>'
+                
                 html_caixas += '</div>'
                 st.markdown(html_caixas, unsafe_allow_html=True)
 
