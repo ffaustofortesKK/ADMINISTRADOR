@@ -495,6 +495,11 @@ def renderizar_ecra_tv(provider_token):
             url_clipe_fundo = obter_video_fundo(provider_token)
             proximo_cantor = pedidos_ativos[0] if pedidos_ativos else None
             
+            # Geração do link absoluto para o QR Code do cliente
+            host_dominio = st.context.headers.get('Host', 'grupoffkaraoke.streamlit.app')
+            link_cliente_absoluto = f"https://{host_dominio}/?page=client_register&prestador={provider_token}"
+            qr_url_cliente = f"https://api.qrserver.com/v1/create-qr-code/?size=220x220&data={urllib.parse.quote(link_cliente_absoluto)}"
+
             col_esq, col_dir = st.columns([1, 1])
             
             with col_esq:
@@ -525,6 +530,26 @@ def renderizar_ecra_tv(provider_token):
                 
                 html_caixas += '</div>'
                 st.markdown(html_caixas, unsafe_allow_html=True)
+
+                # Se não houver nenhum pedido, exibe o QR Code e o microfone giratório logo abaixo da fila
+                if not pedidos_ativos:
+                    st.markdown(f"""
+                        <style>
+                            @keyframes spinMic {{
+                                0% {{ transform: rotate(0deg); }}
+                                100% {{ transform: rotate(360deg); }}
+                            }}
+                            .mic-rotating {{
+                                display: inline-block;
+                                animation: spinMic 4s linear infinite;
+                            }}
+                        </style>
+                        <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; background: #111; border: 2px solid #FFC107; border-radius: 10px; padding: 20px; margin-top: 15px; text-align: center;">
+                            <p style="color: #FFC107; font-family: monospace; font-size: 15px; margin-bottom: 10px; font-weight: bold;">📱 ESCANEIE PARA PEDIR UMA MÚSICA:</p>
+                            <img src="{qr_url_cliente}" width="160" style="border-radius: 6px; border: 4px solid #fff; margin-bottom: 15px;" />
+                            <div class="mic-rotating" style="font-size: 55px; margin-top: 5px;">🎤</div>
+                        </div>
+                    """, unsafe_allow_html=True)
 
             with col_dir:
                 if url_clipe_fundo:
