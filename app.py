@@ -374,7 +374,7 @@ def renderizar_ecra_tv(provider_token):
             pedidos_ativos.sort(key=lambda x: x.get("timestamp", 0))
             tocando_agora = next((p for p in pedidos_ativos if p.get("estado") == "aprovado"), None)
         
-        # Estilos globais e componentes visuais (rodapé animado + caixas de som quadradas grandes com 2 altifalantes pulsantes)
+        # Estilos globais e componentes visuais (aplicados APENAS na tela de espera/idle)
         frame_styles = """
             <style>
                 @keyframes pulseSpeaker {
@@ -504,8 +504,8 @@ def renderizar_ecra_tv(provider_token):
             url_video = obter_url_video_cloudinary(musica, titulo_limpo)
             cantor_name = tocando_agora.get('cliente', 'Convidado')
 
+            # Quando o vídeo do cliente está a tocar, NENHUM efeito ou rodapé é renderizado (apenas o vídeo puro e limpo)
             video_html = f"""
-            {frame_styles}
             <style>
                 @keyframes zoomInNumber {{
                     0% {{ transform: scale(0.2); opacity: 0; }}
@@ -530,10 +530,10 @@ def renderizar_ecra_tv(provider_token):
 
             <div id="countdown-screen" class="countdown-overlay">3</div>
 
-            <div id="karaoke-container" style="display: none; padding-bottom: 40px;">
+            <div id="karaoke-container" style="display: none; padding-bottom: 20px;">
                 <h2 style='text-align:center; color: #FFC107; margin-bottom: 5px;'>A tocar: {titulo_limpo} <span style='font-size:16px; color:#aaa;'>(Cantor: {cantor_name})</span></h2>
                 <div style="display: flex; justify-content: center; background: black; padding: 0px; width: 100%;">
-                    <video id="karaoke-player" width="100%" height="490px" controls autoplay playsinline controlslist="nodownload noremoteplayback" disablepictureinpicture style="object-fit: contain; background: black;">
+                    <video id="karaoke-player" width="100%" height="520px" controls autoplay playsinline controlslist="nodownload noremoteplayback" disablepictureinpicture style="object-fit: contain; background: black;">
                         <source src="{url_video}" type="video/mp4">
                         O seu navegador não suporta a reprodução deste vídeo.
                     </video>
@@ -607,7 +607,7 @@ def renderizar_ecra_tv(provider_token):
                 }}
             </script>
             """
-            components.html(video_html, height=640)
+            components.html(video_html, height=660)
             
         else:
             url_clipe_fundo = obter_video_fundo(provider_token)
@@ -746,7 +746,7 @@ def main():
         if token:
             df = get_all_providers()
             if df.empty or 'token' not in df.columns or not (df['token'] == token).any():
-                show_provider_panel_custom(token)
+                show_provider_panel_center(token) # type: ignore
                 return
                 
             prior_prestador = df[df['token'] == token]
