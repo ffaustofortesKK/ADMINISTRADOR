@@ -147,25 +147,26 @@ def obter_video_fundo(provider_token):
     return ""
 
 def listar_videos_pasta_clipes():
+    """Busca dinamicamente os vídeos diretamente da pasta 'clipes' no Cloudinary."""
     videos_encontrados = []
     try:
         resultado = cloudinary.api.resources(
             resource_type="video",
             type="upload",
-            max_results=200
+            prefix="clipes/",
+            max_results=100
         )
         for recurso in resultado.get("resources", []):
-            public_id = recurso.get("public_id", "")
-            if "clipes" in public_id.lower():
-                url_secure = recurso.get("secure_url", "")
-                if url_secure:
-                    if "/upload/" in url_secure and "f_auto,q_auto" not in url_secure:
-                        url_secure = url_secure.replace("/upload/", "/upload/f_auto,q_auto/")
-                    
-                    nome_amigavel = public_id.split("/")[-1]
-                    videos_encontrados.append({"nome": nome_amigavel, "url": url_secure})
+            url_secure = recurso.get("secure_url", "")
+            if url_secure:
+                if "/upload/" in url_secure and "f_auto,q_auto" not in url_secure:
+                    url_secure = url_secure.replace("/upload/", "/upload/f_auto,q_auto/")
+                
+                public_id = recurso.get("public_id", "")
+                nome_amigavel = public_id.split("/")[-1]
+                videos_encontrados.append({"nome": nome_amigavel, "url": url_secure})
     except Exception as e:
-        print(f"Erro ao listar vídeos do Cloudinary: {e}")
+        print(f"Erro ao listar pasta clipes do Cloudinary: {e}")
     
     return videos_encontrados
 
@@ -217,7 +218,7 @@ def renderizar_gestao_fila_prestador(provider_token):
 
     with st.form(key="form_video_fundo"):
         escolha_video = st.selectbox(
-            "Selecione o Vídeo Clipe da pasta 'clipes':", 
+            "Selecione o Vídeo Clipe da pasta 'clipes' do Cloudinary:", 
             options=opcoes_labels, 
             index=index_atual
         )
@@ -311,8 +312,7 @@ def show_provider_panel_custom(provider_token):
     link_cliente_rel = f"/?page=client_register&prestador={provider_token}"
     link_tv_rel = f"/?page=client_screen&prestador={provider_token}"
     
-    # Substituição segura para evitar falha no st.context.headers
-    host_dominio = "grupoffkaraoke.streamlit.app"
+    host_dominio = st.context.headers.get('Host', 'grupoffkaraoke.streamlit.app')
     link_cliente_absoluto = f"https://{host_dominio}{link_cliente_rel}"
     qr_url_cliente = f"https://api.qrserver.com/v1/create-qr-code/?size=180x180&data={urllib.parse.quote(link_cliente_absoluto)}"
 
