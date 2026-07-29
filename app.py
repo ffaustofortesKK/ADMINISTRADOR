@@ -130,22 +130,29 @@ def terminar_todas_musicas_ativas(provider_token, pedidos):
         if p.get("estado") in ["aprovado", "pendente"]:
             atualizar_estado_pedido(provider_token, p.get("id"), "terminado")
 
-def definir_video_fundo(provider_token, url_clipe):
+def definir_config_fundo(provider_token, url_clipe, modo_reproducao):
     try:
-        url = f"{FIREBASE_URL}/config/{provider_token}/video_fundo.json"
-        requests.put(url, json=url_clipe, timeout=10)
+        dados = {
+            "video_fundo": url_clipe,
+            "modo": modo_reproducao
+        }
+        url = f"{FIREBASE_URL}/config/{provider_token}.json"
+        requests.put(url, json=dados, timeout=10)
     except Exception:
         pass
 
-def obter_video_fundo(provider_token):
+def obter_config_fundo(provider_token):
     try:
-        url = f"{FIREBASE_URL}/config/{provider_token}/video_fundo.json"
+        url = f"{FIREBASE_URL}/config/{provider_token}.json"
         res = requests.get(url, timeout=5)
-        if res.status_code == 200:
-            return res.json() or ""
+        if res.status_code == 200 and res.json():
+            data = res.json()
+            if isinstance(data, dict):
+                return data.get("video_fundo", ""), data.get("modo", "repetir_todos")
+            return str(data), "repetir_todos"
     except Exception:
         pass
-    return ""
+    return "", "repetir_todos"
 
 def listar_videos_pasta_clipes():
     """Usa o motor de Search do Cloudinary para listar com precisão absoluta todos os vídeos na pasta 'clipes'."""
@@ -215,10 +222,10 @@ def obter_url_video_cloudinary(musica_obj, titulo_limpo):
 def renderizar_gestao_fila_prestador(provider_token):
     st.markdown("### 🎬 Configuração de Vídeo Clipe de Fundo (Tela)")
     
-    video_fundo_atual = obter_video_fundo(provider_token)
+    video_fundo_atual, modo_atual = obter_config_fundo(provider_token)
     lista_clipes_cloudinary = listar_videos_pasta_clipes()
     
-    opcoes_labels = ["Modo Automático (Rotação de Todos os Clipes)"]
+    opcoes_labels = ["Nenhum (Ecrã Preto)"]
     mapa_url_por_label = {}
     
     for clipe in lista_clipes_cloudinary:
@@ -228,28 +235,39 @@ def renderizar_gestao_fila_prestador(provider_token):
         
     index_atual = 0
     for idx, label in enumerate(opcoes_labels):
-        if label != "Modo Automático (Rotação de Todos os Clipes)":
+        if label != "Nenhum (Ecrã Preto)":
             url_mapeada = mapa_url_por_label.get(label, "")
             if video_fundo_atual and (video_fundo_atual in url_mapeada or url_mapeada in video_fundo_atual):
                 index_atual = idx
                 break
 
-    with st.form(key="form_video_fundo"):
-        escolha_video = st.selectbox(
-            "Selecione o Vídeo Clipe ou o Modo Automático:", 
-            options=opcoes_labels, 
-            index=index_atual
-        )
+    mapa_modos = {
+        "🔁 Repetir Todos (Sequencial)": "repetir_todos",
+        "🔀 Aleatório (Shuffle)": "aleatorio",
+        "🔂 Repetir Apenas 1": "repetir_1"
+    }
+    inverso_modos = {v: k for k, v in mapa_modos.items()}
+    modo_label_inicial = inverso_modos.get(modo_atual, "🔁 Repetir Todos (Sequencial)")
 
-        btn_salvar_fundo = st.form_submit_button("💾 Atualizar Configuração de Fundo")
-        if btn_salvar_fundo:
-            if escolha_video == "Modo Automático (Rotação de Todos os Clipes)":
-                valor_a_guardar = "AUTO_PLAYLIST"
-            else:
-                valor_a_guardar = mapa_url_por_label.get(escolha_video, "")
-                
-            definir_video_fundo(provider_token, valor_a_guardar)
-            st.success("Configuração de fundo atualizada com sucesso para a tela!")
+    escolha_video = st.selectbox(
+        "Selecione o Vídeo Clipe Inicial ou Deixe em Branco:", 
+        options=opcoes_labels, 
+        index=index_atual
+    )
+
+    escolha_modo = st.selectbox(
+        "Modo de Reprodução dos Vídeos Clipes:",
+        options=list(mapa_modos.keys()),
+        index=list(mapa_modos.keys()).index(modo_label_inicial) if modo_label_inicial in mapa_modos else 0
+    )
+
+    col_btn1, col_btn2 = st.columns(2)
+    with col_btn1:
+        if st.button("▶️ Iniciar / Aplicar Fundo"):
+            valor_a_guardar = "" if escolha_video == "Nenhum (Ecrã Preto)" else mapa_url_por_label.get(escolha_video, "")
+            modo_guardar = mapa_modos.get(escolha_modo, "repetir_todos")
+            definir_config_fundo(provider_token, valor_a_guardar, modo_guardar)
+            st.success("Configuração de fundo aplicada com sucesso!")
             st.rerun()
 
     st.markdown("---")
@@ -420,8 +438,17 @@ def renderizar_ecra_tv(provider_token):
             components.html(video_html, height=620)
             
         else:
-            url_clipe_fundo = obter_video_fundo(provider_token)
+            url_clipe_fundo, modo_reproducao = obter_config_fundo(provider_token)
             lista_clipes = listar_videos_pasta_clipes()
+            
+            # Constrói array JSON de URLs para o JavaScript rodar a playlist automática de fundo
+            import json
+            urls_playlist = [c['url'] for c in lista_clipes]
+            if not urls_playlist and url_clipe_fundo:
+                urls_playlist = [url_clipe_fundo]
+            
+            urls_json = json.dumps(urls_playlist)
+            
             proximo_cantor = pedidos_ativos[0] if pedidos_ativos else None
             
             col_esq, col_dir = st.columns([1, 1])
@@ -465,28 +492,28 @@ def renderizar_ecra_tv(provider_token):
                     </div>
                 """, unsafe_allow_html=True)
                 
-                urls_json = [c['url'] for c in lista_clipes]
-                
-                if not url_clipe_fundo or url_clipe_fundo == "AUTO_PLAYLIST":
-                    # Converte a lista do python para formato seguro em JavaScript
-                    import json
-                    urls_js = json.dumps(urls_json)
-                    
-                    playlist_html = f"""
+                if urls_playlist:
+                    video_fundo_html = f"""
                     <div style="display: flex; justify-content: center; background: black; border: 2px solid #FFC107; border-radius: 10px; padding: 5px; width: 100%;">
-                        <video id="playlist-player" width="100%" height="470px" autoplay playsinline controlslist="nodownload" style="object-fit: contain; background: black; border-radius: 8px;">
+                        <video id="fundo-player" width="100%" height="470px" controls autoplay playsinline style="object-fit: contain; background: black; border-radius: 8px;">
+                            <source src="" type="video/mp4">
                             O seu navegador não suporta vídeo.
                         </video>
                     </div>
                     <script>
-                        var playlist = {urls_js};
+                        var playlist = {urls_json};
+                        var modoPlay = "{modo_reproducao}";
+                        var videoElement = document.getElementById('fundo-player');
                         var currentIndex = 0;
-                        var videoElement = document.getElementById('playlist-player');
 
-                        function playVideoAtIndex(index) {{
+                        if (modoPlay === 'aleatorio' && playlist.length > 0) {{
+                            currentIndex = Math.floor(Math.random() * playlist.length);
+                        }}
+
+                        function playCurrentVideo() {{
                             if (playlist.length === 0) return;
-                            videoElement.src = playlist[index];
-                            videoElement.muted = false;
+                            videoElement.src = playlist[currentIndex];
+                            videoElement.muted = false; // Permite som ativo
                             var p = videoElement.play();
                             if (p !== undefined) {{
                                 p.catch(err => {{
@@ -496,31 +523,33 @@ def renderizar_ecra_tv(provider_token):
                             }}
                         }}
 
-                        if (playlist.length > 0) {{
-                            playVideoAtIndex(0);
-                            videoElement.onended = function() {{
+                        videoElement.onended = function() {{
+                            if (modoPlay === 'repetir_1') {{
+                                videoElement.currentTime = 0;
+                                videoElement.play();
+                            }} else if (modoPlay === 'aleatorio') {{
+                                currentIndex = Math.floor(Math.random() * playlist.length);
+                                playCurrentVideo();
+                            }} else {{
+                                // repetir_todos (sequencial)
                                 currentIndex = (currentIndex + 1) % playlist.length;
-                                playVideoAtIndex(currentIndex);
-                            }};
+                                playCurrentVideo();
+                            }}
+                        }};
+
+                        if (playlist.length > 0) {{
+                            playCurrentVideo();
                         }}
                     </script>
                     """
-                    components.html(playlist_html, height=500)
-                else:
-                    video_fundo_html = f"""
-                    <div style="display: flex; justify-content: center; background: black; border: 2px solid #FFC107; border-radius: 10px; padding: 5px; width: 100%;">
-                        <video id="fundo-player" width="100%" height="470px" autoplay loop muted playsinline style="object-fit: contain; background: black; border-radius: 8px;">
-                            <source src="{url_clipe_fundo}" type="video/mp4">
-                            O seu navegador não suporta vídeo.
-                        </video>
-                    </div>
-                    <script>
-                        var fPlayer = document.getElementById('fundo-player');
-                        fPlayer.muted = false;
-                        fPlayer.play().catch(e => {{ fPlayer.muted = true; fPlayer.play(); }});
-                    </script>
-                    """
                     components.html(video_fundo_html, height=500)
+                else:
+                    st.markdown("""
+                        <div style="border: 2px solid #FFC107; border-radius: 10px; padding: 80px 20px; text-align: center; background: #000; color: #FFC107; font-family: monospace;">
+                            <div style="font-size: 40px; margin-bottom: 10px;">📺</div>
+                            <p style="color: #aaa; font-size: 16px; margin: 0;">Nenhum vídeo clipe encontrado na pasta do Cloudinary...</p>
+                        </div>
+                    """, unsafe_allow_html=True)
 
     except Exception as e:
         st.error(f"Erro de sincronização na TV: {e}")
