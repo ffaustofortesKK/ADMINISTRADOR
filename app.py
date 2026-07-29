@@ -235,16 +235,25 @@ def obter_url_video_cloudinary(musica_obj, titulo_limpo):
 
 @st.fragment(run_every=3)
 def renderizar_gestao_fila_prestador(provider_token):
-    st.markdown("### 🎬 Configuração de Vídeo Clipe de Fundo (Pasta 'clipes')")
+    st.markdown("### 🎬 Gestão de Vídeos e Modos (Pasta 'clipes')")
     
     video_fundo_atual, modo_atual = obter_config_fundo(provider_token)
     lista_clipes_cloudinary = listar_videos_pasta_clipes()
     
+    # Campo de pesquisa de vídeos da pasta clipes
+    termo_pesquisa = st.text_input("🔍 Localizar vídeo clipe na pasta 'clipes':", placeholder="Digite o nome do artista ou música...")
+    
+    # Filtrar clipes com base na pesquisa
+    if termo_pesquisa.strip():
+        clipes_filtrados = [c for c in lista_clipes_cloudinary if termo_pesquisa.lower() in c['nome'].lower()]
+    else:
+        clipes_filtrados = lista_clipes_cloudinary
+
     opcoes_labels = ["🔁 Repetir Todas (Sequencial)", "🔀 Modo Aleatório", "🔂 Repetir Uma (Vídeo Específico abaixo)"]
     mapa_url_por_label = {}
     
-    for clipe in lista_clipes_cloudinary:
-        label = f"📁 [Clipe Específico] {clipe['nome']}"
+    for clipe in clipes_filtrados:
+        label = f"📁 [Clipe] {clipe['nome']}"
         opcoes_labels.append(label)
         mapa_url_por_label[label] = clipe['url']
         
@@ -264,9 +273,9 @@ def renderizar_gestao_fila_prestador(provider_token):
                     break
 
     escolha_video = st.selectbox(
-        "Selecione o modo ou clipe individual da pasta 'clipes':", 
+        "Selecione o modo ou escolha o vídeo filtrado:", 
         options=opcoes_labels, 
-        index=index_atual
+        index=min(index_atual, len(opcoes_labels)-1)
     )
 
     if escolha_video == "🔁 Repetir Todas (Sequencial)":
@@ -277,21 +286,26 @@ def renderizar_gestao_fila_prestador(provider_token):
         valor_a_guardar = ""
     elif escolha_video == "🔂 Repetir Uma (Vídeo Específico abaixo)":
         modo_guardar = "repetir_1"
-        valor_a_guardar = lista_clipes_cloudinary[0]['url'] if lista_clipes_cloudinary else ""
+        valor_a_guardar = clipes_filtrados[0]['url'] if clipes_filtrados else (lista_clipes_cloudinary[0]['url'] if lista_clipes_cloudinary else "")
     else:
         modo_guardar = "repetir_1"
         valor_a_guardar = mapa_url_por_label.get(escolha_video, "")
 
-    col_btn1, col_btn2 = st.columns(2)
+    # BOTÕES EXATOS PEDIDOS LOGO ABAIXO DA PESQUISA/SELEÇÃO NA PÁGINA DO PRESTADOR
+    st.markdown("#### 🎛️ Controlos de Reprodução")
+    col_btn1, col_btn2, col_btn3 = st.columns(3)
     with col_btn1:
-        if st.button("▶️ Iniciar Configuração de Fundo", use_container_width=True):
+        if st.button("▶️ Iniciar", use_container_width=True):
             definir_config_fundo(provider_token, valor_a_guardar, modo_guardar)
-            st.success("Configuração de fundo iniciada e aplicada na TV!")
+            st.success("Configuração iniciada na TV!")
             st.rerun()
     with col_btn2:
-        if st.button("⏹️ Stop / Limpar Fundo", use_container_width=True):
+        if st.button("⏹️ Stop", use_container_width=True):
             definir_config_fundo(provider_token, "", "repetir_todos")
-            st.warning("Reprodução de fundo parada/reiniciada para o padrão.")
+            st.warning("Reprodução parada / reiniciada.")
+            st.rerun()
+    with col_btn3:
+        if st.button("🔄 Atualizar Lista", use_container_width=True):
             st.rerun()
 
     st.markdown("---")
