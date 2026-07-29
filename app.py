@@ -23,7 +23,7 @@ import cloudinary
 import cloudinary.api
 import cloudinary.uploader
 
-# Configuração do Cloudinary (utilize as suas credenciais reais ou variáveis de ambiente)
+# Configuração do Cloudinary
 cloudinary.config(
     cloud_name = "yhwgjh7g",
     api_key = "SEU_API_KEY",
@@ -150,7 +150,6 @@ def listar_videos_pasta_clipes():
     """Busca dinamicamente os vídeos diretamente da pasta 'clipes' no Cloudinary."""
     videos_encontrados = []
     try:
-        # Pesquisa recursos do tipo 'video' na pasta 'clipes'
         resultado = cloudinary.api.resources(
             resource_type="video",
             type="upload",
@@ -160,11 +159,9 @@ def listar_videos_pasta_clipes():
         for recurso in resultado.get("resources", []):
             url_secure = recurso.get("secure_url", "")
             if url_secure:
-                # Otimiza a URL com f_auto,q_auto
                 if "/upload/" in url_secure and "f_auto,q_auto" not in url_secure:
                     url_secure = url_secure.replace("/upload/", "/upload/f_auto,q_auto/")
                 
-                # Extrai o nome limpo para exibir na lista
                 public_id = recurso.get("public_id", "")
                 nome_amigavel = public_id.split("/")[-1]
                 videos_encontrados.append({"nome": nome_amigavel, "url": url_secure})
@@ -193,8 +190,6 @@ def obter_url_video_cloudinary(musica_obj, titulo_limpo):
             return url_direta
 
     cloud_name = "yhwgjh7g"
-    titulo_lower = titulo_limpo.lower()
-    
     encoded_title = urllib.parse.quote(titulo_limpo + ".mp4")
     return f"https://res.cloudinary.com/{cloud_name}/video/upload/f_auto,q_auto/{encoded_title}"
 
@@ -203,8 +198,6 @@ def renderizar_gestao_fila_prestador(provider_token):
     st.markdown("### 🎬 Configuração de Vídeo Clipe de Fundo (Tela)")
     
     video_fundo_atual = obter_video_fundo(provider_token)
-    
-    # Busca os vídeos diretamente da pasta 'clipes' do Cloudinary
     lista_clipes_cloudinary = listar_videos_pasta_clipes()
     
     opcoes_labels = ["Nenhum (Ecrã Preto)"]
@@ -215,7 +208,6 @@ def renderizar_gestao_fila_prestador(provider_token):
         opcoes_labels.append(label)
         mapa_url_por_label[label] = clipe['url']
         
-    # Descobrir a seleção atual com base na URL guardada
     index_atual = 0
     for idx, label in enumerate(opcoes_labels):
         if label != "Nenhum (Ecrã Preto)":
@@ -357,7 +349,6 @@ def renderizar_ecra_tv(provider_token):
             pedidos_ativos.sort(key=lambda x: x.get("timestamp", 0))
             tocando_agora = next((p for p in pedidos_ativos if p.get("estado") == "aprovado"), None)
         
-        # SE HOUVER UM KARAOKE A TOCAR: Fecha tudo e abre apenas o ecrã completo do karaoke
         if tocando_agora:
             musica = tocando_agora.get("musica", {})
             if isinstance(musica, dict):
@@ -411,9 +402,7 @@ def renderizar_ecra_tv(provider_token):
             components.html(video_html, height=620)
             
         else:
-            # SE NÃO HOUVER KARAOKE A TOCAR: Mostra o layout de Duas Colunas (Fila de Espera vs Vídeo Clipe de Fundo)
             url_clipe_fundo = obter_video_fundo(provider_token)
-
             proximo_cantor = pedidos_ativos[0] if pedidos_ativos else None
             
             col_esq, col_dir = st.columns([1, 1])
@@ -494,6 +483,50 @@ def show_client_screen():
 
     renderizar_ecra_tv(provider_token)
 
+def show_client_page_custom(provider_token):
+    """Página adaptada do cliente para também buscar músicas/vídeos diretamente da pasta clipes do Cloudinary."""
+    st.markdown("### 🎶 Escolha a sua Música / Vídeo")
+    st.markdown(f"<p style='color: #888; font-size: 13px;'>Prestador: <code>{provider_token}</code></p>", unsafe_allow_html=True)
+    st.markdown("---")
+
+    # Lista os vídeos diretamente da pasta clipes do Cloudinary para o cliente escolher
+    clipes_disponiveis = listar_videos_pasta_clipes()
+
+    if not clipes_disponiveis:
+        st.warning("Nenhum vídeo encontrado na pasta 'clipes' do Cloudinary.")
+        return
+
+    nome_cliente = st.text_input("O seu Nome / Alcunha:", placeholder="Ex: João Silva")
+
+    opcoes_clipes = {f"📁 {c['nome']}": c['url'] for c in clipes_disponiveis}
+    escolha_cli = st.selectbox("Selecione a música/vídeo pretendido:", options=list(opcoes_clipes.keys()))
+
+    if st.button("🚀 Enviar Pedido para a Fila"):
+        if not nome_cliente.strip():
+            st.error("Por favor, introduza o seu nome antes de enviar.")
+        else:
+            url_escolhida = opcoes_clipes[escolha_cli]
+            nome_musica_limpo = escolha_cli.replace("📁 ", "")
+
+            novo_pedido = {
+                "cliente": nome_cliente.strip(),
+                "musica": {
+                    "titulo": nome_musica_limpo,
+                    "url_cloudinary": url_escolhida
+                },
+                "estado": "pendente",
+                "timestamp": int(time.time() * 1000)
+            }
+
+            try:
+                res = requests.post(f"{FIREBASE_URL}/pedidos/{provider_token}.json", json=novo_pedido, timeout=10)
+                if res.status_code == 200:
+                    st.success(f"Pedido de '{nome_musica_limpo}' enviado com sucesso para a fila!")
+                else:
+                    st.error("Erro ao comunicar com o servidor de pedidos.")
+            except Exception as ex:
+                st.error(f"Erro de conexão: {ex}")
+
 def main():
     try:
         query_params = st.query_params
@@ -503,7 +536,11 @@ def main():
             return
 
         if "page" in query_params and query_params["page"] == "client_register":
-            show_client_page()
+            token_prestador = query_params.get("prestador") or query_params.get("provider", "")
+            if token_prestador:
+                show_client_page_custom(token_prestador)
+            else:
+                show_client_page()
             return
 
         if "page" in query_params and query_params["page"] == "client_screen":
