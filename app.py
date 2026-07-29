@@ -148,11 +148,11 @@ def obter_video_fundo(provider_token):
     return ""
 
 def listar_videos_pasta_clipes():
-    """Lista todos os vídeos disponíveis na conta Cloudinary com múltiplos fallbacks de segurança."""
+    """Lista todos os vídeos disponíveis na conta Cloudinary com estratégia tripla de resiliência."""
     videos_encontrados = []
     urls_vistas = set()
     
-    # Tentativa 1: Pesquisa avançada focada na pasta 'clip' ou prefixo
+    # 1. Pesquisa por Search API
     try:
         resultado = cloudinary.search.Search()\
             .expression('resource_type:video')\
@@ -162,21 +162,17 @@ def listar_videos_pasta_clipes():
         for recurso in resultado.get("resources", []):
             url_secure = recurso.get("secure_url", "")
             public_id = recurso.get("public_id", "")
-            
-            # Filtra ou prioriza o que pertence a clipes/pasta clip
             if url_secure and url_secure not in urls_vistas:
                 if "/upload/" in url_secure and "f_auto,q_auto" not in url_secure:
                     url_secure = url_secure.replace("/upload/", "/upload/f_auto,q_auto/")
-                
                 filename = recurso.get("filename", "")
                 nome_amigavel = filename if filename else public_id.split("/")[-1]
-                
                 urls_vistas.add(url_secure)
                 videos_encontrados.append({"nome": nome_amigavel, "url": url_secure, "public_id": public_id})
-    except Exception as e:
-        print(f"Aviso na pesquisa Cloudinary Search: {e}")
+    except Exception:
+        pass
 
-    # Tentativa 2: Fallback direto via Admin API resource list (geralmente mais permissivo)
+    # 2. Pesquisa por Admin API (resources)
     try:
         resultado_alt = cloudinary.api.resources(
             resource_type="video",
@@ -186,16 +182,38 @@ def listar_videos_pasta_clipes():
         for recurso in resultado_alt.get("resources", []):
             url_secure = recurso.get("secure_url", "")
             public_id = recurso.get("public_id", "")
-            
             if url_secure and url_secure not in urls_vistas:
                 if "/upload/" in url_secure and "f_auto,q_auto" not in url_secure:
                     url_secure = url_secure.replace("/upload/", "/upload/f_auto,q_auto/")
-                
                 nome_amigavel = public_id.split("/")[-1]
                 urls_vistas.add(url_secure)
                 videos_encontrados.append({"nome": nome_amigavel, "url": url_secure, "public_id": public_id})
-    except Exception as err:
-        print(f"Erro crítico no fallback de vídeos Cloudinary: {err}")
+    except Exception:
+        pass
+
+    # 3. Pesquisa por sub-pastas específicas (caso os ficheiros estejam organizados em pastas no Cloudinary)
+    try:
+        pastas = ["clip", "clips", "videos", "fundo"]
+        for pasta in pastas:
+            try:
+                res_pasta = cloudinary.api.resources_by_prefix(
+                    prefix=f"{pasta}/",
+                    resource_type="video",
+                    max_results=100
+                )
+                for recurso in res_pasta.get("resources", []):
+                    url_secure = recurso.get("secure_url", "")
+                    public_id = recurso.get("public_id", "")
+                    if url_secure and url_secure not in urls_vistas:
+                        if "/upload/" in url_secure and "f_auto,q_auto" not in url_secure:
+                            url_secure = url_secure.replace("/upload/", "/upload/f_auto,q_auto/")
+                        nome_amigavel = public_id.split("/")[-1]
+                        urls_vistas.add(url_secure)
+                        videos_encontrados.append({"nome": nome_amigavel, "url": url_secure, "public_id": public_id})
+            except Exception:
+                continue
+    except Exception:
+        pass
           
     return videos_encontrados
 
@@ -262,6 +280,9 @@ def renderizar_gestao_fila_prestador(provider_token):
             definir_video_fundo(provider_token, valor_a_guardar)
             st.success("Vídeo clipe de fundo atualizado com sucesso para a tela!")
             st.rerun()
+
+    if not lista_clipes_cloudinary:
+        st.warning("⚠️ Nenhum vídeo foi retornado pelo Cloudinary. Verifique se os vídeos foram carregados corretamente na sua conta do Cloudinary.")
 
     st.markdown("---")
     st.markdown("### 🎬 Fila de Pedidos Atual")
