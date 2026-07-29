@@ -1,5 +1,4 @@
-# Let's inspect the code provided by the user and fix the indentation/whitespace issues (non-breaking spaces  ) and verify the code structure.
-code_content = """import sys
+import sys
 import os
 
 # Configuração estrita do caminho absoluto para evitar erros de importação
@@ -66,7 +65,7 @@ st.set_page_config(
 )
 
 # --- BLOQUEIO TOTAL E RADICAL DO BOTÃO GERENCIAR APLICATIVO E ELEMENTOS CLOUD ---
-st.markdown(\"\"\"
+st.markdown("""
     <style>
     div[data-testid="stToolbar"], header, footer, 
     div[data-testid="stDecoration"], #MainMenu, 
@@ -111,7 +110,7 @@ st.markdown(\"\"\"
     }
     setInterval(annihilateManageButton, 300);
     </script>
-\"\"\", unsafe_allow_html=True)
+""", unsafe_allow_html=True)
 
 try:
     init_db()
@@ -151,9 +150,9 @@ def obter_video_fundo(provider_token):
 def listar_videos_pasta_clipes():
     videos_encontrados = []
     try:
-        resultado = cloudinary.search.Search()\\
-            .expression('resource_type:video AND asset_folder=clipes')\\
-            .max_results(500)\\
+        resultado = cloudinary.search.Search()\
+            .expression('resource_type:video AND asset_folder=clipes')\
+            .max_results(500)\
             .execute()
             
         for recurso in resultado.get("resources", []):
@@ -194,7 +193,7 @@ def limpar_nome_musica(musica_raw):
     else:
         titulo = str(musica_raw)
     
-    titulo = titulo.strip('"\\'')
+    titulo = titulo.strip('"\'')
     if titulo.lower().endswith('.cdg'):
         titulo = titulo[:-4]
     return titulo.strip()
@@ -282,11 +281,11 @@ def renderizar_gestao_fila_prestador(provider_token):
                 html_lista += '</div>'
                 st.markdown(html_lista, unsafe_allow_html=True)
             else:
-                st.markdown(\"\"\"
+                st.markdown("""
                     <div style="background-color: #111111; border: 2px solid #333333; padding: 15px; border-radius: 8px; color: #888; max-width: 550px; font-family: monospace; font-size: 15px; margin-bottom: 20px;">
                         <div>Nenhum pedido na lista neste momento. À espera de novos pedidos...</div>
                     </div>
-                \"\"\", unsafe_allow_html=True)
+                """, unsafe_allow_html=True)
 
             st.markdown("---")
             st.markdown("### 📋 Gestão de Fila e Controlo")
@@ -344,7 +343,7 @@ def show_provider_panel_custom(provider_token):
 
     col_link, col_qr = st.columns([3, 1])
     with col_link:
-        st.markdown(f\"\"\"
+        st.markdown(f"""
             <div style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 15px;">
                 <div style="background-color: #e8f0fe; border: 1px solid #d2e3fc; padding: 10px 15px; border-radius: 8px;">
                     <span style="font-size: 14px; color: #202124;">📎 <b>Link do Cliente:</b> <a href="{link_cliente_rel}" target="_blank" rel="noopener noreferrer" style="color: #1a73e8; text-decoration: none;">{link_cliente_rel}</a></span>
@@ -353,7 +352,7 @@ def show_provider_panel_custom(provider_token):
                     <span style="font-size: 14px; color: #202124;">📺 <b>Link da TV:</b> <a href="{link_tv_rel}" target="_blank" rel="noopener noreferrer" style="color: #1a73e8; text-decoration: none;">{link_tv_rel}</a></span>
                 </div>
             </div>
-        \"\"\", unsafe_allow_html=True)
+        """, unsafe_allow_html=True)
     with col_qr:
         st.image(qr_url_cliente, width=130, caption="QR Code Cliente")
 
@@ -390,7 +389,7 @@ def renderizar_ecra_tv(provider_token):
             
             st.markdown(f"<h2 style='text-align:center; color: #FFC107;'>A tocar: {titulo_limpo} <span style='font-size:16px; color:#aaa;'>(Cantor: {cantor_name})</span></h2>", unsafe_allow_html=True)
 
-            video_html = f\"\"\"
+            video_html = f"""
             <div style="display: flex; justify-content: center; background: black; padding: 0px; width: 100%;">
                 <video id="karaoke-player" width="100%" height="520px" controls autoplay playsinline controlslist="nodownload noremoteplayback" disablepictureinpicture style="object-fit: contain; background: black;">
                     <source src="{url_video}" type="video/mp4">
@@ -443,7 +442,7 @@ def renderizar_ecra_tv(provider_token):
                     stopKaraoke();
                 }};
             </script>
-            \"\"\"
+            """
             components.html(video_html, height=640)
             
         else:
@@ -453,22 +452,22 @@ def renderizar_ecra_tv(provider_token):
             col_esq, col_dir = st.columns([1, 1])
             
             with col_esq:
-                st.markdown(\"\"\"
+                st.markdown("""
                     <div style="border: 2px solid #FFC107; border-radius: 10px; padding: 15px; text-align: center; background: #111; margin-bottom: 15px;">
                         <h2 style="color: #FFC107; margin: 0; font-family: monospace;">🎤 FILA DE ESPERA</h2>
                     </div>
-                \"\"\", unsafe_allow_html=True)
+                """, unsafe_allow_html=True)
                 
                 if proximo_cantor:
                     t_prox = limpar_nome_musica(proximo_cantor.get("musica", {}))
                     c_prox = proximo_cantor.get("cliente", "Convidado")
-                    st.markdown(f\"\"\"
+                    st.markdown(f"""
                         <div style="background: linear-gradient(135deg, #2b1035, #111); border: 2px solid #9c27b0; border-radius: 12px; padding: 15px; margin-bottom: 15px; text-align: center;">
                             <span style="color: #FFC107; font-size: 14px; font-weight: bold;">1 — Á Seguir —</span>
                             <h3 style="color: #ffffff; margin: 5px 0 0 0; font-family: monospace;">{c_prox}</h3>
                             <p style="color: #4CAF50; font-size: 14px; margin: 5px 0 0 0;">🎵 {t_prox}</p>
                         </div>
-                    \"\"\", unsafe_allow_html=True)
+                    """, unsafe_allow_html=True)
                 
                 html_caixas = '<div style="display: flex; flex-direction: column; gap: 8px;">'
                 for idx in range(2, 7):
@@ -485,14 +484,14 @@ def renderizar_ecra_tv(provider_token):
                 st.markdown(html_caixas, unsafe_allow_html=True)
 
             with col_dir:
-                st.markdown(\"\"\"
+                st.markdown("""
                     <div style="border: 2px solid #FFC107; border-radius: 10px; padding: 15px; text-align: center; background: #111; margin-bottom: 15px;">
                         <h2 style="color: #FFC107; margin: 0; font-family: monospace;">📺 VÍDEO CLIPE (FUNDO)</h2>
                     </div>
-                \"\"\", unsafe_allow_html=True)
+                """, unsafe_allow_html=True)
                 
                 if url_clipe_fundo:
-                    video_fundo_html = f\"\"\"
+                    video_fundo_html = f"""
                     <div style="display: flex; justify-content: center; background: black; border: 2px solid #FFC107; border-radius: 10px; padding: 5px; width: 100%;">
                         <video id="fundo-player" width="100%" height="420px" controls autoplay loop playsinline style="object-fit: contain; background: black; border-radius: 8px;">
                             <source src="{url_clipe_fundo}" type="video/mp4">
@@ -519,15 +518,15 @@ def renderizar_ecra_tv(provider_token):
                             document.getElementById('fundo-audio-warning').style.display = 'none';
                         }}
                     </script>
-                    \"\"\"
+                    """
                     components.html(video_fundo_html, height=500)
                 else:
-                    st.markdown(\"\"\"
+                    st.markdown("""
                         <div style="border: 2px solid #FFC107; border-radius: 10px; padding: 80px 20px; text-align: center; background: #000; color: #FFC107; font-family: monospace;">
                             <div style="font-size: 40px; margin-bottom: 10px;">📺</div>
                             <p style="color: #aaa; font-size: 16px; margin: 0;">Aguardando o prestador selecionar um vídeo clipe no painel de controle...</p>
                         </div>
-                    \"\"\", unsafe_allow_html=True)
+                    """, unsafe_allow_html=True)
 
     except Exception as e:
         st.error(f"Erro de sincronização na TV: {e}")
@@ -540,11 +539,11 @@ def show_client_screen():
         st.error("Tela inválida. Falta o parâmetro do prestador.")
         return
 
-    st.markdown(\"\"\"
+    st.markdown("""
     <style>
     .stApp { background-color: #000000; color: white; }
     </style>
-    \"\"\", unsafe_allow_html=True)
+    """, unsafe_allow_html=True)
 
     renderizar_ecra_tv(provider_token)
 
@@ -585,26 +584,27 @@ def main():
                 show_provider_panel_custom(token)
                 return
             
-        st.sidebar.title("Panel Admin")
-        senha = st.sidebar.text_input("Palavra-passe", type="password")
+        # ÁREA RESTRITA CENTRALIZADA NA TELA
+        st.title("🔒 FFKaraoke - Área Restrita")
+        st.write("Introduza a palavra-passe de administrador abaixo para gerir os acessos ou aceda através do link do seu painel de prestador.")
         
-        if senha == "ffkaraoke2026" or senha == "admin123":
-            st.sidebar.success("Sessão Iniciada")
+        with st.form("form_admin_login"):
+            senha = st.text_input("Palavra-passe de Administrador", type="password")
+            submitted = st.form_submit_button("Entrar")
+            
+            if submitted:
+                if senha == "ffkaraoke2026" or senha == "admin123":
+                    st.success("Sessão Iniciada com sucesso!")
+                    st.session_state["admin_logged"] = True
+                    st.rerun()
+                else:
+                    st.error("Palavra-passe incorreta.")
+
+        if st.session_state.get("admin_logged", False):
             show_admin_panel()
-        else:
-            st.title("🔒 FFKaraoke - Área Restrita")
-            st.write("Introduza a palavra-passe de administrador na barra lateral para gerir os acessos ou aceda através do link do seu painel de prestador.")
                 
     except Exception as e:
         st.error(f"Ocorreu um erro ao carregar a aplicação: {e}")
 
 if __name__ == "__main__":
     main()
-"""
-
-# Let's save this corrected code to a file so the user can easily download it or copy it clean of non-breaking spaces.
-with open("app.py", "w", encoding="utf-8") as f:
-    f.py = code_content
-    f.write(code_content)
-
-print("Saved app.py successfully!")
