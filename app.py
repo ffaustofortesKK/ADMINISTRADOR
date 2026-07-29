@@ -374,6 +374,91 @@ def renderizar_ecra_tv(provider_token):
             pedidos_ativos.sort(key=lambda x: x.get("timestamp", 0))
             tocando_agora = next((p for p in pedidos_ativos if p.get("estado") == "aprovado"), None)
         
+        # Estilos globais e componentes visuais (rodapé animado + colunas pulsantes nos cantos)
+        frame_styles = """
+            <style>
+                @keyframes pulseSpeaker {
+                    0% { transform: scale(1); filter: drop-shadow(0 0 2px #FFC107); }
+                    50% { transform: scale(1.18); filter: drop-shadow(0 0 12px #FFC107); }
+                    100% { transform: scale(1); filter: drop-shadow(0 0 2px #FFC107); }
+                }
+                @keyframes bounceIcon {
+                    0%, 100% { transform: translateY(0) rotate(0deg); }
+                    50% { transform: translateY(-5px) rotate(10deg); }
+                }
+                @keyframes marqueeFast {
+                    0% { transform: translateX(0%); }
+                    100% { transform: translateX(-50%); }
+                }
+                .speaker-corner {
+                    position: fixed;
+                    z-index: 99998;
+                    font-size: 38px;
+                    animation: pulseSpeaker 0.6s infinite ease-in-out;
+                    pointer-events: none;
+                    background: rgba(0,0,0,0.6);
+                    border: 2px solid #FFC107;
+                    border-radius: 50%;
+                    width: 65px;
+                    height: 65px;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                }
+                .speaker-tl { top: 15px; left: 15px; }
+                .speaker-tr { top: 15px; right: 15px; }
+                .speaker-bl { bottom: 45px; left: 15px; }
+                .speaker-br { bottom: 45px; right: 15px; }
+
+                .marquee-footer {
+                    position: fixed;
+                    bottom: 0;
+                    left: 0;
+                    width: 100vw;
+                    height: 38px;
+                    background: #111;
+                    border-top: 2px solid #FFC107;
+                    z-index: 99997;
+                    overflow: hidden;
+                    display: flex;
+                    align-items: center;
+                    white-space: nowrap;
+                    pointer-events: none;
+                }
+                .marquee-track {
+                    display: inline-block;
+                    white-space: nowrap;
+                    animation: marqueeFast 15s linear infinite;
+                    font-family: monospace;
+                    font-size: 16px;
+                    color: #FFC107;
+                    font-weight: bold;
+                }
+                .marquee-item {
+                    display: inline-flex;
+                    align-items: center;
+                    gap: 12px;
+                    margin-right: 40px;
+                }
+                .icon-anim {
+                    display: inline-block;
+                    animation: bounceIcon 0.8s infinite ease-in-out;
+                }
+            </style>
+
+            <div class="speaker-corner speaker-tl">🔊</div>
+            <div class="speaker-corner speaker-tr">🔊</div>
+            <div class="speaker-corner speaker-bl">🔊</div>
+            <div class="speaker-corner speaker-br">🔊</div>
+
+            <div class="marquee-footer">
+                <div class="marquee-track">
+                    <span class="marquee-item"><span class="icon-anim">🎵</span> FF KARAOKE CLOUD <span class="icon-anim">🎤</span> CANTE COMIGO <span class="icon-anim">🎶</span> A SUA MÚSICA FAVORITA <span class="icon-anim">🎙️</span> DIVIRTA-SE AO MÁXIMO</span>
+                    <span class="marquee-item"><span class="icon-anim">🎵</span> FF KARAOKE CLOUD <span class="icon-anim">🎤</span> CANTE COMIGO <span class="icon-anim">🎶</span> A SUA MÚSICA FAVORITA <span class="icon-anim">🎙️</span> DIVIRTA-SE AO MÁXIMO</span>
+                </div>
+            </div>
+        """
+
         if tocando_agora:
             musica = tocando_agora.get("musica", {})
             if isinstance(musica, dict):
@@ -388,6 +473,7 @@ def renderizar_ecra_tv(provider_token):
             cantor_name = tocando_agora.get('cliente', 'Convidado')
 
             video_html = f"""
+            {frame_styles}
             <style>
                 @keyframes zoomInNumber {{
                     0% {{ transform: scale(0.2); opacity: 0; }}
@@ -412,10 +498,10 @@ def renderizar_ecra_tv(provider_token):
 
             <div id="countdown-screen" class="countdown-overlay">3</div>
 
-            <div id="karaoke-container" style="display: none;">
+            <div id="karaoke-container" style="display: none; padding-bottom: 40px;">
                 <h2 style='text-align:center; color: #FFC107; margin-bottom: 5px;'>A tocar: {titulo_limpo} <span style='font-size:16px; color:#aaa;'>(Cantor: {cantor_name})</span></h2>
                 <div style="display: flex; justify-content: center; background: black; padding: 0px; width: 100%;">
-                    <video id="karaoke-player" width="100%" height="520px" controls autoplay playsinline controlslist="nodownload noremoteplayback" disablepictureinpicture style="object-fit: contain; background: black;">
+                    <video id="karaoke-player" width="100%" height="490px" controls autoplay playsinline controlslist="nodownload noremoteplayback" disablepictureinpicture style="object-fit: contain; background: black;">
                         <source src="{url_video}" type="video/mp4">
                         O seu navegador não suporta a reprodução deste vídeo.
                     </video>
@@ -495,15 +581,16 @@ def renderizar_ecra_tv(provider_token):
             url_clipe_fundo = obter_video_fundo(provider_token)
             proximo_cantor = pedidos_ativos[0] if pedidos_ativos else None
             
-            # Geração do link absoluto para o QR Code do cliente
             host_dominio = st.context.headers.get('Host', 'grupoffkaraoke.streamlit.app')
             link_cliente_absoluto = f"https://{host_dominio}/?page=client_register&prestador={provider_token}"
             qr_url_cliente = f"https://api.qrserver.com/v1/create-qr-code/?size=220x220&data={urllib.parse.quote(link_cliente_absoluto)}"
 
+            # Injeta os elementos decorativos (rodapé + colunas) na vista de espera via wrapper HTML/JS
+            st.markdown(frame_styles, unsafe_allow_html=True)
+
             col_esq, col_dir = st.columns([1, 1])
             
             with col_esq:
-                # Caixa superior "Á SEGUIR" com o nome do próximo cantor
                 if proximo_cantor:
                     c_prox = proximo_cantor.get("cliente", "Convidado")
                     st.markdown(f"""
@@ -519,8 +606,7 @@ def renderizar_ecra_tv(provider_token):
                         </div>
                     """, unsafe_allow_html=True)
                 
-                # Renderiza dinamicamente as caixas apenas para os pedidos existentes na fila (a partir do índice 1)
-                html_caixas = '<div style="display: flex; flex-direction: column; gap: 8px;">'
+                html_caixas = '<div style="display: flex; flex-direction: column; gap: 8px; margin-bottom: 40px;">'
                 demais_pedidos = pedidos_ativos[1:] if len(pedidos_ativos) > 1 else []
                 
                 for idx, p_item in enumerate(demais_pedidos, start=2):
@@ -531,7 +617,6 @@ def renderizar_ecra_tv(provider_token):
                 html_caixas += '</div>'
                 st.markdown(html_caixas, unsafe_allow_html=True)
 
-                # Se não houver nenhum pedido, exibe o QR Code e o microfone giratório logo abaixo da fila
                 if not pedidos_ativos:
                     st.markdown(f"""
                         <style>
@@ -544,7 +629,7 @@ def renderizar_ecra_tv(provider_token):
                                 animation: spinMic 4s linear infinite;
                             }}
                         </style>
-                        <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; background: #111; border: 2px solid #FFC107; border-radius: 10px; padding: 20px; margin-top: 15px; text-align: center;">
+                        <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; background: #111; border: 2px solid #FFC107; border-radius: 10px; padding: 20px; margin-top: 15px; margin-bottom: 40px; text-align: center;">
                             <p style="color: #FFC107; font-family: monospace; font-size: 15px; margin-bottom: 10px; font-weight: bold;">📱 ESCANEIE PARA PEDIR UMA MÚSICA:</p>
                             <img src="{qr_url_cliente}" width="160" style="border-radius: 6px; border: 4px solid #fff; margin-bottom: 15px;" />
                             <div class="mic-rotating" style="font-size: 55px; margin-top: 5px;">🎤</div>
@@ -554,8 +639,8 @@ def renderizar_ecra_tv(provider_token):
             with col_dir:
                 if url_clipe_fundo:
                     video_fundo_html = f"""
-                    <div style="display: flex; justify-content: center; background: black; border: 2px solid #FFC107; border-radius: 10px; padding: 5px; width: 100%; position: relative; margin-top: 5px;">
-                        <video id="fundo-player" width="100%" height="470px" controls autoplay loop playsinline controlslist="nodownload noremoteplayback" disablepictureinpicture style="object-fit: contain; background: black; border-radius: 8px;">
+                    <div style="display: flex; justify-content: center; background: black; border: 2px solid #FFC107; border-radius: 10px; padding: 5px; width: 100%; position: relative; margin-top: 5px; margin-bottom: 40px;">
+                        <video id="fundo-player" width="100%" height="450px" controls autoplay loop playsinline controlslist="nodownload noremoteplayback" disablepictureinpicture style="object-fit: contain; background: black; border-radius: 8px;">
                             <source src="{url_clipe_fundo}" type="video/mp4">
                             O seu navegador não suporta vídeo.
                         </video>
@@ -581,10 +666,10 @@ def renderizar_ecra_tv(provider_token):
                         }}
                     </script>
                     """
-                    components.html(video_fundo_html, height=500)
+                    components.html(video_fundo_html, height=480)
                 else:
                     st.markdown("""
-                        <div style="border: 2px solid #FFC107; border-radius: 10px; padding: 110px 20px; text-align: center; background: #000; color: #FFC107; font-family: monospace; margin-top: 5px;">
+                        <div style="border: 2px solid #FFC107; border-radius: 10px; padding: 100px 20px; text-align: center; background: #000; color: #FFC107; font-family: monospace; margin-top: 5px; margin-bottom: 40px;">
                             <div style="font-size: 40px; margin-bottom: 10px;">📺</div>
                             <p style="color: #aaa; font-size: 16px; margin: 0;">Aguardando o prestador selecionar um vídeo clipe no painel de controle...</p>
                         </div>
