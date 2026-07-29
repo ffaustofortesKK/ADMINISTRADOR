@@ -491,7 +491,6 @@ def renderizar_ecra_tv(provider_token):
                 """, unsafe_allow_html=True)
                 
                 if url_clipe_fundo:
-                    # Adicionado controlos de áudio e botão explicito de ativação de som para o vídeo clipe de fundo
                     video_fundo_html = f"""
                     <div style="display: flex; justify-content: center; background: black; border: 2px solid #FFC107; border-radius: 10px; padding: 5px; width: 100%;">
                         <video id="fundo-player" width="100%" height="420px" controls autoplay loop playsinline style="object-fit: contain; background: black; border-radius: 8px;">
@@ -507,7 +506,7 @@ def renderizar_ecra_tv(provider_token):
                         fundoVideo.muted = false;
                         var fundoPromise = fundoVideo.play();
                         if (fundoPromise !== undefined) {{
-                            fundoPromise.then(_ => {}).catch(error => {{
+                            fundoPromise.then(_ => {{}}).catch(error => {{
                                 fundoVideo.muted = true;
                                 fundoVideo.play();
                                 document.getElementById('fundo-audio-warning').style.display = 'block';
