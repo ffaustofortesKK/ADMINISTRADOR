@@ -148,46 +148,55 @@ def obter_video_fundo(provider_token):
     return ""
 
 def listar_videos_pasta_clipes():
-    """Usa o motor de Search do Cloudinary para listar com precisão absoluta todos os vídeos na pasta 'clip'."""
+    """Lista todos os vídeos disponíveis na conta Cloudinary com múltiplos fallbacks de segurança."""
     videos_encontrados = []
+    urls_vistas = set()
+    
+    # Tentativa 1: Pesquisa avançada focada na pasta 'clip' ou prefixo
     try:
-        # Pesquisa avançada focada na pasta correta 'clip'
         resultado = cloudinary.search.Search()\
-            .expression('resource_type:video AND asset_folder=clip')\
+            .expression('resource_type:video')\
             .max_results(500)\
             .execute()
             
         for recurso in resultado.get("resources", []):
             url_secure = recurso.get("secure_url", "")
-            if url_secure:
+            public_id = recurso.get("public_id", "")
+            
+            # Filtra ou prioriza o que pertence a clipes/pasta clip
+            if url_secure and url_secure not in urls_vistas:
                 if "/upload/" in url_secure and "f_auto,q_auto" not in url_secure:
                     url_secure = url_secure.replace("/upload/", "/upload/f_auto,q_auto/")
                 
                 filename = recurso.get("filename", "")
-                public_id = recurso.get("public_id", "")
                 nome_amigavel = filename if filename else public_id.split("/")[-1]
                 
-                videos_encontrados.append({"nome": nome_amigavel, "url": url_secure})
+                urls_vistas.add(url_secure)
+                videos_encontrados.append({"nome": nome_amigavel, "url": url_secure, "public_id": public_id})
     except Exception as e:
-        # Fallback de segurança caso a API de search exija índices específicos, varrendo via resource genérico e filtrando por 'clip'
-        try:
-            resultado_alt = cloudinary.api.resources(
-                resource_type="video",
-                type="upload",
-                max_results=500
-            )
-            for recurso in resultado_alt.get("resources", []):
-                public_id = recurso.get("public_id", "")
-                if "clip" in public_id.lower():
-                    url_secure = recurso.get("secure_url", "")
-                    if url_secure:
-                        if "/upload/" in url_secure and "f_auto,q_auto" not in url_secure:
-                            url_secure = url_secure.replace("/upload/", "/upload/f_auto,q_auto/")
-                        nome_amigavel = public_id.split("/")[-1]
-                        videos_encontrados.append({"nome": nome_amigavel, "url": url_secure})
-        except Exception as err:
-            print(f"Erro crítico ao listar vídeos do Cloudinary: {err}")
+        print(f"Aviso na pesquisa Cloudinary Search: {e}")
+
+    # Tentativa 2: Fallback direto via Admin API resource list (geralmente mais permissivo)
+    try:
+        resultado_alt = cloudinary.api.resources(
+            resource_type="video",
+            type="upload",
+            max_results=500
+        )
+        for recurso in resultado_alt.get("resources", []):
+            url_secure = recurso.get("secure_url", "")
+            public_id = recurso.get("public_id", "")
             
+            if url_secure and url_secure not in urls_vistas:
+                if "/upload/" in url_secure and "f_auto,q_auto" not in url_secure:
+                    url_secure = url_secure.replace("/upload/", "/upload/f_auto,q_auto/")
+                
+                nome_amigavel = public_id.split("/")[-1]
+                urls_vistas.add(url_secure)
+                videos_encontrados.append({"nome": nome_amigavel, "url": url_secure, "public_id": public_id})
+    except Exception as err:
+        print(f"Erro crítico no fallback de vídeos Cloudinary: {err}")
+          
     return videos_encontrados
 
 def limpar_nome_musica(musica_raw):
@@ -238,7 +247,7 @@ def renderizar_gestao_fila_prestador(provider_token):
 
     with st.form(key="form_video_fundo"):
         escolha_video = st.selectbox(
-            "Selecione o Vídeo Clipe da pasta 'clip':", 
+            "Selecione o Vídeo Clipe disponível no Cloudinary:", 
             options=opcoes_labels, 
             index=index_atual
         )
@@ -373,10 +382,8 @@ def renderizar_ecra_tv(provider_token):
             musica = tocando_agora.get("musica", {})
             if isinstance(musica, dict):
                 titulo = musica.get("titulo", musica.get("nome", "Karaoke"))
-                url_video = musica.get("url_cloudinary", "") or musica.get("url", "")
             else:
                 titulo = str(musica)
-                url_video = ""
             
             titulo_limpo = limpar_nome_musica(titulo)
             url_video = obter_url_video_cloudinary(musica, titulo_limpo)
