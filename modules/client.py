@@ -105,20 +105,17 @@ def show_client_page():
         display: inline-block;
         font-size: 160px;
     }
-    /* Reduzir o tamanho dos botões de Sim/Não */
     .stButton button {
         padding: 4px 12px !important;
         font-size: 14px !important;
         min-height: 35px !important;
     }
-    /* Deixar o label do text_input (Digite o nome da música ou artista) em cor branca */
     .stTextInput label {
         color: white !important;
     }
     </style>
     """, unsafe_allow_html=True)
 
-    # Agenda em rodapé / letreiro superior lento
     agenda_texto = (
         "🎤✨ AGENDA DO GRUPO FF KARAOKE ✨🎤  |  "
         "🎵 QUARTA-FEIRA 📍 Restaurante Cave da Samba 🎤 Apresentação: CEFAS DAVID  |  "
@@ -138,7 +135,6 @@ def show_client_page():
     if 'musica_selecionada' not in st.session_state:
         st.session_state.musica_selecionada = None
 
-    # Registo inicial do nome do cliente
     if not st.session_state.cliente_registado:
         st.markdown("## 🎤 Bem-vindo ao FF Karaoke")
         st.markdown("Insira o seu nome ou alcunha para começar:")
@@ -153,16 +149,13 @@ def show_client_page():
                     st.warning("⚠️ Por favor, insira um nome válido.")
         return
 
-    # Ecrã principal pós-registo
     cliente_nome = st.session_state.cliente_registado
     st.markdown(f"<h1 style='color: #4CAF50; font-size: 28px; margin-bottom: 0;'>Benvindo {cliente_nome}</h1>", unsafe_allow_html=True)
     st.markdown("<hr style='margin-top: 10px; margin-bottom: 20px;'>", unsafe_allow_html=True)
 
-    # Verificar estado dos pedidos anteriores deste cliente na fila
     pedidos = obter_pedidos_cliente(provider_token)
     pedidos_cliente = [p for p in pedidos if p.get("cliente", "").lower() == cliente_nome.lower() and p.get("estado") in ["pendente", "aprovado"]]
     
-    # Calcular posição na fila se houver pedido ativo
     tem_pedido_ativo = len(pedidos_cliente) > 0
     posicao_fila = None
     if tem_pedido_ativo:
@@ -174,18 +167,15 @@ def show_client_page():
                 break
 
     if tem_pedido_ativo:
-        # Ecrã de espera com microfone gigante a girar no meio da tela (sem retângulo à volta)
         st.markdown("""
             <div style="text-align: center; padding: 40px 10px; margin: 20px auto; max-width: 700px;">
                 <div class="spinning-mic">🎤</div>
-                <h2 style="color: #FFC107; margin-top: 20px; font-size: 28px;">Aguarde pela sua vez</h2>
                 """ + (f"<p style='color: #4CAF50; font-weight: bold; font-size: 18px; margin-top: 15px;'>📍 Encontra-se na posição <b>{posicao_fila}º</b> da fila do prestador.</p>" if posicao_fila else "") + """
             </div>
         """, unsafe_allow_html=True)
     else:
         st.success("✅ Já poderá enviar o seu pedido!")
 
-    # Se selecionou uma música, exibe a confirmação LOGO NO TOPO (antes da pesquisa)
     if st.session_state.musica_selecionada:
         musica_atual = st.session_state.musica_selecionada
         st.markdown(f"""
@@ -216,7 +206,6 @@ def show_client_page():
                 st.rerun()
         st.markdown("---")
 
-    # Caixa de pesquisa de música com lista rolável (scroll)
     st.markdown("### 🔍 Pesquisar Música")
     pesquisa = st.text_input("Digite o nome da música ou artista:", value=st.session_state.pesquisa_input, placeholder="Ex: Landrick, Nani...")
     st.session_state.pesquisa_input = pesquisa
@@ -232,7 +221,6 @@ def show_client_page():
         if musicas_filtradas:
             st.write(f"Encontradas {len(musicas_filtradas)} músicas:")
             
-            # Container com scroll para a lista de músicas
             container_lista = st.container(height=300)
             with container_lista:
                 for musica in musicas_filtradas:
@@ -248,9 +236,8 @@ def show_client_page():
 
     st.markdown("---")
 
-    # Secção chamativa para redes sociais e contactos
     st.markdown("""
-        <div style="background: linear-gradient(135deg, #1f1c2c, #928dab); padding: 25px; border-radius: 12px; text-align: center; color: white; margin-top: 30px;">
+        <div style="background: linear-gradient(135deg, #1f1c2c, #928dab); padding: 25px; border-radius: 12px; text-align: center; color: white; mant-top: 30px;">
             <h3 style="margin-bottom: 10px; color: #FFC107;">Quer saber mais do serviço de Karaoke do Grupo FF, clica abaixo.</h3>
             <p style="font-size: 16px; margin: 8px 0;">📸 <b>Instagram:</b> <a href="https://instagram.com/ff.karaoke" target="_blank" style="color: #00d2ff; text-decoration: none;">ff.karaoke</a></p>
             <p style="font-size: 16px; margin: 8px 0;">📞 <b>Contacto para Eventos Privados:</b> 955099159</p>
