@@ -3,7 +3,7 @@ import streamlit.components.v1 as components
 import urllib.parse
 
 # -----------------------------------------------------------------------------
-# CÓDIGO COMPLETO E AUTÓNOMO - FF KARAOKE CLOUD
+# FF KARAOKE CLOUD - CÓDIGO COMPLETO REVISADO
 # -----------------------------------------------------------------------------
 
 def renderizar_ecra_tv(provider_token):
@@ -298,6 +298,23 @@ def show_client_screen():
 
     renderizar_ecra_tv(provider_token)
 
+def show_admin_panel():
+    """Painel de Administração corrigido para nunca ficar em branco"""
+    st.title("⚙️ Painel de Administração - FF Karaoke Cloud")
+    st.success("Sessão de Administrador iniciada com sucesso.")
+    
+    st.write("Aqui pode gerir os dados da plataforma e monitorizar os acessos.")
+    
+    if 'df_providers' in st.session_state and st.session_state['df_providers'] is not None:
+        st.subheader("Prestadores Registados")
+        st.dataframe(st.session_state['df_providers'])
+    else:
+        st.info("Nenhum dado de prestadores carregado na sessão atual.")
+
+    if st.button("🚪 Terminar Sessão de Administrador"):
+        st.session_state["admin_logged"] = False
+        st.rerun()
+
 def main():
     try:
         query_params = st.query_params
@@ -342,7 +359,7 @@ def main():
             
         # ÁREA DE LOGIN DO ADMINISTRADOR
         if not st.session_state.get("admin_logged", False):
-            st.title("🔒 FFKaraoke Cloud - Área Restrita (Admin)")
+            st.title("🔒 FFKaraoke - Área Restrita")
             
             with st.form("form_admin_login"):
                 senha = st.text_input("Palavra-passe de Administrador", type="password")
@@ -357,34 +374,12 @@ def main():
                         st.error("Palavra-passe incorreta.")
             return
 
-        # PAINEL DE ADMINISTRAÇÃO TOTALMENTE FUNCIONAL
+        # RENDERIZAÇÃO DIRETA E SEGURA DO PAINEL ADMIN
         if st.session_state.get("admin_logged", False):
-            st.title("⚙️ Painel de Administração - FF Karaoke Cloud")
-            st.success("Bem-vindo ao painel central de gestão!")
-            
-            st.markdown("---")
-            st.subheader("📊 Estado do Sistema")
-            col1, col2, col3 = st.columns(3)
-            with col1:
-                st.metric("Estado da Base de Dados", "Online", "Firebase")
-            with col2:
-                st.metric("Versão da Cloud", "2.6.0", "Estável")
-            with col3:
-                st.metric("Módulo de Voz", "Ativo", "PT-PT")
-
-            st.markdown("---")
-            st.subheader("🛠️ Ferramentas de Controlo")
-            
-            if st.button("🔄 Limpar Cache da Aplicação"):
-                st.cache_data.clear()
-                st.success("Cache limpa com sucesso!")
-                
-            if st.button("🚪 Terminar Sessão de Administrador"):
-                st.session_state["admin_logged"] = False
-                st.rerun()
+            show_admin_panel()
                 
     except Exception as e:
-        st.error(f"Ocorreu um erro crítico ao carregar a aplicação: {e}")
+        st.error(f"Ocorreu um erro ao carregar a aplicação: {e}")
 
 if __name__ == "__main__":
     main()
