@@ -228,6 +228,37 @@ def renderizar_gestao_fila_prestador(provider_token):
         tocando_agora = next((p for p in pedidos_ativos if p.get("estado") == "aprovado"), None)
         pendentes = [p for p in pedidos_ativos if p.get("estado") == "pendente"]
 
+        # Bloco visual de Confirmação de Pedido estilo painel solicitado
+        if pendentes:
+            st.markdown("""
+                <div style="background-color: #0b0b0b; border: 2px solid #FFC107; padding: 15px; border-radius: 8px; text-align: center; margin-bottom: 20px;">
+                    <div style="color: #4CAF50; font-family: monospace; font-size: 15px; font-weight: bold; margin-bottom: 5px;">Confirmação de Pedido</div>
+                    <div style="color: #FFC107; font-family: monospace; font-size: 18px; font-weight: bold; margin-bottom: 10px;">QUER CANTAR</div>
+            """, unsafe_allow_html=True)
+            
+            for p in pendentes:
+                titulo_p = limpar_nome_musica(p.get("musica", {}))
+                cliente_p = p.get("cliente", "Convidado")
+                st.markdown(f"""
+                    <div style="color: #ffffff; font-family: monospace; font-size: 15px; margin-bottom: 15px;">
+                        <b>{titulo_p}</b> <span style="color: #aaa; font-size: 13px;">({cliente_p})</span>
+                    </div>
+                """, unsafe_allow_html=True)
+                
+                col_btn_sim, col_btn_nao = st.columns(2)
+                with col_btn_sim:
+                    if st.button("✅", key=f"conf_sim_{p.get('id')}", use_container_width=True):
+                        terminar_todas_musicas_ativas(provider_token, pedidos)
+                        atualizar_estado_pedido(provider_token, p.get('id'), 'aprovado')
+                        st.success(f"Música '{titulo_p}' enviada para a tela!")
+                        st.rerun()
+                with col_btn_nao:
+                    if st.button("❌", key=f"conf_nao_{p.get('id')}", use_container_width=True):
+                        atualizar_estado_pedido(provider_token, p.get('id'), 'terminado')
+                        st.warning("Pedido recusado/cancelado.")
+                        st.rerun()
+            st.markdown("</div>", unsafe_allow_html=True)
+
         col_fila, col_botoes = st.columns([3, 1])
         
         with col_fila:
@@ -256,14 +287,6 @@ def renderizar_gestao_fila_prestador(provider_token):
                 if st.button("⏹️ Terminar", key=f"term_top_{tocando_agora.get('id')}", use_container_width=True):
                     terminar_todas_musicas_ativas(provider_token, pedidos)
                     st.success("Música terminada!")
-                    st.rerun()
-            
-            for p in pendentes:
-                titulo_p = limpar_nome_musica(p.get("musica", {}))
-                if st.button("▶️ Play", key=f"btn_play_side_{p.get('id')}", use_container_width=True):
-                    terminar_todas_musicas_ativas(provider_token, pedidos)
-                    atualizar_estado_pedido(provider_token, p.get('id'), 'aprovado')
-                    st.success(f"Música '{titulo_p}' enviada para a tela!")
                     st.rerun()
 
         if tocando_agora:
@@ -415,7 +438,6 @@ def show_provider_panel_custom(provider_token):
     
     qr_url_cliente = f"https://api.qrserver.com/v1/create-qr-code/?size=180x180&data={urllib.parse.quote(link_cliente_absoluto)}"
 
-    # Mantido o QR Code apenas para o Link do Cliente
     col_qr1, col_card1 = st.columns([1, 5])
     with col_qr1:
         st.markdown(f"""
@@ -433,7 +455,6 @@ def show_provider_panel_custom(provider_token):
 
     st.markdown("<div style='height: 12px;'></div>", unsafe_allow_html=True)
 
-    # Removido o QR Code da TV, ocupando a largura total do painel de forma simétrica
     st.markdown(f"""
         <div class="card-tv">
             <div class="link-title" style="color: #b5179e;">LINK DA TV</div>
