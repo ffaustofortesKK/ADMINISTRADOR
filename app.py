@@ -3,11 +3,12 @@ import streamlit.components.v1 as components
 import urllib.parse
 
 # -----------------------------------------------------------------------------
-# FUNÇÕES E COMPONENTES AUXILIARES
+# FUNÇÕES E COMPONENTES AUXILIARES (Simuladas conforme o seu contexto)
 # -----------------------------------------------------------------------------
 
 def get_all_providers():
     import pandas as pd
+    # Retorna DataFrame mockado ou real dependendo da sua base
     try:
         return pd.DataFrame()
     except:
@@ -26,9 +27,11 @@ def show_provider_panel_center(token):
     st.title(f"Painel Central do Prestador: {token}")
 
 def obter_pedidos_ativos(provider_token):
+    # Mock / Integração com Firebase
     return []
 
 def obter_video_fundo(provider_token):
+    # Retorna URL de vídeo de fundo se houver
     return None
 
 frame_styles = """
@@ -46,6 +49,13 @@ def renderizar_ecra_tv(provider_token):
         pedidos_ativos = obter_pedidos_ativos(provider_token)
         tocando_agora = None
         
+        # Lógica para verificar se há música tocando agora
+        # (Se a lista tiver itens e o primeiro estiver com estado tocando, etc.)
+        
+        # Exemplo simulado para manter a estrutura original:
+        tocando_agora = None # Ajuste conforme sua regra de negócio original
+
+        # FIREBASE URL base usada no seu projeto
         FIREBASE_URL = "https://seu-projeto-default-rtdb.firebaseio.com"
 
         if tocando_agora:
@@ -56,12 +66,10 @@ def renderizar_ecra_tv(provider_token):
             video_html = f"""
             <div style="background: #000; width: 100%; height: 730px; display: flex; flex-direction: column; align-items: center; justify-content: center; position: relative; overflow: hidden;">
                 
-                <!-- TELA DE CONTAGEM REGRESSIVA COM ÁUDIO DE SUSPENSE / GRITO MICHAEL JACKSON (THRILLER) -->
                 <div id="countdown-screen" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: #000000; z-index: 9999; display: flex; flex-direction: column; align-items: center; justify-content: center; font-family: monospace; font-size: 120px; color: #FFC107; font-weight: bold; text-shadow: 0 0 20px rgba(255,193,7,0.8);">
                     3
                 </div>
 
-                <!-- CONTANEDOR DO VÍDEO DE KARAOKÊ -->
                 <div id="karaoke-container" style="display: none; width: 100%; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center;">
                     <div style="color: #FFC107; font-family: monospace; font-size: 22px; margin-bottom: 10px; text-transform: uppercase; font-weight: bold;">
                         🎤 CANTANDO AGORA: {c_atual} - {m_atual}
@@ -72,13 +80,12 @@ def renderizar_ecra_tv(provider_token):
                     </video>
                 </div>
 
-                <div id="audio-warning" style="display: none; position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,0.9); border: 2px solid #FFC107; padding: 12px 20px; border-radius: 8px; text-align: center; z-index: 10000;">
+                <div id="audio-warning" style="display: none; position: absolute; bottom: 20px; left: 50% transform: translateX(-50%); background: rgba(0,0,0,0.9); border: 2px solid #FFC107; padding: 12px 20px; border-radius: 8px; text-align: center; z-index: 10000;">
                     <p style="color: #FFC107; margin: 0 0 8px 0; font-family: monospace; font-size: 14px;">⚠️ O navegador bloqueou o áudio automático.</p>
                     <button onclick="unmuteVideo()" style="background-color: #4CAF50; color: white; border: none; padding: 8px 16px; font-size: 15px; border-radius: 4px; cursor: pointer; font-weight: bold;">🔊 CLIQUE AQUI PARA ATIVAR O SOM</button>
                 </div>
             </div>
 
-            <!-- Áudio Sintetizado / Efeito sonoro do Grito estilo Thriller para a Contagem -->
             <audio id="thriller-sound" src="https://www.myinstants.com/media/sounds/michael-jackson-thriller-scream.mp3" preload="auto"></audio>
 
             <script>
@@ -86,13 +93,14 @@ def renderizar_ecra_tv(provider_token):
                 var cdScreen = document.getElementById('countdown-screen');
                 var thrillerAudio = document.getElementById('thriller-sound');
 
+                // Tenta disparar o som do grito ao iniciar a contagem
                 if (thrillerAudio) {{
                     thrillerAudio.volume = 1.0;
                     thrillerAudio.play().catch(e => console.log("Áudio bloqueado pelo browser inicialmente"));
                 }}
                 
                 var timer = setInterval(function() {{
-                    count -= 1;
+                    count--;
                     if (count > 0) {{
                         cdScreen.innerText = count;
                     }} else if (count === 0) {{
@@ -157,6 +165,7 @@ def renderizar_ecra_tv(provider_token):
             link_cliente_absoluto = f"https://{host_dominio}/?page=client_register&prestador={provider_token}"
             qr_url_cliente = f"https://api.qrserver.com/v1/create-qr-code/?size=220x220&data={urllib.parse.quote(link_cliente_absoluto)}"
 
+            # Link específico para a Tela do Cliente (TV / Display)
             link_tela_cliente_absoluto = f"https://{host_dominio}/?page=client_screen&prestador={provider_token}"
             qr_url_tela_cliente = f"https://api.qrserver.com/v1/create-qr-code/?size=220x220&data={urllib.parse.quote(link_tela_cliente_absoluto)}"
 
@@ -211,11 +220,12 @@ def renderizar_ecra_tv(provider_token):
                     """, unsafe_allow_html=True)
 
             with col_dir:
+                # ADICIONADO: Exibição do QR Code da Tela do Cliente/TV no painel do prestador
                 st.markdown(f"""
                     <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; background: #111; border: 2px solid #FFC107; border-radius: 10px; padding: 15px; margin-bottom: 20px; text-align: center;">
                         <p style="color: #FFC107; font-family: monospace; font-size: 14px; margin-bottom: 8px; font-weight: bold;">📺 QR CODE DA TELA DA TV / CLIENTE:</p>
                         <img src="{qr_url_tela_cliente}" width="130" style="border-radius: 6px; border: 3px solid #fff; margin-bottom: 8px;" />
-                        <a href="{link_tela_cliente_absoluto}" target="_blank" style="color: #4CAF50; font-family: monospace; font-size: 12px; word-break: break-all;">Abrir Tela da TV em Nova Aba</a>
+                        <a href="{link_tela_client_absoluto if 'link_tela_client_absoluto' in locals() else link_tela_cliente_absoluto}" target="_blank" style="color: #4CAF50; font-family: monospace; font-size: 12px; word-break: break-all;">Abrir Tela da TV em Nova Aba</a>
                     </div>
                 """, unsafe_allow_html=True)
 
@@ -276,6 +286,7 @@ def show_client_screen():
     renderizar_ecra_tv(provider_token)
 
 def show_provider_panel_custom(token):
+    # Função que renderiza o painel customizado do prestador (onde foi inserido o QR code da tela)
     st.title(f"Painel do Prestador - Token: {token}")
     renderizar_ecra_tv(token)
 
@@ -316,6 +327,7 @@ def main():
                 show_provider_panel_custom(token)
                 return
             
+        # ÁREA RESTRITA CENTRALIZADA
         if not st.session_state.get("admin_logged", False):
             st.title("🔒 FFKaraoke - Área Restrita")
             
