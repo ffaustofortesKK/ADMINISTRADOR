@@ -26,7 +26,7 @@ modules_path = os.path.join(current_dir, "modules")
 if modules_path not in sys.path:
     sys.path.insert(0, modules_path)
 
-# Configuração do Cloudinary com as suas credenciais oficiais
+# Configuração do Cloudinary com as credenciais oficiais
 cloudinary.config(
     cloud_name="yhwgjh7g",
     api_key="852434629995691",
@@ -232,7 +232,7 @@ def renderizar_gestao_fila_prestador(provider_token):
         
         with col_fila:
             if pedidos_ativos:
-                html_lista = '<div style="background-color: #111111; border: 2px solid #FFC107; padding: 15px; border-radius: 8px; color: #ffffff; width: 100%; font-family: monospace; font-size: 15px; margin-bottom: 20px;">'
+                html_lista = '<div style="background-color: #050505; border: 2px solid #FFC107; padding: 15px; border-radius: 8px; color: #ffffff; width: 100%; font-family: monospace; font-size: 15px; margin-bottom: 20px;">'
                 html_lista += '<div style="color: #FFC107; font-weight: bold; margin-bottom: 8px; border-bottom: 1px solid #333; padding-bottom: 4px;">ESTADO DA FILA:</div>'
                 for idx, p in enumerate(pedidos_ativos, start=1):
                     titulo_musica = limpar_nome_musica(p.get("musica", {}))
@@ -245,13 +245,13 @@ def renderizar_gestao_fila_prestador(provider_token):
                 st.markdown(html_lista, unsafe_allow_html=True)
             else:
                 st.markdown("""
-                    <div style="background-color: #111111; border: 2px solid #FFC107; border-radius: 8px; padding: 15px; color: #FFC107; width: 100%; font-family: monospace; font-size: 15px; margin-bottom: 20px;">
+                    <div style="background-color: #050505; border: 2px solid #FFC107; border-radius: 8px; padding: 15px; color: #FFC107; width: 100%; font-family: monospace; font-size: 14px; margin-top: 15px; margin-bottom: 20px;">
                         <div>NENHUM PEDIDO NA LISTA NESTE MOMENTO.<br>À ESPERA DE NOVOS PEDIDOS...</div>
                     </div>
                 """, unsafe_allow_html=True)
 
         with col_botoes:
-            st.markdown("<div style='height: 28px;'></div>", unsafe_allow_html=True)
+            st.markdown("<div style='height: 15px;'></div>", unsafe_allow_html=True)
             if tocando_agora:
                 if st.button("⏹️ Terminar", key=f"term_top_{tocando_agora.get('id')}", use_container_width=True):
                     terminar_todas_musicas_ativas(provider_token, pedidos)
@@ -344,36 +344,64 @@ def show_provider_panel_custom(provider_token):
     .card-link {
         background: linear-gradient(90deg, #0d1b2a 0%, #1b263b 100%);
         border: 2px solid #FFC107;
-        border-radius: 12px;
-        padding: 15px 20px;
-        margin-bottom: 12px;
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
+        border-radius: 10px;
+        padding: 18px 25px;
+        text-align: center;
         box-shadow: 0 4px 15px rgba(255, 193, 7, 0.15);
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
     }
     .card-tv {
         background: linear-gradient(90deg, #1f1a24 0%, #2e1a38 100%);
         border: 2px solid #9c27b0;
-        border-radius: 12px;
-        padding: 15px 20px;
-        margin-bottom: 20px;
+        border-radius: 10px;
+        padding: 18px 25px;
+        text-align: center;
+        box-shadow: 0 4px 15px rgba(156, 39, 176, 0.15);
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+    }
+    .qr-box {
+        background: #000;
+        border: 2px solid #FFC107;
+        border-radius: 8px;
+        padding: 6px;
         display: flex;
         align-items: center;
-        justify-content: space-between;
-        box-shadow: 0 4px 15px rgba(156, 39, 176, 0.15);
+        justify-content: center;
+    }
+    .qr-box-tv {
+        background: #000;
+        border: 2px solid #9c27b0;
+        border-radius: 8px;
+        padding: 6px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    .link-title {
+        font-family: monospace;
+        color: #FFC107;
+        font-size: 24px;
+        font-weight: bold;
+        letter-spacing: 1px;
+        margin-bottom: 6px;
     }
     .link-text {
         font-family: monospace;
-        color: #FFC107;
-        font-size: 14px;
-        text-decoration: none;
+        color: #3a86ff;
+        font-size: 15px;
+        text-decoration: underline;
     }
     .link-text-tv {
         font-family: monospace;
-        color: #e1bee7;
-        font-size: 14px;
-        text-decoration: none;
+        color: #b5179e;
+        font-size: 15px;
+        text-decoration: underline;
     }
     </style>
     """, unsafe_allow_html=True)
@@ -393,32 +421,43 @@ def show_provider_panel_custom(provider_token):
     
     host_dominio = st.context.headers.get('Host', 'grupoffkaraoke.streamlit.app')
     link_cliente_absoluto = f"https://{host_dominio}{link_cliente_rel}"
-    qr_url_cliente = f"https://api.qrserver.com/v1/create-qr-code/?size=180x180&data={urllib.parse.quote(link_cliente_absoluto)}"
-
-    col_links, col_qr = st.columns([3, 1])
+    link_tv_absoluto = f"https://{host_dominio}{link_tv_rel}"
     
-    with col_links:
+    qr_url_cliente = f"https://api.qrserver.com/v1/create-qr-code/?size=180x180&data={urllib.parse.quote(link_cliente_absoluto)}"
+    qr_url_tv = f"https://api.qrserver.com/v1/create-qr-code/?size=180x180&data={urllib.parse.quote(link_tv_absoluto)}"
+
+    # Estrutura idêntica à imagem fornecida: QR Code no lado esquerdo de cada caixa
+    col_qr1, col_card1 = st.columns([1, 5])
+    with col_qr1:
+        st.markdown(f"""
+            <div class="qr-box">
+                <img src="{qr_url_cliente}" width="100" style="border-radius: 4px;" />
+            </div>
+        """, unsafe_allow_html=True)
+    with col_card1:
         st.markdown(f"""
             <div class="card-link">
-                <div>
-                    <div style="font-weight: bold; color: #fff; font-family: monospace; margin-bottom: 4px; font-size: 15px;">👥 LINK DO CLIENTE</div>
-                    <a href="{link_cliente_rel}" target="_blank" class="link-text">{link_cliente_rel}</a>
-                </div>
+                <div class="link-title">LINK DO CLIENTE</div>
+                <a href="{link_cliente_rel}" target="_blank" class="link-text">{link_cliente_rel}</a>
             </div>
+        """, unsafe_allow_html=True)
+
+    st.markdown("<div style='height: 12px;'></div>", unsafe_allow_html=True)
+
+    col_qr2, col_card2 = st.columns([1, 5])
+    with col_qr2:
+        st.markdown(f"""
+            <div class="qr-box-tv">
+                <img src="{qr_url_tv}" width="100" style="border-radius: 4px;" />
+            </div>
+        """, unsafe_allow_html=True)
+    with col_card2:
+        st.markdown(f"""
             <div class="card-tv">
-                <div>
-                    <div style="font-weight: bold; color: #fff; font-family: monospace; margin-bottom: 4px; font-size: 15px;">📺 LINK DA TV</div>
-                    <a href="{link_tv_rel}" target="_blank" class="link-text-tv">{link_tv_rel}</a>
-                </div>
+                <div class="link-title">LINK DA TV</div>
+                <a href="{link_tv_rel}" target="_blank" class="link-text-tv">{link_tv_rel}</a>
             </div>
         """, unsafe_allow_html=True)
-        
-    with col_qr:
-        st.markdown("""
-            <div style="background: #111; border: 2px solid #FFC107; border-radius: 12px; padding: 10px; text-align: center; box-shadow: 0 4px 15px rgba(255, 193, 7, 0.2);">
-        """, unsafe_allow_html=True)
-        st.image(qr_url_cliente, width=135, caption="")
-        st.markdown("<div style='color: #FFC107; font-family: monospace; font-size: 12px; font-weight: bold; margin-top: 5px;'>QR CODE CLIENTE</div></div>", unsafe_allow_html=True)
 
     renderizar_gestao_fila_prestador(provider_token)
 
@@ -787,6 +826,9 @@ def show_client_screen():
 
     renderizar_ecra_tv(provider_token)
 
+def show_provider_panel_center(token):
+    show_provider_panel_custom(token)
+
 def main():
     try:
         query_params = st.query_params
@@ -808,7 +850,7 @@ def main():
         if token:
             df = get_all_providers()
             if df.empty or 'token' not in df.columns or not (df['token'] == token).any():
-                show_provider_panel_center(token) # type: ignore
+                show_provider_panel_center(token)
                 return
                 
             prior_prestador = df[df['token'] == token]
