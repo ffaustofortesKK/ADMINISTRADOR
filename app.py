@@ -3,13 +3,11 @@ import streamlit.components.v1 as components
 import urllib.parse
 
 # -----------------------------------------------------------------------------
-# CÓDIGO INTEGRADO - FF KARAOKE CLOUD
+# CÓDIGO COMPLETO - FF KARAOKE CLOUD
 # -----------------------------------------------------------------------------
 
 def renderizar_ecra_tv(provider_token):
     try:
-        # Simulação ou obtenção dos dados necessários para o exemplo
-        # (Certifique-se de manter as suas funções originais de chamada à base de dados)
         tocando_agora = st.session_state.get("tocando_agora", None)
         pedidos_ativos = st.session_state.get("pedidos_ativos", [])
         FIREBASE_URL = "https://ffkaraoke-cloud-default-rtdb.firebaseio.com"
@@ -111,7 +109,6 @@ def renderizar_ecra_tv(provider_token):
             </div>
 
             <script>
-                // Função para falar texto usando a API de Voz do Navegador
                 function falarTexto(texto) {{
                     if ('speechSynthesis' in window) {{
                         var utterance = new SpeechSynthesisUtterance(texto);
@@ -125,7 +122,6 @@ def renderizar_ecra_tv(provider_token):
                 var count = 3;
                 var cdScreen = document.getElementById('countdown-screen');
                 
-                // Anuncia o início da contagem por voz logo no primeiro segundo
                 falarTexto("Atenção, em 3, 2, 1, solta a voz!");
 
                 var timer = setInterval(function() {{
@@ -301,6 +297,20 @@ def show_client_screen():
     </style>""", unsafe_allow_html=True)
 
     renderizar_ecra_tv(provider_token)
+
+def show_admin_panel():
+    """Painel de Administração de Segurança caso não venha de outro módulo"""
+    try:
+        st.title("⚙️ Painel de Administração - FF Karaoke Cloud")
+        st.success("Bem-vindo à gestão centralizada do sistema.")
+        
+        if st.button("🚪 Terminar Sessão de Administrador"):
+            st.session_state["admin_logged"] = False
+            st.rerun()
+            
+        # Adicione aqui os seus componentes de gestão do painel admin se necessário
+    except Exception as e:
+        st.error(f"Erro no painel administrativo: {e}")
 
 def main():
     try:
