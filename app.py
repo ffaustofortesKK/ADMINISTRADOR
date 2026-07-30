@@ -413,6 +413,7 @@ def show_provider_panel_custom(provider_token):
 
     renderizar_gestao_fila_prestador(provider_token)
 
+# --- SECÇÃO CUSTOMIZADA DA PÁGINA DO CLIENTE COM A CAIXA DE PEDIDO EXTRA ---
 def show_client_page_custom(provider_token):
     st.markdown("""
     <style>
@@ -494,6 +495,7 @@ def renderizar_ecra_tv(provider_token):
             url_video = obter_url_video_cloudinary(musica, titulo)
             pedido_id = tocando_agora.get("id", "default")
 
+            # Injeção de JavaScript para reproduzir o efeito de voz estilo Thriller (Eco + Tom Grave) antes do vídeo
             video_html = f"""
             <style>
                 body, html {{ margin: 0; padding: 0; background: #000; overflow: hidden; width: 100vw; height: 100vh; }}
@@ -505,17 +507,20 @@ def renderizar_ecra_tv(provider_token):
             </div>
             
             <script>
+                // Executar a voz estilo Thriller (Eco e tom grave) apenas uma vez por reprodução ativa
                 const trackKey = "played_voice_{pedido_id}";
                 if (!sessionStorage.getItem(trackKey)) {{
                     sessionStorage.setItem(trackKey, "true");
                     
                     if ('speechSynthesis' in window) {{
+                        // Pausar brevemente o vídeo para dar destaque à contagem falada
                         const vid = document.getElementById('karaokeVideo');
                         if (vid) {{ vid.pause(); }}
 
                         setTimeout(() => {{
                             const textToSpeak = "Atenção em três, dois, um, Solta a Voz";
                             
+                            // Criar eco repetindo o texto com pequenos intervalos para simular o efeito Thriller
                             const speakWithEcho = (count) => {{
                                 if (count < 0) {{
                                     if (vid) {{ vid.play().catch(e => console.log(e)); }}
@@ -523,18 +528,18 @@ def renderizar_ecra_tv(provider_token):
                                 }}
                                 
                                 let utterance = new SpeechSynthesisUtterance(textToSpeak);
-                                utterance.rate = 0.85; 
-                                utterance.pitch = 0.5; 
-                                utterance.volume = 1.0 - (count * 0.25); 
+                                utterance.rate = 0.85; // Ritmo misterioso e pausado
+                                utterance.pitch = 0.5; // Tom de voz grave (estilo suspense)
+                                utterance.volume = 1.0 - (count * 0.25); // O eco vai diminuindo o volume
                                 
                                 window.speechSynthesis.speak(utterance);
                                 
                                 setTimeout(() => {{
                                     speakWithEcho(count - 1);
-                                }}, 400); 
+                                }}, 400); // Intervalo do eco
                             }};
 
-                            speakWithEcho(2); 
+                            speakWithEcho(2); // 3 repetições de eco
                         }}, 300);
                     }}
                 }}
@@ -542,17 +547,10 @@ def renderizar_ecra_tv(provider_token):
             """
             components.html(video_html, height=750, scrolling=False)
         else:
-            host_dominio = st.context.headers.get('Host', 'grupoffkaraoke.streamlit.app')
-            link_cliente_absoluto = f"https://{host_dominio}/?page=client_register&prestador={provider_token}"
-            qr_url_cliente = f"https://api.qrserver.com/v1/create-qr-code/?size=200x200&data={urllib.parse.quote(link_cliente_absoluto)}"
-
-            st.markdown(f"""
-                <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; border: 2px solid #FFC107; border-radius: 12px; padding: 60px 20px; text-align: center; background: #000; color: #FFC107; font-family: monospace; margin-top: 20px;">
-                    <div style="font-size: 45px; margin-bottom: 15px;">📺</div>
-                    <h2 style="color: #FFC107; margin-bottom: 10px;">AGUARDANDO REPRODUÇÃO...</h2>
-                    <p style="color: #aaa; font-size: 16px; margin-bottom: 25px;">Escaneie o QR Code abaixo com o seu telemóvel para acompanhar e fazer pedidos:</p>
-                    <img src="{qr_url_cliente}" width="200" style="border-radius: 8px; border: 4px solid #fff; box-shadow: 0 0 20px rgba(255, 193, 7, 0.4);" />
-                    <div style="color: #4CAF50; font-size: 14px; font-weight: bold; margin-top: 15px;">🔗 ACOMPANHE PELO TELEFONE</div>
+            st.markdown("""
+                <div style="border: 2px solid #FFC107; border-radius: 10px; padding: 100px 20px; text-align: center; background: #000; color: #FFC107; font-family: monospace;">
+                    <div style="font-size: 40px; margin-bottom: 10px;">📺</div>
+                    <p style="color: #aaa; font-size: 16px; margin: 0;">Aguardando reprodução...</p>
                 </div>
             """, unsafe_allow_html=True)
     except Exception as e:
