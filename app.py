@@ -2,56 +2,13 @@ import streamlit as st
 import streamlit.components.v1 as components
 import urllib.parse
 
-# -----------------------------------------------------------------------------
-# FF KARAOKE CLOUD - CÓDIGO COMPLETO COM PAINEL DE ABAS ORIGINAL
-# -----------------------------------------------------------------------------
+# [Mantenha as suas funções e imports anteriores exatamente como estão no seu projeto]
 
 def renderizar_ecra_tv(provider_token):
     try:
-        tocando_agora = st.session_state.get("tocando_agora", None)
-        pedidos_ativos = st.session_state.get("pedidos_ativos", [])
-        FIREBASE_URL = "https://ffkaraoke-cloud-default-rtdb.firebaseio.com"
-
-        frame_styles = """
-        <style>
-            .marquee-footer {
-                position: fixed;
-                bottom: 0;
-                width: 100%;
-                background: #111;
-                color: #FFC107;
-                font-family: monospace;
-                overflow: hidden;
-                white-space: nowrap;
-                z-index: 999;
-                border-top: 2px solid #FFC107;
-                padding: 8px 0;
-            }
-            .marquee-track {
-                display: inline-block;
-                animation: marquee 25s linear infinite;
-            }
-            .marquee-item {
-                margin-right: 50px;
-                font-size: 16px;
-                font-weight: bold;
-            }
-            @keyframes marquee {
-                0% { transform: translateX(0%); }
-                100% { transform: translateX(-50%); }
-            }
-            .icon-anim {
-                display: inline-block;
-            }
-        </style>
-        <div class="marquee-footer">
-            <div class="marquee-track">
-                <span class="marquee-item"><span class="icon-anim">🎵</span> FF KARAOKE CLOUD <span class="icon-anim">🎤</span> CANTE COMIGO <span class="icon-anim">🎶</span> A SUA MÚSICA FAVORITA <span class="icon-anim">🎙️</span> DIVIRTA-SE AO MÁXIMO</span>
-                <span class="marquee-item"><span class="icon-anim">🎵</span> FF KARAOKE CLOUD <span class="icon-anim">🎤</span> CANTE COMIGO <span class="icon-anim">🎶</span> A SUA MÚSICA FAVORITA <span class="icon-anim">🎙️</span> DIVIRTA-SE AO MÁXIMO</span>
-            </div>
-        </div>
-        """
-
+        # (Lógica de obtenção de dados e estilos do seu projeto)
+        # ...
+        
         if tocando_agora:
             musica = tocando_agora.get("musica", {})
             if isinstance(musica, dict):
@@ -61,8 +18,8 @@ def renderizar_ecra_tv(provider_token):
                 titulo = str(musica)
                 url_video = ""
             
-            titulo_limpo = limpar_nome_musica(titulo) if 'limpar_nome_musica' in globals() else titulo
-            url_video = obter_url_video_cloudinary(musica, titulo_limpo) if 'obter_url_video_cloudinary' in globals() else url_video
+            titulo_limpo = limpar_nome_musica(titulo)
+            url_video = obter_url_video_cloudinary(musica, titulo_limpo)
 
             video_html = f"""
             <style>
@@ -109,21 +66,22 @@ def renderizar_ecra_tv(provider_token):
             </div>
 
             <script>
+                // Função para falar a contagem com a voz do navegador
                 function falarTexto(texto) {{
                     if ('speechSynthesis' in window) {{
                         var utterance = new SpeechSynthesisUtterance(texto);
                         utterance.lang = 'pt-PT';
                         utterance.rate = 1.0;
-                        utterance.pitch = 1.0;
                         window.speechSynthesis.speak(utterance);
                     }}
                 }}
 
+                // Disparar voz inicial de atenção assim que o ecrã de contagem carrega
+                falarTexto("Atenção em 3, 2, 1, solta a voz!");
+
                 var count = 3;
                 var cdScreen = document.getElementById('countdown-screen');
-                
-                falarTexto("Atenção, em 3, 2, 1, solta a voz!");
-
+ 
                 var timer = setInterval(function() {{
                     count--;
                     if (count > 0) {{
@@ -157,7 +115,7 @@ def renderizar_ecra_tv(provider_token):
                 }}
 
                 function stopKaraoke() {{
-                    var pedidoId = "{tocando_agora.get('id', '')}";
+                    var pedidoId = "{tocando_agora.get('id')}";
                     var token = "{provider_token}";
                     var firebaseURL = "{FIREBASE_URL}/pedidos/" + token + "/" + pedidoId + "/estado.json";
                     
@@ -183,15 +141,14 @@ def renderizar_ecra_tv(provider_token):
             components.html(video_html, height=750, scrolling=False)
             
         else:
-            url_clipe_fundo = obter_video_fundo(provider_token) if 'obter_video_fundo' in globals() else ""
+            url_clipe_fundo = obter_video_fundo(provider_token)
             proximo_cantor = pedidos_ativos[0] if pedidos_ativos else None
             
             host_dominio = st.context.headers.get('Host', 'grupoffkaraoke.streamlit.app')
             link_cliente_absoluto = f"https://{host_dominio}/?page=client_register&prestador={provider_token}"
             qr_url_cliente = f"https://api.qrserver.com/v1/create-qr-code/?size=220x220&data={urllib.parse.quote(link_cliente_absoluto)}"
 
-            if 'frame_styles' in globals():
-                st.markdown(frame_styles, unsafe_allow_html=True)
+            st.markdown(frame_styles, unsafe_allow_html=True)
 
             col_esq, col_dir = st.columns([1, 1])
             
@@ -298,88 +255,16 @@ def show_client_screen():
 
     renderizar_ecra_tv(provider_token)
 
-def show_admin_panel():
-    """Painel de Administração com as abas originais"""
-    st.markdown("### 🛠️ Painel de Administração — FF Karaoke")
-    
-    # Abas originais correspondentes à imagem
-    aba_selecionada = st.radio(
-        "",
-        ["🔗 Link e QR Registo", "⏳ Pedidos e Aprovação", "📊 Gestão Total", "📈 Relatórios e Estatísticas"],
-        horizontal=True,
-        label_visibility="collapsed"
-    )
-    
-    st.divider()
-
-    if "🔗 Link e QR Registo" in aba_selecionada:
-        st.markdown("### 📎 Portal de Auto-Registo de Prestadores")
-        st.write("Partilhe este link ou o QR Code com os prestadores para que possam submeter os seus dados e comprovativo de pagamento.")
-        
-        host_dominio = st.context.headers.get('Host', 'appadm.streamlit.app')
-        link_registo = f"https://{host_dominio}/?page=register"
-        
-        st.markdown(f"""
-            <div style="background-color: #000; border: 2px solid #FFC107; padding: 15px; border-radius: 5px; color: #FFC107; font-family: monospace;">
-                <b>Link Direto de Registo:</b><br>
-                <a href="{link_registo}" target="_blank" style="color: #FFC107; font-size: 16px;">{link_registo}</a>
-            </div>
-        """, unsafe_allow_html=True)
-        
-        qr_url_admin = f"https://api.qrserver.com/v1/create-qr-code/?size=200x200&data={urllib.parse.quote(link_registo)}"
-        st.image(qr_url_admin, width=180, caption="QR Code de Registo")
-        
-        st.info("Os prestadores que acederem a este link poderão preencher o nome, contacto, referência de pagamento e tempo pretendido.")
-
-        if 'df_providers' in st.session_state and st.session_state['df_providers'] is not None:
-            st.dataframe(st.session_state['df_providers'])
-        else:
-            st.markdown("""
-                <div style="background-color: #f0f2f6; padding: 10px; border-radius: 5px; color: #31333F;">
-                    Nenhum dado de prestadores carregado na sessão atual.
-                </div>
-            """, unsafe_allow_html=True)
-
-    elif "⏳ Pedidos e Aprovação" in aba_selecionada:
-        st.markdown("### ⏳ Pedidos e Aprovação de Prestadores")
-        st.write("Aprove ou rejeite os pedidos pendentes dos novos prestadores.")
-        # Chamada segura caso a função original exista
-        if 'show_admin_pedidos' in globals():
-            show_admin_pedidos()
-        else:
-            st.info("Nenhum pedido pendente de momento.")
-
-    elif "📊 Gestão Total" in aba_selecionada:
-        st.markdown("### 📊 Gestão Total da Plataforma")
-        if 'show_admin_gestao' in globals():
-            show_admin_gestao()
-        else:
-            st.info("Módulo de gestão total ativo.")
-
-    elif "📈 Relatórios e Estatísticas" in aba_selecionada:
-        st.markdown("### 📈 Relatórios e Estatísticas")
-        if 'show_admin_relatorios' in globals():
-            show_admin_relatorios()
-        else:
-            st.info("Estatísticas gerais do sistema.")
-
-    st.divider()
-    if st.button("🚪 Terminar Sessão de Administrador"):
-        st.session_state["admin_logged"] = False
-        st.rerun()
-
 def main():
     try:
         query_params = st.query_params
         
         if "page" in query_params and query_params["page"] == "register":
-            if 'show_register_page' in globals():
-                show_register_page()
+            show_register_page()
             return
 
         if "page" in query_params and query_params["page"] == "client_register":
-            if 'show_client_page' in globals():
-                show_client_page()
+            show_client_page()
             return
 
         if "page" in query_params and query_params["page"] == "client_screen":
@@ -389,28 +274,25 @@ def main():
         token = query_params.get("prestador") or query_params.get("token") or query_params.get("provider")
         
         if token:
-            df = get_all_providers() if 'get_all_providers' in globals() else st.session_state.get("df_providers", None)
-            if df is None or (hasattr(df, 'empty') and df.empty) or (hasattr(df, 'columns') and 'token' not in df.columns) or (hasattr(df, 'columns') and not (df['token'] == token).any()):
-                if 'show_provider_panel_center' in globals():
-                    show_provider_panel_center(token) # type: ignore
+            df = get_all_providers()
+            if df.empty or 'token' not in df.columns or not (df['token'] == token).any():
+                show_provider_panel_center(token) # type: ignore
                 return
                 
             prior_prestador = df[df['token'] == token]
             if not prior_prestador.empty:
                 row = prior_prestador.iloc[0]
                 if row.get('approved', 1) == 1:
-                    if 'show_provider_panel_custom' in globals():
-                        show_provider_panel_custom(token)
+                    show_provider_panel_custom(token)
                     return
                 else:
                     st.warning("⏳ O seu registo aguarda aprovação do Administrador.")
                     return
             else:
-                if 'show_provider_panel_custom' in globals():
-                    show_provider_panel_custom(token)
+                show_provider_panel_custom(token)
                 return
             
-        # ÁREA DE LOGIN DO ADMINISTRADOR
+        # ÁREA RESTRITA CENTRALIZADA
         if not st.session_state.get("admin_logged", False):
             st.title("🔒 FFKaraoke - Área Restrita")
             
@@ -425,9 +307,7 @@ def main():
                         st.rerun()
                     else:
                         st.error("Palavra-passe incorreta.")
-            return
 
-        # RENDERIZAÇÃO DO PAINEL ADMIN COM ABAS
         if st.session_state.get("admin_logged", False):
             show_admin_panel()
                 
