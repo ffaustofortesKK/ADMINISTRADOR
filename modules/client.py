@@ -159,7 +159,7 @@ def show_client_page():
     tem_pedido_ativo = len(pedidos_cliente) > 0
     posicao_fila = None
     if tem_pedido_ativo:
-        pedidos_ativos = [p for p in pedidos if p.get("estado"] in ["pendente", "aprovado"]]
+        pedidos_ativos = [p for p in pedidos if p.get("estado") in ["pendente", "aprovado"]]
         pedidos_ativos.sort(key=lambda x: x.get("timestamp", 0))
         for idx, p in enumerate(pedidos_ativos, start=1):
             if p.get("cliente", "").lower() == cliente_nome.lower():
@@ -169,7 +169,7 @@ def show_client_page():
     if tem_pedido_ativo:
         st.markdown(f"""
             <div style="text-align: center; padding: 20px 10px; margin: 10px auto; max-width: 700px;">
-                """ + (f'<div style="color: #FFC107; font-weight: bold; font-size: 22px; margin-bottom: 15px;">Encontra-se na <b style="color: #FFC107;">{posicao_fila}º</b> posição</div>' if posicao_fila else '') + """
+                """ + (f'<div style="color: white; font-weight: bold; font-size: 20px; margin-bottom: 12px;">Encontra-se na <b style="color: #FFC107;">{posicao_fila}º</b> posição</div>' if posicao_fila else '') + """
                 <div class="spinning-mic">🎤</div>
             </div>
         """, unsafe_allow_html=True)
