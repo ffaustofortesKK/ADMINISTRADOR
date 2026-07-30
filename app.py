@@ -647,7 +647,7 @@ def renderizar_ecra_tv(provider_token):
                 var cdScreen = document.getElementById('countdown-screen');
                 
                 var timer = setInterval(function() {{
-                    count--;
+                    count -= 1;
                     if (count > 0) {{
                         cdScreen.innerText = count;
                     }} else if (count === 0) {{
@@ -711,172 +711,156 @@ def renderizar_ecra_tv(provider_token):
             host_dominio = st.context.headers.get('Host', 'grupoffkaraoke.streamlit.app')
             link_cliente_absoluto = f"https://{host_dominio}/?page=client_register&prestador={provider_token}"
             qr_url_cliente = f"https://api.qrserver.com/v1/create-qr-code/?size=220x220&data={urllib.parse.quote(link_cliente_absoluto)}"
-
-            st.markdown(frame_styles, unsafe_allow_html=True)
-
-            col_esq, col_dir = st.columns([1, 1])
             
-            with col_esq:
-                if proximo_cantor:
-                    c_prox = proximo_cantor.get("cliente", "Convidado")
-                    st.markdown(f"""
-                        <div style="border: 2px solid #FFC107; border-radius: 10px; padding: 15px; background: #111; margin-bottom: 15px; display: flex; align-items: center; gap: 15px;">
-                            <span style="color: #FFC107; font-size: 20px; font-weight: bold; font-family: monospace;">Á SEGUIR</span>
-                            <span style="color: #ffffff; font-size: 20px; font-weight: bold; font-family: monospace; text-transform: uppercase;">{c_prox}</span>
-                        </div>
-                    """, unsafe_allow_html=True)
-                else:
-                    st.markdown("""
-                        <div style="border: 2px solid #FFC107; border-radius: 10px; padding: 15px; text-align: center; background: #111; margin-bottom: 15px;">
-                            <h2 style="color: #FFC107; margin: 0; font-family: monospace;">🎤 FILA DE ESPERA VAZIA</h2>
-                        </div>
-                    """, unsafe_allow_html=True)
-                
-                html_caixas = '<div style="display: flex; flex-direction: column; gap: 8px; margin-bottom: 40px;">'
-                demais_pedidos = pedidos_ativos[1:] if len(pedidos_ativos) > 1 else []
-                
-                for idx, p_item in enumerate(demais_pedidos, start=2):
-                    c_item = p_item.get("cliente", "Convidado")
-                    texto_caixa = f"<b>{idx}.</b> {c_item}"
-                    html_caixas += f'<div style="background: #111; border: 2px solid #FFC107; border-radius: 8px; padding: 12px; color: #fff; font-family: monospace; font-size: 16px;">{texto_caixa}</div>'
-                
-                html_caixas += '</div>'
-                st.markdown(html_caixas, unsafe_allow_html=True)
+            fila_nomes_html = ""
+            for idx, p in enumerate(pedidos_ativos[:5], start=1):
+                t_musica = limpar_nome_musica(p.get("musica", {}))
+                c_nome = p.get("cliente", "Convidado")
+                fila_nomes_html += f'<div style="padding: 8px 0; border-bottom: 1px solid rgba(255,193,7,0.2); font-size: 18px; color: #fff;"><b>{idx}.</b> {t_musica} <span style="color: #FFC107; font-size: 15px;">({c_nome})</span></div>'
 
-                if not pedidos_ativos:
-                    st.markdown(f"""
-                        <style>
-                            @keyframes spinMic {{
-                                0% {{ transform: rotate(0deg); }}
-                                100% {{ transform: rotate(360deg); }}
-                            }}
-                            .mic-rotating {{
-                                display: inline-block;
-                                animation: spinMic 4s linear infinite;
-                            }}
-                        </style>
-                        <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; background: #111; border: 2px solid #FFC107; border-radius: 10px; padding: 20px; margin-top: 15px; margin-bottom: 40px; text-align: center;">
-                            <p style="color: #FFC107; font-family: monospace; font-size: 15px; margin-bottom: 10px; font-weight: bold;">📱 ESCANEIE PARA PEDIR UMA MÚSICA:</p>
-                            <img src="{qr_url_cliente}" width="160" style="border-radius: 6px; border: 4px solid #fff; margin-bottom: 15px;" />
-                            <div class="mic-rotating" style="font-size: 55px; margin-top: 5px;">🎤</div>
-                        </div>
-                    """, unsafe_allow_html=True)
+            if not fila_nomes_html:
+                fila_nomes_html = '<div style="color: #888; font-style: italic; padding: 10px 0; font-size: 16px;">A fila está vazia. Seja o primeiro a pedir!</div>'
 
-            with col_dir:
-                if url_clipe_fundo:
-                    video_fundo_html = f"""
-                    <div style="display: flex; justify-content: center; background: black; border: 2px solid #FFC107; border-radius: 10px; padding: 5px; width: 100%; position: relative; margin-top: 5px; margin-bottom: 40px;">
-                        <video id="fundo-player" width="100%" height="450px" controls autoplay loop playsinline controlslist="nodownload noremoteplayback" disablepictureinpicture style="object-fit: contain; background: black; border-radius: 8px;">
-                            <source src="{url_clipe_fundo}" type="video/mp4">
-                            O seu navegador não suporta vídeo.
-                        </video>
-                        <div id="fundo-audio-warning" style="display: none; position: absolute; bottom: 15px; right: 15px; background: rgba(0,0,0,0.8); border: 1px solid #FFC107; padding: 6px 10px; border-radius: 5px; cursor: pointer;" onclick="unmuteFundo()">
-                            <span style="font-size: 18px;" title="Ativar Som">🔊</span>
+            ecra_espera_html = f"""
+            <style>
+                body, html {{
+                    margin: 0;
+                    padding: 0;
+                    background: #0b0b0b;
+                    overflow: hidden;
+                    width: 100vw;
+                    height: 100vh;
+                    font-family: monospace;
+                }}
+                .bg-video {{
+                    position: fixed;
+                    top: 0;
+                    left: 0;
+                    width: 100vw;
+                    height: 100vh;
+                    object-fit: cover;
+                    z-index: 1;
+                    opacity: 0.45;
+                }}
+                .bg-overlay {{
+                    position: fixed;
+                    top: 0;
+                    left: 0;
+                    width: 100vw;
+                    height: 100vh;
+                    background: radial-gradient(circle, rgba(11,11,11,0.4) 0%, rgba(11,11,11,0.85) 100%);
+                    z-index: 2;
+                }}
+                .content-container {{
+                    position: fixed;
+                    top: 0;
+                    left: 0;
+                    width: 100vw;
+                    height: 100vh;
+                    z-index: 3;
+                    display: flex;
+                    flex-direction: column;
+                    justify-content: space-between;
+                    padding: 30px 50px;
+                    box-sizing: border-box;
+                }}
+                .header-tv {{
+                    text-align: center;
+                    border-bottom: 3px solid #FFC107;
+                    padding-bottom: 15px;
+                    background: rgba(17,17,17,0.75);
+                    border-radius: 12px;
+                    backdrop-filter: blur(5px);
+                }}
+                .main-grid {{
+                    display: flex;
+                    gap: 40px;
+                    justify-content: space-between;
+                    align-items: center;
+                    flex: 1;
+                    margin: 20px 0;
+                }}
+                .box-card {{
+                    background: rgba(17, 17, 17, 0.85);
+                    border: 3px solid #FFC107;
+                    border-radius: 16px;
+                    padding: 25px;
+                    box-shadow: 0 8px 32px rgba(255, 193, 7, 0.25);
+                    backdrop-filter: blur(8px);
+                }}
+            </style>
+
+            {f'<video class="bg-video" autoplay muted loop playsinline><source src="{url_clipe_fundo}" type="video/mp4"></video>' if url_clipe_fundo else ''}
+            <div class="bg-overlay"></div>
+
+            <div class="content-container">
+                <div class="header-tv">
+                    <h1 style="color: #FFC107; margin: 0; font-size: 38px; text-transform: uppercase; letter-spacing: 2px;">🎤 FF KARAOKE CLOUD 🎶</h1>
+                    <p style="color: #ccc; margin: 5px 0 0 0; font-size: 18px;">ESANCAE SEU QR CODE, ESCOLHA SUA MÚSICA E VENHA CANTAR!</p>
+                </div>
+
+                <div class="main-grid">
+                    <div class="box-card" style="flex: 1.2; text-align: center;">
+                        <h2 style="color: #FFC107; margin-top: 0; font-size: 26px; border-bottom: 2px solid #333; padding-bottom: 10px;">📱 ESCANEI PARA PEDIR</h2>
+                        <img src="{qr_url_cliente}" style="width: 230px; height: 230px; border-radius: 10px; border: 4px solid #FFC107; padding: 5px; background: white; margin: 10px 0;" />
+                        <p style="color: #fff; font-size: 15px; margin: 5px 0 0 0; word-break: break-all;"><b>{link_cliente_absoluto}</b></p>
+                    </div>
+
+                    <div class="box-card" style="flex: 1.8; height: 100%; display: flex; flex-direction: column; justify-content: flex-start;">
+                        <h2 style="color: #FFC107; margin-top: 0; font-size: 26px; border-bottom: 2px solid #333; padding-bottom: 10px;">📋 PRÓXIMOS NA FILA</h2>
+                        <div style="flex-direction: column; display: flex;">
+                            {fila_nomes_html}
                         </div>
                     </div>
-                    <script>
-                        var fundoVideo = document.getElementById('fundo-player');
-                        fundoVideo.muted = false;
-                        var fundoPromise = fundoVideo.play();
-                        if (fundoPromise !== undefined) {{
-                            fundoPromise.then(_ => {{}}).catch(error => {{
-                                fundoVideo.muted = true;
-                                fundoVideo.play();
-                                document.getElementById('fundo-audio-warning').style.display = 'block';
-                            }});
-                        }}
-                        function unmuteFundo() {{
-                            fundoVideo.muted = false;
-                            fundoVideo.play();
-                            document.getElementById('fundo-audio-warning').style.display = 'none';
-                        }}
-                    </script>
-                    """
-                    components.html(video_fundo_html, height=480)
-                else:
-                    st.markdown("""
-                        <div style="border: 2px solid #FFC107; border-radius: 10px; padding: 100px 20px; text-align: center; background: #000; color: #FFC107; font-family: monospace; margin-top: 5px; margin-bottom: 40px;">
-                            <div style="font-size: 40px; margin-bottom: 10px;">📺</div>
-                            <p style="color: #aaa; font-size: 16px; margin: 0;">Aguardando o prestador selecionar um vídeo clipe no painel de controle...</p>
-                        </div>
-                    """, unsafe_allow_html=True)
+                </div>
+            </div>
+
+            {frame_styles}
+            """
+            components.html(ecra_espera_html, height=750, scrolling=False)
 
     except Exception as e:
-        st.error(f"Erro de sincronização na TV: {e}")
+        st.error(f"Erro no ecrã da TV: {e}")
 
-def show_client_screen():
-    query_params = st.query_params
-    provider_token = query_params.get("prestador") or query_params.get("provider", None)
+# --- CONTROLO DE ROTAS DA APLICAÇÃO ---
+query_params = st.query_params
+pagina_atual = query_params.get("page", "home")
+prestador_token_param = query_params.get("prestador", "")
 
-    if not provider_token:
-        st.error("Tela inválida. Falta o parâmetro do prestador.")
-        return
-
+if pagina_atual == "admin_login":
+    show_admin_panel()
+elif pagina_atual == "client_register":
+    if prestador_token_param:
+        show_register_page(prestador_token_param)
+    else:
+        st.error("Token do prestador não fornecido no link.")
+elif pagina_atual == "client_screen":
+    if prestador_token_param:
+        renderizar_ecra_tv(prestador_token_param)
+    else:
+        st.error("Token do prestador não fornecido para a TV.")
+else:
+    # Página inicial / Painel do Prestador ou Login Rápido
     st.markdown("""
-    <style>
-    .stApp { background-color: #000000; color: white; }
-    </style>""", unsafe_allow_html=True)
-
-    renderizar_ecra_tv(provider_token)
-
-def main():
-    try:
-        query_params = st.query_params
-        
-        if "page" in query_params and query_params["page"] == "register":
-            show_register_page()
-            return
-
-        if "page" in query_params and query_params["page"] == "client_register":
-            show_client_page()
-            return
-
-        if "page" in query_params and query_params["page"] == "client_screen":
-            show_client_screen()
-            return
-
-        token = query_params.get("prestador") or query_params.get("token") or query_params.get("provider")
-        
-        if token:
-            df = get_all_providers()
-            if df.empty or 'token' not in df.columns or not (df['token'] == token).any():
-                show_provider_panel_center(token) # type: ignore
-                return
-                
-            prior_prestador = df[df['token'] == token]
-            if not prior_prestador.empty:
-                row = prior_prestador.iloc[0]
-                if row.get('approved', 1) == 1:
-                    show_provider_panel_custom(token)
-                    return
-                else:
-                    st.warning("⏳ O seu registo aguarda aprovação do Administrador.")
-                    return
+        <div style="text-align: center; padding: 40px 0;">
+            <h1 style="color: #FFC107; font-family: monospace; font-size: 36px;">🎤 FF KARAOKE CLOUD</h1>
+            <p style="color: #aaa; font-family: monospace; font-size: 16px;">Plataforma inteligente de gestão e pedidos de karaoke</p>
+        </div>
+    """, unsafe_allow_html=True)
+    
+    col_l1, col_l2, col_l3 = st.columns([1, 2, 1])
+    with col_l2:
+        token_input = st.text_input("INSIRA O SEU TOKEN DE PRESTADOR:", type="password")
+        if st.button("ACEDER AO PAINEL", use_container_width=True):
+            if token_input.strip():
+                # Verificar se o token existe na base de dados ou redirecionar
+                st.query_params["page"] = "provider_panel"
+                st.query_params["prestador"] = token_input.strip()
+                st.rerun()
             else:
-                show_provider_panel_custom(token)
-                return
-            
-        # ÁREA RESTRITA CENTRALIZADA
-        if not st.session_state.get("admin_logged", False):
-            st.title("🔒 FFKaraoke - Área Restrita")
-            
-            with st.form("form_admin_login"):
-                senha = st.text_input("Palavra-passe de Administrador", type="password")
-                submitted = st.form_submit_button("Entrar")
+                st.warning("Por favor, insira um token válido.")
                 
-                if submitted:
-                    if senha == "ffkaraoke2026" or senha == "admin123":
-                        st.session_state["admin_logged"] = True
-                        st.success("Sessão iniciada com sucesso!")
-                        st.rerun()
-                    else:
-                        st.error("Palavra-passe incorreta.")
-
-        if st.session_state.get("admin_logged", False):
-            show_admin_panel()
-                
-    except Exception as e:
-        st.error(f"Ocorreu um erro ao carregar a aplicação: {e}")
-
-if __name__ == "__main__":
-    main()
+        if prestador_token_param or pagina_atual == "provider_panel":
+            token_ativo = prestador_token_param or token_input
+            if token_ativo:
+                show_provider_panel_custom(token_ativo)
