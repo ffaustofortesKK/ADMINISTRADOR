@@ -169,9 +169,9 @@ def show_client_page():
     if tem_pedido_ativo:
         st.markdown("""
             <div style="text-align: center; padding: 40px 10px; margin: 20px auto; max-width: 700px;">
-                <div class="spinning-mic">🎤</div>
                 """ + (f"<p style='color: #4CAF50; font-weight: bold; font-size: 18px; margin-top: 15px;'>📍 Encontra-se na <b>{posicao_fila}º Posição</b></p>" if posicao_fila else "") + """
             </div>
+                <div class="spinning-mic">🎤</div>
         """, unsafe_allow_html=True)
     else:
         st.success("✅ Já poderá enviar o seu pedido!")
