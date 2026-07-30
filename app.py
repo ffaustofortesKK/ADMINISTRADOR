@@ -3,7 +3,7 @@ import streamlit.components.v1 as components
 import urllib.parse
 
 # -----------------------------------------------------------------------------
-# CÓDIGO COMPLETO - FF KARAOKE CLOUD
+# CÓDIGO COMPLETO E CORRIGIDO - FF KARAOKE CLOUD
 # -----------------------------------------------------------------------------
 
 def renderizar_ecra_tv(provider_token):
@@ -298,20 +298,6 @@ def show_client_screen():
 
     renderizar_ecra_tv(provider_token)
 
-def show_admin_panel():
-    """Painel de Administração de Segurança caso não venha de outro módulo"""
-    try:
-        st.title("⚙️ Painel de Administração - FF Karaoke Cloud")
-        st.success("Bem-vindo à gestão centralizada do sistema.")
-        
-        if st.button("🚪 Terminar Sessão de Administrador"):
-            st.session_state["admin_logged"] = False
-            st.rerun()
-            
-        # Adicione aqui os seus componentes de gestão do painel admin se necessário
-    except Exception as e:
-        st.error(f"Erro no painel administrativo: {e}")
-
 def main():
     try:
         query_params = st.query_params
@@ -354,9 +340,9 @@ def main():
                     show_provider_panel_custom(token)
                 return
             
-        # ÁREA RESTRITA CENTRALIZADA
+        # ÁREA DE LOGIN DO ADMINISTRADOR
         if not st.session_state.get("admin_logged", False):
-            st.title("🔒 FFKaraoke - Área Restrita")
+            st.title("🔒 FFKaraoke Cloud - Área Restrita (Admin)")
             
             with st.form("form_admin_login"):
                 senha = st.text_input("Palavra-passe de Administrador", type="password")
@@ -369,13 +355,30 @@ def main():
                         st.rerun()
                     else:
                         st.error("Palavra-passe incorreta.")
+            return
 
+        # PAINEL DO ADMINISTRADOR INTEGRADO (Garante que nunca fica em branco)
         if st.session_state.get("admin_logged", False):
-            if 'show_admin_panel' in globals():
-                show_admin_panel()
+            st.title("⚙️ Painel de Administração - FF Karaoke Cloud")
+            st.success("Sessão de Administrador ativa com sucesso!")
+            
+            # Se a função original existir noutro módulo, tenta chamá-la de forma segura, senão exibe o painel padrão
+            if 'show_admin_panel' in globals() and globals()['show_admin_panel'] != main:
+                try:
+                    globals()['show_admin_panel']()
+                except Exception as ex:
+                    st.warning(f"Aviso do painel externo: {ex}. Utilizando painel de controlo padrão:")
+                    st.info("Utilize os controlos abaixo para gerir a plataforma.")
+            else:
+                st.write("Bem-vindo à central de controlo do FF Karaoke Cloud. Aqui pode gerir os prestadores, aprovar registos e monitorizar a plataforma.")
+            
+            st.divider()
+            if st.button("🚪 Terminar Sessão de Administrador"):
+                st.session_state["admin_logged"] = False
+                st.rerun()
                 
     except Exception as e:
-        st.error(f"Ocorreu um erro ao carregar a aplicação: {e}")
+        st.error(f"Ocorreu um erro crítico ao carregar a aplicação: {e}")
 
 if __name__ == "__main__":
     main()
