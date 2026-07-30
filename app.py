@@ -282,39 +282,6 @@ def renderizar_gestao_fila_prestador(provider_token):
                     st.warning("Reprodução parada (Stop) com sucesso!")
                     st.rerun()
 
-        # --- SECÇÃO DE PEDIDOS EXTRA DE MÚSICA PARA O PRESTADOR ---
-        st.markdown("---")
-        st.markdown("### 📥 Aba de Pedidos Extra de Música (Cliente não encontrou)")
-        try:
-            res_extras = requests.get(f"{FIREBASE_URL}/pedidos_extras/{provider_token}.json", timeout=10)
-            if res_extras.status_code == 200 and res_extras.json():
-                extras_data = res_extras.json()
-                for extra_id, extra_val in extras_data.items():
-                    if extra_val.get("estado") == "pendente":
-                        c_nome = extra_val.get("cliente", "Cliente")
-                        mus_pedida = extra_val.get("musica", "")
-                        st.markdown(f"""
-                            <div style="background: #111; border: 2px solid #FFC107; border-radius: 8px; padding: 12px; margin-bottom: 10px; font-family: monospace;">
-                                <b>Cliente:</b> {c_nome} | <b>Música Extra Solicitada:</b> <span style="color: #4CAF50;">{mus_pedida}</span>
-                            </div>
-                        """, unsafe_allow_html=True)
-                        
-                        col_bt1, col_bt2 = st.columns(2)
-                        with col_bt1:
-                            if st.button("🟩 Confirmar (Disponível/Outro local)", key=f"btn_verde_{extra_id}", use_container_width=True):
-                                requests.put(f"{FIREBASE_URL}/pedidos_extras/{provider_token}/{extra_id}/estado.json", json="confirmado")
-                                st.success("Pedido extra confirmado!")
-                                st.rerun()
-                        with col_bt2:
-                            if st.button("🟥 Não temos (Aviso ao Cliente)", key=f"btn_vermelho_{extra_id}", use_container_width=True):
-                                requests.put(f"{FIREBASE_URL}/pedidos_extras/{provider_token}/{extra_id}/estado.json", json="nao_temos")
-                                st.success("Mensagem de indispobilidade enviada ao cliente com sucesso!")
-                                st.rerun()
-            else:
-                st.info("Nenhum pedido extra pendente no momento.")
-        except Exception as err:
-            st.warning(f"Erro ao carregar pedidos extras: {err}")
-
         st.markdown("---")
         st.markdown("### 🎬 Configuração de Vídeo Clipe de Fundo (Tela)")
         
@@ -359,6 +326,7 @@ def renderizar_gestao_fila_prestador(provider_token):
         st.error(f"Erro ao carregar os pedidos do Firebase: {e}")
 
 def show_provider_panel_custom(provider_token):
+    # Estilo exato idêntico à imagem de referência do Prestador
     st.markdown("""
     <style>
     .stApp {
