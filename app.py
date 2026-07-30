@@ -228,7 +228,6 @@ def renderizar_gestao_fila_prestador(provider_token):
         tocando_agora = next((p for p in pedidos_ativos if p.get("estado") == "aprovado"), None)
         pendentes = [p for p in pedidos_ativos if p.get("estado") == "pendente"]
 
-        # Bloco visual de Confirmação de Pedido estilo painel solicitado
         if pendentes:
             st.markdown("""
                 <div style="background-color: #0b0b0b; border: 2px solid #FFC107; padding: 15px; border-radius: 8px; text-align: center; margin-bottom: 20px;">
@@ -846,7 +845,6 @@ def main():
                 show_provider_panel_custom(token)
                 return
             
-        # ÁREA RESTRITA CENTRALIZADA
         if not st.session_state.get("admin_logged", False):
             st.title("🔒 FFKaraoke - Área Restrita")
             
