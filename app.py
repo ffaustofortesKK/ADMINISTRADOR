@@ -413,7 +413,6 @@ def show_provider_panel_custom(provider_token):
 
     renderizar_gestao_fila_prestador(provider_token)
 
-# --- SECÇÃO CUSTOMIZADA DA PÁGINA DO CLIENTE COM A CAIXA DE PEDIDO EXTRA ---
 def show_client_page_custom(provider_token):
     st.markdown("""
     <style>
@@ -459,7 +458,6 @@ def show_client_page_custom(provider_token):
                 except Exception as e:
                     st.error(f"Erro de ligação: {e}")
 
-    # Verificar se há resposta do prestador para o cliente nesta sessão
     try:
         res_check = requests.get(f"{FIREBASE_URL}/pedidos_extras/{provider_token}.json", timeout=10)
         if res_check.status_code == 200 and res_check.json():
@@ -494,16 +492,84 @@ def renderizar_ecra_tv(provider_token):
             musica = tocando_agora.get("musica", {})
             titulo = limpar_nome_musica(musica)
             url_video = obter_url_video_cloudinary(musica, titulo)
+            id_musica_atual = tocando_agora.get("id", "")
 
+            # HTML + EFEITO DE VOZ ESTILO THRILLER COM ECO NA CONTAGEM 3, 2, 1
             video_html = f"""
             <style>
                 body, html {{ margin: 0; padding: 0; background: #000; overflow: hidden; width: 100vw; height: 100vh; }}
+                #intro-overlay {{
+                    position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+                    background: black; z-index: 9999; display: flex; flex-direction: column;
+                    align-items: center; justify-content: center; font-family: monospace; color: #FFC107;
+                }}
+                .thriller-text {{ font-size: 32px; font-weight: bold; text-shadow: 0 0 20px #FFC107, 0 0 40px #ff0000; text-align: center; margin-bottom: 20px; }}
             </style>
-            <div style="width: 100vw; height: 100vh; background: black; position: fixed; top: 0; left: 0;">
-                <video width="100%" height="100%" autoplay playsinline controls style="object-fit: contain; background: black; width: 100%; height: 100%;">
+            <div id="intro-overlay">
+                <div class="thriller-text" id="status-msg">🎤 A PREparar o palco...</div>
+                <div style="font-size: 80px; font-weight: bold; color: #fff;" id="countdown-num">3</div>
+            </div>
+            <div style="width: 100vw; height: 100vh; background: black; position: fixed; top: 0; left: 0;" id="player-container">
+                <video id="karaoke-video" width="100%" height="100%" playsinline style="object-fit: contain; background: black; width: 100%; height: 100%;">
                     <source src="{url_video}" type="video/mp4">
                 </video>
             </div>
+
+            <script>
+                const musicaId = "{id_musica_atual}";
+                const lastPlayedId = sessionStorage.getItem("last_thriller_id");
+
+                if (lastPlayedId !== musicaId) {{
+                    sessionStorage.setItem("last_thriller_id", musicaId);
+                    
+                    function playThrillerVoice() {{
+                        if ('speechSynthesis' in window) {{
+                            window.speechSynthesis.cancel();
+                            
+                            // Criar eco simulado repetindo a fala com pequenos delays
+                            const textToSay = "Atenção em três, dois, um, Solta a Voz";
+                            
+                            const utter1 = new SpeechSynthesisUtterance(textToSay);
+                            utter1.rate = 0.85;  // Voz mais arrastada e grave estilo Thriller
+                            utter1.pitch = 0.6;  // Tom grave/profundo de homem
+                            utter1.volume = 1.0;
+                            
+                            // Tentar encontrar uma voz em Português mais grave
+                            const voices = window.speechSynthesis.getVoices();
+                            const ptVoice = voices.find(v => v.lang.includes('pt') || v.lang.includes('PT'));
+                            if (ptVoice) utter1.voice = ptVoice;
+
+                            window.speechSynthesis.speak(utter1);
+                        }}
+                    }}
+
+                    let count = 3;
+                    const numElem = document.getElementById("countdown-num");
+                    const msgElem = document.getElementById("status-msg");
+                    const overlay = document.getElementById("intro-overlay");
+                    const videoElem = document.getElementById("karaoke-video");
+
+                    msgElem.innerText = "Atenção em três, dois, um... Solta a Voz!";
+                    playThrillerVoice();
+
+                    const timer = setInterval(() => {{
+                        count--;
+                        if (count > 0) {{
+                            numElem.innerText = count;
+                        }} else if (count === 0) {{
+                            numElem.innerText = "🎤 SOLTA A VOZ!";
+                        }} else {{
+                            clearInterval(timer);
+                            overlay.style.display = "none";
+                            videoElem.play().catch(e => console.log("Autoplay bloqueado:", e));
+                        }}
+                    }}, 1000);
+                }} else {{
+                    document.getElementById("intro-overlay").style.display = "none";
+                    const videoElem = document.getElementById("karaoke-video");
+                    videoElem.play().catch(e => console.log("Autoplay bloqueado:", e));
+                }}
+            </script>
             """
             components.html(video_html, height=750, scrolling=False)
         else:
