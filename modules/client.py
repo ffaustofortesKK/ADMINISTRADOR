@@ -170,7 +170,7 @@ def show_client_page():
         st.markdown("""
             <div style="text-align: center; padding: 40px 10px; margin: 20px auto; max-width: 700px;">
                 <div class="spinning-mic">🎤</div>
-                """ + (f"<p style='color: #4CAF50; font-weight: bold; font-size: 18px; margin-top: 15px;'>📍 Encontra-se na posição <b>{posicao_fila}º</b> da fila do prestador.</p>" if posicao_fila else "") + """
+                """ + (f"<p style='color: #4CAF50; font-weight: bold; font-size: 18px; margin-top: 15px;'>📍 Encontra-se na posição <b>{posicao_fila}º</b></p>" if posicao_fila else "") + """
             </div>
         """, unsafe_allow_html=True)
     else:
@@ -238,7 +238,6 @@ def show_client_page():
 
     st.markdown("""
         <div style="background: linear-gradient(135deg, #1f1c2c, #928dab); padding: 25px; border-radius: 12px; text-align: center; color: white; mant-top: 30px;">
-            <h3 style="margin-bottom: 10px; color: #FFC107;">Quer saber mais do serviço de Karaoke do Grupo FF, clica abaixo.</h3>
             <p style="font-size: 16px; margin: 8px 0;">📸 <b>Instagram:</b> <a href="https://instagram.com/ff.karaoke" target="_blank" style="color: #00d2ff; text-decoration: none;">ff.karaoke</a></p>
             <p style="font-size: 16px; margin: 8px 0;">📞 <b>Contacto para Eventos Privados:</b> 955099159</p>
             <p style="font-size: 16px; margin: 8px 0;">💬 <b>WhatsApp:</b> <a href="https://wa.me/244955099159" target="_blank" style="color: #25D366; text-decoration: none;">955099159</a></p>
