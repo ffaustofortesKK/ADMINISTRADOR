@@ -311,7 +311,7 @@ def renderizar_gestao_fila_prestador(provider_token):
                 index=index_atual
             )
 
-            btn_salvar_fundo = st.form_submit_button("▶️ PLAY VÍDEO CLIPE DE FUNDO")
+            btn_salvar_fundo = st.form_submit_button("PESQUISAR")
             if btn_salvar_fundo:
                 if escolha_video == "Nenhum (Ecrã Preto)":
                     valor_a_guardar = ""
@@ -326,7 +326,6 @@ def renderizar_gestao_fila_prestador(provider_token):
         st.error(f"Erro ao carregar os pedidos do Firebase: {e}")
 
 def show_provider_panel_custom(provider_token):
-    # Estilo exato idêntico à imagem de referência do Prestador
     st.markdown("""
     <style>
     .stApp {
@@ -374,15 +373,6 @@ def show_provider_panel_custom(provider_token):
         align-items: center;
         justify-content: center;
     }
-    .qr-box-tv {
-        background: #000;
-        border: 2px solid #9c27b0;
-        border-radius: 8px;
-        padding: 6px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-    }
     .link-title {
         font-family: monospace;
         color: #FFC107;
@@ -424,9 +414,8 @@ def show_provider_panel_custom(provider_token):
     link_tv_absoluto = f"https://{host_dominio}{link_tv_rel}"
     
     qr_url_cliente = f"https://api.qrserver.com/v1/create-qr-code/?size=180x180&data={urllib.parse.quote(link_cliente_absoluto)}"
-    qr_url_tv = f"https://api.qrserver.com/v1/create-qr-code/?size=180x180&data={urllib.parse.quote(link_tv_absoluto)}"
 
-    # Estrutura idêntica à imagem fornecida: QR Code no lado esquerdo de cada caixa
+    # Mantido o QR Code apenas para o Link do Cliente
     col_qr1, col_card1 = st.columns([1, 5])
     with col_qr1:
         st.markdown(f"""
@@ -444,20 +433,13 @@ def show_provider_panel_custom(provider_token):
 
     st.markdown("<div style='height: 12px;'></div>", unsafe_allow_html=True)
 
-    col_qr2, col_card2 = st.columns([1, 5])
-    with col_qr2:
-        st.markdown(f"""
-            <div class="qr-box-tv">
-                <img src="{qr_url_tv}" width="100" style="border-radius: 4px;" />
-            </div>
-        """, unsafe_allow_html=True)
-    with col_card2:
-        st.markdown(f"""
-            <div class="card-tv">
-                <div class="link-title">LINK DA TV</div>
-                <a href="{link_tv_rel}" target="_blank" class="link-text-tv">{link_tv_rel}</a>
-            </div>
-        """, unsafe_allow_html=True)
+    # Removido o QR Code da TV, ocupando a largura total do painel de forma simétrica
+    st.markdown(f"""
+        <div class="card-tv">
+            <div class="link-title" style="color: #b5179e;">LINK DA TV</div>
+            <a href="{link_tv_rel}" target="_blank" class="link-text-tv">{link_tv_rel}</a>
+        </div>
+    """, unsafe_allow_html=True)
 
     renderizar_gestao_fila_prestador(provider_token)
 
@@ -714,10 +696,6 @@ def renderizar_ecra_tv(provider_token):
         else:
             url_clipe_fundo = obter_video_fundo(provider_token)
             proximo_cantor = pedidos_ativos[0] if pedidos_ativos else None
-            
-            host_dominio = st.context.headers.get('Host', 'grupoffkaraoke.streamlit.app')
-            link_cliente_absoluto = f"https://{host_dominio}/?page=client_register&prestador={provider_token}"
-            qr_url_cliente = f"https://api.qrserver.com/v1/create-qr-code/?size=220x220&data={urllib.parse.quote(link_cliente_absoluto)}"
 
             st.markdown(frame_styles, unsafe_allow_html=True)
 
@@ -749,25 +727,6 @@ def renderizar_ecra_tv(provider_token):
                 
                 html_caixas += '</div>'
                 st.markdown(html_caixas, unsafe_allow_html=True)
-
-                if not pedidos_ativos:
-                    st.markdown(f"""
-                        <style>
-                            @keyframes spinMic {{
-                                0% {{ transform: rotate(0deg); }}
-                                100% {{ transform: rotate(360deg); }}
-                            }}
-                            .mic-rotating {{
-                                display: inline-block;
-                                animation: spinMic 4s linear infinite;
-                            }}
-                        </style>
-                        <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; background: #111; border: 2px solid #FFC107; border-radius: 10px; padding: 20px; margin-top: 15px; margin-bottom: 40px; text-align: center;">
-                            <p style="color: #FFC107; font-family: monospace; font-size: 15px; margin-bottom: 10px; font-weight: bold;">📱 ESCANEIE PARA PEDIR UMA MÚSICA:</p>
-                            <img src="{qr_url_cliente}" width="160" style="border-radius: 6px; border: 4px solid #fff; margin-bottom: 15px;" />
-                            <div class="mic-rotating" style="font-size: 55px; margin-top: 5px;">🎤</div>
-                        </div>
-                    """, unsafe_allow_html=True)
 
             with col_dir:
                 if url_clipe_fundo:
