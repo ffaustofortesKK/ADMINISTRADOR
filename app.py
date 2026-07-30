@@ -1,7 +1,13 @@
 import streamlit as st
 import streamlit.components.v1 as components
 
-# Garante que a função está definida antes de ser chamada no main()
+# Definição das variáveis globais para evitar erros caso não estejam no escopo superior
+frame_styles = """
+<style>
+    /* Estilos base padrão para os quadros da TV */
+</style>
+"""
+
 def get_all_providers():
     if "providers_df" not in st.session_state:
         import pandas as pd
@@ -10,11 +16,16 @@ def get_all_providers():
 
 def renderizar_ecra_tv(provider_token):
     try:
+        global frame_styles
         st.markdown(frame_styles, unsafe_allow_html=True)
 
         col_esq, col_dir = st.columns([1, 1])
         
         with col_esq:
+            proximo_cantor = locals().get('proximo_cantor', None)
+            pedidos_ativos = locals().get('pedidos_ativos', [])
+            qr_url_cliente = locals().get('qr_url_cliente', '')
+
             if proximo_cantor:
                 c_prox = proximo_cantor.get("cliente", "Convidado")
                 st.markdown(f"""
@@ -61,6 +72,7 @@ def renderizar_ecra_tv(provider_token):
                 """, unsafe_allow_html=True)
 
         with col_dir:
+            url_clipe_fundo = locals().get('url_clipe_fundo', '')
             if url_clipe_fundo:
                 video_fundo_html = f"""
                 <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; background: black; border: 2px solid #FFC107; border-radius: 10px; padding: 5px; width: 100%; position: relative; margin-top: 5px; margin-bottom: 40px;">
@@ -202,11 +214,13 @@ def main():
         query_params = st.query_params
         
         if "page" in query_params and query_params["page"] == "register":
-            show_register_page()
+            if 'show_register_page' in globals():
+                show_register_page()
             return
 
         if "page" in query_params and query_params["page"] == "client_register":
-            show_client_page()
+            if 'show_client_page' in globals():
+                show_client_page()
             return
 
         if "page" in query_params and query_params["page"] == "client_screen":
@@ -218,20 +232,23 @@ def main():
         if token:
             df = get_all_providers()
             if df.empty or 'token' not in df.columns or not (df['token'] == token).any():
-                show_provider_panel_center(token) # type: ignore
+                if 'show_provider_panel_center' in globals():
+                    show_provider_panel_center(token)
                 return
                 
             prior_prestador = df[df['token'] == token]
             if not prior_prestador.empty:
                 row = prior_prestador.iloc[0]
                 if row.get('approved', 1) == 1:
-                    show_provider_panel_custom(token)
+                    if 'show_provider_panel_custom' in globals():
+                        show_provider_panel_custom(token)
                     return
                 else:
                     st.warning("⏳ O seu registo aguarda aprovação do Administrador.")
                     return
             else:
-                show_provider_panel_custom(token)
+                if 'show_provider_panel_custom' in globals():
+                    show_provider_panel_custom(token)
                 return
             
         # ÁREA RESTRITA CENTRALIZADA
@@ -251,7 +268,8 @@ def main():
                         st.error("Palavra-passe incorreta.")
 
         if st.session_state.get("admin_logged", False):
-            show_admin_panel()
+            if 'show_admin_panel' in globals():
+                show_admin_panel()
                 
     except Exception as e:
         st.error(f"Ocorreu um erro ao carregar a aplicação: {e}")
