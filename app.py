@@ -1,31 +1,20 @@
 import streamlit as st
 import streamlit.components.v1 as components
 
-# Definição das variáveis globais para evitar erros caso não estejam no escopo superior
-frame_styles = """
-<style>
-    /* Estilos base padrão para os quadros da TV */
-</style>
-"""
-
-def get_all_providers():
-    if "providers_df" not in st.session_state:
-        import pandas as pd
-        return pd.DataFrame(columns=['token', 'approved'])
-    return st.session_state["providers_df"]
-
 def renderizar_ecra_tv(provider_token):
     try:
-        global frame_styles
+        # Recupera os dados e variáveis necessárias do ambiente global/sessão do seu projeto original
+        pedidos_ativos = globals().get('pedidos_ativos', st.session_state.get('pedidos_ativos', []))
+        proximo_cantor = pedidos_ativos[0] if pedidos_ativos else None
+        qr_url_cliente = globals().get('qr_url_cliente', st.session_state.get('qr_url_cliente', ''))
+        url_clipe_fundo = globals().get('url_clipe_fundo', st.session_state.get('url_clipe_fundo', ''))
+        
+        frame_styles = globals().get('frame_styles', '')
         st.markdown(frame_styles, unsafe_allow_html=True)
 
         col_esq, col_dir = st.columns([1, 1])
         
         with col_esq:
-            proximo_cantor = locals().get('proximo_cantor', None)
-            pedidos_ativos = locals().get('pedidos_ativos', [])
-            qr_url_cliente = locals().get('qr_url_cliente', '')
-
             if proximo_cantor:
                 c_prox = proximo_cantor.get("cliente", "Convidado")
                 st.markdown(f"""
@@ -72,7 +61,6 @@ def renderizar_ecra_tv(provider_token):
                 """, unsafe_allow_html=True)
 
         with col_dir:
-            url_clipe_fundo = locals().get('url_clipe_fundo', '')
             if url_clipe_fundo:
                 video_fundo_html = f"""
                 <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; background: black; border: 2px solid #FFC107; border-radius: 10px; padding: 5px; width: 100%; position: relative; margin-top: 5px; margin-bottom: 40px;">
@@ -230,10 +218,11 @@ def main():
         token = query_params.get("prestador") or query_params.get("token") or query_params.get("provider")
         
         if token:
-            df = get_all_providers()
+            get_providers_func = globals().get('get_all_providers')
+            df = get_providers_func() if get_providers_func else st.DataFrame()
             if df.empty or 'token' not in df.columns or not (df['token'] == token).any():
                 if 'show_provider_panel_center' in globals():
-                    show_provider_panel_center(token)
+                    show_provider_panel_center(token) # type: ignore
                 return
                 
             prior_prestador = df[df['token'] == token]
