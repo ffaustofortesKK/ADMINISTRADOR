@@ -459,6 +459,7 @@ def show_client_page_custom(provider_token):
                 except Exception as e:
                     st.error(f"Erro de ligação: {e}")
 
+    # Verificar se há resposta do prestador para o cliente nesta sessão
     try:
         res_check = requests.get(f"{FIREBASE_URL}/pedidos_extras/{provider_token}.json", timeout=10)
         if res_check.status_code == 200 and res_check.json():
@@ -493,57 +494,16 @@ def renderizar_ecra_tv(provider_token):
             musica = tocando_agora.get("musica", {})
             titulo = limpar_nome_musica(musica)
             url_video = obter_url_video_cloudinary(musica, titulo)
-            pedido_id = tocando_agora.get("id", "default")
 
-            # Injeção de JavaScript para reproduzir o efeito de voz estilo Thriller (Eco + Tom Grave) antes do vídeo
             video_html = f"""
             <style>
                 body, html {{ margin: 0; padding: 0; background: #000; overflow: hidden; width: 100vw; height: 100vh; }}
             </style>
             <div style="width: 100vw; height: 100vh; background: black; position: fixed; top: 0; left: 0;">
-                <video id="karaokeVideo" width="100%" height="100%" autoplay playsinline controls style="object-fit: contain; background: black; width: 100%; height: 100%;">
+                <video width="100%" height="100%" autoplay playsinline controls style="object-fit: contain; background: black; width: 100%; height: 100%;">
                     <source src="{url_video}" type="video/mp4">
                 </video>
             </div>
-            
-            <script>
-                // Executar a voz estilo Thriller (Eco e tom grave) apenas uma vez por reprodução ativa
-                const trackKey = "played_voice_{pedido_id}";
-                if (!sessionStorage.getItem(trackKey)) {{
-                    sessionStorage.setItem(trackKey, "true");
-                    
-                    if ('speechSynthesis' in window) {{
-                        // Pausar brevemente o vídeo para dar destaque à contagem falada
-                        const vid = document.getElementById('karaokeVideo');
-                        if (vid) {{ vid.pause(); }}
-
-                        setTimeout(() => {{
-                            const textToSpeak = "Atenção em três, dois, um, Solta a Voz";
-                            
-                            // Criar eco repetindo o texto com pequenos intervalos para simular o efeito Thriller
-                            const speakWithEcho = (count) => {{
-                                if (count < 0) {{
-                                    if (vid) {{ vid.play().catch(e => console.log(e)); }}
-                                    return;
-                                }}
-                                
-                                let utterance = new SpeechSynthesisUtterance(textToSpeak);
-                                utterance.rate = 0.85; // Ritmo misterioso e pausado
-                                utterance.pitch = 0.5; // Tom de voz grave (estilo suspense)
-                                utterance.volume = 1.0 - (count * 0.25); // O eco vai diminuindo o volume
-                                
-                                window.speechSynthesis.speak(utterance);
-                                
-                                setTimeout(() => {{
-                                    speakWithEcho(count - 1);
-                                }}, 400); // Intervalo do eco
-                            }};
-
-                            speakWithEcho(2); // 3 repetições de eco
-                        }}, 300);
-                    }}
-                }}
-            </script>
             """
             components.html(video_html, height=750, scrolling=False)
         else:
