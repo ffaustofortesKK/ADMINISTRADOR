@@ -103,7 +103,7 @@ def show_client_page():
     .spinning-mic {
         animation: spin 3s linear infinite;
         display: inline-block;
-        font-size: 160px;
+        font-size: 208px;
     }
     .stButton button {
         padding: 4px 12px !important;
@@ -167,10 +167,10 @@ def show_client_page():
                 break
 
     if tem_pedido_ativo:
-        st.markdown("""
-            <div style="text-align: center; padding: 40px 10px; margin: 20px auto; max-width: 700px;">
+        st.markdown(f"""
+            <div style="text-align: center; padding: 20px 10px; margin: 10px auto; max-width: 700px;">
+                """ + (f'<div style="color: #FFC107; font-weight: bold; font-size: 22px; margin-bottom: 15px;">Encontra-se na <b>{posicao_fila}º</b> posição</div>' if posicao_fila else '') + """
                 <div class="spinning-mic">🎤</div>
-                """ + (f"<p style='color: #4CAF50; font-weight: bold; font-size: 18px; margin-top: 15px;'>📍 Encontra-se na posição <b>{posicao_fila}º</b> da fila do prestador.</p>" if posicao_fila else "") + """
             </div>
         """, unsafe_allow_html=True)
     else:
@@ -237,7 +237,7 @@ def show_client_page():
     st.markdown("---")
 
     st.markdown("""
-        <div style="background: linear-gradient(135deg, #1f1c2c, #928dab); padding: 25px; border-radius: 12px; text-align: center; color: white; mant-top: 30px;">
+        <div style="background: linear-gradient(135deg, #1f1c2c, #928dab); padding: 25px; border-radius: 12px; text-align: center; color: white; margin-top: 30px;">
             <h3 style="margin-bottom: 10px; color: #FFC107;">Quer saber mais do serviço de Karaoke do Grupo FF, clica abaixo.</h3>
             <p style="font-size: 16px; margin: 8px 0;">📸 <b>Instagram:</b> <a href="https://instagram.com/ff.karaoke" target="_blank" style="color: #00d2ff; text-decoration: none;">ff.karaoke</a></p>
             <p style="font-size: 16px; margin: 8px 0;">📞 <b>Contacto para Eventos Privados:</b> 955099159</p>
