@@ -1,9 +1,15 @@
 import streamlit as st
 import streamlit.components.v1 as components
 
+# Garante que a função está definida antes de ser chamada no main()
+def get_all_providers():
+    if "providers_df" not in st.session_state:
+        import pandas as pd
+        return pd.DataFrame(columns=['token', 'approved'])
+    return st.session_state["providers_df"]
+
 def renderizar_ecra_tv(provider_token):
     try:
-        # [Restante da lógica de busca de pedidos e estilos mantêm-se exatamente iguais...]
         st.markdown(frame_styles, unsafe_allow_html=True)
 
         col_esq, col_dir = st.columns([1, 1])
