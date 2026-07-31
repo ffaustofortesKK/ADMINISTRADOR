@@ -73,13 +73,12 @@ def show_client_page():
     st.markdown("""
     <style>
     .stApp { 
-        background-color: #9370DB !important; /* Fundo Lilás pedido */
+        background-color: #9370DB !important; 
         color: white; 
     }
     
-    /* Imagem de fundo do perfil / painel com a imagem fornecida */
     .adm-profile-bg {
-        background-image: url('https://res.cloudinary.com/yhwgjh7g/video/upload/v1/ff_karaoke_logo.jpg');
+        background-image: url('https://res.cloudinary.com/yhwgjh7g/image/upload/v1748000000/image_5b2977.jpg');
         background-size: cover;
         background-position: center;
         border-radius: 15px;
