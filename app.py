@@ -15,7 +15,6 @@ st.set_page_config(
 def get_all_providers():
     # Retorna o DataFrame com os provedores cadastrados
     try:
-        # Exemplo de chamada padrão para obter base de dados
         return pd.DataFrame()
     except:
         return pd.DataFrame()
@@ -54,7 +53,6 @@ def show_client_page():
         nome_cliente = st.text_input("O seu Nome / Convidado")
         musica_escolhida = st.text_input("Nome da Música / Artista")
         
-        # O botão abaixo assume agora automaticamente a formatação preta e negrito definida no CSS
         submitted = st.form_submit_button("ENTRAR")
         
         if submitted:
@@ -69,13 +67,13 @@ def show_provider_panel_custom(token):
 
 def show_admin_panel():
     st.title("Painel de Administração Global")
-    # Painel de administração
+    st.write("Bem-vindo ao painel administrativo da plataforma FF Karaoke Cloud. Aqui pode gerir os prestadores e aprovar novos cadastros.")
+    # Adicione aqui o seu código completo anterior do painel de administração se desejar customizar
 
 def renderizar_ecra_tv(provider_token):
     try:
         FIREBASE_URL = "https://ffkaraokecloud-default-rtdb.firebaseio.com"
         
-        # Simulação de pedidos ativos e tocando agora para manter a integridade do bloco fornecido
         pedidos_ativos = []
         tocando_agora = {"id": "123", "cliente": "Convidado"}
         
