@@ -831,6 +831,7 @@ def show_provider_panel_custom(provider_token):
     if segundos_restantes <= 1800:
         st.markdown("### ⚡ Solicitar Reforço de Tempo")
         with st.form("form_reforco_prestador"):
+            referencia_comprovativo = st.text_input("Referência de Pagamento / Nº de Comprovativo")
             duracao_reforco = st.selectbox(
                 "Duração Pretendida", 
                 options=[
@@ -841,20 +842,24 @@ def show_provider_panel_custom(provider_token):
             )
             btn_sub_reforco = st.form_submit_button("Submeter Pedido de Reforço")
             if btn_sub_reforco:
-                dados_reforco = {
-                    "token": provider_token,
-                    "nome_prestador": nome_prestador,
-                    "tempo_plano": duracao_reforco,
-                    "approved": 0,
-                    "data_registo": str(datetime.now())
-                }
-                try:
-                    import uuid
-                    ref_id = str(uuid.uuid4())[:8]
-                    requests.put(f"{FIREBASE_URL}/reforcos_pendentes/{provider_token}/{ref_id}.json", json=dados_reforco, timeout=10)
-                    st.success("Pedido de reforço submetido com sucesso! Aguarde a confirmação do Administrador.")
-                except Exception as err:
-                    st.error(f"Erro ao enviar reforço: {err}")
+                if not referencia_comprovativo:
+                    st.error("Por favor, preencha a Referência de Pagamento / Nº de Comprovativo.")
+                else:
+                    dados_reforco = {
+                        "token": provider_token,
+                        "nome_prestador": nome_prestador,
+                        "referencia": referencia_comprovativo,
+                        "tempo_plano": duracao_reforco,
+                        "approved": 0,
+                        "data_registo": str(datetime.now())
+                    }
+                    try:
+                        import uuid
+                        ref_id = str(uuid.uuid4())[:8]
+                        requests.put(f"{FIREBASE_URL}/reforcos_pendentes/{provider_token}/{ref_id}.json", json=dados_reforco, timeout=10)
+                        st.success("Pedido de reforço submetido com sucesso! Aguarde a confirmação do Administrador.")
+                    except Exception as err:
+                        st.error(f"Erro ao enviar reforço: {err}")
 
     st.markdown("<div style='height: 10px;'></div>", unsafe_allow_html=True)
     renderizar_gestao_fila_prestador(provider_token)
@@ -1295,6 +1300,7 @@ def main():
                                     st.markdown(f"""
                                     <div style="background: rgba(0,0,0,0.95); border: 2px solid #FFC107; padding: 12px; border-radius: 6px; margin-bottom: 10px;">
                                         <b>Prestador:</b> {r_data.get('nome_prestador')} (Token: {tok})<br>
+                                        <b>Referência / Comprovativo:</b> {r_data.get('referencia')}<br>
                                         <b>Duração Solicitada:</b> {r_data.get('tempo_plano')}
                                     </div>
                                     """, unsafe_allow_html=True)
