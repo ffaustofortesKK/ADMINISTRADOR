@@ -746,10 +746,7 @@ def show_provider_panel_custom(provider_token):
         font-weight: bold !important;
         text-shadow: 1px 1px 3px rgba(0,0,0,0.9) !important;
    }}
-
     </style>
-
-    
 
     <img src="{url_logotipo}" class="top-logo" />
 
