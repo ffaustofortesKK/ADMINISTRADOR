@@ -4,8 +4,18 @@ import uuid
 import time
 
 def show_register_page():
+    # Remove fundo preto forçado e limpa estilos injetados anteriores
+    st.markdown("""
+        <style>
+        /* Remove fundos pretos forçados em containers se existirem */
+        .stApp {
+            background-color: transparent !important;
+        }
+        </style>
+    """, unsafe_allow_html=True)
+
     st.title("🎤 FFKaraoke - Registo de Prestador")
-    st.write("Preencha os seus dados e escolha o tempo pretendido para solicitar o seu acesso.")
+    st.write("Preencha os seus dados, indique o estabelecimento e escolha o tempo pretendido para solicitar o seu acesso.")
 
     if "token_gerado" not in st.session_state:
         st.session_state["token_gerado"] = None
@@ -20,11 +30,13 @@ def show_register_page():
                 
             telefone = st.text_input("Número de Telefone")
             
-            # Tabela de preços e durações atualizada conforme solicitado
+            # Novo campo solicitado
+            estabelecimento = st.text_input("Estabelecimento / Restaurante")
+            
+            # Tabela de preços e durações
             duracao_opcoes = {
                 "2 Horas - 12 Mil Kwanzas": {"horas": 2, "valor": 12000.0},
-                "3 Horas - 15 Mil Kwanzas": {"horas": 3, "valor": 15000.0}
-                "3 Minutos - 15 Mil Kwanzas": {"minutos": 3, "valor": 15000.0},
+                "3 Horas - 15 Mil Kwanzas": {"horas": 3, "valor": 15000.0},
                 "4 Horas - 20 Mil Kwanzas": {"horas": 4, "valor": 20000.0}
             }
             
@@ -33,17 +45,17 @@ def show_register_page():
             submitted = st.form_submit_button("Enviar Permissão")
             
             if submitted:
-                if nome and telefone:
-                    nome_completo = f"{nome} {sobrenome}".strip()
+                if nome and telefone and estabelecimento:
+                    nome_completo = f"{nome} {sobrenome} ({estabelecimento})".strip()
                     token = str(uuid.uuid4()).replace("-", "")[:32]
                     
                     dados_escolha = duracao_opcoes[duracao_escolhida]
                     hours = dados_escolha["horas"]
                     valor_pago = dados_escolha["valor"]
-                    payment_ref = "Plano Selecionado Direto"
+                    payment_ref = f"Estabelecimento: {estabelecimento}"
                     
                     try:
-                        # Grava incluindo o plano escolhido e sem exigir referência manual
+                        # Grava incluindo o plano escolhido e o estabelecimento
                         add_provider(nome_completo, telefone, payment_ref, hours, token, amount_paid=valor_pago)
                         st.session_state["token_gerado"] = token
                         st.success("Pedido de permissão enviado com sucesso!")
@@ -51,7 +63,7 @@ def show_register_page():
                     except Exception as e:
                         st.error(f"Erro ao guardar o registo: {e}")
                 else:
-                    st.warning("Por favor, preencha todos os campos obrigatórios (Nome e Telefone).")
+                    st.warning("Por favor, preencha todos os campos obrigatórios (Nome, Telefone e Estabelecimento/Restaurante).")
         
     if st.session_state["token_gerado"]:
         token_atual = st.session_state["token_gerado"]
