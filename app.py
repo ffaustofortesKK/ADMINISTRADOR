@@ -365,7 +365,6 @@ def renderizar_gestao_fila_prestador(provider_token):
 def show_provider_panel_custom(provider_token):
     url_imagem_moldura = "https://cdn.phototourl.com/free/2026-08-03-694a4a2e-9914-4da8-93b2-87538a4805ab.png"
 
-    # Obter dados do prestador (nome e tempo/plano registado)
     df_prov = get_all_providers()
     nome_prestador = "Prestador"
     tempo_plano = "Não especificado"
@@ -707,7 +706,8 @@ def renderizar_ecra_tv(provider_token):
             <div id="countdown-screen" class="countdown-overlay">3</div>
 
             <div id="karaoke-container" style="display: none; width: 100vw; height: 100vh; background: black; position: fixed; top: 0; left: 0;">
-                <video id="karaoke-player" width="100%" height="100%" autoplay playsinline controlslist="nodownload noremoteplayback" disablepictureinpicture style="object-fit: contain; background: black; width: 100%; height: 100%;">
+                <!-- ATENÇÃO: Atributo 'controls' removido para eliminar permanentemente a barra nativa -->
+                <video id="karaoke-player" width="100%" height="100%" autoplay playsinline style="object-fit: contain; background: black; width: 100%; height: 100%;">
                     <source src="{url_video}" type="video/mp4">
                     O seu navegador não suporta a reprodução deste vídeo.
                 </video>
@@ -818,7 +818,7 @@ def renderizar_ecra_tv(provider_token):
                 if url_clipe_fundo:
                     video_fundo_html = f"""
                     <div style="display: flex; justify-content: center; background: rgba(0,0,0,0.9); border: 2px solid #FFC107; border-radius: 10px; padding: 5px; width: 100%; position: relative; margin-top: 5px; margin-bottom: 40px;">
-                        <video id="fundo-player" width="100%" height="450px" controls autoplay loop playsinline controlslist="nodownload noremoteplayback" disablepictureinpicture style="object-fit: contain; background: black; border-radius: 8px;">
+                        <video id="fundo-player" width="100%" height="450px" autoplay loop playsinline controlslist="nodownload noremoteplayback" disablepictureinpicture style="object-fit: contain; background: black; border-radius: 8px;">
                             <source src="{url_clipe_fundo}" type="video/mp4">
                             O seu navegador não suporta vídeo.
                         </video>
