@@ -228,10 +228,10 @@ def renderizar_gestao_fila_prestador(provider_token):
         tocando_agora = next((p for p in pedidos_ativos if p.get("estado") == "aprovado"), None)
         pendentes = [p for p in pedidos_ativos if p.get("estado") == "pendente"]
 
-        # Bloco visual de Confirmação de Pedido Pendente
+        # Bloco visual de Confirmação de Pedido Pendente com bordas retangulares mais grossas douradas
         if pendentes:
             st.markdown("""
-                <div style="background-color: rgba(0,0,0,0.95); border: 4px solid #FFC107; padding: 15px; border-radius: 12px; text-align: center; margin-bottom: 20px; box-shadow: 0 0 15px rgba(255, 193, 7, 0.4);">
+                <div style="background-color: rgba(0,0,0,0.95); border: 4px solid #FFC107; padding: 15px; border-radius: 8px; text-align: center; margin-bottom: 20px;">
                     <div style="color: #4CAF50; font-family: monospace; font-size: 15px; font-weight: bold; margin-bottom: 5px;">Confirmação de Pedido</div>
                     <div style="color: #FFC107; font-family: monospace; font-size: 18px; font-weight: bold; margin-bottom: 10px;">QUER CANTAR</div>
             """, unsafe_allow_html=True)
@@ -273,7 +273,7 @@ def renderizar_gestao_fila_prestador(provider_token):
                 
                 with st.container():
                     st.markdown(f"""
-                        <div style="background: rgba(0,0,0,0.95); border: 4px solid {cor_borda}; border-radius: 10px; padding: 12px 15px; margin-bottom: 10px; font-family: monospace; box-shadow: 0 0 10px rgba(255, 193, 7, 0.2);">
+                        <div style="background: rgba(0,0,0,0.95); border: 4px solid {cor_borda}; border-radius: 8px; padding: 12px 15px; margin-bottom: 10px; font-family: monospace;">
                             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
                                 <span style="color: {cor_borda}; font-weight: bold; font-size: 14px;">{badge_texto}</span>
                                 <span style="color: #aaa; font-size: 13px;">Cliente: <b>{cliente_nome}</b></span>
@@ -284,7 +284,6 @@ def renderizar_gestao_fila_prestador(provider_token):
                         </div>
                     """, unsafe_allow_html=True)
                     
-                    # Opções de ação para cada linha da música
                     col_acao1, col_acao2, col_acao3 = st.columns(3)
                     with col_acao1:
                         if not is_playing:
@@ -307,7 +306,7 @@ def renderizar_gestao_fila_prestador(provider_token):
                     st.markdown("<hr style='margin: 5px 0 15px 0; border-color: #333;'>", unsafe_allow_html=True)
         else:
             st.markdown("""
-                <div style="background-color: rgba(0,0,0,0.95); border: 4px solid #FFC107; border-radius: 10px; padding: 15px; color: #FFC107; width: 100%; font-family: monospace; font-size: 14px; margin-bottom: 20px; text-align: center; box-shadow: 0 0 15px rgba(255, 193, 7, 0.3);">
+                <div style="background-color: rgba(0,0,0,0.95); border: 4px solid #FFC107; border-radius: 8px; padding: 15px; color: #FFC107; width: 100%; font-family: monospace; font-size: 14px; margin-bottom: 20px; text-align: center;">
                     NENHUM PEDIDO NA LISTA NESTE MOMENTO.<br>À ESPERA DE NOVOS PEDIDOS...
                 </div>
             """, unsafe_allow_html=True)
@@ -381,70 +380,54 @@ def show_provider_panel_custom(provider_token):
     .stApp {{
         background: #000000 !important;
     }}
-
+    
     .block-container {{
         padding-top: 3rem !important;
         padding-bottom: 3rem !important;
         padding-left: 5rem !important;
         padding-right: 5rem !important;
-        background: rgba(0, 0, 0, 0.95);
+        background: #000000 !important;
         border-radius: 12px;
         margin-top: 2rem;
         margin-bottom: 2rem;
-        border: 4px solid #FFC107;
-        box-shadow: 0 0 25px rgba(255, 193, 7, 0.3);
-        position: relative;
-    }}
-
-    .top-right-logo {{
-        position: absolute;
-        top: 25px;
-        right: 25px;
-        width: 70px;
-        height: 70px;
-        border-radius: 50%;
-        border: 3px solid #FFC107;
-        object-fit: cover;
-        box-shadow: 0 0 10px rgba(255, 193, 7, 0.5);
-        z-index: 999;
+        border: 4px solid #FFC107 !important;
     }}
 
     .panel-header {{
         display: flex;
         align-items: center;
         justify-content: space-between;
-        border-bottom: 3px solid #FFC107;
+        border-bottom: 4px solid #FFC107;
         padding-bottom: 12px;
         margin-bottom: 20px;
-        padding-right: 80px;
+        position: relative;
     }}
     .card-link {{
-        background: linear-gradient(90deg, #0d1b2a 0%, #1b263b 100%);
-        border: 3px solid #FFC107;
+        background: #000000 !important;
+        border: 4px solid #FFC107 !important;
         border-radius: 10px;
         padding: 15px 20px;
         text-align: left;
-        box-shadow: 0 4px 15px rgba(255, 193, 7, 0.2);
+        box-shadow: 0 4px 15px rgba(255, 193, 7, 0.25);
         margin-bottom: 10px;
     }}
     .card-tv {{
-        background: linear-gradient(90deg, #1f1a24 0%, #2e1a38 100%);
-        border: 3px solid #9c27b0;
+        background: #000000 !important;
+        border: 4px solid #9c27b0 !important;
         border-radius: 10px;
         padding: 15px 20px;
         text-align: left;
-        box-shadow: 0 4px 15px rgba(156, 39, 176, 0.2);
+        box-shadow: 0 4px 15px rgba(156, 39, 176, 0.25);
     }}
     .qr-box {{
         background: #000;
-        border: 3px solid #FFC107;
+        border: 4px solid #FFC107 !important;
         border-radius: 8px;
         padding: 6px;
         display: flex;
         align-items: center;
         justify-content: center;
         height: 100%;
-        box-shadow: 0 0 10px rgba(255, 193, 7, 0.2);
     }}
     .link-title {{
         font-family: monospace;
@@ -474,8 +457,20 @@ def show_provider_panel_custom(provider_token):
         word-break: break-all;
         text-decoration: underline;
     }}
+    /* Logotipo no canto superior direito do painel */
+    .top-logo {{
+        position: absolute;
+        top: -10px;
+        right: 0px;
+        width: 70px;
+        height: 70px;
+        border-radius: 50%;
+        border: 3px solid #FFC107;
+        object-fit: cover;
+    }}
     </style>
-    <img src="{url_logotipo}" class="top-right-logo" />
+    
+    <img src="{url_logotipo}" class="top-logo" />
     """, unsafe_allow_html=True)
 
     st.markdown(f"""
@@ -487,7 +482,7 @@ def show_provider_panel_custom(provider_token):
                     <p style="margin: 3px 0 0 0; color: #aaa; font-size: 13px; font-family: monospace;">TOKEN: <code style="background: #222; color: #4CAF50; padding: 2px 6px; border-radius: 4px;">{provider_token}</code></p>
                 </div>
             </div>
-            <div style="background: rgba(255,193,7,0.15); border: 2px solid #FFC107; padding: 8px 15px; border-radius: 8px; text-align: right;">
+            <div style="background: rgba(255,193,7,0.15); border: 2px solid #FFC107; padding: 8px 15px; border-radius: 8px; text-align: right; margin-right: 80px;">
                 <div style="font-family: monospace; color: #aaa; font-size: 11px; text-transform: uppercase;">TEMPO / PLANO ESCOLHIDO</div>
                 <div style="font-family: monospace; color: #FFC107; font-size: 16px; font-weight: bold;">⏱️ {tempo_plano}</div>
             </div>
@@ -609,7 +604,7 @@ def renderizar_ecra_tv(provider_token):
                     width: 100vw;
                     height: 38px;
                     background: #111;
-                    border-top: 3px solid #FFC107;
+                    border-top: 4px solid #FFC107;
                     z-index: 99997;
                     overflow: hidden;
                     display: flex;
@@ -713,8 +708,8 @@ def renderizar_ecra_tv(provider_token):
                     <source src="{url_video}" type="video/mp4">
                     O seu navegador não suporta a reprodução deste vídeo.
                 </video>
-                <div id="audio-warning" style="display: none; position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); text-align: center; background: #222; border: 3px solid #FFC107; padding: 10px 20px; border-radius: 5px; z-index: 99999;">
-                    <p style="color: #FFC107; margin: 0 0 8px 0; font-family: monospace; font-size: 14px;">⚠️ O navegador bloqueou o áudio automático.</p>
+                <div id="audio-warning" style="display: none; position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); text-align: center; background: #222; border: 4px solid #FFC107; padding: 10px 20px; border-radius: 5px; z-index: 99999;">
+                    <p style="color: #FFC107; margin: 0 0 8px 0; font-family: monospace; font-size: 14px; font-weight: bold;">⚠️ O navegador bloqueou o áudio automático.</p>
                     <button onclick="unmuteVideo()" style="background-color: #4CAF50; color: white; border: none; padding: 8px 16px; font-size: 15px; border-radius: 4px; cursor: pointer; font-weight: bold;">🔊 CLIQUE AQUI PARA ATIVAR O SOM</button>
                 </div>
             </div>
@@ -793,15 +788,15 @@ def renderizar_ecra_tv(provider_token):
                 if proximo_cantor:
                     c_prox = proximo_cantor.get("cliente", "Convidado")
                     st.markdown(f"""
-                        <div style="border: 4px solid #FFC107; border-radius: 10px; padding: 15px; background: rgba(0,0,0,0.95); margin-bottom: 15px; display: flex; align-items: center; gap: 15px; box-shadow: 0 0 10px rgba(255, 193, 7, 0.2);">
+                        <div style="border: 4px solid #FFC107; border-radius: 10px; padding: 15px; background: rgba(0,0,0,0.95); margin-bottom: 15px; display: flex; align-items: center; gap: 15px;">
                             <span style="color: #FFC107; font-size: 20px; font-weight: bold; font-family: monospace;">Á SEGUIR</span>
                             <span style="color: #ffffff; font-size: 20px; font-weight: bold; font-family: monospace; text-transform: uppercase;">{c_prox}</span>
                         </div>
                     """, unsafe_allow_html=True)
                 else:
                     st.markdown("""
-                        <div style="border: 4px solid #FFC107; border-radius: 10px; padding: 15px; text-align: center; background: rgba(0,0,0,0.95); margin-bottom: 15px; box-shadow: 0 0 10px rgba(255, 193, 7, 0.2);">
-                            <h2 style="color: #FFC107; margin: 0; font-family: monospace;">🎤 FILA DE ESPERA VAZIA</h2>
+                        <div style="border: 4px solid #FFC107; border-radius: 10px; padding: 15px; text-align: center; background: rgba(0,0,0,0.95); margin-bottom: 15px;">
+                            <h2 style="color: #FFC107; margin: 0; font-family: monospace; font-weight: bold;">🎤 FILA DE ESPERA VAZIA</h2>
                         </div>
                     """, unsafe_allow_html=True)
                 
@@ -811,7 +806,7 @@ def renderizar_ecra_tv(provider_token):
                 for idx, p_item in enumerate(demais_pedidos, start=2):
                     c_item = p_item.get("cliente", "Convidado")
                     texto_caixa = f"<b>{idx}.</b> {c_item}"
-                    html_caixas += f'<div style="background: rgba(0,0,0,0.95); border: 3px solid #FFC107; border-radius: 8px; padding: 12px; color: #fff; font-family: monospace; font-size: 16px;">{texto_caixa}</div>'
+                    html_caixas += f'<div style="background: rgba(0,0,0,0.95); border: 4px solid #FFC107; border-radius: 8px; padding: 12px; color: #fff; font-family: monospace; font-size: 16px; font-weight: bold;">{texto_caixa}</div>'
                 
                 html_caixas += '</div>'
                 st.markdown(html_caixas, unsafe_allow_html=True)
@@ -819,12 +814,12 @@ def renderizar_ecra_tv(provider_token):
             with col_dir:
                 if url_clipe_fundo:
                     video_fundo_html = f"""
-                    <div style="display: flex; justify-content: center; background: rgba(0,0,0,0.95); border: 4px solid #FFC107; border-radius: 10px; padding: 5px; width: 100%; position: relative; margin-top: 5px; margin-bottom: 40px; box-shadow: 0 0 15px rgba(255, 193, 7, 0.3);">
+                    <div style="display: flex; justify-content: center; background: rgba(0,0,0,0.95); border: 4px solid #FFC107; border-radius: 10px; padding: 5px; width: 100%; position: relative; margin-top: 5px; margin-bottom: 40px;">
                         <video id="fundo-player" width="100%" height="450px" autoplay loop playsinline controlslist="nodownload noremoteplayback" disablepictureinpicture style="object-fit: contain; background: black; border-radius: 8px;">
                             <source src="{url_clipe_fundo}" type="video/mp4">
                             O seu navegador não suporta vídeo.
                         </video>
-                        <div id="fundo-audio-warning" style="display: none; position: absolute; bottom: 15px; right: 15px; background: rgba(0,0,0,0.9); border: 2px solid #FFC107; padding: 6px 10px; border-radius: 5px; cursor: pointer;" onclick="unmuteFundo()">
+                        <div id="fundo-audio-warning" style="display: none; position: absolute; bottom: 15px; right: 15px; background: rgba(0,0,0,0.8); border: 2px solid #FFC107; padding: 6px 10px; border-radius: 5px; cursor: pointer;" onclick="unmuteFundo()">
                             <span style="font-size: 18px;" title="Ativar Som">🔊</span>
                         </div>
                     </div>
@@ -849,9 +844,9 @@ def renderizar_ecra_tv(provider_token):
                     components.html(video_fundo_html, height=480)
                 else:
                     st.markdown("""
-                        <div style="border: 4px solid #FFC107; border-radius: 10px; padding: 100px 20px; text-align: center; background: rgba(0,0,0,0.95); color: #FFC107; font-family: monospace; margin-top: 5px; margin-bottom: 40px; box-shadow: 0 0 15px rgba(255, 193, 7, 0.3);">
+                        <div style="border: 4px solid #FFC107; border-radius: 10px; padding: 100px 20px; text-align: center; background: rgba(0,0,0,0.95); color: #FFC107; font-family: monospace; margin-top: 5px; margin-bottom: 40px;">
                             <div style="font-size: 40px; margin-bottom: 10px;">📺</div>
-                            <p style="color: #aaa; font-size: 16px; margin: 0;">Aguardando o prestador selecionar um vídeo clipe no painel de controle...</p>
+                            <p style="color: #aaa; font-size: 16px; margin: 0; font-weight: bold;">Aguardando o prestador selecionar um vídeo clipe no painel de controle...</p>
                         </div>
                     """, unsafe_allow_html=True)
 
@@ -881,7 +876,7 @@ def main():
         query_params = st.query_params
         
         if "page" in query_params and query_params["page"] == "register":
-            # Aqui restringe a duração pretendida unicamente a "2 horas" ou "4 horas"
+            # Força as opções de duração pretendida a aparecer apenas como "2 horas" ou "4 horas"
             show_register_page()
             return
 
@@ -914,9 +909,28 @@ def main():
                 show_provider_panel_custom(token)
                 return
             
-        # ÁREA RESTRITA CENTRALIZADA
+        # ÁREA RESTRITA CENTRALIZADA (ADM) COM FUNDO PRETO E TODAS AS LETRAS EM NEGRITO
+        st.markdown("""
+            <style>
+            .stApp {
+                background-color: #000000 !important;
+                color: #ffffff !important;
+                font-weight: bold !important;
+            }
+            .block-container {
+                background-color: #000000 !important;
+                border: 4px solid #FFC107 !important;
+                border-radius: 12px;
+                padding: 3rem !important;
+            }
+            h1, h2, h3, h4, h5, h6, p, span, label, div, button, input {
+                font-weight: bold !important;
+            }
+            </style>
+        """, unsafe_allow_html=True)
+
         if not st.session_state.get("admin_logged", False):
-            st.title("🔒 FFKaraoke - Área Restrita")
+            st.title("🔒 FFKaraoke - Área Restrita (Administrador)")
             
             with st.form("form_admin_login"):
                 senha = st.text_input("Palavra-passe de Administrador", type="password")
