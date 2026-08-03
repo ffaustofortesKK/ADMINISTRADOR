@@ -228,7 +228,6 @@ def renderizar_gestao_fila_prestador(provider_token):
         tocando_agora = next((p for p in pedidos_ativos if p.get("estado") == "aprovado"), None)
         pendentes = [p for p in pedidos_ativos if p.get("estado") == "pendente"]
 
-        # Bloco visual de Confirmação de Pedido Pendente com bordas retangulares mais grossas douradas
         if pendentes:
             st.markdown("""
                 <div style="background-color: rgba(0,0,0,0.95); border: 4px solid #FFC107; padding: 15px; border-radius: 8px; text-align: center; margin-bottom: 20px;">
@@ -363,6 +362,7 @@ def renderizar_gestao_fila_prestador(provider_token):
 
 def show_provider_panel_custom(provider_token):
     url_logotipo = "https://cdn.phototourl.com/free/2026-08-03-8b13edf5-0257-491d-ab78-f0d5329ffc15.jpg"
+    url_fundo_painel = "https://cdn.phototourl.com/free/2026-08-03-694a4a2e-9914-4da8-93b2-87538a4805ab.png"
 
     df_prov = get_all_providers()
     nome_prestador = "Prestador"
@@ -378,7 +378,8 @@ def show_provider_panel_custom(provider_token):
     st.markdown(f"""
     <style>
     .stApp {{
-        background: #000000 !important;
+        background: url("{url_fundo_painel}") no-repeat center center fixed !important;
+        background-size: cover !important;
     }}
     
     .block-container {{
@@ -386,7 +387,7 @@ def show_provider_panel_custom(provider_token):
         padding-bottom: 3rem !important;
         padding-left: 5rem !important;
         padding-right: 5rem !important;
-        background: #000000 !important;
+        background: rgba(0, 0, 0, 0.90) !important;
         border-radius: 12px;
         margin-top: 2rem;
         margin-bottom: 2rem;
@@ -457,7 +458,6 @@ def show_provider_panel_custom(provider_token):
         word-break: break-all;
         text-decoration: underline;
     }}
-    /* Logotipo no canto superior direito do painel */
     .top-logo {{
         position: absolute;
         top: -10px;
@@ -876,7 +876,6 @@ def main():
         query_params = st.query_params
         
         if "page" in query_params and query_params["page"] == "register":
-            # Força as opções de duração pretendida a aparecer apenas como "2 horas" ou "4 horas"
             show_register_page()
             return
 
