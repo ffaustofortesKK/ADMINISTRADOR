@@ -40,7 +40,7 @@ try:
 except Exception:
     def init_db(): pass
     def get_all_providers(): 
-        return pd.DataFrame(columns=['token', 'approved', 'data_registo'])
+        return pd.DataFrame(columns=['token', 'approved', 'data_registo', 'nome_prestador', 'tempo_plano'])
 
 try:
     from modules.admin import show_admin_panel
@@ -228,7 +228,6 @@ def renderizar_gestao_fila_prestador(provider_token):
         tocando_agora = next((p for p in pedidos_ativos if p.get("estado") == "aprovado"), None)
         pendentes = [p for p in pedidos_ativos if p.get("estado") == "pendente"]
 
-        # Bloco visual de Confirmação de Pedido com transparência para encaixar no fundo
         if pendentes:
             st.markdown("""
                 <div style="background-color: rgba(11,11,11,0.9); border: 2px solid #FFC107; padding: 15px; border-radius: 8px; text-align: center; margin-bottom: 20px;">
@@ -351,6 +350,18 @@ def renderizar_gestao_fila_prestador(provider_token):
 def show_provider_panel_custom(provider_token):
     url_imagem_moldura = "https://cdn.phototourl.com/free/2026-08-03-694a4a2e-9914-4da8-93b2-87538a4805ab.png"
 
+    # Obter dados do prestador (nome e tempo/plano registado)
+    df_prov = get_all_providers()
+    nome_prestador = "Prestador"
+    tempo_plano = "Não especificado"
+    
+    if not df_prov.empty and 'token' in df_prov.columns:
+        match = df_prov[df_prov['token'] == provider_token]
+        if not match.empty:
+            row = match.iloc[0]
+            nome_prestador = row.get('nome_prestador', row.get('nome', 'Prestador'))
+            tempo_plano = row.get('tempo_plano', row.get('tempo', 'Plano Padrão'))
+
     # Injeção de fundo fixo e personalizado para o Painel do Prestador
     st.markdown(f"""
     <style>
@@ -387,34 +398,27 @@ def show_provider_panel_custom(provider_token):
     .panel-header {{
         display: flex;
         align-items: center;
-        gap: 15px;
+        justify-content: space-between;
         border-bottom: 2px solid #FFC107;
-        padding-bottom: 10px;
+        padding-bottom: 12px;
         margin-bottom: 20px;
     }}
     .card-link {{
         background: linear-gradient(90deg, #0d1b2a 0%, #1b263b 100%);
         border: 2px solid #FFC107;
         border-radius: 10px;
-        padding: 18px 25px;
-        text-align: center;
+        padding: 15px 20px;
+        text-align: left;
         box-shadow: 0 4px 15px rgba(255, 193, 7, 0.15);
-        height: 100%;
-        display: flex;
-        flex-direction: column;
-        justify-content: center;
+        margin-bottom: 10px;
     }}
     .card-tv {{
         background: linear-gradient(90deg, #1f1a24 0%, #2e1a38 100%);
         border: 2px solid #9c27b0;
         border-radius: 10px;
-        padding: 18px 25px;
-        text-align: center;
+        padding: 15px 20px;
+        text-align: left;
         box-shadow: 0 4px 15px rgba(156, 39, 176, 0.15);
-        height: 100%;
-        display: flex;
-        flex-direction: column;
-        justify-content: center;
     }}
     .qr-box {{
         background: #000;
@@ -424,37 +428,53 @@ def show_provider_panel_custom(provider_token):
         display: flex;
         align-items: center;
         justify-content: center;
+        height: 100%;
     }}
     .link-title {{
         font-family: monospace;
         color: #FFC107;
-        font-size: 24px;
+        font-size: 18px;
         font-weight: bold;
-        letter-spacing: 1px;
-        margin-bottom: 6px;
+        margin-bottom: 4px;
+    }}
+    .link-title-tv {{
+        font-family: monospace;
+        color: #b5179e;
+        font-size: 18px;
+        font-weight: bold;
+        margin-bottom: 4px;
     }}
     .link-text {{
         font-family: monospace;
         color: #3a86ff;
-        font-size: 15px;
+        font-size: 14px;
+        word-break: break-all;
         text-decoration: underline;
     }}
     .link-text-tv {{
         font-family: monospace;
-        color: #b5179e;
-        font-size: 15px;
+        color: #f72585;
+        font-size: 14px;
+        word-break: break-all;
         text-decoration: underline;
     }}
     </style>
     <div class="custom-bg-layer-provider"></div>
     """, unsafe_allow_html=True)
 
+    # Exibição do Cabeçalho com o Nome do Prestador e Tempo/Plano
     st.markdown(f"""
         <div class="panel-header">
-            <span style="font-size: 32px;">🎤</span>
-            <div>
-                <h1 style="margin: 0; color: #FFC107; font-family: monospace; font-size: 26px; text-transform: uppercase;">PAINEL DO PRESTADOR — FF KARAOKE</h1>
-                <p style="margin: 5px 0 0 0; color: #aaa; font-size: 13px; font-family: monospace;">TOKEN ATIVO: <code style="background: #222; color: #4CAF50; padding: 2px 6px; border-radius: 4px;">{provider_token}</code></p>
+            <div style="display: flex; align-items: center; gap: 15px;">
+                <span style="font-size: 32px;">🎤</span>
+                <div>
+                    <h1 style="margin: 0; color: #FFC107; font-family: monospace; font-size: 24px; text-transform: uppercase;">PAINEL DO PRESTADOR: {nome_prestador}</h1>
+                    <p style="margin: 3px 0 0 0; color: #aaa; font-size: 13px; font-family: monospace;">TOKEN: <code style="background: #222; color: #4CAF50; padding: 2px 6px; border-radius: 4px;">{provider_token}</code></p>
+                </div>
+            </div>
+            <div style="background: rgba(255,193,7,0.15); border: 1px solid #FFC107; padding: 8px 15px; border-radius: 8px; text-align: right;">
+                <div style="font-family: monospace; color: #aaa; font-size: 11px; text-transform: uppercase;">TEMPO / PLANO ESCOLHIDO</div>
+                <div style="font-family: monospace; color: #FFC107; font-size: 16px; font-weight: bold;">⏱️ {tempo_plano}</div>
             </div>
         </div>
     """, unsafe_allow_html=True)
@@ -468,30 +488,33 @@ def show_provider_panel_custom(provider_token):
     
     qr_url_cliente = f"https://api.qrserver.com/v1/create-qr-code/?size=180x180&data={urllib.parse.quote(link_cliente_absoluto)}"
 
-    col_qr1, col_card1 = st.columns([1, 5])
-    with col_qr1:
-        st.markdown(f"""
-            <div class="qr-box">
-                <img src="{qr_url_cliente}" width="100" style="border-radius: 4px;" />
-            </div>
-        """, unsafe_allow_html=True)
-    with col_card1:
+    # Organização das posições conforme solicitado: Links de acesso e somente o QR code do cliente
+    col_links, col_qr = st.columns([3, 1])
+    
+    with col_links:
         st.markdown(f"""
             <div class="card-link">
-                <div class="link-title">LINK DO CLIENTE</div>
-                <a href="{link_cliente_rel}" target="_blank" class="link-text">{link_cliente_rel}</a>
+                <div class="link-title">🔗 LINK DO CLIENTE (REGISTO DE MÚSICA)</div>
+                <a href="{link_cliente_rel}" target="_blank" class="link-text">{link_cliente_absoluto}</a>
+            </div>
+        """, unsafe_allow_html=True)
+        
+        st.markdown(f"""
+            <div class="card-tv">
+                <div class="link-title-tv">📺 LINK DA TELA DE TV / REPRODUÇÃO</div>
+                <a href="{link_tv_rel}" target="_blank" class="link-text-tv">{link_tv_absoluto}</a>
+            </div>
+        """, unsafe_allow_html=True)
+        
+    with col_qr:
+        st.markdown("<div style='font-family: monospace; color: #FFC107; font-size: 12px; font-weight: bold; margin-bottom: 4px; text-align: center;'>QR CODE CLIENTE</div>", unsafe_allow_html=True)
+        st.markdown(f"""
+            <div class="qr-box">
+                <img src="{qr_url_cliente}" width="130" style="border-radius: 4px;" />
             </div>
         """, unsafe_allow_html=True)
 
-    st.markdown("<div style='height: 12px;'></div>", unsafe_allow_html=True)
-
-    st.markdown(f"""
-        <div class="card-tv">
-            <div class="link-title" style="color: #b5179e;">LINK DA TV</div>
-            <a href="{link_tv_rel}" target="_blank" class="link-text-tv">{link_tv_rel}</a>
-        </div>
-    """, unsafe_allow_html=True)
-
+    st.markdown("<div style='height: 15px;'></div>", unsafe_allow_html=True)
     renderizar_gestao_fila_prestador(provider_token)
 
 @st.fragment(run_every=3)
