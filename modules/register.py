@@ -5,7 +5,7 @@ import time
 
 def show_register_page():
     st.title("🎤 FFKaraoke - Registo de Prestador")
-    st.write("Preencha os seus dados, a referência de pagamento e escolha o tempo pretendido para solicitar o seu acesso.")
+    st.write("Preencha os seus dados e escolha o tempo pretendido para solicitar o seu acesso.")
 
     if "token_gerado" not in st.session_state:
         st.session_state["token_gerado"] = None
@@ -19,15 +19,12 @@ def show_register_page():
                 sobrenome = st.text_input("Sobrenome")
                 
             telefone = st.text_input("Número de Telefone")
-            payment_ref = st.text_input("Referência de Pagamento / Nº de Comprovativo")
             
-            # Tabela de preços e durações
+            # Tabela de preços e durações atualizada conforme solicitado
             duracao_opcoes = {
-                "2 Horas": {"horas": 2, "valor": 5000.0},
-                "4 Horas": {"horas": 4, "valor": 9000.0},
-                "6 Horas": {"horas": 6, "valor": 12000.0},
-                "12 Horas": {"horas": 12, "valor": 20000.0},
-                "24 Horas": {"horas": 24, "valor": 35000.0}
+                "2 Horas - 12 Mil Kwanzas": {"horas": 2, "valor": 12000.0},
+                "3 Horas - 15 Mil Kwanzas": {"horas": 3, "valor": 15000.0},
+                "4 Horas - 20 Mil Kwanzas": {"horas": 4, "valor": 20000.0}
             }
             
             duracao_escolhida = st.selectbox("Duração Pretendida", list(duracao_opcoes.keys()))
@@ -35,16 +32,17 @@ def show_register_page():
             submitted = st.form_submit_button("Enviar Permissão")
             
             if submitted:
-                if nome and telefone and payment_ref:
+                if nome and telefone:
                     nome_completo = f"{nome} {sobrenome}".strip()
                     token = str(uuid.uuid4()).replace("-", "")[:32]
                     
                     dados_escolha = duracao_opcoes[duracao_escolhida]
                     hours = dados_escolha["horas"]
                     valor_pago = dados_escolha["valor"]
+                    payment_ref = "Plano Selecionado Direto"
                     
                     try:
-                        # Grava incluindo o valor pago e as horas para aparecer na Gestão Total
+                        # Grava incluindo o plano escolhido e sem exigir referência manual
                         add_provider(nome_completo, telefone, payment_ref, hours, token, amount_paid=valor_pago)
                         st.session_state["token_gerado"] = token
                         st.success("Pedido de permissão enviado com sucesso!")
@@ -52,8 +50,8 @@ def show_register_page():
                     except Exception as e:
                         st.error(f"Erro ao guardar o registo: {e}")
                 else:
-                    st.warning("Por favor, preencha todos os campos obrigatórios.")
-    
+                    st.warning("Por favor, preencha todos os campos obrigatórios (Nome e Telefone).")
+        
     if st.session_state["token_gerado"]:
         token_atual = st.session_state["token_gerado"]
         df = get_all_providers()
