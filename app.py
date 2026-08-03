@@ -228,7 +228,6 @@ def renderizar_gestao_fila_prestador(provider_token):
         tocando_agora = next((p for p in pedidos_ativos if p.get("estado") == "aprovado"), None)
         pendentes = [p for p in pedidos_ativos if p.get("estado") == "pendente"]
 
-        # Bloco visual de Confirmação de Pedido estilo painel solicitado
         if pendentes:
             st.markdown("""
                 <div style="background-color: #0b0b0b; border: 2px solid #FFC107; padding: 15px; border-radius: 8px; text-align: center; margin-bottom: 20px;">
@@ -480,22 +479,53 @@ def renderizar_ecra_tv(provider_token):
             pedidos_ativos.sort(key=lambda x: x.get("timestamp", 0))
             tocando_agora = next((p for p in pedidos_ativos if p.get("estado") == "aprovado"), None)
         
-        frame_styles = """
+        # URL da moldura fixa de fundo solicitada
+        url_imagem_moldura = "https://cdn.phototourl.com/free/2026-08-03-694a4a2e-9914-4da8-93b2-87538a4805ab.png"
+
+        frame_styles = f"""
             <style>
-                @keyframes pulseSpeaker {
-                    0% { transform: scale(1); filter: drop-shadow(0 0 2px #FFC107); }
-                    50% { transform: scale(1.12); filter: drop-shadow(0 0 14px #FFC107); }
-                    100% { transform: scale(1); filter: drop-shadow(0 0 2px #FFC107); }
-                }
-                @keyframes bounceIcon {
-                    0%, 100% { transform: translateY(0) rotate(0deg); }
-                    50% { transform: translateY(-5px) rotate(10deg); }
-                }
-                @keyframes marqueeFast {
-                    0% { transform: translateX(0%); }
-                    100% { transform: translateX(-50%); }
-                }
-                .speaker-box {
+                /* Camada de fundo fixa com a imagem da moldura por trás de tudo */
+                div.custom-bg-layer {{
+                    position: fixed;
+                    top: 0;
+                    left: 0;
+                    width: 100vw;
+                    height: 100vh;
+                    background-image: url("{url_imagem_moldura}");
+                    background-size: cover;
+                    background-position: center;
+                    background-repeat: no-repeat;
+                    z-index: -999999;
+                    pointer-events: none;
+                }}
+
+                /* Margens internas para manter os elementos centrados na área preta da moldura */
+                .block-container {{
+                    padding-top: 5rem !important;
+                    padding-bottom: 3rem !important;
+                    padding-left: 7rem !important;
+                    padding-right: 7rem !important;
+                    background: transparent !important;
+                }}
+
+                .stApp {{
+                    background: transparent !important;
+                }}
+
+                @keyframes pulseSpeaker {{
+                    0% {{ transform: scale(1); filter: drop-shadow(0 0 2px #FFC107); }}
+                    50% {{ transform: scale(1.12); filter: drop-shadow(0 0 14px #FFC107); }}
+                    100% {{ transform: scale(1); filter: drop-shadow(0 0 2px #FFC107); }}
+                }}
+                @keyframes bounceIcon {{
+                    0%, 100% {{ transform: translateY(0) rotate(0deg); }}
+                    50% {{ transform: translateY(-5px) rotate(10deg); }}
+                }}
+                @keyframes marqueeFast {{
+                    0% {{ transform: translateX(0%); }}
+                    100% {{ transform: translateX(-50%); }}
+                }}
+                .speaker-box {{
                     position: fixed;
                     z-index: 99998;
                     width: 90px;
@@ -511,8 +541,8 @@ def renderizar_ecra_tv(provider_token):
                     box-shadow: 0 0 15px rgba(255, 193, 7, 0.4);
                     pointer-events: none;
                     animation: pulseSpeaker 0.55s infinite ease-in-out;
-                }
-                .woofer {
+                }}
+                .woofer {{
                     width: 55px;
                     height: 55px;
                     border: 3px solid #FFC107;
@@ -522,20 +552,20 @@ def renderizar_ecra_tv(provider_token):
                     align-items: center;
                     justify-content: center;
                     box-shadow: inset 0 0 8px #FFC107;
-                }
-                .woofer-inner {
+                }}
+                .woofer-inner {{
                     width: 22px;
                     height: 22px;
                     background: #FFC107;
                     border-radius: 50%;
-                }
+                }}
                 
-                .speaker-tl { top: 15px; left: 15px; }
-                .speaker-tr { top: 15px; right: 15px; }
-                .speaker-bl { bottom: 50px; left: 15px; }
-                .speaker-br { bottom: 50px; right: 15px; }
+                .speaker-tl {{ top: 15px; left: 15px; }}
+                .speaker-tr {{ top: 15px; right: 15px; }}
+                .speaker-bl {{ bottom: 50px; left: 15px; }}
+                .speaker-br {{ bottom: 50px; right: 15px; }}
 
-                .marquee-footer {
+                .marquee-footer {{
                     position: fixed;
                     bottom: 0;
                     left: 0;
@@ -549,8 +579,8 @@ def renderizar_ecra_tv(provider_token):
                     align-items: center;
                     white-space: nowrap;
                     pointer-events: none;
-                }
-                .marquee-track {
+                }}
+                .marquee-track {{
                     display: inline-block;
                     white-space: nowrap;
                     animation: marqueeFast 15s linear infinite;
@@ -558,18 +588,20 @@ def renderizar_ecra_tv(provider_token):
                     font-size: 16px;
                     color: #FFC107;
                     font-weight: bold;
-                }
-                .marquee-item {
+                }}
+                .marquee-item {{
                     display: inline-flex;
                     align-items: center;
                     gap: 12px;
                     margin-right: 40px;
-                }
-                .icon-anim {
+                }}
+                .icon-anim {{
                     display: inline-block;
                     animation: bounceIcon 0.8s infinite ease-in-out;
-                }
+                }}
             </style>
+
+            <div class="custom-bg-layer"></div>
 
             <div class="speaker-box speaker-tl">
                 <div class="woofer"><div class="woofer-inner"></div></div>
@@ -613,7 +645,7 @@ def renderizar_ecra_tv(provider_token):
                 body, html {{
                     margin: 0;
                     padding: 0;
-                    background: #000;
+                    background: transparent;
                     overflow: hidden;
                     width: 100vw;
                     height: 100vh;
@@ -726,14 +758,14 @@ def renderizar_ecra_tv(provider_token):
                 if proximo_cantor:
                     c_prox = proximo_cantor.get("cliente", "Convidado")
                     st.markdown(f"""
-                        <div style="border: 2px solid #FFC107; border-radius: 10px; padding: 15px; background: #111; margin-bottom: 15px; display: flex; align-items: center; gap: 15px;">
+                        <div style="border: 2px solid #FFC107; border-radius: 10px; padding: 15px; background: rgba(17,17,17,0.85); margin-bottom: 15px; display: flex; align-items: center; gap: 15px;">
                             <span style="color: #FFC107; font-size: 20px; font-weight: bold; font-family: monospace;">Á SEGUIR</span>
                             <span style="color: #ffffff; font-size: 20px; font-weight: bold; font-family: monospace; text-transform: uppercase;">{c_prox}</span>
                         </div>
                     """, unsafe_allow_html=True)
                 else:
                     st.markdown("""
-                        <div style="border: 2px solid #FFC107; border-radius: 10px; padding: 15px; text-align: center; background: #111; margin-bottom: 15px;">
+                        <div style="border: 2px solid #FFC107; border-radius: 10px; padding: 15px; text-align: center; background: rgba(17,17,17,0.85); margin-bottom: 15px;">
                             <h2 style="color: #FFC107; margin: 0; font-family: monospace;">🎤 FILA DE ESPERA VAZIA</h2>
                         </div>
                     """, unsafe_allow_html=True)
@@ -744,7 +776,7 @@ def renderizar_ecra_tv(provider_token):
                 for idx, p_item in enumerate(demais_pedidos, start=2):
                     c_item = p_item.get("cliente", "Convidado")
                     texto_caixa = f"<b>{idx}.</b> {c_item}"
-                    html_caixas += f'<div style="background: #111; border: 2px solid #FFC107; border-radius: 8px; padding: 12px; color: #fff; font-family: monospace; font-size: 16px;">{texto_caixa}</div>'
+                    html_caixas += f'<div style="background: rgba(17,17,17,0.85); border: 2px solid #FFC107; border-radius: 8px; padding: 12px; color: #fff; font-family: monospace; font-size: 16px;">{texto_caixa}</div>'
                 
                 html_caixas += '</div>'
                 st.markdown(html_caixas, unsafe_allow_html=True)
@@ -752,7 +784,7 @@ def renderizar_ecra_tv(provider_token):
             with col_dir:
                 if url_clipe_fundo:
                     video_fundo_html = f"""
-                    <div style="display: flex; justify-content: center; background: black; border: 2px solid #FFC107; border-radius: 10px; padding: 5px; width: 100%; position: relative; margin-top: 5px; margin-bottom: 40px;">
+                    <div style="display: flex; justify-content: center; background: rgba(0,0,0,0.85); border: 2px solid #FFC107; border-radius: 10px; padding: 5px; width: 100%; position: relative; margin-top: 5px; margin-bottom: 40px;">
                         <video id="fundo-player" width="100%" height="450px" controls autoplay loop playsinline controlslist="nodownload noremoteplayback" disablepictureinpicture style="object-fit: contain; background: black; border-radius: 8px;">
                             <source src="{url_clipe_fundo}" type="video/mp4">
                             O seu navegador não suporta vídeo.
@@ -782,7 +814,7 @@ def renderizar_ecra_tv(provider_token):
                     components.html(video_fundo_html, height=480)
                 else:
                     st.markdown("""
-                        <div style="border: 2px solid #FFC107; border-radius: 10px; padding: 100px 20px; text-align: center; background: #000; color: #FFC107; font-family: monospace; margin-top: 5px; margin-bottom: 40px;">
+                        <div style="border: 2px solid #FFC107; border-radius: 10px; padding: 100px 20px; text-align: center; background: rgba(0,0,0,0.85); color: #FFC107; font-family: monospace; margin-top: 5px; margin-bottom: 40px;">
                             <div style="font-size: 40px; margin-bottom: 10px;">📺</div>
                             <p style="color: #aaa; font-size: 16px; margin: 0;">Aguardando o prestador selecionar um vídeo clipe no painel de controle...</p>
                         </div>
