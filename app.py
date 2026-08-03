@@ -272,7 +272,7 @@ def custom_show_register_page():
             pass
 
     st.markdown("<h1>🎤 FFKaraoke - Registo de Prestador</h1>", unsafe_allow_html=True)
-    st.markdown("<p>Preencha os seus dados e escolha o plano pretendido para solicitar o seu acesso.</p>", unsafe_allow_html=True)
+    st.markdown("<p>Preencha os seus dados e escolha o tempo pretendido para solicitar o seu acesso.</p>", unsafe_allow_html=True)
     
     with st.form("form_registo_prestador_custom"):
         col1, col2 = st.columns(2)
