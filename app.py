@@ -283,7 +283,11 @@ def custom_show_register_page():
             
         telefone = st.text_input("Número de Telefone")
         referencia = st.text_input("Referência de Pagamento / Nº de Comprovativo")
-        duracao = st.selectbox("Duração Pretendida", options=["2 Horas", "4 Horas"])
+        duracao = st.selectbox("Duração Pretendida", options=[
+            "2 Horas - 12 Mil Kwanzas",
+            "3 Horas - 15 Mil Kwanzas",
+            "4 Horas - 20 Mil Kwanzas"
+        ])
         
         submitted = st.form_submit_button("Enviar Permissão")
         if submitted:
@@ -443,7 +447,6 @@ def renderizar_gestao_fila_prestador(provider_token):
                     </div>
                 """, unsafe_allow_html=True)
                 
-                # Botões de confirmação reduzidos e um em baixo do outro (estilo compactado/justo)
                 col_btn_dummy1, col_center_btn, col_btn_dummy2 = st.columns([1, 1.2, 1])
                 with col_center_btn:
                     if st.button("✅ Sim", key=f"conf_sim_{p.get('id')}", use_container_width=True):
@@ -517,7 +520,7 @@ def renderizar_gestao_fila_prestador(provider_token):
                 st.rerun()
 
         st.markdown("---")
-        st.markdown("### 🎬 Configuração de Vídeo Clipe de Fundo (Tela)")
+        st.markdown("### 🎬 Pesquisar Video clipe")
         
         video_fundo_atual = obter_video_fundo(provider_token)
         lista_clipes_cloudinary = listar_videos_pasta_clipes()
@@ -540,12 +543,24 @@ def renderizar_gestao_fila_prestador(provider_token):
 
         with st.form(key="form_video_fundo"):
             escolha_video = st.selectbox(
-                "INICIAR VIDEO CLIPE", 
+                "Pesquisar Video clipe", 
                 options=opcoes_labels, 
                 index=index_atual
             )
 
-            btn_salvar_fundo = st.form_submit_button("INICIAR VÍDEO CLIPE")
+            # Botão com cor verde via HTML/Markdown injetado logo acima/no form ou estilo customizado
+            st.markdown("""
+                <style>
+                div[data-testid="stForm"] button[type="submit"] {
+                    background-color: #4CAF50 !important;
+                    color: white !important;
+                    border: 2px solid #45a049 !important;
+                    font-weight: bold !important;
+                }
+                </style>
+            """, unsafe_allow_html=True)
+
+            btn_salvar_fundo = st.form_submit_button("Iniciar video clipe")
             if btn_salvar_fundo:
                 if escolha_video == "Nenhum (Ecrã Preto)":
                     valor_a_guardar = ""
@@ -565,14 +580,24 @@ def show_provider_panel_custom(provider_token):
 
     df_prov = get_all_providers()
     nome_prestador = "Prestador"
-    tempo_plano = "Não especificado"
+    tempo_plano = "2 Horas - 12 Mil Kwanzas"
     
     if not df_prov.empty and 'token' in df_prov.columns:
         match = df_prov[df_prov['token'] == provider_token]
         if not match.empty:
             row = match.iloc[0]
             nome_prestador = row.get('nome_prestador', row.get('nome', 'Prestador'))
-            tempo_plano = row.get('tempo_plano', row.get('tempo', 'Plano Padrão'))
+            tempo_plano = row.get('tempo_plano', row.get('tempo', '2 Horas - 12 Mil Kwanzas'))
+
+    # Converter tempo do plano em segundos para o temporizador decrescente
+    segundos_totais = 7200  # Padrão 2 horas
+    tempo_lower = tempo_plano.lower()
+    if "3 horas" in tempo_lower or "3h" in tempo_lower:
+        segundos_totais = 10800
+    elif "4 horas" in tempo_lower or "4h" in tempo_lower:
+        segundos_totais = 14400
+    elif "2 horas" in tempo_lower or "2h" in tempo_lower:
+        segundos_totais = 7200
 
     st.markdown(f"""
     <style>
@@ -603,7 +628,6 @@ def show_provider_panel_custom(provider_token):
         position: relative;
     }}
     
-    /* Rectângulos justos aos links (largura máxima ajustada e margem compacta) */
     .card-link, .card-tv {{
         background: #000000 !important;
         border: 4px solid #FFC107 !important;
@@ -677,7 +701,21 @@ def show_provider_panel_custom(provider_token):
         object-fit: cover;
     }}
     
-    /* Global fixes for text color, bold and text-shadow */
+    @keyframes oscillateWarning {{
+        0% {{ opacity: 1; transform: scale(1); }}
+        50% {{ opacity: 0.4; transform: scale(1.02); }}
+        100% {{ opacity: 1; transform: scale(1); }}
+    }}
+    .warning-reforoco-box {{
+        animation: oscillateWarning 1s infinite ease-in-out;
+        background: rgba(255, 0, 0, 0.85);
+        border: 3px solid #FFC107;
+        padding: 8px;
+        border-radius: 6px;
+        text-align: center;
+        margin-bottom: 10px;
+    }}
+    
     h1, h2, h3, h4, h5, h6, p, label, span, div, .stMarkdown {{
         color: #ffffff !important;
         font-weight: bold !important;
@@ -688,6 +726,10 @@ def show_provider_panel_custom(provider_token):
     <img src="{url_logotipo}" class="top-logo" />
     """, unsafe_allow_html=True)
 
+    # JavaScript para contagem decrescente, animação de oscilação e exibição do aviso de reforço quando faltar <= 30 minutos (1800 segundos)
+    timer_container_id = f"timer_display_{provider_token}"
+    reforco_container_id = f"reforco_alert_{provider_token}"
+    
     st.markdown(f"""
         <div class="panel-header">
             <div style="display: flex; align-items: center; gap: 15px;">
@@ -700,10 +742,98 @@ def show_provider_panel_custom(provider_token):
             <div style="background: rgba(255,193,7,0.15); border: 2px solid #FFC107; padding: 6px 12px; border-radius: 8px; text-align: right; margin-right: 80px;">
                 <div style="font-family: monospace; color: #ffffff; font-size: 11px; text-transform: uppercase; font-weight: bold; text-shadow: 1px 1px 3px rgba(0,0,0,0.9);">TEMPO / PLANO ESCOLHIDO</div>
                 <div style="font-family: monospace; color: #ffffff; font-size: 15px; font-weight: bold; text-shadow: 1px 1px 3px rgba(0,0,0,0.9);">⏱️ {tempo_plano}</div>
+                <div id="{timer_container_id}" style="font-family: monospace; color: #FFC107; font-size: 18px; font-weight: bold; margin-top: 4px;">--:--:--</div>
             </div>
         </div>
+        
+        <div id="{reforco_container_id}" style="display: none;"></div>
+
+        <script>
+        (function() {{
+            let totalSeconds = {segundos_totais};
+            const timerEl = document.getElementById("{timer_container_id}");
+            const reforcoEl = document.getElementById("{reforco_container_id}");
+            
+            // Tentar recuperar estado do localStorage para manter continuidade se atualizar a pagina
+            let storageKey = "ff_timer_{provider_token}";
+            let savedTime = localStorage.getItem(storageKey);
+            let savedTimestamp = localStorage.getItem(storageKey + "_ts");
+            
+            if (savedTime && savedTimestamp) {{
+                let elapsed = Math.floor((Date.now() - parseInt(savedTimestamp)) / 1000);
+                totalSeconds = Math.max(0, parseInt(savedTime) - elapsed);
+            }}
+
+            function formatTime(sec) {{
+                let h = Math.floor(sec / 3600);
+                let m = Math.floor((sec % 3600) / 60);
+                let s = sec % 60;
+                return (h < 10 ? "0" + h : h) + ":" + (m < 10 ? "0" + m : m) + ":" + (s < 10 ? "0" + s : s);
+            }}
+
+            function updateTimer() {{
+                if (totalSeconds <= 0) {{
+                    timerEl.innerHTML = "00:00:00 (TEMPO ESGOTADO)";
+                    reforcoEl.style.display = "block";
+                    reforcoEl.className = "warning-reforoco-box";
+                    reforcoEl.innerHTML = "<b style='color: white; font-size: 15px;'>O SEU TEMPO ESTA TERMINANDO. PARA QUE NÃO PERCAS OS SEUS REGISTOS PEÇA REFORÇO DE TEMPO.</b>";
+                    return;
+                }}
+                
+                timerEl.innerHTML = formatTime(totalSeconds);
+                
+                if (totalSeconds <= 1800) {{
+                    reforcoEl.style.display = "block";
+                    reforcoEl.className = "warning-reforoco-box";
+                    reforcoEl.innerHTML = "<b style='color: white; font-size: 15px;'>O SEU TEMPO ESTA TERMINANDO. PARA QUE NÃO PERCAS OS SEUS REGISTOS PEÇA REFORÇO DE TEMPO.</b>";
+                }} else {{
+                    reforcoEl.style.display = "none";
+                }}
+                
+                localStorage.setItem(storageKey, totalSeconds);
+                localStorage.setItem(storageKey + "_ts", Date.now());
+                
+                totalSeconds--;
+            }}
+            
+            updateTimer();
+            setInterval(updateTimer, 1000);
+        }})();
+        </script>
     """, unsafe_allow_html=True)
-    
+
+    # Bloco para solicitação de Reforço de Tempo diretamente no painel do prestador quando faltar pouco ou a qualquer momento
+    with st.expander("⚡ Pedir Reforço de Tempo / Novo Pacote"):
+        with st.form("form_reforco_prestador"):
+            st.markdown("Selecione o novo pacote de reforço para manter todos os seus registos ativos:")
+            duracao_reforco = st.selectbox("Duração Pretendida (Reforço)", options=[
+                "2 Horas - 12 Mil Kwanzas",
+                "3 Horas - 15 Mil Kwanzas",
+                "4 Horas - 20 Mil Kwanzas"
+            ])
+            ref_comprovativo = st.text_input("Referência de Pagamento / Nº de Comprovativo do Reforço")
+            btn_enviar_reforco = st.form_submit_button("Solicitar Reforço de Tempo")
+            
+            if btn_enviar_reforco:
+                if not ref_comprovativo:
+                    st.error("Por favor, preencha a referência ou número de comprovativo.")
+                else:
+                    try:
+                        import uuid
+                        reforco_id = str(uuid.uuid4())[:8]
+                        dados_reforco = {
+                            "provider_token": provider_token,
+                            "nome_prestador": nome_prestador,
+                            "duracao": duracao_reforco,
+                            "referencia": ref_comprovativo,
+                            "approved": 0,
+                            "data_pedido": str(datetime.now())
+                        }
+                        requests.put(f"{FIREBASE_URL}/reforcos_pendentes/{provider_token}_{reforco_id}.json", json=dados_reforco, timeout=10)
+                        st.success("Pedido de reforço enviado com sucesso! Aguarde aprovação do Administrador.")
+                    except Exception as err:
+                        st.error(f"Erro ao enviar pedido de reforço: {err}")
+
     link_cliente_rel = f"/?page=client_register&prestador={provider_token}"
     link_tv_rel = f"/?page=client_screen&prestador={provider_token}"
     
