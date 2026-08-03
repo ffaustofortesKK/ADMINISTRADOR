@@ -1,11 +1,15 @@
-import streamlit as st
-import streamlit.components.v1 as components
-import requests
 import time
 import urllib.parse
 from datetime import datetime
+import requests
+import streamlit as st
+import streamlit.components.v1 as components
 
-# Configuração inicial da página Streamlit
+# ==========================================
+# CONFIGURAÇÕES GLOBAIS E FIREBASE
+# ==========================================
+FIREBASE_URL = "https://ffkaraoke-cloud-default-rtdb.firebaseio.com"
+
 st.set_page_config(
     page_title="FF Karaoke Cloud",
     page_icon="🎤",
@@ -13,10 +17,20 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# URL do Firebase (Defina aqui a sua URL base ou variável de ambiente)
-FIREBASE_URL = "https://ffkaraoke-default-rtdb.firebaseio.com"
+# ==========================================
+# FUNÇÕES AUXILIARES / PLACEHOLDERS
+# ==========================================
+def get_all_providers():
+    import pandas as pd
+    try:
+        res = requests.get(f"{FIREBASE_URL}/prestadores.json", timeout=5)
+        if res.status_code == 200 and res.json():
+            data = res.json()
+            return pd.DataFrame([{"token": k, **v} for k, v in data.items()])
+    except:
+        pass
+    return pd.DataFrame()
 
-# Funções auxiliares (Stub placeholders caso venham de outro módulo)
 def limpar_nome_musica(titulo):
     return titulo
 
@@ -26,36 +40,35 @@ def obter_url_video_cloudinary(musica, titulo_limpo):
     return ""
 
 def obter_video_fundo(provider_token):
+    try:
+        res = requests.get(f"{FIREBASE_URL}/fundo/{provider_token}.json", timeout=5)
+        if res.status_code == 200:
+            return res.json()
+    except:
+        pass
     return ""
 
 def renderizar_gestao_fila_prestador(provider_token):
-    pass
+    st.markdown("### 🎛️ Gestão da Fila de Espera")
+    # Implementação padrão da gestão da fila no painel do prestador
+
+def show_provider_panel_custom(token):
+    st.title("Painel do Prestador")
+    st.write(f"Token: {token}")
 
 def custom_show_register_page():
-    st.title("Registo de Novo Prestador / Utilizador")
+    st.title("Registo de Novo Prestador")
 
 def show_client_page():
-    st.title("Registo de Música - Cliente")
+    st.title("Registo de Música (Cliente)")
 
 def show_admin_panel():
     st.title("Painel de Administração - FF Karaoke")
-    st.info("Painel administrativo carregado com sucesso.")
+    st.write("Bem-vindo ao painel de controlo administrativo.")
 
-def get_all_providers():
-    import pandas as pd
-    try:
-        res = requests.get(f"{FIREBASE_URL}/prestadores.json", timeout=5)
-        if res.status_code == 200 and res.json():
-            data = res.json()
-            return pd.DataFrame([{"token": k, **v} for k, v in data.items()])
-    except Exception:
-        pass
-    return pd.DataFrame(columns=['token', 'approved'])
-
-def show_provider_panel_custom(provider_token):
-    st.title(f"Painel do Prestador - Token: {provider_token}")
-    # Conteúdo básico do painel personalizado caso necessário
-    
+# ==========================================
+# TELA DE TV / REPRODUÇÃO
+# ==========================================
 @st.fragment(run_every=3)
 def renderizar_ecra_tv(provider_token):
     try:
@@ -193,8 +206,10 @@ def renderizar_ecra_tv(provider_token):
             musica = tocando_agora.get("musica", {})
             if isinstance(musica, dict):
                 titulo = musica.get("titulo", musica.get("nome", "Karaoke"))
+                url_video = musica.get("url_cloudinary", "") or musica.get("url", "")
             else:
                 titulo = str(musica)
+                url_video = ""
             
             titulo_limpo = limpar_nome_musica(titulo)
             url_video = obter_url_video_cloudinary(musica, titulo_limpo)
@@ -383,6 +398,9 @@ def renderizar_ecra_tv(provider_token):
     except Exception as e:
         st.error(f"Erro de sincronização na TV: {e}")
 
+# ==========================================
+# ROTAS E CONTROLADOR PRINCIPAL
+# ==========================================
 def show_client_screen():
     query_params = st.query_params
     provider_token = query_params.get("prestador") or query_params.get("provider", None)
