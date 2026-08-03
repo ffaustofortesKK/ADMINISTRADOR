@@ -23,7 +23,8 @@ def show_register_page():
             # Tabela de preços e durações atualizada conforme solicitado
             duracao_opcoes = {
                 "2 Horas - 12 Mil Kwanzas": {"horas": 2, "valor": 12000.0},
-                "3 Horas - 15 Mil Kwanzas": {"horas": 3, "valor": 15000.0},
+                "3 Horas - 15 Mil Kwanzas": {"horas": 3, "valor": 15000.0}
+                "3 Minutos - 15 Mil Kwanzas": {"minutos": 3, "valor": 15000.0},
                 "4 Horas - 20 Mil Kwanzas": {"horas": 4, "valor": 20000.0}
             }
             
