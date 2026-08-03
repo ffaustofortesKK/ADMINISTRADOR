@@ -6,40 +6,31 @@ import urllib.parse
 from datetime import datetime, timedelta
 import pandas as pd
 
-# Configuração da Página
+# Configuração da página (deve ser a primeira instrução Streamlit)
 st.set_page_config(
     page_title="FF Karaoke Cloud",
     page_icon="🎤",
     layout="wide"
 )
 
-# URL do Firebase (Base de Dados)
-FIREBASE_URL = "https://ffkaraoke-default-rtdb.firebaseio.com"
+# URL base do Firebase (ajuste conforme a sua estrutura)
+FIREBASE_URL = "https://ffkaraokecloud-default-rtdb.firebaseio.com"
 
-# ---------------------------------------------------------
-# FUNÇÕES AUXILIARES E DE SUPORTE
-# ---------------------------------------------------------
-
-def limpar_nome_musica(nome):
-    if not nome:
-        return ""
-    return str(nome).strip()
+# Funções auxiliares base
+def limpar_nome_musica(titulo):
+    return titulo
 
 def obter_url_video_cloudinary(musica, titulo_limpo):
     if isinstance(musica, dict):
-        url = musica.get("url_cloudinary", "") or musica.get("url", "")
-        if url:
-            return url
+        return musica.get("url_cloudinary", "") or musica.get("url", "")
     return ""
 
-def obter_video_fundo(token):
+def obter_video_fundo(provider_token):
     try:
-        url = f"{FIREBASE_URL}/config_fundo/{token}.json"
+        url = f"{FIREBASE_URL}/prestadores/{provider_token}/video_fundo.json"
         res = requests.get(url, timeout=5)
-        if res.status_code == 200 and res.json():
-            data = res.json()
-            if isinstance(data, dict):
-                return data.get("url_clipe", "")
+        if res.status_code == 200:
+            return res.json()
     except:
         pass
     return ""
@@ -49,71 +40,167 @@ def get_all_providers():
         res = requests.get(f"{FIREBASE_URL}/prestadores.json", timeout=5)
         if res.status_code == 200 and res.json():
             data = res.json()
-            lista = []
-            for k, v in data.items():
-                if isinstance(v, dict):
-                    v['token'] = k
-                    lista.append(v)
-            if lista:
-                return pd.DataFrame(lista)
+            return pd.DataFrame([{"token": k, **v} for k, v in data.items()])
     except:
         pass
     return pd.DataFrame()
 
-# ---------------------------------------------------------
-# TELA DE CLIENTE (REGISTO DE MÚSICA)
-# ---------------------------------------------------------
+def renderizar_gestao_fila_prestador(provider_token):
+    st.markdown("### 📋 Gestão da Fila de Pedidos")
+    try:
+        url = f"{FIREBASE_URL}/pedidos/{provider_token}.json"
+        res = requests.get(url, timeout=10)
+        if res.status_code == 200 and res.json():
+            data = res.json()
+            for k, v in data.items():
+                col1, col2, col3 = st.columns([3, 2, 1])
+                with col1:
+                    st.write(f"**Cliente:** {v.get('cliente')} | **Música:** {v.get('musica')}")
+                with col2:
+                    st.write(f"**Estado:** {v.get('estado')}")
+                with col3:
+                    if v.get('estado') == 'pendente':
+                        if st.button("Aprovar", key=f"aprov_{k}"):
+                            requests.put(f"{FIREBASE_URL}/pedidos/{provider_token}/{k}/estado.json", json="aprovado")
+                            st.rerun()
+        else:
+            st.info("Nenhum pedido na fila.")
+    except Exception as e:
+        st.error(f"Erro ao carregar fila: {e}")
+
+def custom_show_register_page():
+    st.markdown("## 📝 Registo de Novo Prestador")
+    with st.form("form_registo_prestador"):
+        nome_prestador = st.text_input("Nome do Prestador / Estabelecimento")
+        contacto = st.text_input("Contacto Telefónico")
+        email = st.text_input("E-mail")
+        
+        # Duração Pretendida atualizada com as 3 opções fixas solicitadas
+        duracao_plano = st.selectbox(
+            "Duração Pretendida", 
+            options=[
+                "2 Horas - 12 Mil Kwanzas", 
+                "3 Horas - 15 Mil Kwanzas", 
+                "4 Horas - 20 Mil Kwanzas"
+            ]
+        )
+        
+        submitted = st.form_submit_button("Submeter Registo")
+        if submitted:
+            if not nome_prestador:
+                st.error("Por favor, insira o nome do prestador.")
+            else:
+                import uuid
+                token = str(uuid.uuid4())[:8]
+                dados_prestador = {
+                    "nome": nome_prestador,
+                    "contacto": contacto,
+                    "email": email,
+                    "tempo_plano": duracao_plano,
+                    "approved": 0,
+                    "data_registo": str(datetime.now()),
+                    "segundos_restantes": 7200 if "2 Horas" in duracao_plano else (10800 if "3 Horas" in duracao_plano else 14400)
+                }
+                try:
+                    requests.put(f"{FIREBASE_URL}/prestadores/{token}.json", json=dados_prestador, timeout=10)
+                    st.success(f"Registo efetuado com sucesso! O seu token de acesso é: **{token}**")
+                except Exception as err:
+                    st.error(f"Erro ao registar: {err}")
+
 def show_client_page():
+    st.markdown("## 🎤 Registo de Música (Cliente)")
     query_params = st.query_params
-    provider_token = query_params.get("prestador") or query_params.get("provider")
-
+    provider_token = query_params.get("prestador")
     if not provider_token:
-        st.error("Link inválido. Falta o token do prestador.")
+        st.error("Prestador não especificado.")
         return
-
-    st.markdown("""
-        <style>
-        .stApp { background-color: #000000; color: #ffffff; }
-        .block-container {
-            background-color: #000000 !important;
-            border: 4px solid #FFC107 !important;
-            border-radius: 12px;
-            padding: 2rem !important;
-        }
-        h1, h2, h3, h4, h5, h6, p, span, label, div {
-            font-family: monospace !important;
-            font-weight: bold !important;
-            text-shadow: 1px 1px 3px rgba(0,0,0,0.9);
-        }
-        </style>
-    """, unsafe_allow_html=True)
-
-    st.markdown("<h1 style='text-align: center; color: #FFC107;'>🎤 FF KARAOKE - REGISTO DE MÚSICA</h1>", unsafe_allow_html=True)
     
-    with st.form("form_registo_musica"):
-        nome_cliente = st.text_input("O Seu Nome (Convidado)")
-        nome_musica = st.text_input("Nome da Música / Artista Pretendido")
-        submetido = st.form_submit_button("Submeter Pedido à Fila")
-
-        if submetido:
+    with st.form("form_cliente_pedido"):
+        nome_cliente = st.text_input("O seu Nome")
+        nome_musica = st.text_input("Nome da Música / Artista")
+        submitted = st.form_submit_button("Enviar Pedido")
+        if submitted:
             if not nome_cliente or not nome_musica:
-                st.error("Por favor, preencha todos os campos.")
+                st.error("Preencha todos os campos.")
             else:
                 novo_pedido = {
                     "cliente": nome_cliente,
-                    "musica": {"titulo": nome_musica},
+                    "musica": nome_musica,
                     "estado": "pendente",
-                    "timestamp": int(time.time() * 1000)
+                    "timestamp": time.time()
                 }
                 try:
                     requests.post(f"{FIREBASE_URL}/pedidos/{provider_token}.json", json=novo_pedido, timeout=10)
-                    st.success("Música registada com sucesso na fila de espera!")
-                except Exception as e:
-                    st.error(f"Erro ao submeter pedido: {e}")
+                    st.success("Pedido enviado com sucesso para a fila!")
+                except Exception as err:
+                    st.error(f"Erro ao enviar pedido: {err}")
 
-# ---------------------------------------------------------
-# TELA DE TV / REPRODUÇÃO
-# ---------------------------------------------------------
+def show_admin_panel():
+    st.title("🛠️ Painel de Administração - FF Karaoke")
+    
+    tab1, tab2 = st.tabs(["Aprovação de Prestadores", "Gestão Total & Reforços"])
+    
+    with tab1:
+        st.subheader("Prestadores Pendentes")
+        df = get_all_providers()
+        if not df.empty and 'approved' in df.columns:
+            pendentes = df[df['approved'] == 0]
+            if pendentes.empty:
+                st.info("Não há prestadores pendentes.")
+            else:
+                for idx, row in pendentes.iterrows():
+                    st.write(f"**Nome:** {row.get('nome')} | **Token:** {row.get('token')} | **Plano:** {row.get('tempo_plano')}")
+                    col_s, col_n = st.columns(2)
+                    with col_s:
+                        if st.button("Aprovar (Sim)", key=f"sim_p_{row['token']}"):
+                            requests.patch(f"{FIREBASE_URL}/prestadores/{row['token']}.json", json={"approved": 1})
+                            st.rerun()
+                    with col_n:
+                        if st.button("Rejeitar (Não)", key=f"nao_p_{row['token']}"):
+                            requests.delete(f"{FIREBASE_URL}/prestadores/{row['token']}.json")
+                            st.rerun()
+        else:
+            st.info("Sem dados de prestadores.")
+
+    with tab2:
+        st.subheader("Pedidos de Reforço Pendentes")
+        try:
+            res = requests.get(f"{FIREBASE_URL}/reforcos_pendentes.json", timeout=5)
+            if res.status_code == 200 and res.json():
+                reforcos = res.json()
+                for token, dados in reforcos.items():
+                    if dados.get("approved") == 0:
+                        st.write(f"**Prestador:** {dados.get('nome_prestador')} | **Token:** {token} | **Plano:** {dados.get('tempo_plano')} | **Ref:** {dados.get('referencia')}")
+                        col_r1, col_r2 = st.columns(2)
+                        with col_r1:
+                            if st.button("Aprovar Reforço (Sim)", key=f"sim_ref_{token}"):
+                                # Aprova e atualiza o tempo acumulado
+                                p_res = requests.get(f"{FIREBASE_URL}/prestadores/{token}.json", timeout=5)
+                                if p_res.status_code == 200 and p_res.json():
+                                    p_data = p_res.json()
+                                    segundos_atuais = p_data.get("segundos_restantes", 0)
+                                    plano_texto = dados.get('tempo_plano', '')
+                                    
+                                    adicional = 7200
+                                    if "3 Horas" in plano_texto:
+                                        adicional = 10800
+                                    elif "4 Horas" in plano_texto:
+                                        adicional = 14400
+                                        
+                                    novo_total = segundos_atuais + adicional
+                                    requests.patch(f"{FIREBASE_URL}/prestadores/{token}.json", json={"segundos_restantes": novo_total})
+                                    requests.patch(f"{FIREBASE_URL}/reforcos_pendentes/{token}.json", json={"approved": 1})
+                                    st.success("Reforço aprovado e tempo acumulado com sucesso!")
+                                    st.rerun()
+                        with col_r2:
+                            if st.button("Rejeitar Reforço (Não)", key=f"nao_ref_{token}"):
+                                requests.delete(f"{FIREBASE_URL}/reforcos_pendentes/{token}.json")
+                                st.rerun()
+            else:
+                st.info("Não há pedidos de reforço pendentes.")
+        except Exception as e:
+            st.error(f"Erro ao carregar reforços: {e}")
+
 @st.fragment(run_every=3)
 def renderizar_ecra_tv(provider_token):
     try:
@@ -458,166 +545,62 @@ def show_client_screen():
 
     renderizar_ecra_tv(provider_token)
 
-# ---------------------------------------------------------
-# GESTÃO DA FILA NO PAINEL DO PRESTADOR
-# ---------------------------------------------------------
-def renderizar_gestao_fila_prestador(provider_token):
-    st.markdown("---")
-    st.markdown("### 🎛️ Gestão de Fila e Pedidos")
-
-    try:
-        res = requests.get(f"{FIREBASE_URL}/pedidos/{provider_token}.json", timeout=10)
-        if res.status_code == 200 and res.json():
-            data = res.json()
-            pedidos = [{"id": k, **v} for k, v in data.items()]
-            pedidos_ativos = [p for p in pedidos if p.get("estado") in ["pendente", "aprovado"]]
-            pedidos_ativos.sort(key=lambda x: x.get("timestamp", 0))
-
-            if not pedidos_ativos:
-                st.info("Nenhum pedido na fila de momento.")
-            else:
-                for p in pedidos_ativos:
-                    pid = p["id"]
-                    cliente = p.get("cliente", "Convidado")
-                    musica = p.get("musica", {})
-                    titulo = musica.get("titulo", "Música") if isinstance(musica, dict) else str(musica)
-                    estado = p.get("estado", "pendente")
-
-                    cols = st.columns([3, 2, 2])
-                    with cols[0]:
-                        st.markdown(f"**{cliente}** - 🎵 {titulo} `({estado})`")
-                    with cols[1]:
-                        if estado == "pendente":
-                            if st.button("▶️ Reproduzir", key=f"play_{pid}"):
-                                requests.put(f"{FIREBASE_URL}/pedidos/{provider_token}/{pid}/estado.json", json="aprovado")
-                                st.rerun()
-                        elif estado == "aprovado":
-                            if st.button("⏹️ Terminar", key=f"stop_{pid}"):
-                                requests.put(f"{FIREBASE_URL}/pedidos/{provider_token}/{pid}/estado.json", json="terminado")
-                                st.rerun()
-                    with cols[2]:
-                        if st.button("❌ Remover", key=f"del_{pid}"):
-                            requests.delete(f"{FIREBASE_URL}/pedidos/{provider_token}/{pid}.json")
-                            st.rerun()
-        else:
-            st.info("A fila de músicas está vazia.")
-    except Exception as e:
-        st.error(f"Erro ao carregar fila: {e}")
-
-    # Configuração de Vídeo Clipe de Fundo
-    st.markdown("---")
-    st.markdown("### 🎬 Configuração de Vídeo Clipe de Fundo (Tela)")
-    
-    # Campo de pesquisa do vídeo clipe
-    termo_pesquisa = st.text_input("Pesquisar Vídeo Clipe na Biblioteca")
-    
-    try:
-        res_lib = requests.get(f"{FIREBASE_URL}/biblioteca_videos.json", timeout=10)
-        if res_lib.status_code == 200 and res_lib.json():
-            bib_data = res_lib.json()
-            videos_lib = [{"id": k, **v} for k, v in bib_data.items()]
-            
-            if termo_pesquisa:
-                videos_lib = [v for v in videos_lib if termo_pesquisa.lower() in v.get("titulo", "").lower()]
-
-            if videos_lib:
-                opcoes_videos = {v["titulo"]: v.get("url", "") for v in videos_lib}
-                escolha_video = st.selectbox("Selecione o Clipe da Lista", options=list(opcoes_videos.keys()))
-                
-                # Botão correspondente com cor Verde (via HTML/CSS customizado ou botão padrão estilizado)
-                st.markdown("""
-                    <style>
-                    div.stButton > button:first-child {
-                        background-color: #4CAF50 !important;
-                        color: white !important;
-                        font-weight: bold !important;
-                        border-radius: 6px !important;
-                    }
-                    </style>
-                """, unsafe_allow_html=True)
-
-                if st.button("Pesquisar Vídeo Clipe"):
-                    url_escolhida = opcoes_videos[escolha_video]
-                    config_data = {"url_clipe": url_escolhida, "titulo": escolha_video}
-                    requests.put(f"{FIREBASE_URL}/config_fundo/{provider_token}.json", json=config_data)
-                    st.success("Vídeo clipe de fundo definido com sucesso!")
-            else:
-                st.info("Nenhum vídeo clipe encontrado.")
-        else:
-            st.info("A biblioteca de vídeos está vazia.")
-    except Exception as e:
-        st.error(f"Erro ao carregar biblioteca: {e}")
-
-# ---------------------------------------------------------
-# PAINEL DO PRESTADOR PRINCIPAL
-# ---------------------------------------------------------
 def show_provider_panel_custom(provider_token):
-    st.markdown("""
-        <style>
-        .stApp { background-color: #000000 !important; color: #ffffff !important; }
-        .block-container {
-            background-color: #000000 !important;
-            border: 4px solid #FFC107 !important;
-            border-radius: 12px;
-            padding: 2rem !important;
-        }
-        .panel-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            background: rgba(255,193,7,0.1);
-            border: 2px solid #FFC107;
-            padding: 15px;
-            border-radius: 10px;
-            margin-bottom: 20px;
-        }
-        .card-link, .card-tv {
-            background: #111;
-            border: 2px solid #FFC107;
-            padding: 12px;
-            border-radius: 8px;
-            margin-bottom: 10px;
-        }
-        .link-title { color: #FFC107; font-family: monospace; font-size: 12px; font-weight: bold; }
-        .link-text { color: #fff; font-family: monospace; font-size: 13px; word-break: break-all; }
-        .link-title-tv { color: #00E676; font-family: monospace; font-size: 12px; font-weight: bold; }
-        .link-text-tv { color: #fff; font-family: monospace; font-size: 13px; word-break: break-all; }
-        .qr-box { background: white; padding: 6px; border-radius: 6px; display: inline-block; }
-        </style>
-    """, unsafe_allow_html=True)
+    # Buscar dados do prestador
+    try:
+        res = requests.get(f"{FIREBASE_URL}/prestadores/{provider_token}.json", timeout=5)
+        if res.status_code == 200 and res.json():
+            p_data = res.json()
+            nome_prestador = p_data.get("nome", "Prestador")
+            tempo_plano = p_data.get("tempo_plano", "2 Horas")
+            segundos_restantes = p_data.get("segundos_restantes", 7200)
+        else:
+            nome_prestador = "Prestador"
+            tempo_plano = "2 Horas"
+            segundos_restantes = 7200
+    except:
+        nome_prestador = "Prestador"
+        tempo_plano = "2 Horas"
+        segundos_restantes = 7200
 
-    # Obter dados do prestador para exibir dinamicamente o nome
-    df = get_all_providers()
-    nome_prestador = "Prestador"
-    tempo_plano = "2 Horas - 12 Mil Kwanzas"
-    segundos_restantes = 7200 # Padrão 2 horas
+    # Formatação do tempo decrescente (ex: 02:00:00)
+    horas = segundos_restantes // 3600
+    minutos = (segundos_restantes % 3600) // 60
+    segundos = segundos_restantes % 60
+    tempo_formatado = f"{horas:02d}:{minutos:02d}:{segundos:02d}"
 
-    if not df.empty and 'token' in df.columns:
-        prestador_info = df[df['token'] == provider_token]
-        if not prestador_info.empty:
-            row = prestador_info.iloc[0]
-            nome_prestador = row.get("nome", "Prestador")
-            tempo_plano = row.get("tempo_plano", "2 Horas - 12 Mil Kwanzas")
-
-    # Cálculo estimado do cronómetro decrescente
-    tempo_formatado = "02:00:00"
-    if "3 Horas" in tempo_plano:
-        segundos_restantes = 10800
-        tempo_formatado = "03:00:00"
-    elif "4 Horas" in tempo_plano:
-        segundos_restantes = 14400
-        tempo_formatado = "04:00:00"
-
-    # Alerta visual se faltarem 30 minutos (1800 segundos) ou menos
+    # Condição para quando faltarem 30 minutos (1800 segundos) ou menos
     aviso_reforço_html = ""
     if segundos_restantes <= 1800:
         aviso_reforço_html = """
-            <div style="background: rgba(255,0,0,0.2); border: 3px solid #ff4444; padding: 12px; border-radius: 8px; text-align: center; margin-bottom: 15px; animation: pulse 1s infinite;">
-                <span style="color: #ff4444; font-family: monospace; font-size: 14px; font-weight: bold; text-transform: uppercase;">
-                    ⚠️ O SEU TEMPO ESTA TERMINANDO. PARA QUE NÃO PERCAS OS SEUS REGISTOS PEÇA REFORÇO DE TEMPO.
-                </span>
-            </div>
+        <style>
+            @keyframes piscarRelogio {
+                0% { opacity: 1; transform: scale(1); }
+                50% { opacity: 0.4; transform: scale(1.02); }
+                100% { opacity: 1; transform: scale(1); }
+            }
+            .aviso-reforco-faixa {
+                background: rgba(255, 0, 0, 0.85);
+                border: 3px solid #FFC107;
+                padding: 12px;
+                border-radius: 8px;
+                text-align: center;
+                margin-bottom: 15px;
+                animation: piscarRelogio 1s infinite ease-in-out;
+            }
+        </style>
+        <div class="aviso-reforco-faixa">
+            <span style="color: #ffffff; font-family: monospace; font-size: 15px; font-weight: bold; text-shadow: 1px 1px 3px rgba(0,0,0,0.9);">
+                ⚠️ O SEU TEMPO ESTA TERMINANDO. PARA QUE NÃO PERCAS OS SEUS REGISTOS PEÇA REFORÇO DE TEMPO.
+            </span>
+        </div>
         """
+
+    url_logotipo = "https://via.placeholder.com/150" # Padrão ou URL obtida
+
+    st.markdown(f"""
+        <img src="{url_logotipo}" class="top-logo" />
+        """, unsafe_allow_html=True)
 
     st.markdown(f"""
         <div class="panel-header">
@@ -628,7 +611,7 @@ def show_provider_panel_custom(provider_token):
                     <p style="margin: 3px 0 0 0; color: #ffffff; font-size: 13px; font-family: monospace; font-weight: bold; text-shadow: 1px 1px 3px rgba(0,0,0,0.9);">TOKEN: <code style="background: #222; color: #ffffff; padding: 2px 6px; border-radius: 4px; font-weight: bold;">{provider_token}</code></p>
                 </div>
             </div>
-            <div style="background: rgba(255,193,7,0.15); border: 2px solid #FFC107; padding: 6px 12px; border-radius: 8px; text-align: right;">
+            <div style="background: rgba(255,193,7,0.15); border: 2px solid #FFC107; padding: 6px 12px; border-radius: 8px; text-align: right; margin-right: 80px;">
                 <div style="font-family: monospace; color: #ffffff; font-size: 11px; text-transform: uppercase; font-weight: bold; text-shadow: 1px 1px 3px rgba(0,0,0,0.9);">TEMPO / PLANO ESCOLHIDO</div>
                 <div style="font-family: monospace; color: #ffffff; font-size: 15px; font-weight: bold; text-shadow: 1px 1px 3px rgba(0,0,0,0.9);">⏱️ {tempo_formatado} ({tempo_plano})</div>
             </div>
@@ -671,37 +654,59 @@ def show_provider_panel_custom(provider_token):
             </div>
         """, unsafe_allow_html=True)
 
-    # Seção de pedido de reforço rápido
+    # Secção de Configuração de Vídeo Clipe de Fundo (com texto atualizado e botão Verde)
+    st.markdown("---")
+    st.markdown("### Pesquisar Vídeo Clipe")
+    with st.form("form_pesquisa_clipe"):
+        termo_pesquisa = st.text_input("Pesquisar por título ou artista")
+        btn_pesquisar = st.form_submit_button("Pesquisar Vídeo Clipe", type="primary") # Nota: cor verde gerida via estilo ou nativa
+        
+        # Estilo para forçar botão verde conforme pedido
+        st.markdown("""
+            <style>
+            div[data-testid="stFormSubmitButton"] button {
+                background-color: #28a745 !important;
+                color: white !important;
+                border: none !important;
+            }
+            </style>
+        """, unsafe_allow_html=True)
+
+        if btn_pesquisar:
+            st.info(f"A pesquisar por: {termo_pesquisa}")
+
+    # Seção de pedido de reforço rápido (pré-cadastrado)
     st.markdown("<div id='reforco_seccao'></div>", unsafe_allow_html=True)
-    st.markdown("### ⚡ Solicitar Reforço de Tempo")
-    with st.form("form_reforco_prestador"):
-        ref_pagamento = st.text_input("Referência de Pagamento / Nº de Comprovativo")
-        duracao_reforco = st.selectbox(
-            "Duração Pretendida", 
-            options=[
-                "2 Horas - 12 Mil Kwanzas", 
-                "3 Horas - 15 Mil Kwanzas", 
-                "4 Horas - 20 Mil Kwanzas"
-            ]
-        )
-        btn_sub_reforco = st.form_submit_button("Submeter Pedido de Reforço")
-        if btn_sub_reforco:
-            if not ref_pagamento:
-                st.error("Por favor, insira a referência de pagamento ou comprovativo.")
-            else:
-                dados_reforco = {
-                    "token": provider_token,
-                    "nome_prestador": nome_prestador,
-                    "referencia": ref_pagamento,
-                    "tempo_plano": duracao_reforco,
-                    "approved": 0,
-                    "data_registo": str(datetime.now())
-                }
-                try:
-                    requests.put(f"{FIREBASE_URL}/reforcos_pendentes/{provider_token}.json", json=dados_reforco, timeout=10)
-                    st.success("Pedido de reforço submetido com sucesso! Aguarde a confirmação do Administrador.")
-                except Exception as err:
-                    st.error(f"Erro ao enviar reforço: {err}")
+    if segundos_restantes <= 1800:
+        st.markdown("### ⚡ Solicitar Reforço de Tempo")
+        with st.form("form_reforco_prestador"):
+            ref_pagamento = st.text_input("Referência de Pagamento / Nº de Comprovativo")
+            duracao_reforco = st.selectbox(
+                "Duração Pretendida", 
+                options=[
+                    "2 Horas - 12 Mil Kwanzas", 
+                    "3 Horas - 15 Mil Kwanzas", 
+                    "4 Horas - 20 Mil Kwanzas"
+                ]
+            )
+            btn_sub_reforco = st.form_submit_button("Submeter Pedido de Reforço")
+            if btn_sub_reforco:
+                if not ref_pagamento:
+                    st.error("Por favor, insira a referência de pagamento ou comprovativo.")
+                else:
+                    dados_reforco = {
+                        "token": provider_token,
+                        "nome_prestador": nome_prestador,
+                        "referencia": ref_pagamento,
+                        "tempo_plano": duracao_reforco,
+                        "approved": 0,
+                        "data_registo": str(datetime.now())
+                    }
+                    try:
+                        requests.put(f"{FIREBASE_URL}/reforcos_pendentes/{provider_token}.json", json=dados_reforco, timeout=10)
+                        st.success("Pedido de reforço submetido com sucesso! Aguarde a confirmação do Administrador.")
+                    except Exception as err:
+                        st.error(f"Erro ao enviar reforço: {err}")
 
     st.markdown("<div style='height: 10px;'></div>", unsafe_allow_html=True)
     renderizar_gestao_fila_prestador(provider_token)
@@ -709,98 +714,6 @@ def show_provider_panel_custom(provider_token):
 def show_provider_panel_center(token):
     show_provider_panel_custom(token)
 
-# ---------------------------------------------------------
-# PAINEL DO ADMINISTRADOR
-# ---------------------------------------------------------
-def show_admin_panel():
-    st.title("🛠️ Painel de Administração - FF Karaoke")
-    
-    aba1, aba2, aba3 = st.tabs(["Prestadores", "Gestão Total / Reforços", "Biblioteca de Vídeos"])
-    
-    with aba1:
-        st.subheader("Aprovação e Gestão de Prestadores")
-        df_prestadores = get_all_providers()
-        if not df_prestadores.empty:
-            st.dataframe(df_prestadores[['token', 'nome', 'tempo_plano', 'approved']])
-            
-            # Formulário de registo inicial simplificado com apenas as 3 opções fixas de duração
-            with st.form("form_novo_prestador"):
-                st.markdown("### Registar Novo Prestador")
-                nome_novo = st.text_input("Nome do Prestador")
-                token_novo = st.text_input("Token / ID Único")
-                plano_novo = st.selectbox(
-                    "Duração Pretendida / Plano",
-                    options=[
-                        "2 Horas - 12 Mil Kwanzas",
-                        "3 Horas - 15 Mil Kwanzas",
-                        "4 Horas - 20 Mil Kwanzas"
-                    ]
-                )
-                btn_reg_prestador = st.form_submit_button("Criar Prestador")
-                if btn_reg_prestador:
-                    if nome_novo and token_novo:
-                        novo_dados = {
-                            "nome": nome_novo,
-                            "tempo_plano": plano_novo,
-                            "approved": 1
-                        }
-                        requests.put(f"{FIREBASE_URL}/prestadores/{token_novo}.json", json=novo_dados)
-                        st.success("Prestador registado com sucesso!")
-                        st.rerun()
-                    else:
-                        st.error("Preencha o nome e o token.")
-        else:
-            st.info("Nenhum prestador registado.")
-
-    with aba2:
-        st.subheader("Gestão Total e Pedidos de Reforço de Tempo")
-        try:
-            res_ref = requests.get(f"{FIREBASE_URL}/reforcos_pendentes.json", timeout=10)
-            if res_ref.status_code == 200 and res_ref.json():
-                reforcos = res_ref.json()
-                for token_p, dados in reforcos.items():
-                    if isinstance(dados, dict) and dados.get("approved", 0) == 0:
-                        st.markdown(f"""
-                            <div style="border: 2px solid #FFC107; padding: 10px; border-radius: 6px; margin-bottom: 10px;">
-                                <b>Prestador:</b> {dados.get('nome_prestador')} ({token_p})<br>
-                                <b>Plano Solicitado:</b> {dados.get('tempo_plano')}<br>
-                                <b>Comprovativo / Ref:</b> {dados.get('referencia')}
-                            </div>
-                        """, unsafe_allow_html=True)
-                        
-                        cols_ref = st.columns(2)
-                        with cols_ref[0]:
-                            if st.button("Sim (Aprovar Reforço)", key=f"sim_ref_{token_p}"):
-                                # Atualizar plano do prestador acumulando/atualizando tempo
-                                requests.patch(f"{FIREBASE_URL}/prestadores/{token_p}.json", json={"tempo_plano": dados.get('tempo_plano')})
-                                requests.delete(f"{FIREBASE_URL}/reforcos_pendentes/{token_p}.json")
-                                st.success("Reforço aprovado com sucesso!")
-                                st.rerun()
-                        with cols_ref[1]:
-                            if st.button("Não (Rejeitar)", key=f"nao_ref_{token_p}"):
-                                requests.delete(f"{FIREBASE_URL}/reforcos_pendentes/{token_p}.json")
-                                st.rerun()
-            else:
-                st.info("Não existem pedidos de reforço pendentes.")
-        except Exception as e:
-            st.error(f"Erro ao carregar reforços: {e}")
-
-    with aba3:
-        st.subheader("Gestão da Biblioteca de Vídeos")
-        with st.form("form_add_video"):
-            titulo_vid = st.text_input("Título da Música / Vídeo")
-            url_vid = st.text_input("URL Direta do Vídeo (Cloudinary / MP4)")
-            btn_add_vid = st.form_submit_button("Adicionar Vídeo à Biblioteca")
-            if btn_add_vid:
-                if titulo_vid and url_vid:
-                    novo_v = {"titulo": titulo_vid, "url": url_vid}
-                    requests.post(f"{FIREBASE_URL}/biblioteca_videos.json", json=novo_v)
-                    st.success("Vídeo adicionado com sucesso!")
-                    st.rerun()
-
-# ---------------------------------------------------------
-# Roteador Principal (Main)
-# ---------------------------------------------------------
 def main():
     try:
         query_params = st.query_params
