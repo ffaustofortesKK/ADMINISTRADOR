@@ -68,20 +68,23 @@ def renderizar_ecra_tv(provider_token):
         pedidos_ativos = []
         tocando_agora = {"id": "123", "cliente": "Convidado"}
         
-        # URL da imagem de fundo fornecida
         url_imagem_moldura = "https://cdn.phototourl.com/free/2026-08-03-694a4a2e-9914-4da8-93b2-87538a4805ab.png"
 
+        # CSS Forçado para sobrepor os fundos nativos do Streamlit
         frame_styles = f"""
         <style>
-            .stApp {{
-                background-color: #000000;
-                background-image: url("{url_imagem_moldura}");
-                background-size: cover;
-                background-position: center;
-                background-repeat: no-repeat;
+            /* Força o fundo da página inteira e do container principal */
+            stApp, .stApp, [data-testid="stAppViewContainer"], [data-testid="stHeader"] {{
+                background-color: #000000 !important;
+                background-image: url("{url_imagem_moldura}") !important;
+                background-size: cover !important;
+                background-position: center !important;
+                background-repeat: no-repeat !important;
             }}
-            /* Margens internas ajustadas para enquadrar perfeitamente dentro da moldura dourada */
+            
+            /* Margens internas ajustadas para manter o conteúdo dentro da moldura dourada */
             .block-container {{
+                background: transparent !important;
                 padding-top: 5rem !important;
                 padding-bottom: 3rem !important;
                 padding-left: 7rem !important;
