@@ -48,14 +48,15 @@ except Exception:
     def show_admin_panel(): st.error("Módulo 'modules.admin' não encontrado.")
 
 try:
-    from modules.register import show_register_page
-except Exception:
-    def show_register_page(): st.error("Módulo 'modules.register' não encontrado.")
-
-try:
     from modules.client import show_client_page
 except Exception:
     def show_client_page(): st.error("Módulo 'modules.client' não encontrado.")
+
+# --- IMPORTAÇÃO DIRETA OU OVERRIDE SEGURA DA PÁGINA DE REGISTO PARA APLICAR O FUNDO E 2/4 HORAS ---
+try:
+    from modules.register import show_register_page as original_show_register_page
+except Exception:
+    original_show_register_page = None
 
 FIREBASE_URL = "https://grupoffkaraoke-default-rtdb.firebaseio.com"
 
@@ -117,6 +118,93 @@ try:
     init_db()
 except Exception:
     pass
+
+def custom_show_register_page():
+    url_fundo_painel = "https://cdn.phototourl.com/free/2026-08-03-694a4a2e-9914-4da8-93b2-87538a4805ab.png"
+    
+    st.markdown(f"""
+    <style>
+    .stApp {{
+        background: url("{url_fundo_painel}") no-repeat center center fixed !important;
+        background-size: cover !important;
+    }}
+    
+    .block-container {{
+        padding-top: 3rem !important;
+        padding-bottom: 3rem !important;
+        padding-left: 4rem !important;
+        padding-right: 4rem !important;
+        background: rgba(0, 0, 0, 0.90) !important;
+        border-radius: 12px;
+        margin-top: 2rem;
+        margin-bottom: 2rem;
+        border: 4px solid #FFC107 !important;
+        color: #ffffff !important;
+    }}
+
+    h1, h2, h3, h4, h5, h6, p, label, span, div {{
+        color: #ffffff !important;
+    }}
+    
+    .stTextInput input, .stSelectbox select, div[data-baseweb="select"] {{
+        background-color: #111111 !important;
+        color: #ffffff !important;
+        border: 2px solid #FFC107 !important;
+    }}
+    </style>
+    """, unsafe_allow_html=True)
+
+    if original_show_register_page:
+        try:
+            original_show_register_page()
+            return
+        except Exception:
+            pass
+
+    # Fallback / Implementação robusta caso o módulo externo não gerencie os selects de 2 ou 4 horas
+    st.markdown("<h1>🎤 FFKaraoke - Registo de Prestador</h1>", unsafe_allow_html=True)
+    st.markdown("<p>Preencha os seus dados, a referência de pagamento e escolha o tempo pretendido para solicitar o seu acesso.</p>", unsafe_allow_html=True)
+    
+    with st.form("form_registo_prestador_custom"):
+        col1, col2 = st.columns(2)
+        with col1:
+            nome = st.text_input("Nome")
+        with col2:
+            sobrenome = st.text_input("Sobrenome")
+            
+        telefone = st.text_input("Número de Telefone")
+        referencia = st.text_input("Referência de Pagamento / Nº de Comprovativo")
+        
+        # AJUSTE REQUISITADO: Apenas 2 Horas e 4 Horas
+        duracao = st.selectbox("Duração Pretendida", options=["2 Horas", "4 Horas"])
+        
+        submitted = st.form_submit_button("Enviar Permissão")
+        if submitted:
+            if not nome or not telefone or not referencia:
+                st.error("Por favor, preencha todos os campos obrigatórios.")
+            else:
+                try:
+                    from utils.db_manager import save_provider_request
+                    token_gerado = save_provider_request(nome, sobrenome, telefone, referencia, duracao)
+                    st.success(f"Pedido enviado com sucesso! O seu token de acesso é: {token_gerado}")
+                except Exception as e:
+                    # Gravação direta no Firebase se db_manager falhar
+                    import uuid
+                    token_gerado = str(uuid.uuid4())[:8]
+                    dados_reg = {
+                        "nome_prestador": f"{nome} {sobrenome}".strip(),
+                        "telefone": telefone,
+                        "referencia": referencia,
+                        "tempo_plano": duracao,
+                        "approved": 0,
+                        "token": token_gerado,
+                        "data_registo": str(datetime.now())
+                    }
+                    try:
+                        requests.put(f"{FIREBASE_URL}/prestadores_pendentes/{token_gerado}.json", json=dados_reg, timeout=10)
+                        st.success(f"Registo submetido com sucesso! Token: {token_gerado}. Aguarde a aprovação do administrador.")
+                    except Exception as err:
+                        st.error(f"Erro ao submeter registo: {err}")
 
 def atualizar_estado_pedido(provider_token, pedido_id, novo_estado):
     try:
@@ -876,7 +964,7 @@ def main():
         query_params = st.query_params
         
         if "page" in query_params and query_params["page"] == "register":
-            show_register_page()
+            custom_show_register_page()
             return
 
         if "page" in query_params and query_params["page"] == "client_register":
