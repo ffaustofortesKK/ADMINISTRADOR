@@ -144,12 +144,15 @@ def custom_show_register_page():
 
     h1, h2, h3, h4, h5, h6, p, label, span, div {{
         color: #ffffff !important;
+        font-weight: bold !important;
+        text-shadow: 1px 1px 3px rgba(0,0,0,0.9);
     }}
     
     .stTextInput input, .stSelectbox select, div[data-baseweb="select"] {{
         background-color: #111111 !important;
         color: #ffffff !important;
         border: 2px solid #FFC107 !important;
+        font-weight: bold !important;
     }}
     </style>
     """, unsafe_allow_html=True)
@@ -173,8 +176,8 @@ def custom_show_register_page():
         if aprovado:
             st.markdown(f"""
                 <div style="text-align: center; padding: 40px; font-family: monospace;">
-                    <h1 style="color: #FFC107; font-size: 38px; margin-bottom: 20px;">SEJA BEM VINDO, {nome_prestador_temp.upper()}!</h1>
-                    <p style="color: #4CAF50; font-size: 20px; font-weight: bold; margin-bottom: 30px;">O seu registo foi aprovado com sucesso!</p>
+                    <h1 style="color: #FFC107; font-size: 38px; margin-bottom: 20px; font-weight: bold; text-shadow: 1px 1px 3px rgba(0,0,0,0.9);">SEJA BEM VINDO, {nome_prestador_temp.upper()}!</h1>
+                    <p style="color: #ffffff; font-size: 20px; font-weight: bold; margin-bottom: 30px; text-shadow: 1px 1px 3px rgba(0,0,0,0.9);">O seu registo foi aprovado com sucesso!</p>
                 </div>
             """, unsafe_allow_html=True)
             if st.button("🚀 Entrar no Painel", use_container_width=True):
@@ -240,15 +243,16 @@ def custom_show_register_page():
                 font-size: 16px;
                 font-weight: bold;
                 font-family: monospace;
+                text-shadow: 1px 1px 3px rgba(0,0,0,0.9);
             }}
             </style>
 
             <div class="waiting-container">
                 <img src="{url_logotipo}" class="logo-wait" />
-                <h2 style="color: #FFC107; margin-bottom: 10px;">REGISTO SUBMETIDO COM SUCESSO!</h2>
-                <p style="color: #ccc; font-size: 15px; max-width: 600px; margin: 0 auto;">Aguardando validação e aprovação pelo Administrador...</p>
+                <h2 style="color: #FFC107; margin-bottom: 10px; font-weight: bold; text-shadow: 1px 1px 3px rgba(0,0,0,0.9);">REGISTO SUBMETIDO COM SUCESSO!</h2>
+                <p style="color: #ffffff; font-size: 15px; max-width: 600px; margin: 0 auto; font-weight: bold; text-shadow: 1px 1px 3px rgba(0,0,0,0.9);">Aguardando validação e aprovação pelo Administrador...</p>
                 <div class="mic-spinning">🎤</div>
-                <p style="color: #4CAF50; font-size: 14px; margin-top: 15px;">Token do Pedido: <b>{token_atual}</b></p>
+                <p style="color: #ffffff; font-size: 14px; margin-top: 15px; font-weight: bold; text-shadow: 1px 1px 3px rgba(0,0,0,0.9);">Token do Pedido: <b>{token_atual}</b></p>
             </div>
 
             <div class="wait-footer">
@@ -428,27 +432,27 @@ def renderizar_gestao_fila_prestador(provider_token):
         if pendentes:
             st.markdown("""
                 <div style="background-color: rgba(0,0,0,0.95); border: 4px solid #FFC107; padding: 15px; border-radius: 8px; text-align: center; margin-bottom: 20px;">
-                    <div style="color: #4CAF50; font-family: monospace; font-size: 15px; font-weight: bold; margin-bottom: 5px;">Confirmação de Pedido</div>
-                    <div style="color: #FFC107; font-family: monospace; font-size: 18px; font-weight: bold; margin-bottom: 10px;">QUER CANTAR</div>
+                    <div style="color: #4CAF50; font-family: monospace; font-size: 15px; font-weight: bold; margin-bottom: 5px; text-shadow: 1px 1px 3px rgba(0,0,0,0.9);">Confirmação de Pedido</div>
+                    <div style="color: #FFC107; font-family: monospace; font-size: 18px; font-weight: bold; margin-bottom: 10px; text-shadow: 1px 1px 3px rgba(0,0,0,0.9);">QUER CANTAR</div>
             """, unsafe_allow_html=True)
             
             for p in pendentes:
                 titulo_p = limpar_nome_musica(p.get("musica", {}))
                 cliente_p = p.get("cliente", "Convidado")
                 st.markdown(f"""
-                    <div style="color: #ffffff; font-family: monospace; font-size: 15px; margin-bottom: 15px;">
-                        <b>{titulo_p}</b> <span style="color: #aaa; font-size: 13px;">({cliente_p})</span>
+                    <div style="color: #ffffff; font-family: monospace; font-size: 15px; margin-bottom: 15px; font-weight: bold; text-shadow: 1px 1px 3px rgba(0,0,0,0.9);">
+                        <b>{titulo_p}</b> <span style="color: #ffffff; font-size: 13px; font-weight: bold; text-shadow: 1px 1px 3px rgba(0,0,0,0.9);">({cliente_p})</span>
                     </div>
                 """, unsafe_allow_html=True)
                 
-                col_btn_sim, col_btn_nao = st.columns(2)
-                with col_btn_sim:
+                # Botões de confirmação reduzidos e um em baixo do outro
+                col_btn_dummy1, col_center_btn, col_btn_dummy2 = st.columns([1, 1.2, 1])
+                with col_center_btn:
                     if st.button("✅ Aprovar", key=f"conf_sim_{p.get('id')}", use_container_width=True):
                         terminar_todas_musicas_ativas(provider_token, pedidos)
                         atualizar_estado_pedido(provider_token, p.get('id'), 'aprovado')
                         st.success(f"Música '{titulo_p}' enviada para a tela!")
                         st.rerun()
-                with col_btn_nao:
                     if st.button("❌ Recusar", key=f"conf_nao_{p.get('id')}", use_container_width=True):
                         atualizar_estado_pedido(provider_token, p.get('id'), 'terminado')
                         st.warning("Pedido recusado/cancelado.")
@@ -471,10 +475,10 @@ def renderizar_gestao_fila_prestador(provider_token):
                     st.markdown(f"""
                         <div style="background: rgba(0,0,0,0.95); border: 4px solid {cor_borda}; border-radius: 8px; padding: 12px 15px; margin-bottom: 10px; font-family: monospace;">
                             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-                                <span style="color: {cor_borda}; font-weight: bold; font-size: 14px;">{badge_texto}</span>
-                                <span style="color: #aaa; font-size: 13px;">Cliente: <b>{cliente_nome}</b></span>
+                                <span style="color: {cor_borda}; font-weight: bold; font-size: 14px; text-shadow: 1px 1px 3px rgba(0,0,0,0.9);">{badge_texto}</span>
+                                <span style="color: #ffffff; font-size: 13px; font-weight: bold; text-shadow: 1px 1px 3px rgba(0,0,0,0.9);">Cliente: <b>{cliente_nome}</b></span>
                             </div>
-                            <div style="color: #fff; font-size: 16px; font-weight: bold; margin-bottom: 8px;">
+                            <div style="color: #ffffff; font-size: 16px; font-weight: bold; margin-bottom: 8px; text-shadow: 1px 1px 3px rgba(0,0,0,0.9);">
                                 🎶 {titulo_musica}
                             </div>
                         </div>
@@ -502,7 +506,7 @@ def renderizar_gestao_fila_prestador(provider_token):
                     st.markdown("<hr style='margin: 5px 0 15px 0; border-color: #333;'>", unsafe_allow_html=True)
         else:
             st.markdown("""
-                <div style="background-color: rgba(0,0,0,0.95); border: 4px solid #FFC107; border-radius: 8px; padding: 15px; color: #FFC107; width: 100%; font-family: monospace; font-size: 14px; margin-bottom: 20px; text-align: center;">
+                <div style="background-color: rgba(0,0,0,0.95); border: 4px solid #FFC107; border-radius: 8px; padding: 15px; color: #FFC107; width: 100%; font-family: monospace; font-size: 14px; margin-bottom: 20px; text-align: center; font-weight: bold; text-shadow: 1px 1px 3px rgba(0,0,0,0.9);">
                     NENHUM PEDIDO NA LISTA NESTE MOMENTO.<br>À ESPERA DE NOVOS PEDIDOS...
                 </div>
             """, unsafe_allow_html=True)
@@ -543,7 +547,7 @@ def renderizar_gestao_fila_prestador(provider_token):
                 index=index_atual
             )
 
-            btn_salvar_fundo = st.form_submit_button("PESQUISAR")
+            btn_salvar_fundo = st.form_submit_button("INICIAR VÍDEO CLIPE")
             if btn_salvar_fundo:
                 if escolha_video == "Nenhum (Ecrã Preto)":
                     valor_a_guardar = ""
@@ -603,17 +607,17 @@ def show_provider_panel_custom(provider_token):
     .card-link {{
         background: #000000 !important;
         border: 4px solid #FFC107 !important;
-        border-radius: 10px;
-        padding: 15px 20px;
+        border-radius: 8px;
+        padding: 8px 12px;
         text-align: left;
         box-shadow: 0 4px 15px rgba(255, 193, 7, 0.25);
-        margin-bottom: 10px;
+        margin-bottom: 8px;
     }}
     .card-tv {{
         background: #000000 !important;
         border: 4px solid #9c27b0 !important;
-        border-radius: 10px;
-        padding: 15px 20px;
+        border-radius: 8px;
+        padding: 8px 12px;
         text-align: left;
         box-shadow: 0 4px 15px rgba(156, 39, 176, 0.25);
     }}
@@ -621,7 +625,7 @@ def show_provider_panel_custom(provider_token):
         background: #000;
         border: 4px solid #FFC107 !important;
         border-radius: 8px;
-        padding: 6px;
+        padding: 4px;
         display: flex;
         align-items: center;
         justify-content: center;
@@ -630,30 +634,34 @@ def show_provider_panel_custom(provider_token):
     .link-title {{
         font-family: monospace;
         color: #FFC107;
-        font-size: 18px;
+        font-size: 15px;
         font-weight: bold;
-        margin-bottom: 4px;
+        margin-bottom: 2px;
+        text-shadow: 1px 1px 3px rgba(0,0,0,0.9);
     }}
     .link-title-tv {{
         font-family: monospace;
         color: #b5179e;
-        font-size: 18px;
+        font-size: 15px;
         font-weight: bold;
-        margin-bottom: 4px;
+        margin-bottom: 2px;
+        text-shadow: 1px 1px 3px rgba(0,0,0,0.9);
     }}
     .link-text {{
         font-family: monospace;
         color: #3a86ff;
-        font-size: 14px;
+        font-size: 13px;
         word-break: break-all;
         text-decoration: underline;
+        font-weight: bold;
     }}
     .link-text-tv {{
         font-family: monospace;
         color: #f72585;
-        font-size: 14px;
+        font-size: 13px;
         word-break: break-all;
         text-decoration: underline;
+        font-weight: bold;
     }}
     .top-logo {{
         position: absolute;
@@ -665,6 +673,19 @@ def show_provider_panel_custom(provider_token):
         border: 3px solid #FFC107;
         object-fit: cover;
     }}
+    
+    /* Global fixes for text color, bold and text-shadow */
+    h1, h2, h3, h4, h5, h6, p, label, span, div, .stMarkdown {{
+        color: #ffffff !important;
+        font-weight: bold !important;
+        text-shadow: 1px 1px 3px rgba(0,0,0,0.9) !important;
+    }}
+    
+    /* Specific overrides to keep distinct colors for headings/badges where needed */
+    .link-title {{ color: #FFC107 !important; }}
+    .link-title-tv {{ color: #b5179e !important; }}
+    .link-text {{ color: #3a86ff !important; }}
+    .link-text-tv {{ color: #f72585 !important; }}
     </style>
     
     <img src="{url_logotipo}" class="top-logo" />
@@ -675,13 +696,13 @@ def show_provider_panel_custom(provider_token):
             <div style="display: flex; align-items: center; gap: 15px;">
                 <span style="font-size: 32px;">🎤</span>
                 <div>
-                    <h1 style="margin: 0; color: #FFC107; font-family: monospace; font-size: 24px; text-transform: uppercase;">PAINEL DO PRESTADOR: {nome_prestador}</h1>
-                    <p style="margin: 3px 0 0 0; color: #aaa; font-size: 13px; font-family: monospace;">TOKEN: <code style="background: #222; color: #4CAF50; padding: 2px 6px; border-radius: 4px;">{provider_token}</code></p>
+                    <h1 style="margin: 0; color: #FFC107; font-family: monospace; font-size: 24px; text-transform: uppercase; font-weight: bold; text-shadow: 1px 1px 3px rgba(0,0,0,0.9);">PAINEL DO PRESTADOR: {nome_prestador}</h1>
+                    <p style="margin: 3px 0 0 0; color: #ffffff; font-size: 13px; font-family: monospace; font-weight: bold; text-shadow: 1px 1px 3px rgba(0,0,0,0.9);">TOKEN: <code style="background: #222; color: #4CAF50; padding: 2px 6px; border-radius: 4px; font-weight: bold;">{provider_token}</code></p>
                 </div>
             </div>
-            <div style="background: rgba(255,193,7,0.15); border: 2px solid #FFC107; padding: 8px 15px; border-radius: 8px; text-align: right; margin-right: 80px;">
-                <div style="font-family: monospace; color: #aaa; font-size: 11px; text-transform: uppercase;">TEMPO / PLANO ESCOLHIDO</div>
-                <div style="font-family: monospace; color: #FFC107; font-size: 16px; font-weight: bold;">⏱️ {tempo_plano}</div>
+            <div style="background: rgba(255,193,7,0.15); border: 2px solid #FFC107; padding: 6px 12px; border-radius: 8px; text-align: right; margin-right: 80px;">
+                <div style="font-family: monospace; color: #ffffff; font-size: 11px; text-transform: uppercase; font-weight: bold; text-shadow: 1px 1px 3px rgba(0,0,0,0.9);">TEMPO / PLANO ESCOLHIDO</div>
+                <div style="font-family: monospace; color: #FFC107; font-size: 15px; font-weight: bold; text-shadow: 1px 1px 3px rgba(0,0,0,0.9);">⏱️ {tempo_plano}</div>
             </div>
         </div>
     """, unsafe_allow_html=True)
@@ -693,7 +714,7 @@ def show_provider_panel_custom(provider_token):
     link_cliente_absoluto = f"https://{host_dominio}{link_cliente_rel}"
     link_tv_absoluto = f"https://{host_dominio}{link_tv_rel}"
     
-    qr_url_cliente = f"https://api.qrserver.com/v1/create-qr-code/?size=180x180&data={urllib.parse.quote(link_cliente_absoluto)}"
+    qr_url_cliente = f"https://api.qrserver.com/v1/create-qr-code/?size=150x150&data={urllib.parse.quote(link_cliente_absoluto)}"
 
     col_links, col_qr = st.columns([3, 1])
     
@@ -713,14 +734,14 @@ def show_provider_panel_custom(provider_token):
         """, unsafe_allow_html=True)
         
     with col_qr:
-        st.markdown("<div style='font-family: monospace; color: #FFC107; font-size: 12px; font-weight: bold; margin-bottom: 4px; text-align: center;'>QR CODE CLIENTE</div>", unsafe_allow_html=True)
+        st.markdown("<div style='font-family: monospace; color: #FFC107; font-size: 11px; font-weight: bold; margin-bottom: 2px; text-align: center; text-shadow: 1px 1px 3px rgba(0,0,0,0.9);'>QR CODE CLIENTE</div>", unsafe_allow_html=True)
         st.markdown(f"""
             <div class="qr-box">
-                <img src="{qr_url_cliente}" width="130" style="border-radius: 4px;" />
+                <img src="{qr_url_cliente}" width="110" style="border-radius: 4px;" />
             </div>
         """, unsafe_allow_html=True)
 
-    st.markdown("<div style='height: 15px;'></div>", unsafe_allow_html=True)
+    st.markdown("<div style='height: 10px;'></div>", unsafe_allow_html=True)
     renderizar_gestao_fila_prestador(provider_token)
 
 @st.fragment(run_every=3)
@@ -817,6 +838,7 @@ def renderizar_ecra_tv(provider_token):
                     font-size: 16px;
                     color: #FFC107;
                     font-weight: bold;
+                    text-shadow: 1px 1px 3px rgba(0,0,0,0.9);
                 }
                 .marquee-item {
                     display: inline-flex;
@@ -894,6 +916,7 @@ def renderizar_ecra_tv(provider_token):
                     font-family: monospace;
                     font-size: 15vw;
                     font-weight: bold;
+                    text-shadow: 2px 2px 5px rgba(0,0,0,0.9);
                     animation: zoomInNumber 0.9s ease-in-out infinite;
                 }}
             </style>
@@ -906,7 +929,7 @@ def renderizar_ecra_tv(provider_token):
                     O seu navegador não suporta a reprodução deste vídeo.
                 </video>
                 <div id="audio-warning" style="display: none; position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); text-align: center; background: #222; border: 4px solid #FFC107; padding: 10px 20px; border-radius: 5px; z-index: 99999;">
-                    <p style="color: #FFC107; margin: 0 0 8px 0; font-family: monospace; font-size: 14px; font-weight: bold;">⚠️ O navegador bloqueou o áudio automático.</p>
+                    <p style="color: #FFC107; margin: 0 0 8px 0; font-family: monospace; font-size: 14px; font-weight: bold; text-shadow: 1px 1px 3px rgba(0,0,0,0.9);">⚠️ O navegador bloqueou o áudio automático.</p>
                     <button onclick="unmuteVideo()" style="background-color: #4CAF50; color: white; border: none; padding: 8px 16px; font-size: 15px; border-radius: 4px; cursor: pointer; font-weight: bold;">🔊 CLIQUE AQUI PARA ATIVAR O SOM</button>
                 </div>
             </div>
@@ -986,14 +1009,14 @@ def renderizar_ecra_tv(provider_token):
                     c_prox = proximo_cantor.get("cliente", "Convidado")
                     st.markdown(f"""
                         <div style="border: 4px solid #FFC107; border-radius: 10px; padding: 15px; background: rgba(0,0,0,0.95); margin-bottom: 15px; display: flex; align-items: center; gap: 15px;">
-                            <span style="color: #FFC107; font-size: 20px; font-weight: bold; font-family: monospace;">Á SEGUIR</span>
-                            <span style="color: #ffffff; font-size: 20px; font-weight: bold; font-family: monospace; text-transform: uppercase;">{c_prox}</span>
+                            <span style="color: #FFC107; font-size: 20px; font-weight: bold; font-family: monospace; text-shadow: 1px 1px 3px rgba(0,0,0,0.9);">Á SEGUIR</span>
+                            <span style="color: #ffffff; font-size: 20px; font-weight: bold; font-family: monospace; text-transform: uppercase; text-shadow: 1px 1px 3px rgba(0,0,0,0.9);">{c_prox}</span>
                         </div>
                     """, unsafe_allow_html=True)
                 else:
                     st.markdown("""
                         <div style="border: 4px solid #FFC107; border-radius: 10px; padding: 15px; text-align: center; background: rgba(0,0,0,0.95); margin-bottom: 15px;">
-                            <h2 style="color: #FFC107; margin: 0; font-family: monospace; font-weight: bold;">🎤 FILA DE ESPERA VAZIA</h2>
+                            <h2 style="color: #FFC107; margin: 0; font-family: monospace; font-weight: bold; text-shadow: 1px 1px 3px rgba(0,0,0,0.9);">🎤 FILA DE ESPERA VAZIA</h2>
                         </div>
                     """, unsafe_allow_html=True)
                 
@@ -1003,7 +1026,7 @@ def renderizar_ecra_tv(provider_token):
                 for idx, p_item in enumerate(demais_pedidos, start=2):
                     c_item = p_item.get("cliente", "Convidado")
                     texto_caixa = f"<b>{idx}.</b> {c_item}"
-                    html_caixas += f'<div style="background: rgba(0,0,0,0.95); border: 4px solid #FFC107; border-radius: 8px; padding: 12px; color: #fff; font-family: monospace; font-size: 16px; font-weight: bold;">{texto_caixa}</div>'
+                    html_caixas += f'<div style="background: rgba(0,0,0,0.95); border: 4px solid #FFC107; border-radius: 8px; padding: 12px; color: #ffffff; font-family: monospace; font-size: 16px; font-weight: bold; text-shadow: 1px 1px 3px rgba(0,0,0,0.9);">{texto_caixa}</div>'
                 
                 html_caixas += '</div>'
                 st.markdown(html_caixas, unsafe_allow_html=True)
@@ -1041,9 +1064,9 @@ def renderizar_ecra_tv(provider_token):
                     components.html(video_fundo_html, height=480)
                 else:
                     st.markdown("""
-                        <div style="border: 4px solid #FFC107; border-radius: 10px; padding: 100px 20px; text-align: center; background: rgba(0,0,0,0.95); color: #FFC107; font-family: monospace; margin-top: 5px; margin-bottom: 40px;">
+                        <div style="border: 4px solid #FFC107; border-radius: 10px; padding: 100px 20px; text-align: center; background: rgba(0,0,0,0.95); color: #FFC107; font-family: monospace; margin-top: 5px; margin-bottom: 40px; font-weight: bold; text-shadow: 1px 1px 3px rgba(0,0,0,0.9);">
                             <div style="font-size: 40px; margin-bottom: 10px;">📺</div>
-                            <p style="color: #aaa; font-size: 16px; margin: 0; font-weight: bold;">Aguardando o prestador selecionar um vídeo clipe no painel de controle...</p>
+                            <p style="color: #ffffff; font-size: 16px; margin: 0; font-weight: bold; text-shadow: 1px 1px 3px rgba(0,0,0,0.9);">Aguardando o prestador selecionar um vídeo clipe no painel de controle...</p>
                         </div>
                     """, unsafe_allow_html=True)
 
@@ -1121,6 +1144,7 @@ def main():
             }
             h1, h2, h3, h4, h5, h6, p, span, label, div, button, input {
                 font-weight: bold !important;
+                text-shadow: 1px 1px 3px rgba(0,0,0,0.9);
             }
             </style>
         """, unsafe_allow_html=True)
