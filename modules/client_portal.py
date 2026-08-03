@@ -38,6 +38,15 @@ def obter_catalogo_cloudinary():
     return catalogo
 
 def show_client_portal(provider_token):
+    # Remove fundo preto forçado para adaptar ao tema do Streamlit
+    st.markdown("""
+        <style>
+        .stApp {
+            background-color: transparent !important;
+        }
+        </style>
+    """, unsafe_allow_html=True)
+
     df_prov = get_all_providers()
     prestador = df_prov[df_prov['token'] == provider_token]
     
