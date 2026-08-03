@@ -5,7 +5,7 @@ import time
 import urllib.parse
 from datetime import datetime
 
-# Configuração da página do Streamlit
+# Configuração inicial da página Streamlit
 st.set_page_config(
     page_title="FF Karaoke Cloud",
     page_icon="🎤",
@@ -13,12 +13,12 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# Constantes de Configuração
-FIREBASE_URL = "https://ffkaraokecloud-default-rtdb.firebaseio.com"
+# URL do Firebase (Defina aqui a sua URL base ou variável de ambiente)
+FIREBASE_URL = "https://ffkaraoke-default-rtdb.firebaseio.com"
 
-# Funções auxiliares (placeholders para integração com o restante do seu sistema)
+# Funções auxiliares (Stub placeholders caso venham de outro módulo)
 def limpar_nome_musica(titulo):
-    return titulo.strip()
+    return titulo
 
 def obter_url_video_cloudinary(musica, titulo_limpo):
     if isinstance(musica, dict):
@@ -29,20 +29,17 @@ def obter_video_fundo(provider_token):
     return ""
 
 def renderizar_gestao_fila_prestador(provider_token):
-    st.markdown("### 📋 Gestão da Fila de Espera")
-    # Lógica de gerenciamento da fila do prestador
-
-def show_provider_panel_custom(token):
-    # Conteúdo personalizado do painel do prestador
     pass
 
 def custom_show_register_page():
-    st.title("📝 Registo de Novo Prestador")
-    # Lógica de registo
+    st.title("Registo de Novo Prestador / Utilizador")
 
 def show_client_page():
-    st.title("🎤 Registo de Música (Cliente)")
-    # Lógica de registo de músicas pelo cliente
+    st.title("Registo de Música - Cliente")
+
+def show_admin_panel():
+    st.title("Painel de Administração - FF Karaoke")
+    st.info("Painel administrativo carregado com sucesso.")
 
 def get_all_providers():
     import pandas as pd
@@ -51,16 +48,14 @@ def get_all_providers():
         if res.status_code == 200 and res.json():
             data = res.json()
             return pd.DataFrame([{"token": k, **v} for k, v in data.items()])
-    except:
+    except Exception:
         pass
-    return pd.DataFrame()
+    return pd.DataFrame(columns=['token', 'approved'])
 
-def show_admin_panel():
-    st.title("🛠️ Painel de Administração - FF Karaoke Cloud")
-    st.success("Bem-vindo ao painel administrativo.")
-    # Implementar gestão de prestadores e aprovações aqui
-
-
+def show_provider_panel_custom(provider_token):
+    st.title(f"Painel do Prestador - Token: {provider_token}")
+    # Conteúdo básico do painel personalizado caso necessário
+    
 @st.fragment(run_every=3)
 def renderizar_ecra_tv(provider_token):
     try:
@@ -198,10 +193,8 @@ def renderizar_ecra_tv(provider_token):
             musica = tocando_agora.get("musica", {})
             if isinstance(musica, dict):
                 titulo = musica.get("titulo", musica.get("nome", "Karaoke"))
-                url_video = musica.get("url_cloudinary", "") or musica.get("url", "")
             else:
                 titulo = str(musica)
-                url_video = ""
             
             titulo_limpo = limpar_nome_musica(titulo)
             url_video = obter_url_video_cloudinary(musica, titulo_limpo)
