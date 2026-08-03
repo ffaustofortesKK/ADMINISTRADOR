@@ -550,7 +550,6 @@ def renderizar_gestao_fila_prestador(provider_token):
                 index=index_atual
             )
 
-            # Botão Verde para "Iniciar vídeo clipe"
             st.markdown("""
                 <style>
                 div[data-testid="stFormSubmitButton"] button {
@@ -595,8 +594,7 @@ def show_provider_panel_custom(provider_token):
             tempo_plano = row.get('tempo_plano', row.get('tempo', '2 Horas - 12 Mil Kwanzas'))
             data_registo_str = row.get('data_registo', None)
 
-    # Converter duração do plano em segundos para contagem decrescente
-    segundos_totais = 7200 # padrão 2 horas
+    segundos_totais = 7200
     if "3 Horas" in tempo_plano:
         segundos_totais = 10800
     elif "4 Horas" in tempo_plano:
@@ -604,7 +602,6 @@ def show_provider_panel_custom(provider_token):
     elif "2 Horas" in tempo_plano:
         segundos_totais = 7200
 
-    # Calcular tempo decorrido desde o registo para simular o decréscimo real
     segundos_restantes = segundos_totais
     if data_registo_str:
         try:
@@ -619,9 +616,8 @@ def show_provider_panel_custom(provider_token):
     seg_restantes = segundos_restantes % 60
     tempo_formatado = f"{int(horas_Restantes):02d}:{int(min_restantes):02d}:{int(seg_restantes):02d}"
 
-    # Lógica de reforço e avisos
     aviso_reforço_html = ""
-    if segundos_restantes <= 1800 and segundos_restantes > 0: # 30 minutos ou menos
+    if segundos_restantes <= 1800 and segundos_restantes > 0:
         aviso_reforço_html = """
         <div style="background: rgba(255,0,0,0.85); border: 3px solid #ffeb3b; padding: 10px; border-radius: 6px; margin-bottom: 15px; text-align: center; animation: pulseAviso 1s infinite;">
             <span style="color: #ffffff; font-size: 14px; font-weight: bold; text-shadow: 1px 1px 3px rgba(0,0,0,0.9);">
@@ -672,13 +668,13 @@ def show_provider_panel_custom(provider_token):
         background: #000000 !important;
         border: 4px solid #FFC107 !important;
         border-radius: 8px;
-        padding: 6px 10px;
+        padding: 12px 15px;
         text-align: left;
         box-shadow: 0 4px 15px rgba(255, 193, 7, 0.25);
-        margin-bottom: 10px;
-        display: inline-block;
-        width: auto;
-        max-width: calc(100% - 1cm);
+        margin-bottom: 15px;
+        display: block;
+        width: 100%;
+        max-width: 100%;
     }}
     .card-tv {{
         border: 4px solid #9c27b0 !important;
@@ -701,7 +697,7 @@ def show_provider_panel_custom(provider_token):
         color: #ffffff !important;
         font-size: 15px;
         font-weight: bold !important;
-        margin-bottom: 2px;
+        margin-bottom: 4px;
         text-shadow: 1px 1px 3px rgba(0,0,0,0.9) !important;
     }}
     .link-title-tv {{
@@ -709,7 +705,7 @@ def show_provider_panel_custom(provider_token):
         color: #ffffff !important;
         font-size: 15px;
         font-weight: bold !important;
-        margin-bottom: 2px;
+        margin-bottom: 4px;
         text-shadow: 1px 1px 3px rgba(0,0,0,0.9) !important;
     }}
     .link-text {{
@@ -803,7 +799,6 @@ def show_provider_panel_custom(provider_token):
             </div>
         """, unsafe_allow_html=True)
 
-    # Seção de pedido de reforço rápido (pré-cadastrado)
     st.markdown("<div id='reforco_seccao'></div>", unsafe_allow_html=True)
     if segundos_restantes <= 1800:
         st.markdown("### ⚡ Solicitar Reforço de Tempo")
