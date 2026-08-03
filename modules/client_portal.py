@@ -3,7 +3,7 @@ import requests
 import time
 import cloudinary
 import cloudinary.api
-from utils.db_manager import get_all_providers
+from utils.db_manager import get_all_providers, init_db
 
 FIREBASE_URL = "https://grupoffkaraoke-default-rtdb.firebaseio.com"
 
@@ -38,7 +38,7 @@ def obter_catalogo_cloudinary():
     return catalogo
 
 def show_client_portal(provider_token):
-    # Remove fundo preto forçado para adaptar ao tema do Streamlit
+    # Fundo preto forçado removido para adaptar ao tema do Streamlit
     st.markdown("""
         <style>
         .stApp {
@@ -192,3 +192,62 @@ def show_client_portal(provider_token):
         
         time.sleep(3)
         st.rerun()
+
+def main():
+    st.set_page_config(
+        page_title="FF Karaoke",
+        page_icon="🎤",
+        layout="wide",
+        initial_sidebar_state="collapsed"
+    )
+
+    init_db()
+
+    query_params = st.query_params
+    page = query_params.get("page", "home")
+    token = query_params.get("prestador", "")
+
+    # Rota: Portal do Cliente / Registo
+    if page in ["client", "client_register"] and token:
+        show_client_portal(token)
+        return
+
+    # Rota: Tela de TV / Reprodução
+    if page in ["Tela", "screen"] and token:
+        try:
+            from modules.screen import show_screen
+            show_screen(token)
+        except ImportError:
+            st.error("⚠️ Módulo de reprodução de tela não encontrado.")
+        return
+
+    # Página Principal / Painel Central de Gestão
+    st.title("🎤 FF Karaoke - Plataforma de Gestão")
+    st.markdown("Bem-vindo ao sistema central de gestão e prestadores do FF Karaoke.")
+    
+    tab1, tab2 = st.tabs(["Painel de Prestadores", "Registar Novo Prestador"])
+
+    with tab1:
+        st.subheader("Prestadores Registados")
+        df_providers = get_all_providers()
+        if not df_providers.empty:
+            st.dataframe(df_providers, use_container_width=True)
+        else:
+            st.info("Nenhum prestador registado até ao momento.")
+
+    with tab2:
+        st.subheader("Registo de Novo Prestador")
+        with st.form("form_registo_prestador_main"):
+            nome = st.text_input("Nome do Responsável")
+            estabelecimento = st.text_input("Nome do Estabelecimento")
+            telefone = st.text_input("Contacto Telefónico")
+            
+            submitted = st.form_submit_button("Submeter Registo")
+            if submitted:
+                if nome and estabelecimento:
+                    st.success("✅ Registo submetido com sucesso! Aguarde aprovação.")
+                else:
+                    st.warning("⚠️ Por favor, preencha os campos obrigatórios.")
+
+if __name__ == "__main__":
+    main()
