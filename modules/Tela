@@ -68,9 +68,8 @@ def renderizar_ecra_tv(provider_token):
         pedidos_ativos = []
         tocando_agora = {"id": "123", "cliente": "Convidado"}
         
-        # Substitua a URL abaixo pelo link direto da sua imagem alojada (ou use em Base64)
-        # Por enquanto, colocamos o seletor preparado para a sua moldura personalizada.
-        url_imagem_moldura = "URL_DA_SUA_IMAGEM_AQUIAQUI" 
+        # URL da imagem de fundo fornecida
+        url_imagem_moldura = "https://cdn.phototourl.com/free/2026-08-03-694a4a2e-9914-4da8-93b2-87538a4805ab.png"
 
         frame_styles = f"""
         <style>
@@ -81,7 +80,7 @@ def renderizar_ecra_tv(provider_token):
                 background-position: center;
                 background-repeat: no-repeat;
             }}
-            /* Margens internas para forçar o conteúdo a ficar dentro da moldura dourada central */
+            /* Margens internas ajustadas para enquadrar perfeitamente dentro da moldura dourada */
             .block-container {{
                 padding-top: 5rem !important;
                 padding-bottom: 3rem !important;
