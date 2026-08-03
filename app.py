@@ -478,9 +478,9 @@ def show_provider_panel_custom(token):
         segundos_restantes = 0
 
     horas_restantes = segundos_restantes // 3600
-        minutos_restantes = (segundos_restantes % 3600) // 60
-        segs_restantes = segundos_restantes % 60
-        tempo_formatado = f"{horas_restantes:02d}:{minutos_restantes:02d}:{segs_restantes:02d}"
+    minutos_restantes = (segundos_restantes % 3600) // 60
+    segs_restantes = segundos_restantes % 60
+    tempo_formatado = f"{horas_restantes:02d}:{minutos_restantes:02d}:{segs_restantes:02d}"
 
     aviso_reforço_html = ""
     if segundos_restantes <= 1800 and segundos_restantes > 0:
