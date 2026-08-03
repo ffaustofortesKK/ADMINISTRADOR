@@ -272,7 +272,7 @@ def custom_show_register_page():
             pass
 
     st.markdown("<h1>🎤 FFKaraoke - Registo de Prestador</h1>", unsafe_allow_html=True)
-    st.markdown("<p>Preencha os seus dados e escolha o tempo pretendido para solicitar o seu acesso.</p>", unsafe_allow_html=True)
+    st.markdown("<p>Preencha os seus dados e escolha a duração pretendida para solicitar o seu acesso.</p>", unsafe_allow_html=True)
     
     with st.form("form_registo_prestador_custom"):
         col1, col2 = st.columns(2)
@@ -625,10 +625,17 @@ def show_provider_panel_custom(provider_token):
     
     if data_registo_str:
         try:
-            dt_reg = datetime.strptime(data_registo_str.split('.')[0], "%Y-%m-%d %H:%M:%S")
+            # Compatibilidade total para parse de data com frações de segundos ou formatos ISO
+            dt_str_clean = data_registo_str.split('.')[0]
+            try:
+                dt_reg = datetime.strptime(dt_str_clean, "%Y-%m-%d %H:%M:%S")
+            except Exception:
+                dt_reg = datetime.fromisoformat(data_registo_str.replace('Z', '+00:00').split('+')[0])
+                
             diff = (datetime.now() - dt_reg).total_seconds()
             segundos_restantes = max(0, int(segundos_totais - diff))
-        except Exception:
+        except Exception as e:
+            print(f"Erro ao calcular tempo restante: {e}")
             pass
 
     horas_restantes = segundos_restantes // 3600
@@ -1284,7 +1291,6 @@ def main():
                         st.error("Palavra-passe incorreta.")
 
         if st.session_state.get("admin_logged", False):
-            # Seção de gestão administrativa incluindo a aba de Reforços de Tempo
             st.markdown("---")
             st.subheader("⚡ Gestão de Reforços de Tempo Pendentes")
             try:
@@ -1307,14 +1313,14 @@ def main():
                                     
                                     col_s, col_n = st.columns(2)
                                     with col_s:
-                                        if st.button("✅ Sim", key=f"aprov_ref_{tok}_{r_id}"):
+                                        if st.button("✅ Aprovar Reforço", key=f"aprov_ref_{tok}_{r_id}"):
                                             r_data["approved"] = 1
                                             requests.put(f"{FIREBASE_URL}/reforcos_aprovados/{tok}/{r_id}.json", json=r_data)
                                             requests.delete(f"{FIREBASE_URL}/reforcos_pendentes/{tok}/{r_id}.json")
-                                            st.success("Reforço confirmado com sucesso!")
+                                            st.success("Reforço aprovado e acumulado com sucesso!")
                                             st.rerun()
                                     with col_n:
-                                        if st.button("❌ Não", key=f"rec_ref_{tok}_{r_id}"):
+                                        if st.button("❌ Recusar Reforço", key=f"rec_ref_{tok}_{r_id}"):
                                             requests.delete(f"{FIREBASE_URL}/reforcos_pendentes/{tok}/{r_id}.json")
                                             st.warning("Reforço recusado.")
                                             st.rerun()
