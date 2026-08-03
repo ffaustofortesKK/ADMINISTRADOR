@@ -545,7 +545,7 @@ def renderizar_gestao_fila_prestador(provider_token):
 
         with st.form(key="form_video_fundo"):
             escolha_video = st.selectbox(
-                "PESQUISAR VÍDEO CLIPE", 
+                "Pesquisar Vídeo Clipe", 
                 options=opcoes_labels, 
                 index=index_atual
             )
@@ -563,7 +563,7 @@ def renderizar_gestao_fila_prestador(provider_token):
                 </style>
             """, unsafe_allow_html=True)
 
-            btn_salvar_fundo = st.form_submit_button("INICIAR VÍDEO CLIPE")
+            btn_salvar_fundo = st.form_submit_button("Pesquisar Vídeo Clipe")
             if btn_salvar_fundo:
                 if escolha_video == "Nenhum (Ecrã Preto)":
                     valor_a_guardar = ""
@@ -594,15 +594,35 @@ def show_provider_panel_custom(provider_token):
             tempo_plano = row.get('tempo_plano', row.get('tempo', '2 Horas - 12 Mil Kwanzas'))
             data_registo_str = row.get('data_registo', None)
 
-    segundos_totais = 7200
-    if "3 Horas" in tempo_plano:
-        segundos_totais = 10800
-    elif "4 Horas" in tempo_plano:
-        segundos_totais = 14400
-    elif "2 Horas" in tempo_plano:
-        segundos_totais = 7200
+    # Obter bónus de tempo acumulado por reforços aprovados no Firebase
+    segundos_bónus = 0
+    try:
+        res_ref = requests.get(f"{FIREBASE_URL}/reforcos_aprovados/{provider_token}.json", timeout=5)
+        if res_ref.status_code == 200 and res_ref.json():
+            dados_ref = res_ref.json()
+            if isinstance(dados_ref, dict):
+                for r_id, r_info in dados_ref.items():
+                    t_ref = r_info.get("tempo_plano", "")
+                    if "3 Horas" in t_ref:
+                        segundos_bónus += 10800
+                    elif "4 Horas" in t_ref:
+                        segundos_bónus += 14400
+                    elif "2 Horas" in t_ref:
+                        segundos_bónus += 7200
+    except Exception:
+        pass
 
+    segundos_base = 7200
+    if "3 Horas" in tempo_plano:
+        segundos_base = 10800
+    elif "4 Horas" in tempo_plano:
+        segundos_base = 14400
+    elif "2 Horas" in tempo_plano:
+        segundos_base = 7200
+
+    segundos_totais = segundos_base + segundos_bónus
     segundos_restantes = segundos_totais
+    
     if data_registo_str:
         try:
             dt_reg = datetime.strptime(data_registo_str.split('.')[0], "%Y-%m-%d %H:%M:%S")
@@ -611,17 +631,19 @@ def show_provider_panel_custom(provider_token):
         except Exception:
             pass
 
-    horas_Restantes = segundos_restantes // 3600
+    horas_restantes = segundos_restantes // 3600
     min_restantes = (segundos_restantes % 3600) // 60
     seg_restantes = segundos_restantes % 60
-    tempo_formatado = f"{int(horas_Restantes):02d}:{int(min_restantes):02d}:{int(seg_restantes):02d}"
+    tempo_formatado = f"{int(horas_restantes):02d}:{int(min_restantes):02d}:{int(seg_restantes):02d}"
 
     aviso_reforço_html = ""
+    classe_piscar = ""
     if segundos_restantes <= 1800 and segundos_restantes > 0:
+        classe_piscar = "animation: piscarRelogio 1s infinite;"
         aviso_reforço_html = """
         <div style="background: rgba(255,0,0,0.85); border: 3px solid #ffeb3b; padding: 10px; border-radius: 6px; margin-bottom: 15px; text-align: center; animation: pulseAviso 1s infinite;">
             <span style="color: #ffffff; font-size: 14px; font-weight: bold; text-shadow: 1px 1px 3px rgba(0,0,0,0.9);">
-                ⚠️ O SEU TEMPO ESTÁ TERMINANDO. PARA QUE NÃO PERCAS OS SEUS REGISTOS, PEÇA REFORÇO DE TEMPO.
+                O SEU TEMPO ESTA TERMINANDO. PARA QUE NÃO PERCAS OS SEUS REGISTOS PEÇA REFORÇO DE TEMPO.
             </span>
             <div style="margin-top: 8px;">
                 <a href="#reforco_seccao" style="background: #FFC107; color: #000; padding: 6px 12px; border-radius: 4px; text-decoration: none; font-weight: bold; font-size: 13px;">⚡ PEDIR REFORÇO AGORA</a>
@@ -662,6 +684,12 @@ def show_provider_panel_custom(provider_token):
         0% {{ opacity: 1; transform: scale(1); }}
         50% {{ opacity: 0.7; transform: scale(1.01); }}
         100% {{ opacity: 1; transform: scale(1); }}
+    }}
+
+    @keyframes piscarRelogio {{
+        0% {{ opacity: 1; color: #FFC107; }}
+        50% {{ opacity: 0.3; color: #ff5252; }}
+        100% {{ opacity: 1; color: #FFC107; }}
     }}
     
     .card-link, .card-tv {{
@@ -758,7 +786,7 @@ def show_provider_panel_custom(provider_token):
             </div>
             <div style="background: rgba(255,193,7,0.15); border: 2px solid #FFC107; padding: 6px 12px; border-radius: 8px; text-align: right; margin-right: 80px;">
                 <div style="font-family: monospace; color: #ffffff; font-size: 11px; text-transform: uppercase; font-weight: bold; text-shadow: 1px 1px 3px rgba(0,0,0,0.9);">TEMPO / PLANO ESCOLHIDO</div>
-                <div style="font-family: monospace; color: #ffffff; font-size: 15px; font-weight: bold; text-shadow: 1px 1px 3px rgba(0,0,0,0.9);">⏱️ {tempo_formatado} ({tempo_plano})</div>
+                <div style="font-family: monospace; color: #FFC107; font-size: 15px; font-weight: bold; text-shadow: 1px 1px 3px rgba(0,0,0,0.9); {classe_piscar}">⏱️ {tempo_formatado} ({tempo_plano})</div>
             </div>
         </div>
     """, unsafe_allow_html=True)
@@ -803,7 +831,6 @@ def show_provider_panel_custom(provider_token):
     if segundos_restantes <= 1800:
         st.markdown("### ⚡ Solicitar Reforço de Tempo")
         with st.form("form_reforco_prestador"):
-            ref_pagamento = st.text_input("Referência de Pagamento / Nº de Comprovativo")
             duracao_reforco = st.selectbox(
                 "Duração Pretendida", 
                 options=[
@@ -814,22 +841,20 @@ def show_provider_panel_custom(provider_token):
             )
             btn_sub_reforco = st.form_submit_button("Submeter Pedido de Reforço")
             if btn_sub_reforco:
-                if not ref_pagamento:
-                    st.error("Por favor, insira a referência de pagamento ou comprovativo.")
-                else:
-                    dados_reforco = {
-                        "token": provider_token,
-                        "nome_prestador": nome_prestador,
-                        "referencia": ref_pagamento,
-                        "tempo_plano": duracao_reforco,
-                        "approved": 0,
-                        "data_registo": str(datetime.now())
-                    }
-                    try:
-                        requests.put(f"{FIREBASE_URL}/reforcos_pendentes/{provider_token}.json", json=dados_reforco, timeout=10)
-                        st.success("Pedido de reforço submetido com sucesso! Aguarde a confirmação do Administrador.")
-                    except Exception as err:
-                        st.error(f"Erro ao enviar reforço: {err}")
+                dados_reforco = {
+                    "token": provider_token,
+                    "nome_prestador": nome_prestador,
+                    "tempo_plano": duracao_reforco,
+                    "approved": 0,
+                    "data_registo": str(datetime.now())
+                }
+                try:
+                    import uuid
+                    ref_id = str(uuid.uuid4())[:8]
+                    requests.put(f"{FIREBASE_URL}/reforcos_pendentes/{provider_token}/{ref_id}.json", json=dados_reforco, timeout=10)
+                    st.success("Pedido de reforço submetido com sucesso! Aguarde a confirmação do Administrador.")
+                except Exception as err:
+                    st.error(f"Erro ao enviar reforço: {err}")
 
     st.markdown("<div style='height: 10px;'></div>", unsafe_allow_html=True)
     renderizar_gestao_fila_prestador(provider_token)
@@ -1254,6 +1279,47 @@ def main():
                         st.error("Palavra-passe incorreta.")
 
         if st.session_state.get("admin_logged", False):
+            # Seção de gestão administrativa incluindo a aba de Reforços de Tempo
+            st.markdown("---")
+            st.subheader("⚡ Gestão de Reforços de Tempo Pendentes")
+            try:
+                res_all_ref = requests.get(f"{FIREBASE_URL}/reforcos_pendentes.json", timeout=10)
+                if res_all_ref.status_code == 200 and res_all_ref.json():
+                    all_refs = res_all_ref.json()
+                    tem_reforcos = False
+                    for tok, refs_dict in all_refs.items():
+                        if isinstance(refs_dict, dict):
+                            for r_id, r_data in refs_dict.items():
+                                if r_data.get("approved", 0) == 0:
+                                    tem_reforcos = True
+                                    st.markdown(f"""
+                                    <div style="background: rgba(0,0,0,0.95); border: 2px solid #FFC107; padding: 12px; border-radius: 6px; margin-bottom: 10px;">
+                                        <b>Prestador:</b> {r_data.get('nome_prestador')} (Token: {tok})<br>
+                                        <b>Duração Solicitada:</b> {r_data.get('tempo_plano')}
+                                    </div>
+                                    """, unsafe_allow_html=True)
+                                    
+                                    col_s, col_n = st.columns(2)
+                                    with col_s:
+                                        if st.button("✅ Aprovar Reforço", key=f"aprov_ref_{tok}_{r_id}"):
+                                            # Mover para reforços aprovados e atualizar estado
+                                            r_data["approved"] = 1
+                                            requests.put(f"{FIREBASE_URL}/reforcos_aprovados/{tok}/{r_id}.json", json=r_data)
+                                            requests.delete(f"{FIREBASE_URL}/reforcos_pendentes/{tok}/{r_id}.json")
+                                            st.success("Reforço aprovado e acumulado com sucesso!")
+                                            st.rerun()
+                                    with col_n:
+                                        if st.button("❌ Recusar Reforço", key=f"rec_ref_{tok}_{r_id}"):
+                                            requests.delete(f"{FIREBASE_URL}/reforcos_pendentes/{tok}/{r_id}.json")
+                                            st.warning("Reforço recusado.")
+                                            st.rerun()
+                    if not tem_reforcos:
+                        st.info("Nenhum pedido de reforço pendente neste momento.")
+                else:
+                    st.info("Nenhum pedido de reforço pendente neste momento.")
+            except Exception as e:
+                st.warning(f"Não foi possível carregar os reforços pendentes: {e}")
+
             show_admin_panel()
                 
     except Exception as e:
