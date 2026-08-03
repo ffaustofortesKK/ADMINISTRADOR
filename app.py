@@ -1307,15 +1307,14 @@ def main():
                                     
                                     col_s, col_n = st.columns(2)
                                     with col_s:
-                                        if st.button("✅ Aprovar Reforço", key=f"aprov_ref_{tok}_{r_id}"):
-                                            # Mover para reforços aprovados e atualizar estado
+                                        if st.button("✅ Sim", key=f"aprov_ref_{tok}_{r_id}"):
                                             r_data["approved"] = 1
                                             requests.put(f"{FIREBASE_URL}/reforcos_aprovados/{tok}/{r_id}.json", json=r_data)
                                             requests.delete(f"{FIREBASE_URL}/reforcos_pendentes/{tok}/{r_id}.json")
-                                            st.success("Reforço aprovado e acumulado com sucesso!")
+                                            st.success("Reforço confirmado com sucesso!")
                                             st.rerun()
                                     with col_n:
-                                        if st.button("❌ Recusar Reforço", key=f"rec_ref_{tok}_{r_id}"):
+                                        if st.button("❌ Não", key=f"rec_ref_{tok}_{r_id}"):
                                             requests.delete(f"{FIREBASE_URL}/reforcos_pendentes/{tok}/{r_id}.json")
                                             st.warning("Reforço recusado.")
                                             st.rerun()
