@@ -228,6 +228,7 @@ def renderizar_gestao_fila_prestador(provider_token):
         tocando_agora = next((p for p in pedidos_ativos if p.get("estado") == "aprovado"), None)
         pendentes = [p for p in pedidos_ativos if p.get("estado") == "pendente"]
 
+        # Bloco visual de Confirmação de Pedido Pendente
         if pendentes:
             st.markdown("""
                 <div style="background-color: rgba(11,11,11,0.9); border: 2px solid #FFC107; padding: 15px; border-radius: 8px; text-align: center; margin-bottom: 20px;">
@@ -246,63 +247,77 @@ def renderizar_gestao_fila_prestador(provider_token):
                 
                 col_btn_sim, col_btn_nao = st.columns(2)
                 with col_btn_sim:
-                    if st.button("✅", key=f"conf_sim_{p.get('id')}", use_container_width=True):
+                    if st.button("✅ Aprovar", key=f"conf_sim_{p.get('id')}", use_container_width=True):
                         terminar_todas_musicas_ativas(provider_token, pedidos)
                         atualizar_estado_pedido(provider_token, p.get('id'), 'aprovado')
                         st.success(f"Música '{titulo_p}' enviada para a tela!")
                         st.rerun()
                 with col_btn_nao:
-                    if st.button("❌", key=f"conf_nao_{p.get('id')}", use_container_width=True):
+                    if st.button("❌ Recusar", key=f"conf_nao_{p.get('id')}", use_container_width=True):
                         atualizar_estado_pedido(provider_token, p.get('id'), 'terminado')
                         st.warning("Pedido recusado/cancelado.")
                         st.rerun()
             st.markdown("</div>", unsafe_allow_html=True)
 
-        col_fila, col_botoes = st.columns([3, 1])
-        
-        with col_fila:
-            if pedidos_ativos:
-                html_lista = '<div style="background-color: rgba(5,5,5,0.9); border: 2px solid #FFC107; padding: 15px; border-radius: 8px; color: #ffffff; width: 100%; font-family: monospace; font-size: 15px; margin-bottom: 20px;">'
-                html_lista += '<div style="color: #FFC107; font-weight: bold; margin-bottom: 8px; border-bottom: 1px solid #333; padding-bottom: 4px;">ESTADO DA FILA:</div>'
-                for idx, p in enumerate(pedidos_ativos, start=1):
-                    titulo_musica = limpar_nome_musica(p.get("musica", {}))
-                    cliente_nome = p.get("cliente", "Convidado")
-                    estado_atual = p.get("estado")
-                    badge = "🎵 [A Tocar]" if estado_atual == "aprovado" else "⏳ [Pendente]"
-                    cor_badge = "#4CAF50" if estado_atual == "aprovado" else "#FFC107"
-                    html_lista += f'<div style="padding: 6px 0; border-bottom: 1px solid #222;"><b>{idx}.</b> {titulo_musica} <span style="color:#aaa; font-size:13px;">({cliente_nome})</span> <span style="color:{cor_badge}; font-size:12px; float:right;">{badge}</span></div>'
-                html_lista += '</div>'
-                st.markdown(html_lista, unsafe_allow_html=True)
-            else:
-                st.markdown("""
-                    <div style="background-color: rgba(5,5,5,0.9); border: 2px solid #FFC107; border-radius: 8px; padding: 15px; color: #FFC107; width: 100%; font-family: monospace; font-size: 14px; margin-top: 15px; margin-bottom: 20px;">
-                        <div>NENHUM PEDIDO NA LISTA NESTE MOMENTO.<br>À ESPERA DE NOVOS PEDIDOS...</div>
-                    </div>
-                """, unsafe_allow_html=True)
+        st.markdown("### 📋 Estado da Fila e Controlo de Reprodução")
 
-        with col_botoes:
-            st.markdown("<div style='height: 15px;'></div>", unsafe_allow_html=True)
-            if tocando_agora:
-                if st.button("⏹️ Terminar", key=f"term_top_{tocando_agora.get('id')}", use_container_width=True):
-                    terminar_todas_musicas_ativas(provider_token, pedidos)
-                    st.success("Música terminada!")
-                    st.rerun()
+        if pedidos_ativos:
+            for idx, p in enumerate(pedidos_ativos, start=1):
+                titulo_musica = limpar_nome_musica(p.get("musica", {}))
+                cliente_nome = p.get("cliente", "Convidado")
+                estado_atual = p.get("estado")
+                
+                is_playing = (estado_atual == "aprovado")
+                cor_borda = "#4CAF50" if is_playing else "#FFC107"
+                badge_texto = "🎵 A TOCAR AGORA" if is_playing else f"⏳ Fila #{idx}"
+                
+                with st.container():
+                    st.markdown(f"""
+                        <div style="background: rgba(10,10,10,0.85); border: 2px solid {cor_borda}; border-radius: 8px; padding: 12px 15px; margin-bottom: 10px; font-family: monospace;">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                                <span style="color: {cor_borda}; font-weight: bold; font-size: 14px;">{badge_texto}</span>
+                                <span style="color: #aaa; font-size: 13px;">Cliente: <b>{cliente_nome}</b></span>
+                            </div>
+                            <div style="color: #fff; font-size: 16px; font-weight: bold; margin-bottom: 8px;">
+                                🎶 {titulo_musica}
+                            </div>
+                        </div>
+                    """, unsafe_allow_html=True)
+                    
+                    # Opções de ação para cada linha da música
+                    col_acao1, col_acao2, col_acao3 = st.columns(3)
+                    with col_acao1:
+                        if not is_playing:
+                            if st.button("▶️ Tocar Agora", key=f"play_linha_{p.get('id')}", use_container_width=True):
+                                terminar_todas_musicas_ativas(provider_token, pedidos)
+                                atualizar_estado_pedido(provider_token, p.get('id'), 'aprovado')
+                                st.success(f"A avançar para: {titulo_musica}")
+                                st.rerun()
+                    with col_acao2:
+                        if is_playing:
+                            if st.button("⏹️ Terminar Atual", key=f"term_linha_{p.get('id')}", use_container_width=True):
+                                terminar_todas_musicas_ativas(provider_token, pedidos)
+                                st.success("Música terminada!")
+                                st.rerun()
+                    with col_acao3:
+                        if st.button("❌ Remover", key=f"rem_linha_{p.get('id')}", use_container_width=True):
+                            atualizar_estado_pedido(provider_token, p.get('id'), 'terminado')
+                            st.warning("Música removida da fila.")
+                            st.rerun()
+                    st.markdown("<hr style='margin: 5px 0 15px 0; border-color: #333;'>", unsafe_allow_html=True)
+        else:
+            st.markdown("""
+                <div style="background-color: rgba(5,5,5,0.9); border: 2px solid #FFC107; border-radius: 8px; padding: 15px; color: #FFC107; width: 100%; font-family: monospace; font-size: 14px; margin-bottom: 20px; text-align: center;">
+                    NENHUM PEDIDO NA LISTA NESTE MOMENTO.<br>À ESPERA DE NOVOS PEDIDOS...
+                </div>
+            """, unsafe_allow_html=True)
 
         if tocando_agora:
-            titulo_tocando = limpar_nome_musica(tocando_agora.get("musica", {}))
-            st.success(f"🎵 A tocar agora: **{titulo_tocando}** (Cliente: {tocando_agora.get('cliente', 'Convidado')})")
-            col_s1, col_s2 = st.columns([1, 1])
-            with col_s1:
-                if st.button("⏹️ Terminar Música Atual", key=f"term_{tocando_agora.get('id')}"):
-                    terminar_todas_musicas_ativas(provider_token, pedidos)
-                    st.success("Música terminada e tela limpa com sucesso!")
-                    st.rerun()
-            with col_s2:
-                if st.button("🛑 Stop Geral", key=f"stop_{tocando_agora.get('id')}"):
-                    terminar_todas_musicas_ativas(provider_token, pedidos)
-                    definir_video_fundo(provider_token, "")
-                    st.warning("Reprodução parada (Stop) com sucesso!")
-                    st.rerun()
+            if st.button("🛑 Stop Geral (Limpar Tela)", key="stop_geral_btn", use_container_width=True):
+                terminar_todas_musicas_ativas(provider_token, pedidos)
+                definir_video_fundo(provider_token, "")
+                st.warning("Reprodução parada e tela limpa com sucesso!")
+                st.rerun()
 
         st.markdown("---")
         st.markdown("### 🎬 Configuração de Vídeo Clipe de Fundo (Tela)")
@@ -362,7 +377,6 @@ def show_provider_panel_custom(provider_token):
             nome_prestador = row.get('nome_prestador', row.get('nome', 'Prestador'))
             tempo_plano = row.get('tempo_plano', row.get('tempo', 'Plano Padrão'))
 
-    # Injeção de fundo fixo e personalizado para o Painel do Prestador
     st.markdown(f"""
     <style>
     .stApp {{
@@ -462,7 +476,6 @@ def show_provider_panel_custom(provider_token):
     <div class="custom-bg-layer-provider"></div>
     """, unsafe_allow_html=True)
 
-    # Exibição do Cabeçalho com o Nome do Prestador e Tempo/Plano
     st.markdown(f"""
         <div class="panel-header">
             <div style="display: flex; align-items: center; gap: 15px;">
@@ -488,7 +501,6 @@ def show_provider_panel_custom(provider_token):
     
     qr_url_cliente = f"https://api.qrserver.com/v1/create-qr-code/?size=180x180&data={urllib.parse.quote(link_cliente_absoluto)}"
 
-    # Organização das posições conforme solicitado: Links de acesso e somente o QR code do cliente
     col_links, col_qr = st.columns([3, 1])
     
     with col_links:
