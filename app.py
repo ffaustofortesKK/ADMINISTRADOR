@@ -4,8 +4,6 @@ import requests
 import json
 
 # Funções auxiliares fictícias ou assumidas do projeto original para contexto completo:
-# (Certifique-se de manter as suas funções reais ao colar no seu editor)
-
 def obter_video_fundo(token):
     return ""
 
@@ -83,13 +81,13 @@ def renderizar_ecra_tv(provider_token):
                 var count = 3;
                 var cdScreen = document.getElementById('countdown-screen');
                 
-                var timer = setInterval(function() {
+                var timer = setInterval(function() {{
                     count--;
-                    if (count > 0) {
+                    if (count > 0) {{
                         cdScreen.innerText = count;
-                    } else if (count === 0) {
+                    }} else if (count === 0) {{
                         cdScreen.innerText = "🎤 CANTE!";
-                    } else {
+                    }} else {{
                         clearInterval(timer);
                         cdScreen.style.display = 'none';
                         document.getElementById('karaoke-container').style.display = 'block';
@@ -98,45 +96,45 @@ def renderizar_ecra_tv(provider_token):
                         video.muted = false; 
                         var playPromise = video.play();
                         
-                        if (playPromise !== undefined) {
-                            playPromise.then(_ => {}).catch(error => {
+                        if (playPromise !== undefined) {{
+                            playPromise.then(_ => {{}}).catch(error => {{
                                 video.muted = true;
                                 video.play();
                                 document.getElementById('audio-warning').style.display = 'block';
-                            });
-                        }
-                    }
-                }, 1000);
+                            }});
+                        }}
+                    }}
+                }}, 1000);
 
-                function unmuteVideo() {
+                function unmuteVideo() {{
                     var video = document.getElementById('karaoke-player');
                     video.muted = false;
                     video.play();
                     document.getElementById('audio-warning').style.display = 'none';
-                }
+                }}
 
-                function stopKaraoke() {
+                function stopKaraoke() {{
                     var pedidoId = "{tocando_agora.get('id')}";
                     var token = "{provider_token}";
                     var firebaseURL = "{FIREBASE_URL}/pedidos/" + token + "/" + pedidoId + "/estado.json";
                     
-                    fetch(firebaseURL, {
+                    fetch(firebaseURL, {{
                         method: 'PUT',
                         body: JSON.stringify('terminado'),
-                        headers: { 'Content-Type': 'application/json' }
-                    }).then(response => {
-                        setTimeout(function() { window.location.reload(); }, 300);
-                    }).catch(err => {
+                        headers: {{ 'Content-Type': 'application/json' }}
+                    }}).then(response => {{
+                        setTimeout(function() {{ window.location.reload(); }}, 300);
+                    }}).catch(err => {{
                         window.location.reload();
-                    });
-                }
+                    }});
+                }}
 
                 var video = document.getElementById('karaoke-player');
-                if (video) {
-                    video.onended = function() {
+                if (video) {{
+                    video.onended = function() {{
                         stopKaraoke();
-                    };
-                }
+                    }};
+                }}
             </script>
             """
             components.html(video_html, height=750, scrolling=False)
@@ -192,18 +190,18 @@ def renderizar_ecra_tv(provider_token):
                         var fundoVideo = document.getElementById('fundo-player');
                         fundoVideo.muted = false;
                         var fundoPromise = fundoVideo.play();
-                        if (fundoPromise !== undefined) {
-                            fundoPromise.then(_ => {}).catch(error => {
+                        if (fundoPromise !== undefined) {{
+                            fundoPromise.then(_ => {{}}).catch(error => {{
                                 fundoVideo.muted = true;
                                 fundoVideo.play();
                                 document.getElementById('fundo-audio-warning').style.display = 'block';
-                            });
-                        }
-                        function unmuteFundo() {
+                            }});
+                        }}
+                        function unmuteFundo() {{
                             fundoVideo.muted = false;
                             fundoVideo.play();
                             document.getElementById('fundo-audio-warning').style.display = 'none';
-                        }
+                        }}
                     </script>
                     """
                     components.html(video_fundo_html, height=480)
