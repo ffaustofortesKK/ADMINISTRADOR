@@ -4,12 +4,24 @@ import uuid
 import time
 
 def show_register_page():
-    # Remove fundo preto forçado e limpa estilos injetados anteriores
+    # Remove o fundo preto e aplica a imagem como fundo com cobertura total
     st.markdown("""
         <style>
-        /* Remove fundos pretos forçados em containers se existirem */
         .stApp {
-            background-color: transparent !important;
+            background: url('https://cdn.phototourl.com/free/2026-08-03-694a4a2e-9914-4da8-93b2-87538a4805ab.png') no-repeat center center fixed !important;
+            background-size: cover !important;
+            color: #ffffff !important;
+            font-weight: bold !important;
+        }
+        .block-container {
+            background-color: rgba(0, 0, 0, 0.75) !important;
+            border: 4px solid #FFC107 !important;
+            border-radius: 12px;
+            padding: 3rem !important;
+        }
+        h1, h2, h3, h4, h5, h6, p, span, label, div {
+            color: #ffffff !important;
+            text-shadow: 1px 1px 3px rgba(0,0,0,0.9);
         }
         </style>
     """, unsafe_allow_html=True)
