@@ -4,7 +4,7 @@ import uuid
 import time
 
 def show_register_page():
-    # Remove o fundo preto, aplica a imagem de fundo e restringe a largura dos inputs
+    # Remove o fundo da caixa central, deixando apenas a imagem geral de fundo
     st.markdown("""
         <style>
         .stApp {
@@ -14,12 +14,10 @@ def show_register_page():
             font-weight: bold !important;
         }
         .block-container {
-            background-color: rgba(0, 0, 0, 0.8) !important;
-            border: 4px solid #FFC107 !important;
-            border-radius: 12px;
-            padding: 2.5rem !important;
+            background-color: transparent !important;
             max-width: 900px !important;
             margin: auto;
+            padding: 2.5rem !important;
         }
         h1, h2, h3, h4, h5, h6, p, span, label, div {
             color: #ffffff !important;
@@ -28,7 +26,6 @@ def show_register_page():
         </style>
     """, unsafe_allow_html=True)
 
-    # Centraliza o título e o cabeçalho usando uma coluna central mais estreita
     _, col_centro, _ = st.columns([1, 6, 1])
     
     with col_centro:
