@@ -21,7 +21,10 @@ def show_admin_panel():
         border-radius: 10px;
         padding: 15px;
         margin-bottom: 15px;
-        color: white;
+        color: white !important;
+    }
+    .link-box b, .link-box a {
+        color: #FFD700 !important;
     }
     .badge-pendente-global {
         background-color: #ff3333;
@@ -32,6 +35,10 @@ def show_admin_panel():
         font-size: 16px;
         display: inline-block;
         box-shadow: 0px 0px 10px rgba(255, 51, 51, 0.5);
+    }
+    /* Garante que os textos descritivos e das abas fiquem visíveis */
+    p, span, label {
+        color: #ffffff !important;
     }
     </style>
     """, unsafe_allow_html=True)
