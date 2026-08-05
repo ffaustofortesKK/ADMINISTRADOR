@@ -48,9 +48,10 @@ except Exception:
     def show_admin_panel(): st.error("Módulo 'modules.admin' não encontrado.")
 
 try:
-    from modules.client import show_client_page
+    from modules.client import show_client_page, show_provider_panel_custom
 except Exception:
     def show_client_page(): st.error("Módulo 'modules.client' não encontrado.")
+    def show_provider_panel_custom(token): st.error("Função 'show_provider_panel_custom' não encontrada.")
 
 try:
     from modules.register import show_register_page as original_show_register_page
@@ -719,9 +720,6 @@ def show_client_screen():
 
     renderizar_ecra_tv(provider_token)
 
-def show_provider_panel_center(token):
-    show_provider_panel_custom(token)
-
 def main():
     try:
         query_params = st.query_params
@@ -743,7 +741,7 @@ def main():
         if token:
             df = get_all_providers()
             if df.empty or 'token' not in df.columns or not (df['token'] == token).any():
-                show_provider_panel_center(token)
+                show_provider_panel_custom(token)
                 return
                 
             prior_prestador = df[df['token'] == token]
