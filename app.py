@@ -50,18 +50,130 @@ def custom_show_register_page():
 def show_client_page():
     pass
 
-def show_provider_panel_custom(token):
-    pass
-
 def show_admin_panel():
     pass
 
 
 # ==========================================
-# CÓDIGO PRINCIPAL FORNECIDO
+# PAINEL DO PRESTADOR E RESTANTE LÓGICA
 # ==========================================
 
-.link-title-tv {{
+def show_provider_panel_custom(token):
+    provider_token = token
+    
+    # Obter dados do prestador no Firebase
+    try:
+        res_prov = requests.get(f"{FIREBASE_URL}/providers/{provider_token}.json", timeout=10)
+        dados_prov = res_prov.json() if (res_prov.status_code == 200 and res_prov.json()) else {}
+    except Exception:
+        dados_prov = {}
+
+    nome_prestador = dados_prov.get("nome", "Prestador")
+    url_logotipo = dados_prov.get("logo_url", "https://i.ibb.co/6W8f267/default-avatar.png")
+    
+    # Calcular tempo e plano
+    tempo_plano = dados_prov.get("tempo_plano", "2 Horas - 12 Mil Kwanzas")
+    data_registo_str = dados_prov.get("data_registo", str(datetime.now()))
+    
+    horas_incluidas = 2
+    if "3 Horas" in tempo_plano:
+        horas_incluidas = 3
+    elif "4 Horas" in tempo_plano:
+        horas_incluidas = 4
+
+    try:
+        dt_registo = datetime.fromisoformat(data_registo_str)
+    except Exception:
+        dt_registo = datetime.now()
+
+    # Verificar reforços aprovados
+    segundos_adicionais = 0
+    try:
+        res_ref = requests.get(f"{FIREBASE_URL}/reforcos_aprovados/{provider_token}.json", timeout=10)
+        if res_ref.status_code == 200 and res_ref.json():
+            for r_id, r_val in res_ref.json().items():
+                t_reforco = r_val.get("tempo_plano", "")
+                if "2 Horas" in t_reforco:
+                    segundos_adicionais += 2 * 3600
+                elif "3 Horas" in t_reforco:
+                    segundos_adicionais += 3 * 3600
+                elif "4 Horas" in t_reforco:
+                    segundos_adicionais += 4 * 3600
+    except Exception:
+        pass
+
+    segundos_totais_plano = (horas_incluidas * 3600) + segundos_adicionais
+    decorridos = (datetime.now() - dt_registo).total_seconds()
+    segundos_restantes = max(0, segundos_totais_plano - decorridos)
+
+    horas_Restantes = int(segundos_restantes // 3600)
+    minutos_restantes = int((segundos_restantes % 3600) // 60)
+    segundos_finais_val = int(segundos_restantes % 60)
+    tempo_formatado = f"{horas_Restantes:02d}:{minutos_restantes:02d}:{segundos_finais_val:02d}"
+
+    classe_piscar = ""
+    aviso_reforço_html = ""
+    if segundos_restantes <= 1800: # Menos de 30 minutos
+        classe_piscar = "animation: blinkText 1s infinite;"
+        aviso_reforço_html = """
+        <div style="background: rgba(255, 0, 0, 0.2); border: 2px solid red; padding: 10px; border-radius: 8px; margin-bottom: 15px; text-align: center;">
+            <span style="color: #ff4d4d; font-family: monospace; font-size: 14px; font-weight: bold;">⚠️ ATENÇÃO: O seu tempo está a esgotar-se! Solicite um reforço abaixo para evitar interrupções.</span>
+        </div>
+        """
+
+    st.markdown(f"""
+    <style>
+    @keyframes blinkText {{
+        0% {{ opacity: 1; }}
+        50% {{ opacity: 0.3; }}
+        100% {{ opacity: 1; }}
+    }}
+    .stApp {{
+        background-color: #000000 !important;
+        color: #ffffff !important;
+    }}
+    .panel-header {{
+        background: #111;
+        border: 4px solid #FFC107;
+        border-radius: 12px;
+        padding: 15px 20px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 20px;
+        position: relative;
+    }}
+    .card-link {{
+        background: #111;
+        border: 3px solid #4CAF50;
+        border-radius: 10px;
+        padding: 12px 15px;
+        margin-bottom: 15px;
+    }}
+    .card-tv {{
+        background: #111;
+        border: 3px solid #2196F3;
+        border-radius: 10px;
+        padding: 12px 15px;
+        margin-bottom: 15px;
+    }}
+    .qr-box {{
+        background: #fff;
+        padding: 8px;
+        border-radius: 8px;
+        display: inline-block;
+        border: 3px solid #FFC107;
+        text-align: center;
+    }}
+    .link-title {{
+        font-family: monospace;
+        color: #ffffff !important;
+        font-size: 15px;
+        font-weight: bold !important;
+        margin-bottom: 4px;
+        text-shadow: 1px 1px 3px rgba(0,0,0,0.9) !important;
+    }}
+    .link-title-tv {{
         font-family: monospace;
         color: #ffffff !important;
         font-size: 15px;
@@ -97,7 +209,6 @@ def show_admin_panel():
         border: 3px solid #FFC107;
         object-fit: cover;
     }}
-    
     h1, h2, h3, h4, h5, h6, p, label, span, div, .stMarkdown {{
         color: #ffffff !important;
         font-weight: bold !important;
