@@ -1,71 +1,201 @@
-import streamlit as st
-import streamlit.components.v1 as components
-import requests
+# -*- coding: utf-8 -*-
 import time
 import urllib.parse
 from datetime import datetime
+import requests
+import streamlit as st
+import streamlit.components.v1 as components
 
-# Configurações globais da página
-st.set_page_config(
-    page_title="FF Karaoke Cloud",
-    page_icon="🎤",
-    layout="wide"
-)
+# ==========================================
+# CONFIGURAÇÕES E FUNÇÕES DE SUPORTE INICIAIS
+# ==========================================
 
-# Constante de URL do Firebase (substitua conforme necessário ou utilize a padrão da cloud)
-FIREBASE_URL = "https://ffkaraoke-cloud-default-rtdb.firebaseio.com"
+FIREBASE_URL = "https://ffkaraoke-default-rtdb.firebaseio.com"
 
-# Funções auxiliares fictícias/mockadas para manter a integridade caso venham de outro bloco
+def get_all_providers():
+    try:
+        response = requests.get(f"{FIREBASE_URL}/providers.json", timeout=10)
+        if response.status_code == 200 and response.json():
+            data = response.json()
+            import pandas as pd
+            return pd.DataFrame([{"token": k, **v} for k, v in data.items()])
+    except Exception:
+        pass
+    import pandas as pd
+    return pd.DataFrame()
+
 def limpar_nome_musica(titulo):
-    return str(titulo).strip()
+    return titulo
 
 def obter_url_video_cloudinary(musica, titulo_limpo):
     if isinstance(musica, dict):
         return musica.get("url_cloudinary", "") or musica.get("url", "")
     return ""
 
-def obter_video_fundo(token):
+def obter_video_fundo(provider_token):
+    try:
+        res = requests.get(f"{FIREBASE_URL}/fundo_prestador/{provider_token}.json", timeout=5)
+        if res.status_code == 200 and res.json():
+            return res.json().get("url")
+    except Exception:
+        pass
     return ""
 
 def renderizar_gestao_fila_prestador(provider_token):
-    st.markdown("### 📋 Gestão da Fila de Espera")
-    # Lógica simplificada de gestão de fila do prestador
-    try:
-        url_firebase = f"{FIREBASE_URL}/pedidos/{provider_token}.json"
-        response = requests.get(url_firebase, timeout=10)
-        if response.status_code == 200 and response.json():
-            data = response.json()
-            for k, v in data.items():
-                st.write(f"- Cliente: {v.get('cliente')} | Estado: {v.get('estado')}")
-        else:
-            st.info("Nenhum pedido na fila de momento.")
-    except Exception as e:
-        st.error(f"Erro ao carregar fila: {e}")
+    pass
 
 def custom_show_register_page():
-    st.title("Registo de Novo Prestador")
-    st.info("Formulário de registo de prestadores.")
+    pass
 
 def show_client_page():
-    st.title("Registo de Música - Cliente")
-    st.info("Interface para os clientes escolherem e registarem as suas músicas.")
+    pass
 
-def get_all_providers():
-    import pandas as pd
-    try:
-        res = requests.get(f"{FIREBASE_URL}/prestadores.json", timeout=10)
-        if res.status_code == 200 and res.json():
-            data = res.json()
-            prestadores = [{"token": k, **v} for k, v in data.items()]
-            return pd.DataFrame(prestadores)
-    except Exception:
-        pass
-    return pd.DataFrame(columns=['token', 'approved'])
+def show_provider_panel_custom(token):
+    pass
 
 def show_admin_panel():
-    st.subheader("Painel Geral de Administração")
-    st.write("Gestão de prestadores e estatísticas gerais do sistema.")
+    pass
 
+
+# ==========================================
+# CÓDIGO PRINCIPAL FORNECIDO
+# ==========================================
+
+.link-title-tv {{
+        font-family: monospace;
+        color: #ffffff !important;
+        font-size: 15px;
+        font-weight: bold !important;
+        margin-bottom: 4px;
+        text-shadow: 1px 1px 3px rgba(0,0,0,0.9) !important;
+    }}
+    .link-text {{
+        font-family: monospace;
+        color: #ffffff !important;
+        font-size: 13px;
+        word-break: break-all;
+        text-decoration: underline;
+        font-weight: bold !important;
+        text-shadow: 1px 1px 3px rgba(0,0,0,0.9) !important;
+    }}
+    .link-text-tv {{
+        font-family: monospace;
+        color: #ffffff !important;
+        font-size: 13px;
+        word-break: break-all;
+        text-decoration: underline;
+        font-weight: bold !important;
+        text-shadow: 1px 1px 3px rgba(0,0,0,0.9) !important;
+    }}
+    .top-logo {{
+        position: absolute;
+        top: -10px;
+        right: 0px;
+        width: 70px;
+        height: 70px;
+        border-radius: 50%;
+        border: 3px solid #FFC107;
+        object-fit: cover;
+    }}
+    
+    h1, h2, h3, h4, h5, h6, p, label, span, div, .stMarkdown {{
+        color: #ffffff !important;
+        font-weight: bold !important;
+        text-shadow: 1px 1px 3px rgba(0,0,0,0.9) !important;
+    }}
+    </style>
+    
+    <img src="{url_logotipo}" class="top-logo" />
+    """, unsafe_allow_html=True)
+
+    st.markdown(f"""
+        <div class="panel-header">
+            <div style="display: flex; align-items: center; gap: 15px;">
+                <span style="font-size: 32px;">🎤</span>
+                <div>
+                    <h1 style="margin: 0; color: #ffffff; font-family: monospace; font-size: 24px; text-transform: uppercase; font-weight: bold; text-shadow: 1px 1px 3px rgba(0,0,0,0.9);">PAINEL DO PRESTADOR: {nome_prestador}</h1>
+                    <p style="margin: 3px 0 0 0; color: #ffffff; font-size: 13px; font-family: monospace; font-weight: bold; text-shadow: 1px 1px 3px rgba(0,0,0,0.9);">TOKEN: <code style="background: #222; color: #ffffff; padding: 2px 6px; border-radius: 4px; font-weight: bold;">{provider_token}</code></p>
+                </div>
+            </div>
+            <div style="background: rgba(255,193,7,0.15); border: 2px solid #FFC107; padding: 6px 12px; border-radius: 8px; text-align: right; margin-right: 80px;">
+                <div style="font-family: monospace; color: #ffffff; font-size: 11px; text-transform: uppercase; font-weight: bold; text-shadow: 1px 1px 3px rgba(0,0,0,0.9);">TEMPO / PLANO ESCOLHIDO</div>
+                <div style="font-family: monospace; color: #FFC107; font-size: 15px; font-weight: bold; text-shadow: 1px 1px 3px rgba(0,0,0,0.9); {classe_piscar}">⏱️ {tempo_formatado} ({tempo_plano})</div>
+            </div>
+        </div>
+    """, unsafe_allow_html=True)
+
+    st.markdown(aviso_reforço_html, unsafe_allow_html=True)
+    
+    link_cliente_rel = f"/?page=client_register&prestador={provider_token}"
+    link_tv_rel = f"/?page=client_screen&prestador={provider_token}"
+    
+    host_dominio = st.context.headers.get('Host', 'grupoffkaraoke.streamlit.app')
+    link_cliente_absoluto = f"https://{host_dominio}{link_cliente_rel}"
+    link_tv_absoluto = f"https://{host_dominio}{link_tv_rel}"
+    
+    qr_url_cliente = f"https://api.qrserver.com/v1/create-qr-code/?size=150x150&data={urllib.parse.quote(link_cliente_absoluto)}"
+
+    col_links, col_qr = st.columns([3, 1])
+    
+    with col_links:
+        st.markdown(f"""
+            <div class="card-link">
+                <div class="link-title">🔗 LINK DO CLIENTE (REGISTO DE MÚSICA)</div>
+                <a href="{link_cliente_rel}" target="_blank" class="link-text">{link_cliente_absoluto}</a>
+            </div>
+        """, unsafe_allow_html=True)
+        
+        st.markdown(f"""
+            <div class="card-tv">
+                <div class="link-title-tv">📺 LINK DA TELA DE TV / REPRODUÇÃO</div>
+                <a href="{link_tv_rel}" target="_blank" class="link-text-tv">{link_tv_absoluto}</a>
+            </div>
+        """, unsafe_allow_html=True)
+        
+    with col_qr:
+        st.markdown("<div style='font-family: monospace; color: #ffffff; font-size: 11px; font-weight: bold; margin-bottom: 2px; text-align: center; text-shadow: 1px 1px 3px rgba(0,0,0,0.9);'>QR CODE CLIENTE</div>", unsafe_allow_html=True)
+        st.markdown(f"""
+            <div class="qr-box">
+                <img src="{qr_url_cliente}" width="110" style="border-radius: 4px;" />
+            </div>
+        """, unsafe_allow_html=True)
+
+    st.markdown("<div id='reforco_seccao'></div>", unsafe_allow_html=True)
+    if segundos_restantes <= 1800:
+        st.markdown("### ⚡ Solicitar Reforço de Tempo")
+        with st.form("form_reforco_prestador"):
+            referencia_comprovativo = st.text_input("Referência de Pagamento / Nº de Comprovativo")
+            duracao_reforco = st.selectbox(
+                "Duração Pretendida", 
+                options=[
+                    "2 Horas - 12 Mil Kwanzas", 
+                    "3 Horas - 15 Mil Kwanzas", 
+                    "4 Horas - 20 Mil Kwanzas"
+                ]
+            )
+            btn_sub_reforco = st.form_submit_button("Submeter Pedido de Reforço")
+            if btn_sub_reforco:
+                if not referencia_comprovativo:
+                    st.error("Por favor, preencha a Referência de Pagamento / Nº de Comprovativo.")
+                else:
+                    dados_reforco = {
+                        "token": provider_token,
+                        "nome_prestador": nome_prestador,
+                        "referencia": referencia_comprovativo,
+                        "tempo_plano": duracao_reforco,
+                        "approved": 0,
+                        "data_registo": str(datetime.now())
+                    }
+                    try:
+                        import uuid
+                        ref_id = str(uuid.uuid4())[:8]
+                        requests.put(f"{FIREBASE_URL}/reforcos_pendentes/{provider_token}/{ref_id}.json", json=dados_reforco, timeout=10)
+                        st.success("Pedido de reforço submetido com sucesso! Aguarde a confirmação do Administrador.")
+                    except Exception as err:
+                        st.error(f"Erro ao enviar reforço: {err}")
+
+    st.markdown("<div style='height: 10px;'></div>", unsafe_allow_html=True)
+    renderizar_gestao_fila_prestador(provider_token)
 
 @st.fragment(run_every=3)
 def renderizar_ecra_tv(provider_token):
@@ -410,194 +540,6 @@ def show_client_screen():
     </style>""", unsafe_allow_html=True)
 
     renderizar_ecra_tv(provider_token)
-
-def show_provider_panel_custom(token):
-    st.title("Painel do Prestador")
-    query_params = st.query_params
-    nome_prestador = query_params.get("nome", "Prestador")
-    provider_token = token
-    tempo_formatado = "01:00:00"
-    tempo_plano = "1 Hora"
-    classe_piscar = ""
-    segundos_restantes = 1500
-    aviso_reforço_html = ""
-    url_logotipo = "https://via.placeholder.com/70"
-
-    st.markdown(f"""
-    <style>
-    .panel-header {{
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        background: #111;
-        border: 2px solid #FFC107;
-        padding: 15px;
-        border-radius: 10px;
-        margin-bottom: 20px;
-    }}
-    .card-link {{
-        background: #111;
-        border: 2px solid #FFC107;
-        padding: 12px;
-        border-radius: 8px;
-        margin-bottom: 10px;
-    }}
-    .card-tv {{
-        background: #111;
-        border: 2px solid #FFC107;
-        padding: 12px;
-        border-radius: 8px;
-        margin-bottom: 10px;
-    }}
-    .qr-box {{
-        background: #fff;
-        padding: 5px;
-        border-radius: 6px;
-        display: inline-block;
-    }}
-    .link-title {{
-        font-family: monospace;
-        color: #ffffff !important;
-        font-size: 15px;
-        font-weight: bold !important;
-        margin-bottom: 4px;
-        text-shadow: 1px 1px 3px rgba(0,0,0,0.9) !important;
-    }}
-    .link-title-tv {{
-        font-family: monospace;
-        color: #ffffff !important;
-        font-size: 15px;
-        font-weight: bold !important;
-        margin-bottom: 4px;
-        text-shadow: 1px 1px 3px rgba(0,0,0,0.9) !important;
-    }}
-    .link-text {{
-        font-family: monospace;
-        color: #ffffff !important;
-        font-size: 13px;
-        word-break: break-all;
-        text-decoration: underline;
-        font-weight: bold !important;
-        text-shadow: 1px 1px 3px rgba(0,0,0,0.9) !important;
-    }}
-    .link-text-tv {{
-        font-family: monospace;
-        color: #ffffff !important;
-        font-size: 13px;
-        word-break: break-all;
-        text-decoration: underline;
-        font-weight: bold !important;
-        text-shadow: 1px 1px 3px rgba(0,0,0,0.9) !important;
-    }}
-    .top-logo {{
-        position: absolute;
-        top: -10px;
-        right: 0px;
-        width: 70px;
-        height: 70px;
-        border-radius: 50%;
-        border: 3px solid #FFC107;
-        object-fit: cover;
-    }}
-    
-    h1, h2, h3, h4, h5, h6, p, label, span, div, .stMarkdown {{
-        color: #ffffff !important;
-        font-weight: bold !important;
-        text-shadow: 1px 1px 3px rgba(0,0,0,0.9) !important;
-    }}
-    </style>
-    
-    <img src="{url_logotipo}" class="top-logo" />
-    """, unsafe_allow_html=True)
-
-    st.markdown(f"""
-        <div class="panel-header">
-            <div style="display: flex; align-items: center; gap: 15px;">
-                <span style="font-size: 32px;">🎤</span>
-                <div>
-                    <h1 style="margin: 0; color: #ffffff; font-family: monospace; font-size: 24px; text-transform: uppercase; font-weight: bold; text-shadow: 1px 1px 3px rgba(0,0,0,0.9);">PAINEL DO PRESTADOR: {nome_prestador}</h1>
-                    <p style="margin: 3px 0 0 0; color: #ffffff; font-size: 13px; font-family: monospace; font-weight: bold; text-shadow: 1px 1px 3px rgba(0,0,0,0.9);">TOKEN: <code style="background: #222; color: #ffffff; padding: 2px 6px; border-radius: 4px; font-weight: bold;">{provider_token}</code></p>
-                </div>
-            </div>
-            <div style="background: rgba(255,193,7,0.15); border: 2px solid #FFC107; padding: 6px 12px; border-radius: 8px; text-align: right; margin-right: 80px;">
-                <div style="font-family: monospace; color: #ffffff; font-size: 11px; text-transform: uppercase; font-weight: bold; text-shadow: 1px 1px 3px rgba(0,0,0,0.9);">TEMPO / PLANO ESCOLHIDO</div>
-                <div style="font-family: monospace; color: #FFC107; font-size: 15px; font-weight: bold; text-shadow: 1px 1px 3px rgba(0,0,0,0.9); {classe_piscar}">⏱️ {tempo_formatado} ({tempo_plano})</div>
-            </div>
-        </div>
-    """, unsafe_allow_html=True)
-
-    st.markdown(aviso_reforço_html, unsafe_allow_html=True)
-    
-    link_cliente_rel = f"/?page=client_register&prestador={provider_token}"
-    link_tv_rel = f"/?page=client_screen&prestador={provider_token}"
-    
-    host_dominio = st.context.headers.get('Host', 'grupoffkaraoke.streamlit.app')
-    link_cliente_absoluto = f"https://{host_dominio}{link_cliente_rel}"
-    link_tv_absoluto = f"https://{host_dominio}{link_tv_rel}"
-    
-    qr_url_cliente = f"https://api.qrserver.com/v1/create-qr-code/?size=150x150&data={urllib.parse.quote(link_cliente_absoluto)}"
-
-    col_links, col_qr = st.columns([3, 1])
-    
-    with col_links:
-        st.markdown(f"""
-            <div class="card-link">
-                <div class="link-title">🔗 LINK DO CLIENTE (REGISTO DE MÚSICA)</div>
-                <a href="{link_cliente_rel}" target="_blank" class="link-text">{link_cliente_absoluto}</a>
-            </div>
-        """, unsafe_allow_html=True)
-        
-        st.markdown(f"""
-            <div class="card-tv">
-                <div class="link-title-tv">📺 LINK DA TELA DE TV / REPRODUÇÃO</div>
-                <a href="{link_tv_rel}" target="_blank" class="link-text-tv">{link_tv_absoluto}</a>
-            </div>
-        """, unsafe_allow_html=True)
-        
-    with col_qr:
-        st.markdown("<div style='font-family: monospace; color: #ffffff; font-size: 11px; font-weight: bold; margin-bottom: 2px; text-align: center; text-shadow: 1px 1px 3px rgba(0,0,0,0.9);'>QR CODE CLIENTE</div>", unsafe_allow_html=True)
-        st.markdown(f"""
-            <div class="qr-box">
-                <img src="{qr_url_cliente}" width="110" style="border-radius: 4px;" />
-            </div>
-        """, unsafe_allow_html=True)
-
-    st.markdown("<div id='reforco_seccao'></div>", unsafe_allow_html=True)
-    if segundos_restantes <= 1800:
-        st.markdown("### ⚡ Solicitar Reforço de Tempo")
-        with st.form("form_reforco_prestador"):
-            referencia_comprovativo = st.text_input("Referência de Pagamento / Nº de Comprovativo")
-            duracao_reforco = st.selectbox(
-                "Duração Pretendida", 
-                options=[
-                    "2 Horas - 12 Mil Kwanzas", 
-                    "3 Horas - 15 Mil Kwanzas", 
-                    "4 Horas - 20 Mil Kwanzas"
-                ]
-            )
-            btn_sub_reforco = st.form_submit_button("Submeter Pedido de Reforço")
-            if btn_sub_reforco:
-                if not referencia_comprovativo:
-                    st.error("Por favor, preencha a Referência de Pagamento / Nº de Comprovativo.")
-                else:
-                    dados_reforco = {
-                        "token": provider_token,
-                        "nome_prestador": nome_prestador,
-                        "referencia": referencia_comprovativo,
-                        "tempo_plano": duracao_reforco,
-                        "approved": 0,
-                        "data_registo": str(datetime.now())
-                    }
-                    try:
-                        import uuid
-                        ref_id = str(uuid.uuid4())[:8]
-                        requests.put(f"{FIREBASE_URL}/reforcos_pendentes/{provider_token}/{ref_id}.json", json=dados_reforco, timeout=10)
-                        st.success("Pedido de reforço submetido com sucesso! Aguarde a confirmação do Administrador.")
-                    except Exception as err:
-                        st.error(f"Erro ao enviar reforço: {err}")
-
-    st.markdown("<div style='height: 10px;'></div>", unsafe_allow_html=True)
-    renderizar_gestao_fila_prestador(provider_token)
 
 def show_provider_panel_center(token):
     show_provider_panel_custom(token)
