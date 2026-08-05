@@ -570,13 +570,13 @@ def renderizar_ecra_tv(provider_token):
                 var count = 3;
                 var cdScreen = document.getElementById('countdown-screen');
                 
-                var timer = setInterval(function() {
+                var timer = setInterval(function() {{
                     count--;
-                    if (count > 0) {
+                    if (count > 0) {{
                         cdScreen.innerText = count;
-                    } else if (count === 0) {
+                    }} else if (count === 0) {{
                         cdScreen.innerText = "🎤 CANTE!";
-                    } else {
+                    }} else {{
                         clearInterval(timer);
                         cdScreen.style.display = 'none';
                         document.getElementById('karaoke-container').style.display = 'block';
@@ -585,45 +585,45 @@ def renderizar_ecra_tv(provider_token):
                         video.muted = false; 
                         var playPromise = video.play();
                         
-                        if (playPromise !== undefined) {
-                            playPromise.then(_ => {}).catch(error => {
+                        if (playPromise !== undefined) {{
+                            playPromise.then(_ => {{}}).catch(error => {{
                                 video.muted = true;
                                 video.play();
                                 document.getElementById('audio-warning').style.display = 'block';
-                            });
-                        }
-                    }
-                }, 1000);
+                            }});
+                        }}
+                    }}
+                }}, 1000);
 
-                function unmuteVideo() {
+                function unmuteVideo() {{
                     var video = document.getElementById('karaoke-player');
                     video.muted = false;
                     video.play();
                     document.getElementById('audio-warning').style.display = 'none';
-                }
+                }}
 
-                function stopKaraoke() {
+                function stopKaraoke() {{
                     var pedidoId = "{tocando_agora.get('id')}";
                     var token = "{provider_token}";
                     var firebaseURL = "{FIREBASE_URL}/pedidos/" + token + "/" + pedidoId + "/estado.json";
                     
-                    fetch(firebaseURL, {
+                    fetch(firebaseURL, {{
                         method: 'PUT',
                         body: JSON.stringify('terminado'),
-                        headers: { 'Content-Type': 'application/json' }
-                    }).then(response => {
-                        setTimeout(function() { window.location.reload(); }, 300);
-                    }).catch(err => {
+                        headers: {{ 'Content-Type': 'application/json' }}
+                    }}).then(response => {{
+                        setTimeout(function() {{ window.location.reload(); }}, 300);
+                    }}).catch(err => {{
                         window.location.reload();
-                    });
-                }
+                    }});
+                }}
 
                 var video = document.getElementById('karaoke-player');
-                if (video) {
-                    video.onended = function() {
+                if (video) {{
+                    video.onended = function() {{
                         stopKaraoke();
-                    };
-                }
+                    }};
+                }}
             </script>
             """
             components.html(video_html, height=750, scrolling=False)
