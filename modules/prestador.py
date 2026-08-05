@@ -3,7 +3,6 @@ import time
 import requests
 
 def renderizar_painel_prestador(provider_token, dados_prestador):
-    # Estilos CSS gerais do painel
     st.markdown("""
         <style>
         .top-right-badge {
@@ -31,7 +30,6 @@ def renderizar_painel_prestador(provider_token, dados_prestador):
         </style>
     """, unsafe_allow_html=True)
 
-    # Topo do Painel ajustado
     col_titulo, col_topo = st.columns([3, 1])
     with col_titulo:
         st.markdown("### 🎤 PAINEL DO PRESTADOR")
@@ -54,7 +52,6 @@ def renderizar_painel_prestador(provider_token, dados_prestador):
         
         st.markdown("<span style='font-size: 13px; color: #888;'>TEMPO / PLANO ESCOLHIDO</span>", unsafe_allow_html=True)
         
-        # Cronómetro dinâmico a contar
         st.markdown(f"""
             <script>
                 if (typeof window.segundosRestantes === 'undefined') {{
@@ -92,13 +89,12 @@ def renderizar_painel_prestador(provider_token, dados_prestador):
 
     st.markdown("---")
     
-    # Chama a função de gestão da fila
     renderizar_gestao_fila_prestador(provider_token)
 
 
 def renderizar_gestao_fila_prestador(provider_token):
     try:
-        url_firebase = f"{FIREBASE_URL}/pedidos/{provider_token}.json?_t={time.time()}"
+        url_firebase = f"https://grupoffkaraoke-default-rtdb.firebaseio.com/pedidos/{provider_token}.json?_t={time.time()}"
         response = requests.get(url_firebase, timeout=10)
         
         pedidos = []
@@ -201,7 +197,7 @@ def renderizar_gestao_fila_prestador(provider_token):
                 st.rerun()
 
         st.markdown("---")
-        
+
         video_fundo_atual = obter_video_fundo(provider_token)
         lista_clipes_cloudinary = listar_videos_pasta_clipes()
         
