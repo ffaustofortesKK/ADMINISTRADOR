@@ -1255,7 +1255,7 @@ def main():
                 show_provider_panel_custom(token)
                 return
             
-        st.markdown("""
+       st.markdown("""
             <style>
             .stApp {
                 background-color: #000000 !important;
@@ -1263,15 +1263,14 @@ def main():
                 font-weight: bold !important;
             }
             .block-container {
-                background-color: #000000 !important;
+                background-color: transparent !important;
                 border: 4px solid #FFC107 !important;
                 border-radius: 12px;
                 padding: 3rem !important;
             }
             h1, h2, h3, h4, h5, h6, p, span, label, div, button, input {
                 font-weight: bold !important;
-                text-shadow: 1px 1px 3px rgba(0,0,0,0.9);
-            }
+                text-shadow: 1px 1px 3px rgba(0,0,0,0.9);  }
             </style>
         """, unsafe_allow_html=True)
 
@@ -1304,7 +1303,7 @@ def main():
                                 if r_data.get("approved", 0) == 0:
                                     tem_reforcos = True
                                     st.markdown(f"""
-                                    <div style="background: rgba(0,0,0,0.95); border: 2px solid #FFC107; padding: 12px; border-radius: 6px; margin-bottom: 10px;">
+                                    <div style="background: transparent; border: 2px solid #FFC107; padding: 12px; border-radius: 6px; margin-bottom: 10px;">
                                         <b>Prestador:</b> {r_data.get('nome_prestador')} (Token: {tok})<br>
                                         <b>Referência / Comprovativo:</b> {r_data.get('referencia')}<br>
                                         <b>Duração Solicitada:</b> {r_data.get('tempo_plano')}
