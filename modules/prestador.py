@@ -2,6 +2,47 @@ import streamlit as st
 import time
 import requests
 
+def limpar_nome_musica(musica_obj):
+    if isinstance(musica_obj, dict):
+        return musica_obj.get("titulo", musica_obj.get("nome", "Música Desconhecida"))
+    return str(musica_obj)
+
+def terminar_todas_musicas_ativas(provider_token, pedidos):
+    for p in pedidos:
+        if p.get("estado") == "aprovado":
+            atualizar_estado_pedido(provider_token, p.get("id"), "terminado")
+
+def atualizar_estado_pedido(provider_token, pedido_id, novo_estado):
+    try:
+        url = f"https://grupoffkaraoke-default-rtdb.firebaseio.com/pedidos/{provider_token}/{pedido_id}/estado.json"
+        requests.put(url, json=novo_estado, timeout=10)
+    except Exception as e:
+        st.error(f"Erro ao atualizar estado: {e}")
+
+def definir_video_fundo(provider_token, url_video):
+    try:
+        url = f"https://grupoffkaraoke-default-rtdb.firebaseio.com/config/{provider_token}/video_fundo.json"
+        requests.put(url, json=url_video, timeout=10)
+    except Exception as e:
+        st.error(f"Erro ao definir vídeo de fundo: {e}")
+
+def obter_video_fundo(provider_token):
+    try:
+        url = f"https://grupoffkaraoke-default-rtdb.firebaseio.com/config/{provider_token}/video_fundo.json"
+        resp = requests.get(url, timeout=10)
+        if resp.status_code == 200:
+            return resp.json()
+    except Exception:
+        pass
+    return ""
+
+def listar_videos_pasta_clipes():
+    # Lista padrão de clipes ou integração com Cloudinary/Firebase
+    return [
+        {"nome": "Clipe Exemplo 1", "url": "https://www.w3schools.com/html/mov_bbb.mp4"},
+        {"nome": "Clipe Exemplo 2", "url": "https://www.w3schools.com/html/movie.mp4"}
+    ]
+
 def renderizar_painel_prestador(provider_token, dados_prestador):
     st.markdown("""
         <style>
@@ -90,7 +131,6 @@ def renderizar_painel_prestador(provider_token, dados_prestador):
     st.markdown("---")
     
     renderizar_gestao_fila_prestador(provider_token)
-
 
 def renderizar_gestao_fila_prestador(provider_token):
     try:
