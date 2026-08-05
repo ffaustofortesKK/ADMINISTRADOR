@@ -7,8 +7,21 @@ from utils.db_manager import get_all_providers, get_active_providers, approve_pr
 def show_admin_panel():
     st.markdown("""
     <style>
+    /* Remove o fundo preto e aplica a imagem como fundo com cobertura total */
+    .stApp {
+        background: url('https://cdn.phototourl.com/free/2026-08-03-694a4a2e-9914-4da8-93b2-87538a4805ab.png') no-repeat center center fixed !important;
+        background-size: cover !important;
+        color: #ffffff !important;
+        font-weight: bold !important;
+    }
+    .block-container {
+        background-color: rgba(0, 0, 0, 0.75) !important;
+        border: 4px solid #FFC107 !important;
+        border-radius: 12px;
+        padding: 3rem !important;
+    }
     .adm-card {
-        background: linear-gradient(180deg, #111, #050505);
+        background: linear-gradient(180deg, rgba(17,17,17,0.9), rgba(5,5,5,0.9));
         border: 2px solid #D4AF37;
         border-radius: 12px;
         padding: 20px;
@@ -16,7 +29,7 @@ def show_admin_panel():
         box-shadow: 0px 0px 15px rgba(212,175,55,0.15);
     }
     .link-box {
-        background: #111;
+        background: rgba(17, 17, 17, 0.9);
         border: 1px solid #D4AF37;
         border-radius: 10px;
         padding: 15px;
@@ -36,9 +49,9 @@ def show_admin_panel():
         display: inline-block;
         box-shadow: 0px 0px 10px rgba(255, 51, 51, 0.5);
     }
-    /* Garante que os textos descritivos e das abas fiquem visíveis */
-    p, span, label {
+    p, span, label, h1, h2, h3, h4, h5, h6 {
         color: #ffffff !important;
+        text-shadow: 1px 1px 3px rgba(0,0,0,0.9);
     }
     </style>
     """, unsafe_allow_html=True)
