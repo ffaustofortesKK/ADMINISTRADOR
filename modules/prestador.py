@@ -15,7 +15,7 @@ def show_provider_panel_custom(provider_token, FIREBASE_URL):
         </style>
     """, unsafe_allow_html=True)
 
-    st.markdown("<h2 class='provider-header'>🎛️ Painel de Controlo do Prestador2</h2>", unsafe_allow_html=True)
+    st.markdown("<h2 class='provider-header'>🎛️ Painel de Controlo do Prestador</h2>", unsafe_allow_html=True)
     st.write(f"Token do Estabelecimento: `{provider_token}`")
 
     url_firebase = f"{FIREBASE_URL}/pedidos/{provider_token}.json?_t={time.time()}"
@@ -31,7 +31,8 @@ def show_provider_panel_custom(provider_token, FIREBASE_URL):
         st.error(f"Erro ao carregar dados do Firebase: {e}")
         pedidos_ativos = []
 
-    tab1, tab2, tab3 = st.tabs(["🎵 Fila de Pedidos", "📺 Vídeo de Fundo", "⚙️ Configurações"])
+    # Abas organizadas: Pedidos, Vídeo de Fundo, Perfil/Configurações do Prestador
+    tab1, tab2, tab3 = st.tabs(["🎵 Fila de Pedidos", "📺 Vídeo de Fundo", "⚙️ Perfil e Configurações"])
 
     with tab1:
         st.subheader("Gerenciamento da Fila de Espera")
@@ -73,9 +74,27 @@ def show_provider_panel_custom(provider_token, FIREBASE_URL):
             st.rerun()
 
     with tab3:
-        st.subheader("Informações e Utilitários")
-        st.write("Utilize este painel para monitorizar a atividade em tempo real do seu espaço no **FF Karaoke Cloud**.")
-        if st.button("🔄 Atualizar Painel"):
+        st.subheader("👤 Perfil do Estabelecimento e Definições")
+        st.write("Atualize as informações do seu espaço exibidas para os clientes na plataforma.")
+        
+        perfil_atual = _obter_perfil_prestador(provider_token, FIREBASE_URL)
+        
+        nome_estabelecimento = st.text_input("Nome do Estabelecimento / Espaço:", value=perfil_atual.get("nome", ""))
+        responsavel = st.text_input("Nome do Responsável:", value=perfil_atual.get("responsavel", ""))
+        contacto = st.text_input("Contacto Telefónico:", value=perfil_atual.get("contacto", ""))
+        
+        if st.button("💾 Guardar Alterações do Perfil"):
+            dados_atualizados = {
+                "nome": nome_estabelecimento,
+                "responsavel": responsavel,
+                "contacto": contacto
+            }
+            _salvar_perfil_prestador(provider_token, dados_atualizados, FIREBASE_URL)
+            st.success("Perfil do prestador atualizado com sucesso!")
+            st.rerun()
+            
+        st.markdown("---")
+        if st.button("🔄 Atualizar Painel Geral"):
             st.rerun()
 
 
@@ -379,3 +398,22 @@ def _salvar_video_fundo(provider_token, url_video, FIREBASE_URL):
         requests.put(url, json=url_video, timeout=5)
     except Exception as e:
         st.error(f"Erro ao salvar vídeo de fundo: {e}")
+
+
+def _obter_perfil_prestador(provider_token, FIREBASE_URL):
+    url = f"{FIREBASE_URL}/configuracoes/{provider_token}/perfil.json"
+    try:
+        res = requests.get(url, timeout=5)
+        if res.status_code == 200 and res.json():
+            return res.json()
+    except:
+        pass
+    return {}
+
+
+def _salvar_perfil_prestador(provider_token, dados_perfil, FIREBASE_URL):
+    url = f"{FIREBASE_URL}/configuracoes/{provider_token}/perfil.json"
+    try:
+        requests.put(url, json=dados_perfil, timeout=5)
+    except Exception as e:
+        st.error(f"Erro ao salvar perfil: {e}")
