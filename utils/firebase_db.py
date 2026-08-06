@@ -196,7 +196,7 @@ def show_client_screen():
         pendentes = [p for p in pedidos_ativos if p.get("estado") == "pendente"]
 
         col_esquerda, col_direita = st.columns([1.1, 0.9])
-
+        
         with col_esquerda:
             st.markdown('<div class="box-header">🎙️ FILA DE ESPERA</div>', unsafe_allow_html=True)
             
@@ -268,12 +268,6 @@ def show_client_screen():
                         <span style='color: #ffeb3b; font-size: 16px;'>Aguardando o prestador selecionar um pedido na fila...</span>
                     </div>
                 """, unsafe_allow_html=True)
-        
-        time.sleep(4)
-        st.rerun()
 
     except Exception:
         st.error("Erro ao sincronizar com a base de dados em tempo real.")
-
-    time.sleep(5)
-    st.rerun()
