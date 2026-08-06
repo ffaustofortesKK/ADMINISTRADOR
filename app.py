@@ -433,13 +433,22 @@ def renderizar_gestao_fila_prestador(provider_token):
         pedidos = []
         if response.status_code == 200 and response.json():
             data = response.json()
-            pedidos = [{"id": k, **v} for k, v in data.items()]
+            if isinstance(data, dict):
+                pedidos = [{"id": k, **v} for k, v in data.items()]
+            elif isinstance(data, list):
+                pedidos = [{"id": str(idx), **item} for idx, item in enumerate(data) if item is not None]
             
         pedidos_ativos = [p for p in pedidos if p.get("estado") in ["pendente", "aprovado"]]
         pedidos_ativos.sort(key=lambda x: x.get("timestamp", 0))
         
         tocando_agora = next((p for p in pedidos_ativos if p.get("estado") == "aprovado"), None)
         pendentes = [p for p in pedidos_ativos if p.get("estado") == "pendente"]
+
+        # Função auxiliar segura para extrair o título da música
+        def obter_titulo(musica_field):
+            if isinstance(musica_field, dict):
+                return musica_field.get("titulo") or musica_field.get("nome") or musica_field.get("title") or "Música sem título"
+            return str(musica_field) if musica_field else "Música sem título"
 
         if pendentes:
             st.markdown("""
@@ -449,7 +458,7 @@ def renderizar_gestao_fila_prestador(provider_token):
             """, unsafe_allow_html=True)
             
             for p in pendentes:
-                titulo_p = limpar_nome_musica(p.get("musica", {}))
+                titulo_p = obter_titulo(p.get("musica", {}))
                 cliente_p = p.get("cliente", "Convidado")
                 st.markdown(f"""
                     <div style="color: #ffffff; font-family: monospace; font-size: 15px; margin-bottom: 15px; font-weight: bold; text-shadow: 1px 1px 3px rgba(0,0,0,0.9);">
@@ -460,7 +469,8 @@ def renderizar_gestao_fila_prestador(provider_token):
                 col_btn_dummy1, col_center_btn, col_btn_dummy2 = st.columns([1, 1.2, 1])
                 with col_center_btn:
                     if st.button("✅ Sim", key=f"conf_sim_{p.get('id')}", use_container_width=True):
-                        terminar_todas_musicas_ativas(provider_token, pedidos)
+                        if 'terminar_todas_musicas_ativas' in globals():
+                            terminar_todas_musicas_ativas(provider_token, pedidos)
                         atualizar_estado_pedido(provider_token, p.get('id'), 'aprovado')
                         st.success(f"Música '{titulo_p}' enviada para a tela!")
                         st.rerun()
@@ -474,7 +484,7 @@ def renderizar_gestao_fila_prestador(provider_token):
 
         if pedidos_ativos:
             for idx, p in enumerate(pedidos_ativos, start=1):
-                titulo_musica = limpar_nome_musica(p.get("musica", {}))
+                titulo_musica = obter_titulo(p.get("musica", {}))
                 cliente_nome = p.get("cliente", "Convidado")
                 estado_atual = p.get("estado")
                 
@@ -499,14 +509,16 @@ def renderizar_gestao_fila_prestador(provider_token):
                     with col_acao1:
                         if not is_playing:
                             if st.button("▶️ Tocar Agora", key=f"play_linha_{p.get('id')}", use_container_width=True):
-                                terminar_todas_musicas_ativas(provider_token, pedidos)
+                                if 'terminar_todas_musicas_ativas' in globals():
+                                    terminar_todas_musicas_ativas(provider_token, pedidos)
                                 atualizar_estado_pedido(provider_token, p.get('id'), 'aprovado')
                                 st.success(f"A avançar para: {titulo_musica}")
                                 st.rerun()
                     with col_acao2:
                         if is_playing:
                             if st.button("⏹️ Terminar Atual", key=f"term_linha_{p.get('id')}", use_container_width=True):
-                                terminar_todas_musicas_ativas(provider_token, pedidos)
+                                if 'terminar_todas_musicas_ativas' in globals():
+                                    terminar_todas_musicas_ativas(provider_token, pedidos)
                                 st.success("Música terminada!")
                                 st.rerun()
                     with col_acao3:
@@ -524,23 +536,25 @@ def renderizar_gestao_fila_prestador(provider_token):
 
         if tocando_agora:
             if st.button("🛑 Stop Geral (Limpar Tela)", key="stop_geral_btn", use_container_width=True):
-                terminar_todas_musicas_ativas(provider_token, pedidos)
-                definir_video_fundo(provider_token, "")
+                if 'terminar_todas_musicas_ativas' in globals():
+                    terminar_todas_musicas_ativas(provider_token, pedidos)
+                if 'definir_video_fundo' in globals():
+                    definir_video_fundo(provider_token, "")
                 st.warning("Reprodução parada e tela limpa com sucesso!")
                 st.rerun()
 
         st.markdown("---")
         
-        video_fundo_atual = obter_video_fundo(provider_token)
-        lista_clipes_cloudinary = listar_videos_pasta_clipes()
+        video_fundo_atual = obter_video_fundo(provider_token) if 'obter_video_fundo' in globals() else ""
+        lista_clipes_cloudinary = listar_videos_pasta_clipes() if 'listar_videos_pasta_clipes' in globals() else []
         
         opcoes_labels = ["Nenhum (Ecrã Preto)"]
         mapa_url_por_label = {}
         
         for clipe in lista_clipes_cloudinary:
-            label = f"📁 {clipe['nome']}"
+            label = f"📁 {clipe.get('nome', 'Clipe')}"
             opcoes_labels.append(label)
-            mapa_url_por_label[label] = clipe['url']
+            mapa_url_por_label[label] = clipe.get('url', '')
             
         index_atual = 0
         for idx, label in enumerate(opcoes_labels):
@@ -576,11 +590,12 @@ def renderizar_gestao_fila_prestador(provider_token):
                     valor_a_guardar = ""
                 else:
                     valor_a_guardar = mapa_url_por_label.get(escolha_video, "")
-                    
-                definir_video_fundo(provider_token, valor_a_guardar)
+                
+                if 'definir_video_fundo' in globals():
+                    definir_video_fundo(provider_token, valor_a_guardar)
                 st.success("Vídeo clipe de fundo iniciado com sucesso na tela!")
                 st.rerun()
-            
+          
     except Exception as e:
         st.error(f"Erro ao carregar os pedidos do Firebase: {e}")
 
