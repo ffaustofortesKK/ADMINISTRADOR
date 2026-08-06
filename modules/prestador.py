@@ -99,7 +99,7 @@ def show_provider_panel_custom(token):
 
     st.markdown("""
         <h2 style='color: #FFC107 !important; font-family: monospace;'>
-            🎤 <span style='color: #FFC107 !important;'>PAINEL DO PRESTADOR</span> <span style='color: #ffeb3b !important;'>— FF Karaoke</span>
+            🎤 <span style='color: #FFC107 !important;'>PERFIL DO PRESTADOR</span> <span style='color: #ffeb3b !important;'>— FF Karaoke</span>
         </h2>
     """, unsafe_allow_html=True)
     st.markdown("---")
