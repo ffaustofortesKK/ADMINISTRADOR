@@ -58,13 +58,7 @@ try:
     from modules.register import show_register_page as original_show_register_page
 except Exception:
     original_show_register_page = None
-
-try:
-    from modules.prestador import show_provider_panel_custom, renderizar_ecra_tv
-except Exception:
-    def show_provider_panel_custom(token): st.error("Módulo 'modules.prestador' não encontrado.")
-    def renderizar_ecra_tv(token): st.error("Módulo 'modules.prestador' não encontrado.")
-        
+     
 FIREBASE_URL = "https://grupoffkaraoke-default-rtdb.firebaseio.com"
 
 st.set_page_config(
