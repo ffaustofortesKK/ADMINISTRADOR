@@ -5,9 +5,6 @@ import datetime
 import qrcode
 from io import BytesIO
 
-# Defina a URL do seu Firebase (caso não esteja a importar de um ficheiro de configuração global)
-# FIREBASE_URL = "https://SEU-PROJETO.firebaseio.com"
-
 def show_provider_panel_custom(token):
     """Renderiza o painel de controlo completo e personalizado do prestador."""
     st.markdown("""
@@ -29,7 +26,7 @@ def show_provider_panel_custom(token):
         </style>
     """, unsafe_allow_html=True)
 
-    st.title("🎛️Prestador - FFKaraoke")
+    st.title("🎛️ Painel de Controlo do Prestador - FFKaraoke")
     
     # Navegação interna do prestador por abas
     aba_painel, aba_fila, aba_musicas, aba_config = st.tabs([
@@ -40,17 +37,12 @@ def show_provider_panel_custom(token):
         st.subheader("Controlo do Ecrã de TV (Clientes)")
         st.markdown(f"**Link de Acesso para a TV do Estabelecimento:**")
         
-        # Gerar link da TV dinamicamente
-        base_url = st.get_option("server.baseUrlPath") or ""
-        # Substitua pelo seu domínio de produção se necessário, ou use o URL atual da app
         link_tv = f"/?page=client_screen&prestador={token}"
         st.info(link_tv)
         
-        # Gerar QR Code para o link da TV ou link de pedidos dos clientes
         link_pedido_cliente = f"/?page=client_register&prestador={token}"
         st.markdown(f"**Link para os Clientes Pedirem Músicas:** `{link_pedido_cliente}`")
         
-        # Exemplo de QR Code para visualização rápida
         try:
             img = qrcode.make(link_pedido_cliente)
             buf = BytesIO()
@@ -62,7 +54,6 @@ def show_provider_panel_custom(token):
     with aba_fila:
         st.subheader("Fila de Espera Ativa")
         st.write("Aqui pode gerir, avançar ou remover os pedidos dos cantores na fila.")
-        # Lógica de listagem e controlo da fila do prestador
         try:
             res = requests.get(f"https://ffkaraoke-default-rtdb.firebaseio.com/pedidos/{token}.json", timeout=10)
             if res.status_code == 200 and res.json():
@@ -91,10 +82,8 @@ def show_provider_panel_custom(token):
     with aba_musicas:
         st.subheader("Catálogo de Músicas / Vídeos Disponíveis")
         st.write("Selecione os vídeos de fundo ou o catálogo de karaoke para exibição.")
-        # Campos personalizados do repertório do prestador
         url_clipe = st.text_input("URL do Vídeo Clipe Atual para a TV (MP4 / YouTube / Stream)")
         if st.button("💾 Atualizar Vídeo na TV"):
-            # Salvar no Firebase a escolha do clipe atual
             dados_extras = {"url_clipe_fundo": url_clipe}
             requests.patch(f"https://ffkaraoke-default-rtdb.firebaseio.com/config_prestadores/{token}.json", json=dados_extras)
             st.success("Vídeo de fundo atualizado com sucesso no ecrã da TV!")
@@ -114,4 +103,23 @@ def show_provider_panel_custom(token):
                     "contacto": contacto
                 }
                 requests.patch(f"https://ffkaraoke-default-rtdb.firebaseio.com/prestadores_info/{token}.json", json=novos_dados)
-                st.success("Dados do prestadores atualizados com sucesso!")
+                st.success("Dados do prestador atualizados com sucesso!")
+
+def renderizar_ecra_tv(token):
+    """Renderiza o ecrã secundário da TV para visualização dos clientes."""
+    st.title("📺 Ecrã de TV - FFKaraoke")
+    st.write(f"A carregar transmissão para o prestador: {token}")
+    
+    try:
+        res = requests.get(f"https://ffkaraoke-default-rtdb.firebaseio.com/config_prestadores/{token}.json", timeout=10)
+        if res.status_code == 200 and res.json():
+            config_data = res.json()
+            url_clipe = config_data.get("url_clipe_fundo")
+            if url_clipe:
+                st.video(url_clipe)
+            else:
+                st.info("Aguardando o prestador selecionar um vídeo clipe...")
+        else:
+            st.info("Aguardando o prestador selecionar um vídeo clipe...")
+    except Exception as e:
+        st.error(f"Erro ao carregar o ecrã da TV: {e}")
