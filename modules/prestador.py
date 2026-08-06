@@ -4,8 +4,6 @@ import requests
 import datetime
 import urllib.parse
 import uuid
-from io import BytesIO
-import qrcode
 
 def show_provider_panel_custom(provider_token):
     """Renderiza o painel de controlo completo e personalizado do prestador."""
@@ -199,7 +197,7 @@ def show_provider_panel_custom(provider_token):
             <div style="display: flex; align-items: center; gap: 15px;">
                 <span style="font-size: 32px;">🎤</span>
                 <div>
-                    <h1 style="margin: 0; color: #ffffff; font-family: monospace; font-size: 24px; text-transform: uppercase; font-weight: bold; text-shadow: 1px 1px 3px rgba(0,0,0,0.9);">PERFIL: {nome_prestador}</h1>
+                    <h1 style="margin: 0; color: #ffffff; font-family: monospace; font-size: 24px; text-transform: uppercase; font-weight: bold; text-shadow: 1px 1px 3px rgba(0,0,0,0.9);">PERFIL DO PRESTADOR 2: {nome_prestador}</h1>
                     <p style="margin: 3px 0 0 0; color: #ffffff; font-size: 13px; font-family: monospace; font-weight: bold; text-shadow: 1px 1px 3px rgba(0,0,0,0.9);">TOKEN: <code style="background: #222; color: #ffffff; padding: 2px 6px; border-radius: 4px; font-weight: bold;">{provider_token}</code></p>
                 </div>
             </div>
@@ -233,7 +231,7 @@ def show_provider_panel_custom(provider_token):
         
         st.markdown(f"""
             <div class="card-tv">
-                <div class="link-title-tv">📺 LINK DA TELA / REPRODUÇÃO</div>
+                <div class="link-title-tv">📺 LINK DA TELA DE TV / REPRODUÇÃO</div>
                 <a href="{link_tv_rel}" target="_blank" class="link-text-tv">{link_tv_absoluto}</a>
             </div>
         """, unsafe_allow_html=True)
