@@ -20,10 +20,7 @@ def atualizar_estado_pedido(token, pedido_id, novo_estado):
     except Exception:
         pass
 
-def show_provider_panel():
-    query_params = st.query_params
-    token = query_params.get("token", None)
-
+def show_provider_panel_custom(token):
     if not token:
         st.error("Acesso não autorizado. Por favor, aceda através do link válido fornecido na sua aprovação.")
         return
@@ -120,3 +117,20 @@ def show_provider_panel():
                         atualizar_estado_pedido(token, p_id, "terminado")
                         st.rerun()
         st.divider()
+
+def renderizar_ecra_tv(token):
+    """Função de compatibilidade para a tela de TV/Vídeos do prestador."""
+    if not token:
+        st.error("Token de prestador inválido para o ecrã de TV.")
+        return
+    
+    st.markdown("""
+    <style>
+    .stApp { background-color: #000000; color: #ffeb3b !important; }
+    * { color: #ffeb3b !important; }
+    </style>
+    """, unsafe_allow_html=True)
+    
+    st.subheader("📺 Ecrã de Reprodução — FF Karaoke")
+    st.markdown(f"A carregar o fluxo de vídeos para o token: `{token}`")
+    # Aqui pode integrar a lógica de exibição do vídeo atual baseada no token
