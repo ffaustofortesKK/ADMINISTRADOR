@@ -602,7 +602,7 @@ def show_provider_panel_custom(provider_token):
     url_logotipo = "https://cdn.phototourl.com/free/2026-08-03-8b13edf5-0257-491d-ab78-f0d5329ffc15.jpg"
     url_fundo_painel = "https://cdn.phototourl.com/free/2026-08-03-694a4a2e-9914-4da8-93b2-87538a4805ab.png"
 
-    df_prov = get_all_providers()
+    df_prov = get_all_providers() if 'get_all_providers' in globals() else pd.DataFrame()
     nome_prestador = "Prestador"
     tempo_plano = "2 Horas - 12 Mil Kwanzas"
     data_registo_str = None
@@ -646,14 +646,13 @@ def show_provider_panel_custom(provider_token):
     
     if data_registo_str:
         try:
-            # Compatibilidade total para parse de data com frações de segundos ou formatos ISO
             dt_str_clean = data_registo_str.split('.')[0]
             try:
-                dt_reg = datetime.strptime(dt_str_clean, "%Y-%m-%d %H:%M:%S")
+                dt_reg = datetime.datetime.strptime(dt_str_clean, "%Y-%m-%d %H:%M:%S")
             except Exception:
-                dt_reg = datetime.fromisoformat(data_registo_str.replace('Z', '+00:00').split('+')[0])
+                dt_reg = datetime.datetime.fromisoformat(data_registo_str.replace('Z', '+00:00').split('+')[0])
                 
-            diff = (datetime.now() - dt_reg).total_seconds()
+            diff = (datetime.datetime.now() - dt_reg).total_seconds()
             segundos_restantes = max(0, int(segundos_totais - diff))
         except Exception as e:
             print(f"Erro ao calcular tempo restante: {e}")
@@ -671,8 +670,7 @@ def show_provider_panel_custom(provider_token):
         aviso_reforço_html = """
         <div style="background: rgba(255,0,0,0.85); border: 3px solid #ffeb3b; padding: 10px; border-radius: 6px; margin-bottom: 15px; text-align: center; animation: pulseAviso 1s infinite;">
             <span style="color: #ffffff; font-size: 14px; font-weight: bold; text-shadow: 1px 1px 3px rgba(0,0,0,0.9);">
-                O SEU TEMPO ESTA TERMINANDO. PARA QUE NÃO PERCAS OS SEUS REGISTOS PEÇA REFORÇO DE TEMPO.
-            </span>
+                O SEU TEMPO ESTA TERMINANDO. PARA QUE NÃO PERCAS OS SEUS REGISTOS PEÇA REFORÇO DE TEMPO. </span>
             <div style="margin-top: 8px;">
                 <a href="#reforco_seccao" style="background: #FFC107; color: #000; padding: 6px 12px; border-radius: 4px; text-decoration: none; font-weight: bold; font-size: 13px;">⚡ PEDIR REFORÇO AGORA</a>
             </div>
@@ -879,10 +877,9 @@ def show_provider_panel_custom(provider_token):
                         "referencia": referencia_comprovativo,
                         "tempo_plano": duracao_reforco,
                         "approved": 0,
-                        "data_registo": str(datetime.now())
+                        "data_registo": str(datetime.datetime.now())
                     }
                     try:
-                        import uuid
                         ref_id = str(uuid.uuid4())[:8]
                         requests.put(f"{FIREBASE_URL}/reforcos_pendentes/{provider_token}/{ref_id}.json", json=dados_reforco, timeout=10)
                         st.success("Pedido de reforço submetido com sucesso! Aguarde a confirmação do Administrador.")
@@ -890,8 +887,11 @@ def show_provider_panel_custom(provider_token):
                         st.error(f"Erro ao enviar reforço: {err}")
 
     st.markdown("<div style='height: 10px;'></div>", unsafe_allow_html=True)
-    renderizar_gestao_fila_prestador(provider_token)
-
+    if 'renderizar_gestao_fila_prestador' in globals():
+        renderizar_gestao_fila_prestador(provider_token)
+    else:
+        st.warning("Função de gestão de fila não encontrada.")
+        
 @st.fragment(run_every=3)
 def renderizar_ecra_tv(provider_token):
     try:
