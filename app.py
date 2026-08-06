@@ -436,7 +436,7 @@ def renderizar_gestao_fila_prestador(provider_token):
                 pedidos = [{"id": k, **v} for k, v in data.items()]
             elif isinstance(data, list):
                 pedidos = [{"id": str(idx), **item} for idx, item in enumerate(data) if item is not None]
-            
+        
         pedidos_ativos = [p for p in pedidos if p.get("estado") in ["pendente", "aprovado"]]
         pedidos_ativos.sort(key=lambda x: x.get("timestamp", 0))
         
@@ -480,7 +480,7 @@ def renderizar_gestao_fila_prestador(provider_token):
             st.markdown("</div>", unsafe_allow_html=True)
 
         st.markdown("### 📋 Estado da Fila e Controlo de Reprodução")
-
+        
         if pedidos_ativos:
             for idx, p in enumerate(pedidos_ativos, start=1):
                 titulo_musica = obter_titulo(p.get("musica", {}))
@@ -569,7 +569,7 @@ def renderizar_gestao_fila_prestador(provider_token):
                 options=opcoes_labels, 
                 index=index_atual
             )
-
+            
             st.markdown("""
                 <style>
                 div[data-testid="stFormSubmitButton"] button {
