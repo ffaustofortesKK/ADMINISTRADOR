@@ -30,27 +30,29 @@ def show_provider_panel():
 
     st.markdown("""
     <style>
+    .stApp { background-color: #000000; color: #ffeb3b !important; }
+    * { color: #ffeb3b !important; }
     .link-row {
         background: linear-gradient(180deg, #111, #050505);
-        border: 1px solid #D4AF37;
+        border: 1px solid #ffeb3b;
         border-radius: 8px;
         padding: 12px 18px;
         margin-bottom: 12px;
         display: flex;
         align-items: center;
         justify-content: space-between;
-        box-shadow: 0px 0px 10px rgba(212,175,55,0.1);
+        box-shadow: 0px 0px 10px rgba(255,235,59,0.1);
         max-width: 600px;
     }
     .link-title {
-        color: #D4AF37;
+        color: #ffeb3b !important;
         font-weight: bold;
         font-size: 15px;
     }
     .btn-link {
         background-color: #1a1a1a;
-        color: #FFD700 !important;
-        border: 1px solid #D4AF37;
+        color: #ffeb3b !important;
+        border: 1px solid #ffeb3b;
         border-radius: 6px;
         padding: 6px 20px;
         text-decoration: none;
@@ -59,7 +61,7 @@ def show_provider_panel():
         transition: all 0.3s ease;
     }
     .btn-link:hover {
-        background-color: #D4AF37;
+        background-color: #ffeb3b;
         color: #000 !important;
     }
     </style>
