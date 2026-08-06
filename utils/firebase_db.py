@@ -90,6 +90,7 @@ def atualizar_estado_pedido(provider_token, pedido_id, novo_estado):
 
 def painel_prestador(provider_token):
     """Painel completo do prestador com atualização automática."""
+    st.markdown("<style>*{color: #ffeb3b !important;}</style>", unsafe_allow_html=True)
     st.subheader("📺 Painel do Prestador — Fila de Reprodução")
     
     placeholder = st.empty()
@@ -150,14 +151,15 @@ def show_client_screen():
 
     st.markdown("""
     <style>
-    .stApp { background-color: #000000; color: white; }
+    .stApp { background-color: #000000; color: #ffeb3b !important; }
+    * { color: #ffeb3b !important; }
     .box-header {
         background: linear-gradient(90deg, #1a1a1a, #2c2c2c);
-        border: 2px solid #d4af37;
+        border: 2px solid #ffeb3b;
         padding: 10px;
         text-align: center;
         border-radius: 8px;
-        color: #d4af37;
+        color: #ffeb3b !important;
         font-weight: bold;
         font-size: 18px;
         letter-spacing: 2px;
@@ -165,19 +167,19 @@ def show_client_screen():
     }
     .card-next {
         background: linear-gradient(135deg, #2b103a, #14081c);
-        border: 2px solid #9c27b0;
+        border: 2px solid #ffeb3b;
         padding: 15px;
         border-radius: 10px;
-        color: white;
+        color: #ffeb3b !important;
         text-align: center;
         margin-bottom: 15px;
     }
     .card-fila {
         background-color: #121212;
-        border: 1px solid #d4af37;
+        border: 1px solid #ffeb3b;
         padding: 10px;
         border-radius: 8px;
-        color: #ffffff;
+        color: #ffeb3b !important;
         margin-bottom: 8px;
     }
     </style>
@@ -205,15 +207,15 @@ def show_client_screen():
                 
                 st.markdown(f"""
                     <div class="card-next">
-                        <div style="font-size: 14px; color: #e0b0ff; margin-bottom: 5px;">— A Seguir —</div>
+                        <div style="font-size: 14px; color: #ffeb3b; margin-bottom: 5px;">— A Seguir —</div>
                         <div style="font-size: 22px; font-weight: bold; color: #ffeb3b;">{str(titulo).upper()}</div>
-                        <div style="font-size: 12px; color: #ccc; margin-top: 5px;">Cliente: {cliente}</div>
+                        <div style="font-size: 12px; color: #ffeb3b; margin-top: 5px;">Cliente: {cliente}</div>
                     </div>
                 """, unsafe_allow_html=True)
             else:
                 st.markdown("""
                     <div class="card-next">
-                        <div style="font-size: 16px; color: #888;">Nenhuma música de karaoke a tocar no momento.</div>
+                        <div style="font-size: 16px; color: #ffeb3b;">Nenhuma música de karaoke a tocar no momento.</div>
                     </div>
                 """, unsafe_allow_html=True)
 
@@ -230,7 +232,7 @@ def show_client_screen():
                     
                     st.markdown(f"""
                         <div class="card-fila">
-                            <b>{idx}.</b> {titulo_p} <span style="font-size:11px; color:#aaa;">({cliente_p})</span>
+                            <b>{idx}.</b> {titulo_p} <span style="font-size:11px; color:#ffeb3b;">({cliente_p})</span>
                         </div>
                     """, unsafe_allow_html=True)
 
@@ -246,9 +248,9 @@ def show_client_screen():
                     placeholder_contagem = st.empty()
                     for i in [3, 2, 1]:
                         placeholder_contagem.markdown(f"""
-                            <div style="border: 2px solid #d4af37; border-radius: 10px; padding: 40px; text-align: center; background-color: #0d0d0d; min-height: 300px; display: flex; flex-direction: column; justify-content: center; align-items: center;">
+                            <div style="border: 2px solid #ffeb3b; border-radius: 10px; padding: 40px; text-align: center; background-color: #0d0d0d; min-height: 300px; display: flex; flex-direction: column; justify-content: center; align-items: center;">
                                 <h2 style="color: #ffeb3b; margin-bottom: 10px;">A PREPARAR PALCO...</h2>
-                                <h1 style="color: #d4af37; font-size: 80px; margin: 0;">{i}</h1>
+                                <h1 style="color: #ffeb3b; font-size: 80px; margin: 0;">{i}</h1>
                             </div>
                         """, unsafe_allow_html=True)
                         time.sleep(1)
@@ -261,9 +263,9 @@ def show_client_screen():
                     st.warning("O link do vídeo do Cloudinary não foi encontrado para esta música.")
             else:
                 st.markdown("""
-                    <div style="border: 2px solid #d4af37; border-radius: 10px; padding: 40px; text-align: center; background-color: #0d0d0d; min-height: 300px; display: flex; flex-direction: column; justify-content: center; align-items: center;">
-                        <div style="color: #d4af37; font-size: 45px; margin-bottom: 10px;">📺</div>
-                        <span style='color: #aaa; font-size: 16px;'>Aguardando o prestador selecionar um pedido na fila...</span>
+                    <div style="border: 2px solid #ffeb3b; border-radius: 10px; padding: 40px; text-align: center; background-color: #0d0d0d; min-height: 300px; display: flex; flex-direction: column; justify-content: center; align-items: center;">
+                        <div style="color: #ffeb3b; font-size: 45px; margin-bottom: 10px;">📺</div>
+                        <span style='color: #ffeb3b; font-size: 16px;'>Aguardando o prestador selecionar um pedido na fila...</span>
                     </div>
                 """, unsafe_allow_html=True)
         
