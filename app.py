@@ -57,7 +57,7 @@ try:
 except Exception:
     original_show_register_page = None
 
-# Importação do módulo de prestador atualizado (substitui as funções antigas)
+# Importação do módulo de prestador atualizado
 try:
     from modules.prestador import show_provider_panel_custom, renderizar_ecra_tv
 except Exception:
