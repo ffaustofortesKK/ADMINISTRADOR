@@ -29,7 +29,7 @@ def show_provider_panel_custom(token):
         </style>
     """, unsafe_allow_html=True)
 
-    st.title("🎛️ Painel do Prestador - FFKaraoke")
+    st.title("🎛️Prestador - FFKaraoke")
     
     # Navegação interna do prestador por abas
     aba_painel, aba_fila, aba_musicas, aba_config = st.tabs([
