@@ -2,495 +2,744 @@ import streamlit as st
 import streamlit.components.v1 as components
 import requests
 import time
-import datetime
-import uuid
-import qrcode
-import io
-import base64
+import urllib.parse
+from datetime import datetime, timedelta
 
-# --- CONFIGURAÇÕES GLOBAIS ---
+# Configuração da Página do Streamlit
+st.set_page_config(
+    page_title="FF Karaoke Cloud",
+    page_icon="🎤",
+    layout="wide",
+    initial_sidebar_state="collapsed"
+)
+
+# Constantes de Integração
 FIREBASE_URL = "https://ffkaraoke-default-rtdb.firebaseio.com"
 
-# Funções auxiliares fictícias/mock caso não estejam definidas no escopo externo
+# Funções Auxiliares de Mock / Suporte (caso não estejam importadas de módulos externos)
 def get_all_providers():
+    import pandas as pd
     try:
         res = requests.get(f"{FIREBASE_URL}/prestadores.json", timeout=5)
         if res.status_code == 200 and res.json():
-            import pandas as pd
             data = res.json()
-            return pd.DataFrame([{"token": k, **v} for k, v in data.items()])
+            rows = [{"token": k, **v} for k, v in data.items()]
+            return pd.DataFrame(rows)
     except Exception:
         pass
-    import pandas as pd
-    return pd.DataFrame()
-
-def obter_video_fundo(provider_token):
-    return ""
-
-def limpar_nome_musica(musica_obj):
-    if isinstance(musica_obj, dict):
-        return musica_obj.get("titulo", "Música Desconhecida")
-    return str(musica_obj)
-
-def obter_url_video_cloudinary(musica_obj, titulo_limpo):
-    if isinstance(musica_obj, dict):
-        return musica_obj.get("url", "")
-    return ""
-
-def renderizar_gestao_fila_prestador(provider_token):
-    st.markdown("### 📋 Gestão da Fila de Pedidos", unsafe_allow_html=True)
-    try:
-        url_firebase = f"{FIREBASE_URL}/pedidos/{provider_token}.json"
-        res = requests.get(url_firebase, timeout=5)
-        if res.status_code == 200 and res.json():
-            data = res.json()
-            for k, v in data.items():
-                st.write(f"- **{v.get('cliente')}**: {limpar_nome_musica(v.get('musica'))} [{v.get('estado')}]")
-        else:
-            st.info("Nenhum pedido na fila de momento.")
-    except Exception as e:
-        st.error(f"Erro ao carregar fila: {e}")
-
-def show_client_page():
-    st.markdown("### Página do Cliente")
-
-def show_admin_panel():
-    st.markdown("### Painel Administrativo")
+    return pd.DataFrame(columns=['token', 'approved'])
 
 def custom_show_register_page():
-    st.markdown("### Registo de Prestadores")
-    st.info("Preencha os dados para solicitar o seu registo no FF Karaoke Cloud.")
-    with st.form("form_registo_prestador"):
-        nome = st.text_input("Nome do Prestador / Estabelecimento")
-        telefone = st.text_input("Número de Telemóvel")
-        plano = st.selectbox("Plano Pretendido", ["2 Horas - 12 Mil Kwanzas", "3 Horas - 15 Mil Kwanzas", "4 Horas - 20 Mil Kwanzas"])
-        btn_reg = st.form_submit_button("Submeter Registo")
-        if btn_reg:
-            if not nome or not telefone:
-                st.error("Por favor, preencha todos os campos obrigatórios.")
-            else:
-                token_novo = str(uuid.uuid4())[:8]
-                dados_reg = {
-                    "nome": nome,
-                    "telefone": telefone,
-                    "plano": plano,
-                    "token": token_novo,
-                    "approved": 0,
-                    "data_registo": str(datetime.datetime.now())
-                }
-                try:
-                    requests.put(f"{FIREBASE_URL}/prestadores/{token_novo}.json", json=dados_reg, timeout=10)
-                    st.success(f"Registo submetido com sucesso! O seu token temporário é: {token_novo}")
-                except Exception as err:
-                    st.error(f"Erro ao submeter registo: {err}")
+    st.title("Registo de Novo Prestador")
+    st.info("Utilize o formulário oficial de registo para criar a sua conta de prestador.")
+
+def show_client_page():
+    st.title("Registo de Música - Cliente")
+    st.info("Interface de registo de pedidos de música para clientes.")
+
+def show_admin_panel():
+    st.subheader("Painel Administrativo Geral")
+    st.info("Gestão completa de prestadores, planos e definições do sistema.")
+
+def renderizar_gestao_fila_prestador(token):
+    st.markdown("### 📋 Gestão da Fila de Músicas")
+    try:
+        url = f"{FIREBASE_URL}/pedidos/{token}.json"
+        res = requests.get(url, timeout=5)
+        if res.status_code == 200 and res.json():
+            data = res.json()
+            for pid, pdata in data.items():
+                cliente = pdata.get("cliente", "Convidado")
+                musica = pdata.get("musica", {})
+                titulo = musica.get("titulo", "Música") if isinstance(musica, dict) else str(musica)
+                estado = pdata.get("estado", "pendente")
+                
+                col1, col2, col3 = st.columns([3, 2, 2])
+                with col1:
+                    st.write(f"**{cliente}** - {titulo} [{estado}]")
+                with col2:
+                    if estado == "pendente":
+                        if st.button("Aprovar", key=f"apr_{pid}"):
+                            requests.put(f"{FIREBASE_URL}/pedidos/{token}/{pid}/estado.json", json="aprovado")
+                            st.rerun()
+                with col3:
+                    if estado != "terminado":
+                        if st.button("Terminar", key=f"term_{pid}"):
+                            requests.put(f"{FIREBASE_URL}/pedidos/{token}/{pid}/estado.json", json="terminado")
+                            st.rerun()
+        else:
+            st.info("Sem pedidos na fila neste momento.")
+    except Exception as e:
+        st.warning(f"Erro ao carregar fila: {e}")
+
+def limpar_nome_musica(titulo):
+    return titulo
+
+def obter_url_video_cloudinary(musica, titulo_limpo):
+    if isinstance(musica, dict):
+        return musica.get("url_cloudinary", "") or musica.get("url", "")
+    return ""
+
+def obter_video_fundo(token):
+    return ""
 
 def show_provider_panel_custom(provider_token):
-    url_fundo_painel = "https://cdn.phototourl.com/free/2026-08-03-694a4a2e-9914-4da8-93b2-87538a4805ab.png"
-    url_logotipo = "https://cdn.phototourl.com/free/2026-08-03-8b13edf5-0257-491d-ab78-f0d5329ffc15.jpg"
-    
-    # Obter dados do prestador
-    nome_prestador = "Prestador"
-    segundos_restantes = 3600
-    tempo_formatado = "01:00:00"
+    nome_prestador = "Prestador FF Karaoke"
+    url_logotipo = "https://res.cloudinary.com/demo/image/upload/sample.jpg"
+    tempo_formatado = "02:00:00"
+    tempo_plano = "2 Horas"
     classe_piscar = ""
     aviso_reforço_html = ""
-
-    try:
-        res = requests.get(f"{FIREBASE_URL}/prestadores/{provider_token}.json", timeout=5)
-        if res.status_code == 200 and res.json():
-            dados_p = res.json()
-            nome_prestador = dados_p.get("nome", "Prestador")
-    except Exception:
-        pass
+    segundos_restantes = 3600
 
     st.markdown(f"""
     <style>
     .stApp {{
-        background: url("{url_fundo_painel}") no-repeat center center fixed !important;
-        background-size: cover !important;
-    }}
-    .block-container {{
-        padding: 2rem !important;
-        background: rgba(0, 0, 0, 0.90) !important;
-        border: 4px solid #FFC107 !important;
-        border-radius: 12px;
+        background-color: #000000 !important;
+        color: #ffffff !important;
     }}
     .panel-header {{
         display: flex;
         justify-content: space-between;
         align-items: center;
-        background: rgba(20, 20, 20, 0.9);
+        background: #111;
+        border: 3px solid #FFC107;
         padding: 15px;
-        border-radius: 8px;
-        border: 2px solid #FFC107;
+        border-radius: 10px;
         margin-bottom: 20px;
     }}
     .card-link {{
-        background: rgba(30, 30, 30, 0.9);
-        border: 2px solid #FFC107;
+        background: rgba(0,0,0,0.95);
+        border: 4px solid #FFC107;
         padding: 15px;
-        border-radius: 8px;
+        border-radius: 10px;
         margin-bottom: 15px;
     }}
     .card-tv {{
-        background: rgba(30, 30, 30, 0.9);
-        border: 2px solid #9c27b0;
+        background: rgba(0,0,0,0.95);
+        border: 4px solid #FFC107;
         padding: 15px;
-        border-radius: 8px;
+        border-radius: 10px;
         margin-bottom: 15px;
     }}
-    .link-title {{
-        font-family: monospace;
-        color: #FFC107;
-        font-size: 14px;
-        font-weight: bold;
-        margin-bottom: 5px;
-        text-shadow: 1px 1px 3px rgba(0,0,0,0.9);
+    .qr-box {{
+        background: rgba(0,0,0,0.95);
+        border: 4px solid #FFC107;
+        padding: 10px;
+        border-radius: 8px;
+        text-align: center;
+        display: flex;
+        justify-content: center;
+        align-items: center;
     }}
-    .link-url {{
+    .link-title {
         font-family: monospace;
-        color: #FFC107 !important;
-        font-size: 13px;
+        color: #ffffff !important;
+        font-size: 15px;
         font-weight: bold !important;
+        margin-bottom: 4px;
+        text-shadow: 1px 1px 3px rgba(0,0,0,0.9) !important;
+    }
+    .link-title-tv {
+        font-family: monospace;
+        color: #ffffff !important;
+        font-size: 15px;
+        font-weight: bold !important;
+        margin-bottom: 4px;
+        text-shadow: 1px 1px 3px rgba(0,0,0,0.9) !important;
+    }
+    .link-text {
+        font-family: monospace;
+        color: #ffffff !important;
+        font-size: 13px;
         word-break: break-all;
-        text-shadow: 1px 1px 3px rgba(0,0,0,0.9);
-    }}
+        text-decoration: underline;
+        font-weight: bold !important;
+        text-shadow: 1px 1px 3px rgba(0,0,0,0.9) !important;
+    }
+    .link-text-tv {
+        font-family: monospace;
+        color: #ffffff !important;
+        font-size: 13px;
+        word-break: break-all;
+        text-decoration: underline;
+        font-weight: bold !important;
+        text-shadow: 1px 1px 3px rgba(0,0,0,0.9) !important;
+    }
+    .top-logo {
+        position: absolute;
+        top: -10px;
+        right: 0px;
+        width: 70px;
+        height: 70px;
+        border-radius: 50%;
+        border: 3px solid #FFC107;
+        object-fit: cover;
+    }
+    
+    h1, h2, h3, h4, h5, h6, p, label, span, div, .stMarkdown {
+        color: #ffffff !important;
+        font-weight: bold !important;
+        text-shadow: 1px 1px 3px rgba(0,0,0,0.9) !important;
+    }
     </style>
-
-    <div class="panel-header">
-        <div style="display: flex; align-items: center;">
-            <img src="{url_logotipo}" style="width: 55px; height: 55px; border-radius: 50%; border: 2px solid #FFC107; object-fit: cover; margin-right: 15px;" />
-            <div>
-                <h2 style="margin: 0; color: #FFC107; font-family: monospace; font-size: 22px; font-weight: bold; text-shadow: 1px 1px 3px rgba(0,0,0,0.9);">PAINEL DO PRESTADOR</h2>
-                <p style="margin: 0; color: #ffffff; font-family: monospace; font-size: 14px; font-weight: bold; text-shadow: 1px 1px 3px rgba(0,0,0,0.9);">Prestador: <b>{nome_prestador.upper()}</b></p>
-            </div>
-        </div>
-        <div style="text-align: right; font-family: monospace;">
-            <div style="font-size: 12px; color: #ffffff; font-weight: bold; text-shadow: 1px 1px 3px rgba(0,0,0,0.9);">TEMPO RESTANTE</div>
-            <div style="font-size: 22px; font-weight: bold; color: #FFC107; {classe_piscar} text-shadow: 1px 1px 3px rgba(0,0,0,0.9);">⏳ {tempo_formatado}</div>
-        </div>
-    </div>
+    
+    <img src="{url_logotipo}" class="top-logo" />
     """, unsafe_allow_html=True)
 
-    if aviso_reforço_html:
-        st.markdown(aviso_reforço_html, unsafe_allow_html=True)
+    st.markdown(f"""
+        <div class="panel-header">
+            <div style="display: flex; align-items: center; gap: 15px;">
+                <span style="font-size: 32px;">🎤</span>
+                <div>
+                    <h1 style="margin: 0; color: #ffffff; font-family: monospace; font-size: 24px; text-transform: uppercase; font-weight: bold; text-shadow: 1px 1px 3px rgba(0,0,0,0.9);">PAINEL DO PRESTADOR: {nome_prestador}</h1>
+                    <p style="margin: 3px 0 0 0; color: #ffffff; font-size: 13px; font-family: monospace; font-weight: bold; text-shadow: 1px 1px 3px rgba(0,0,0,0.9);">TOKEN: <code style="background: #222; color: #ffffff; padding: 2px 6px; border-radius: 4px; font-weight: bold;">{provider_token}</code></p>
+                </div>
+            </div>
+            <div style="background: rgba(255,193,7,0.15); border: 2px solid #FFC107; padding: 6px 12px; border-radius: 8px; text-align: right; margin-right: 80px;">
+                <div style="font-family: monospace; color: #ffffff; font-size: 11px; text-transform: uppercase; font-weight: bold; text-shadow: 1px 1px 3px rgba(0,0,0,0.9);">TEMPO / PLANO ESCOLHIDO</div>
+                <div style="font-family: monospace; color: #FFC107; font-size: 15px; font-weight: bold; text-shadow: 1px 1px 3px rgba(0,0,0,0.9); {classe_piscar}">⏱️ {tempo_formatado} ({tempo_plano})</div>
+            </div>
+        </div>
+    """, unsafe_allow_html=True)
 
-    if segundos_restantes <= 0:
-        st.markdown("""
-            <div style="background: rgba(255,0,0,0.95); border: 4px solid #FFC107; padding: 30px; border-radius: 8px; text-align: center; font-family: monospace; margin-top: 30px;">
-                <h1 style="color: #ffffff; font-size: 32px; font-weight: bold; margin-bottom: 15px; text-shadow: 1px 1px 3px rgba(0,0,0,0.9);">O SEU TEMPO EXPIROU!</h1>
-                <p style="color: #ffffff; font-size: 18px; font-weight: bold; margin-bottom: 20px; text-shadow: 1px 1px 3px rgba(0,0,0,0.9);">O acesso ao painel foi temporariamente bloqueado. Efectue o pagamento do reforço ou contacte o administrador (Tel: 921204050).</p>
+    st.markdown(aviso_reforço_html, unsafe_allow_html=True)
+    
+    link_cliente_rel = f"/?page=client_register&prestador={provider_token}"
+    link_tv_rel = f"/?page=client_screen&prestador={provider_token}"
+    
+    host_dominio = st.context.headers.get('Host', 'grupoffkaraoke.streamlit.app')
+    link_cliente_absoluto = f"https://{host_dominio}{link_cliente_rel}"
+    link_tv_absoluto = f"https://{host_dominio}{link_tv_rel}"
+    
+    qr_url_cliente = f"https://api.qrserver.com/v1/create-qr-code/?size=150x150&data={urllib.parse.quote(link_cliente_absoluto)}"
+
+    col_links, col_qr = st.columns([3, 1])
+    
+    with col_links:
+        st.markdown(f"""
+            <div class="card-link">
+                <div class="link-title">🔗 LINK DO CLIENTE (REGISTO DE MÚSICA)</div>
+                <a href="{link_cliente_rel}" target="_blank" class="link-text">{link_cliente_absoluto}</a>
             </div>
         """, unsafe_allow_html=True)
         
-        st.markdown("<div id='reforco_seccao'></div>", unsafe_allow_html=True)
-        st.markdown("### ⚡ Pedir Reforço de Tempo", unsafe_allow_html=True)
-        with st.form("form_reforco_expinado"):
-            duracao_reforco = st.selectbox(
-                "Escolha o Plano de Reforço",
-                options=[
-                    "2 Horas - 12 Mil Kwanzas",
-                    "3 Horas - 15 Mil Kwanzas",
-                    "4 Horas - 20 Mil Kwanzas"
-                ],
-                key="sel_reforco_exp"
-            )
-            tel_reforco = st.text_input("Número de Telefone de Confirmação", key="tel_ref_exp")
-            btn_sub_ref = st.form_submit_button("Submeter Pedido de Reforço")
-            if btn_sub_ref:
-                if not tel_reforco:
-                    st.error("Por favor, insira o seu número de telefone.")
-                else:
-                    ref_id = str(uuid.uuid4())[:8]
-                    dados_ref = {
-                        "token_prestador": provider_token,
-                        "nome_prestador": nome_prestador,
-                        "telefone": tel_reforco,
-                        "tempo_plano": duracao_reforco,
-                        "approved": 0,
-                        "data_registo": str(datetime.datetime.now())
-                    }
-                    try:
-                        requests.put(f"{FIREBASE_URL}/reforcos_pendentes/{ref_id}.json", json=dados_ref, timeout=10)
-                        st.success("Pedido de reforço submetido com sucesso! Aguarde aprovação do administrador.")
-                        time.sleep(2)
-                        st.rerun()
-                    except Exception as err:
-                        st.error(f"Erro ao submeter reforço: {err}")
-        return
-
-    base_url_app = "https://grupoffkaraoke.streamlit.app"
-    link_cliente = f"{base_url_app}/?cliente={provider_token}"
-    link_tv = f"{base_url_app}/?tv={provider_token}"
-
-    def gerar_qr_code_base64(url_texto):
-        try:
-            qr = qrcode.QRCode(version=1, box_size=10, border=2)
-            qr.add_data(url_texto)
-            qr.make(fit=True)
-            img = qr.make_image(fill_color="black", back_color="white")
-            buffered = io.BytesIO()
-            img.save(buffered, format="PNG")
-            return base64.b64encode(buffered.getvalue()).decode()
-        except Exception:
-            return ""
-
-    qr_cliente_b64 = gerar_qr_code_base64(link_cliente)
-    qr_tv_b64 = gerar_qr_code_base64(link_tv)
-
-    col_links_1, col_links_2 = st.columns(2)
-    with col_links_1:
-        st.markdown(f"""
-            <div class="card-link">
-                <div style="display: flex; align-items: center; justify-content: space-between;">
-                    <div style="flex-grow: 1; padding-right: 10px;">
-                        <div class="link-title">📱 LINK DO CLIENTE (PEDIDOS)</div>
-                        <div class="link-url">{link_cliente}</div>
-                    </div>
-                    <div style="min-width: 70px; text-align: center;">
-                        <img src="data:image/png;base64,{qr_cliente_b64}" style="width: 65px; height: 65px; border-radius: 4px; border: 2px solid #FFC107;" />
-                    </div>
-                </div>
-            </div>
-        """, unsafe_allow_html=True)
-
-    with col_links_2:
         st.markdown(f"""
             <div class="card-tv">
-                <div style="display: flex; align-items: center; justify-content: space-between;">
-                    <div style="flex-grow: 1; padding-right: 10px;">
-                        <div class="link-title" style="color: #ffffff !important;">📺 LINK DA TELA DE TV / PROJETOR</div>
-                        <div class="link-url" style="color: #e040fb !important;">{link_tv}</div>
-                    </div>
-                    <div style="min-width: 70px; text-align: center;">
-                        <img src="data:image/png;base64,{qr_tv_b64}" style="width: 65px; height: 65px; border-radius: 4px; border: 2px solid #9c27b0;" />
-                    </div>
-                </div>
+                <div class="link-title-tv">📺 LINK DA TELA DE TV / REPRODUÇÃO</div>
+                <a href="{link_tv_rel}" target="_blank" class="link-text-tv">{link_tv_absoluto}</a>
+            </div>
+        """, unsafe_allow_html=True)
+        
+    with col_qr:
+        st.markdown("<div style='font-family: monospace; color: #ffffff; font-size: 11px; font-weight: bold; margin-bottom: 2px; text-align: center; text-shadow: 1px 1px 3px rgba(0,0,0,0.9);'>QR CODE CLIENTE</div>", unsafe_allow_html=True)
+        st.markdown(f"""
+            <div class="qr-box">
+                <img src="{qr_url_cliente}" width="110" style="border-radius: 4px;" />
             </div>
         """, unsafe_allow_html=True)
 
-    st.markdown("---")
-    renderizar_gestao_fila_prestador(provider_token)
-
     st.markdown("<div id='reforco_seccao'></div>", unsafe_allow_html=True)
-    with st.expander("⚡ Solicitar Reforço de Tempo (Menu de Extensão)"):
-        with st.form("form_reforco_painel"):
-            duracao_ref_painel = st.selectbox(
-                "Duração Adicional Pretendida",
+    if segundos_restantes <= 1800:
+        st.markdown("### ⚡ Solicitar Reforço de Tempo")
+        with st.form("form_reforco_prestador"):
+            referencia_comprovativo = st.text_input("Referência de Pagamento / Nº de Comprovativo")
+            duracao_reforco = st.selectbox(
+                "Duração Pretendida", 
                 options=[
-                    "2 Horas - 12 Mil Kwanzas",
-                    "3 Horas - 15 Mil Kwanzas",
+                    "2 Horas - 12 Mil Kwanzas", 
+                    "3 Horas - 15 Mil Kwanzas", 
                     "4 Horas - 20 Mil Kwanzas"
                 ]
             )
-            telefone_ref_painel = st.text_input("Número de Telefone para Confirmação")
-            btn_sub_ref_painel = st.form_submit_button("Submeter Pedido de Reforço")
-            if btn_sub_ref_painel:
-                if not telefone_ref_painel:
-                    st.error("Por favor, preencha o número de telefone.")
+            btn_sub_reforco = st.form_submit_button("Submeter Pedido de Reforço")
+            if btn_sub_reforco:
+                if not referencia_comprovativo:
+                    st.error("Por favor, preencha a Referência de Pagamento / Nº de Comprovativo.")
                 else:
-                    ref_id = str(uuid.uuid4())[:8]
-                    dados_ref = {
-                        "token_prestador": provider_token,
+                    dados_reforco = {
+                        "token": provider_token,
                         "nome_prestador": nome_prestador,
-                        "telefone": telefone_ref_painel,
-                        "tempo_plano": duracao_ref_painel,
+                        "referencia": referencia_comprovativo,
+                        "tempo_plano": duracao_reforco,
                         "approved": 0,
-                        "data_registo": str(datetime.datetime.now())
+                        "data_registo": str(datetime.now())
                     }
                     try:
-                        requests.put(f"{FIREBASE_URL}/reforcos_pendentes/{ref_id}.json", json=dados_ref, timeout=10)
-                        st.success("Pedido de reforço submetido com sucesso! Aguarde a aprovação do Administrador.")
+                        import uuid
+                        ref_id = str(uuid.uuid4())[:8]
+                        requests.put(f"{FIREBASE_URL}/reforcos_pendentes/{provider_token}/{ref_id}.json", json=dados_reforco, timeout=10)
+                        st.success("Pedido de reforço submetido com sucesso! Aguarde a confirmação do Administrador.")
                     except Exception as err:
-                        st.error(f"Erro ao submeter reforço: {err}")
+                        st.error(f"Erro ao enviar reforço: {err}")
 
+    st.markdown("<div style='height: 10px;'></div>", unsafe_allow_html=True)
+    renderizar_gestao_fila_prestador(provider_token)
+
+@st.fragment(run_every=3)
 def renderizar_ecra_tv(provider_token):
-    url_fundo_painel = "https://cdn.phototourl.com/free/2026-08-03-694a4a2e-9914-4da8-93b2-87538a4805ab.png"
-    url_logotipo = "https://cdn.phototourl.com/free/2026-08-03-8b13edf5-0257-491d-ab78-f0d5329ffc15.jpg"
-    
-    st.markdown(f"""
-    <style>
-    .stApp {{
-        background: url("{url_fundo_painel}") no-repeat center center fixed !important;
-        background-size: cover !important;
-    }}
-    .block-container {{
-        padding: 1rem !important;
-        max-width: 100% !important;
-        background: rgba(0, 0, 0, 0.95) !important;
-        border: 4px solid #FFC107 !important;
-        border-radius: 12px;
-    }}
-    </style>
-    """, unsafe_allow_html=True)
-
     try:
         url_firebase = f"{FIREBASE_URL}/pedidos/{provider_token}.json?_t={time.time()}"
-        res = requests.get(url_firebase, timeout=5)
-        pedidos = []
-        if res.status_code == 200 and res.json():
-            data = res.json()
+        response = requests.get(url_firebase, timeout=10)
+        
+        pedidos_ativos = []
+        tocando_agora = None
+        
+        if response.status_code == 200 and response.json():
+            data = response.json()
             pedidos = [{"id": k, **v} for k, v in data.items()]
-            
-        tocando_agora = next((p for p in pedidos if p.get("estado") == "aprovado"), None)
-        video_fundo = obter_video_fundo(provider_token)
+            pedidos_ativos = [p for p in pedidos if p.get("estado") in ["pendente", "aprovado"]]
+            pedidos_ativos.sort(key=lambda x: x.get("timestamp", 0))
+            tocando_agora = next((p for p in pedidos_ativos if p.get("estado") == "aprovado"), None)
+        
+        frame_styles = """
+            <style>
+                @keyframes pulseSpeaker {
+                    0% { transform: scale(1); filter: drop-shadow(0 0 2px #FFC107); }
+                    50% { transform: scale(1.12); filter: drop-shadow(0 0 14px #FFC107); }
+                    100% { transform: scale(1); filter: drop-shadow(0 0 2px #FFC107); }
+                }
+                @keyframes bounceIcon {
+                    0%, 100% { transform: translateY(0) rotate(0deg); }
+                    50% { transform: translateY(-5px) rotate(10deg); }
+                }
+                @keyframes marqueeFast {
+                    0% { transform: translateX(0%); }
+                    100% { transform: translateX(-50%); }
+                }
+                .speaker-box {
+                    position: fixed;
+                    z-index: 99998;
+                    width: 90px;
+                    height: 140px;
+                    background: #111;
+                    border: 4px solid #FFC107;
+                    border-radius: 10px;
+                    display: flex;
+                    flex-direction: column;
+                    align-items: center;
+                    justify-content: space-around;
+                    padding: 8px 0;
+                    box-shadow: 0 0 15px rgba(255, 193, 7, 0.4);
+                    pointer-events: none;
+                    animation: pulseSpeaker 0.55s infinite ease-in-out;
+                }
+                .woofer {
+                    width: 55px;
+                    height: 55px;
+                    border: 3px solid #FFC107;
+                    border-radius: 50%;
+                    background: radial-gradient(circle, #333 30%, #000 90%);
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    box-shadow: inset 0 0 8px #FFC107;
+                }
+                .woofer-inner {
+                    width: 22px;
+                    height: 22px;
+                    background: #FFC107;
+                    border-radius: 50%;
+                }
+                
+                .speaker-tl { top: 15px; left: 15px; }
+                .speaker-tr { top: 15px; right: 15px; }
+                .speaker-bl { bottom: 50px; left: 15px; }
+                .speaker-br { bottom: 50px; right: 15px; }
+
+                .marquee-footer {
+                    position: fixed;
+                    bottom: 0;
+                    left: 0;
+                    width: 100vw;
+                    height: 38px;
+                    background: #111;
+                    border-top: 4px solid #FFC107;
+                    z-index: 99997;
+                    overflow: hidden;
+                    display: flex;
+                    align-items: center;
+                    white-space: nowrap;
+                    pointer-events: none;
+                }
+                .marquee-track {
+                    display: inline-block;
+                    white-space: nowrap;
+                    animation: marqueeFast 15s linear infinite;
+                    font-family: monospace;
+                    font-size: 16px;
+                    color: #ffffff;
+                    font-weight: bold;
+                    text-shadow: 1px 1px 3px rgba(0,0,0,0.9);
+                }
+                .marquee-item {
+                    display: inline-flex;
+                    align-items: center;
+                    gap: 12px;
+                    margin-right: 40px;
+                }
+                .icon-anim {
+                    display: inline-block;
+                    animation: bounceIcon 0.8s infinite ease-in-out;
+                }
+            </style>
+
+            <div class="speaker-box speaker-tl">
+                <div class="woofer"><div class="woofer-inner"></div></div>
+                <div class="woofer"><div class="woofer-inner"></div></div>
+            </div>
+            <div class="speaker-box speaker-tr">
+                <div class="woofer"><div class="woofer-inner"></div></div>
+                <div class="woofer"><div class="woofer-inner"></div></div>
+            </div>
+            <div class="speaker-box speaker-bl">
+                <div class="woofer"><div class="woofer-inner"></div></div>
+                <div class="woofer"><div class="woofer-inner"></div></div>
+            </div>
+            <div class="speaker-box speaker-br">
+                <div class="woofer"><div class="woofer-inner"></div></div>
+                <div class="woofer"><div class="woofer-inner"></div></div>
+            </div>
+
+            <div class="marquee-footer">
+                <div class="marquee-track">
+                    <span class="marquee-item"><span class="icon-anim">🎵</span> FF KARAOKE CLOUD <span class="icon-anim">🎤</span> CANTE COMIGO <span class="icon-anim">🎶</span> A SUA MÚSICA FAVORITA <span class="icon-anim">🎙️</span> DIVIRTA-SE AO MÁXIMO</span>
+                    <span class="marquee-item"><span class="icon-anim">🎵</span> FF KARAOKE CLOUD <span class="icon-anim">🎤</span> CANTE COMIGO <span class="icon-anim">🎶</span> A SUA MÚSICA FAVORITA <span class="icon-anim">🎙️</span> DIVIRTA-SE AO MÁXIMO</span>
+                </div>
+            </div>
+        """
 
         if tocando_agora:
-            musica_obj = tocando_agora.get("musica", {})
-            titulo_limpo = limpar_nome_musica(musica_obj)
-            url_video = obter_url_video_cloudinary(musica_obj, titulo_limpo)
-            cliente_nome = tocando_agora.get("cliente", "Convidado")
+            musica = tocando_agora.get("musica", {})
+            if isinstance(musica, dict):
+                titulo = musica.get("titulo", musica.get("nome", "Karaoke"))
+                url_video = musica.get("url_cloudinary", "") or musica.get("url", "")
+            else:
+                titulo = str(musica)
+                url_video = ""
+            
+            titulo_limpo = limpar_nome_musica(titulo)
+            url_video = obter_url_video_cloudinary(musica, titulo_limpo)
 
-            st.markdown(f"""
-                <div style="text-align: center; margin-bottom: 10px; font-family: monospace;">
-                    <h2 style="color: #FFC107; font-size: 26px; font-weight: bold; text-shadow: 1px 1px 3px rgba(0,0,0,0.9); margin: 0;">🎶 A CANTAR AGORA: {titulo_limpo.upper()}</h2>
-                    <p style="color: #ffffff; font-size: 16px; font-weight: bold; text-shadow: 1px 1px 3px rgba(0,0,0,0.9); margin: 5px 0 0 0;">Cantor(a): <b>{cliente_nome}</b></p>
+            video_html = f"""
+            <style>
+                body, html {{
+                    margin: 0;
+                    padding: 0;
+                    background: #000;
+                    overflow: hidden;
+                    width: 100vw;
+                    height: 100vh;
+                }}
+                @keyframes zoomInNumber {{
+                    0% {{ transform: scale(0.2); opacity: 0; }}
+                    50% {{ transform: scale(1.2); opacity: 1; }}
+                    100% {{ transform: scale(1); opacity: 1; }}
+                }}
+                .countdown-overlay {{
+                    position: fixed;
+                    top: 0; left: 0; width: 100vw; height: 100vh;
+                    background: rgba(0,0,0,0.95);
+                    display: flex;
+                    justify-content: center;
+                    align-items: center;
+                    z-index: 99999;
+                    color: #ffffff;
+                    font-family: monospace;
+                    font-size: 15vw;
+                    font-weight: bold;
+                    text-shadow: 2px 2px 5px rgba(0,0,0,0.9);
+                    animation: zoomInNumber 0.9s ease-in-out infinite;
+                }}
+            </style>
+
+            <div id="countdown-screen" class="countdown-overlay">3</div>
+
+            <div id="karaoke-container" style="display: none; width: 100vw; height: 100vh; background: black; position: fixed; top: 0; left: 0;">
+                <video id="karaoke-player" width="100%" height="100%" autoplay playsinline style="object-fit: contain; background: black; width: 100%; height: 100%;">
+                    <source src="{url_video}" type="video/mp4">
+                    O seu navegador não suporta a reprodução deste vídeo.
+                </video>
+                <div id="audio-warning" style="display: none; position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); text-align: center; background: #222; border: 4px solid #FFC107; padding: 10px 20px; border-radius: 5px; z-index: 99999;">
+                    <p style="color: #ffffff; margin: 0 0 8px 0; font-family: monospace; font-size: 14px; font-weight: bold; text-shadow: 1px 1px 3px rgba(0,0,0,0.9);">⚠️ O navegador bloqueou o áudio automático.</p>
+                    <button onclick="unmuteVideo()" style="background-color: #4CAF50; color: white; border: none; padding: 8px 16px; font-size: 15px; border-radius: 4px; cursor: pointer; font-weight: bold;">🔊 CLIQUE AQUI PARA ATIVAR O SOM</button>
                 </div>
-            """, unsafe_allow_html=True)
+            </div>
 
-            if url_video:
-                components.html(f"""
-                    <div style="width: 100%; height: 75vh; background: #000; display: flex; align-items: center; justify-content: center; overflow: hidden; border-radius: 8px; border: 3px solid #FFC107;">
-                        <video id="tvVideo" src="{url_video}" autoplay controls style="width: 100%; height: 100%; object-fit: contain;"></video>
+            <script>
+                var count = 3;
+                var cdScreen = document.getElementById('countdown-screen');
+                
+                var timer = setInterval(function() {{
+                    count--;
+                    if (count > 0) {{
+                        cdScreen.innerText = count;
+                    }} else if (count === 0) {{
+                        cdScreen.innerText = "🎤 CANTE!";
+                    }} else {{
+                        clearInterval(timer);
+                        cdScreen.style.display = 'none';
+                        document.getElementById('karaoke-container').style.display = 'block';
+                        
+                        var video = document.getElementById('karaoke-player');
+                        video.muted = false; 
+                        var playPromise = video.play();
+                        
+                        if (playPromise !== undefined) {{
+                            playPromise.then(_ => {{}}).catch(error => {{
+                                video.muted = true;
+                                video.play();
+                                document.getElementById('audio-warning').style.display = 'block';
+                            }});
+                        }}
+                    }}
+                }}, 1000);
+
+                function unmuteVideo() {{
+                    var video = document.getElementById('karaoke-player');
+                    video.muted = false;
+                    video.play();
+                    document.getElementById('audio-warning').style.display = 'none';
+                }}
+
+                function stopKaraoke() {{
+                    var pedidoId = "{tocando_agora.get('id')}";
+                    var token = "{provider_token}";
+                    var firebaseURL = "{FIREBASE_URL}/pedidos/" + token + "/" + pedidoId + "/estado.json";
+                    
+                    fetch(firebaseURL, {{
+                        method: 'PUT',
+                        body: JSON.stringify('terminado'),
+                        headers: {{ 'Content-Type': 'application/json' }}
+                    }}).then(response => {{
+                        setTimeout(function() {{ window.location.reload(); }}, 300);
+                    }}).catch(err => {{
+                        window.location.reload();
+                    }});
+                }}
+
+                var video = document.getElementById('karaoke-player');
+                if (video) {{
+                    video.onended = function() {{
+                        stopKaraoke();
+                    }};
+                }}
+            </script>
+            """
+            components.html(video_html, height=750, scrolling=False)
+            
+        else:
+            url_clipe_fundo = obter_video_fundo(provider_token)
+            proximo_cantor = pedidos_ativos[0] if pedidos_ativos else None
+
+            st.markdown(frame_styles, unsafe_allow_html=True)
+
+            col_esq, col_dir = st.columns([1, 1])
+            
+            with col_esq:
+                if proximo_cantor:
+                    c_prox = proximo_cantor.get("cliente", "Convidado")
+                    st.markdown(f"""
+                        <div style="border: 4px solid #FFC107; border-radius: 10px; padding: 15px; background: rgba(0,0,0,0.95); margin-bottom: 15px; display: flex; align-items: center; gap: 15px;">
+                            <span style="color: #ffffff; font-size: 20px; font-weight: bold; font-family: monospace; text-shadow: 1px 1px 3px rgba(0,0,0,0.9);">Á SEGUIR</span>
+                            <span style="color: #ffffff; font-size: 20px; font-weight: bold; font-family: monospace; text-transform: uppercase; text-shadow: 1px 1px 3px rgba(0,0,0,0.9);">{c_prox}</span>
+                        </div>
+                    """, unsafe_allow_html=True)
+                else:
+                    st.markdown("""
+                        <div style="border: 4px solid #FFC107; border-radius: 10px; padding: 15px; text-align: center; background: rgba(0,0,0,0.95); margin-bottom: 15px;">
+                            <h2 style="color: #ffffff; margin: 0; font-family: monospace; font-weight: bold; text-shadow: 1px 1px 3px rgba(0,0,0,0.9);">🎤 FILA DE ESPERA VAZIA</h2>
+                        </div>
+                    """, unsafe_allow_html=True)
+                
+                html_caixas = '<div style="display: flex; flex-direction: column; gap: 8px; margin-bottom: 40px;">'
+                demais_pedidos = pedidos_ativos[1:] if len(pedidos_ativos) > 1 else []
+                
+                for idx, p_item in enumerate(demais_pedidos, start=2):
+                    c_item = p_item.get("cliente", "Convidado")
+                    texto_caixa = f"<b>{idx}.</b> {c_item}"
+                    html_caixas += f'<div style="background: rgba(0,0,0,0.95); border: 4px solid #FFC107; border-radius: 8px; padding: 12px; color: #ffffff; font-family: monospace; font-size: 16px; font-weight: bold; text-shadow: 1px 1px 3px rgba(0,0,0,0.9);">{texto_caixa}</div>'
+                
+                html_caixas += '</div>'
+                st.markdown(html_caixas, unsafe_allow_html=True)
+
+            with col_dir:
+                if url_clipe_fundo:
+                    video_fundo_html = f"""
+                    <div style="display: flex; justify-content: center; background: rgba(0,0,0,0.95); border: 4px solid #FFC107; border-radius: 10px; padding: 5px; width: 100%; position: relative; margin-top: 5px; margin-bottom: 40px;">
+                        <video id="fundo-player" width="100%" height="450px" autoplay loop playsinline controlslist="nodownload noremoteplayback" disablepictureinpicture style="object-fit: contain; background: black; border-radius: 8px;">
+                            <source src="{url_clipe_fundo}" type="video/mp4">
+                            O seu navegador não suporta vídeo.
+                        </video>
+                        <div id="fundo-audio-warning" style="display: none; position: absolute; bottom: 15px; right: 15px; background: rgba(0,0,0,0.8); border: 2px solid #FFC107; padding: 6px 10px; border-radius: 5px; cursor: pointer;" onclick="unmuteFundo()">
+                            <span style="font-size: 18px;" title="Ativar Som">🔊</span>
+                        </div>
                     </div>
                     <script>
-                        const v = document.getElementById('tvVideo');
-                        v.play().catch(e => console.log("Autoplay bloqueado:", e));
-                        v.onended = () => {{
-                            setTimeout(() => window.location.reload(), 1000);
-                        }};
+                        var fundoVideo = document.getElementById('fundo-player');
+                        fundoVideo.muted = false;
+                        var fundoPromise = fundoVideo.play();
+                        if (fundoPromise !== undefined) {{
+                            fundoPromise.then(_ => {{}}).catch(error => {{
+                                fundoVideo.muted = true;
+                                fundoVideo.play();
+                                document.getElementById('fundo-audio-warning').style.display = 'block';
+                            }});
+                        }}
+                        function unmuteFundo() {{
+                            fundoVideo.muted = false;
+                            fundoVideo.play();
+                            document.getElementById('fundo-audio-warning').style.display = 'none';
+                        }}
                     </script>
-                """, height=550)
-            else:
-                st.error("URL do vídeo da música não encontrada.")
-        else:
-            if video_fundo:
-                components.html(f"""
-                    <div style="width: 100%; height: 82vh; background: #000; display: flex; align-items: center; justify-content: center; overflow: hidden; border-radius: 8px; border: 3px solid #FFC107;">
-                        <video src="{video_fundo}" autoplay loop muted style="width: 100%; height: 100%; object-fit: cover;"></video>
-                    </div>
-                """, height=580)
-            else:
-                st.markdown(f"""
-                    <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 75vh; text-align: center; font-family: monospace;">
-                        <img src="{url_logotipo}" style="width: 150px; height: 150px; border-radius: 50%; border: 4px solid #FFC107; object-fit: cover; margin-bottom: 25px; box-shadow: 0 0 30px rgba(255,193,7,0.5);" />
-                        <h1 style="color: #FFC107; font-size: 38px; font-weight: bold; margin-bottom: 10px; text-shadow: 1px 1px 3px rgba(0,0,0,0.9);">FF KARAOKE CLOUD</h1>
-                        <p style="color: #ffffff; font-size: 20px; font-weight: bold; text-shadow: 1px 1px 3px rgba(0,0,0,0.9);">À ESPERA DE SUA PRÓXIMA MÚSICA...</p>
-                        <p style="color: #FFC107; font-size: 16px; font-weight: bold; margin-top: 15px; text-shadow: 1px 1px 3px rgba(0,0,0,0.9);">Faça o seu pedido através do telemóvel escaneando o QR Code do prestador.</p>
-                    </div>
-                """, unsafe_allow_html=True)
-    except Exception as e:
-        st.error(f"Erro no ecrã de TV: {e}")
-
-    time.sleep(3)
-    st.rerun()
-
-# --- ROTEAMENTO PRINCIPAL DA APLICAÇÃO ---
-def main():
-    query_params = st.query_params
-    
-    if "tv" in query_params:
-        provider_token = query_params["tv"]
-        renderizar_ecra_tv(provider_token)
-        return
-
-    if "prestador" in query_params:
-        provider_token = query_params["prestador"]
-        show_provider_panel_custom(provider_token)
-        return
-
-    if "cliente" in query_params:
-        provider_token = query_params["cliente"]
-        if show_client_page:
-            try:
-                show_client_page()
-                return
-            except Exception:
-                pass
-
-    if "admin" in query_params or query_params.get("mode") == "admin":
-        if show_admin_panel:
-            try:
-                show_admin_panel()
-                return
-            except Exception:
-                pass
-
-    if "token_pendente_prestador" in st.session_state:
-        custom_show_register_page()
-        return
-
-    # Página Inicial / Seletor de Acessos
-    url_fundo_painel = "https://cdn.phototourl.com/free/2026-08-03-694a4a2e-9914-4da8-93b2-87538a4805ab.png"
-    url_logotipo = "https://cdn.phototourl.com/free/2026-08-03-8b13edf5-0257-491d-ab78-f0d5329ffc15.jpg"
-
-    st.markdown(f"""
-    <style>
-    .stApp {{
-        background: url("{url_fundo_painel}") no-repeat center center fixed !important;
-        background-size: cover !important;
-    }}
-    .block-container {{
-        padding-top: 3rem !important;
-        padding-bottom: 3rem !important;
-        padding-left: 4rem !important;
-        padding-right: 4rem !important;
-        background: rgba(0, 0, 0, 0.90) !important;
-        border-radius: 12px;
-        margin-top: 2rem;
-        margin-bottom: 2rem;
-        border: 4px solid #FFC107 !important;
-    }}
-    </style>
-    """, unsafe_allow_html=True)
-
-    col_logo, col_titulo = st.columns([1, 4])
-    with col_logo:
-        st.image(url_logotipo, width=110)
-    with col_titulo:
-        st.markdown("<h1 style='color: #FFC107; font-family: monospace; font-size: 32px; font-weight: bold; text-shadow: 1px 1px 3px rgba(0,0,0,0.9); margin-top: 15px;'>GRUPO FF KARAOKE CLOUD</h1>", unsafe_allow_html=True)
-        st.markdown("<p style='color: #ffffff; font-family: monospace; font-size: 16px; font-weight: bold; text-shadow: 1px 1px 3px rgba(0,0,0,0.9);'>Sistema Profissional de Gestão de Acessos e Entretenimento</p>", unsafe_allow_html=True)
-
-    st.markdown("---")
-
-    aba1, aba2, aba3 = st.tabs(["🎤 Painel do Prestador", "📝 Solicitar Registo", "⚙️ Área Administrativa"])
-
-    with aba1:
-        st.markdown("<h3 style='color: #FFC107; font-family: monospace; font-weight: bold; text-shadow: 1px 1px 3px rgba(0,0,0,0.9);'>Aceder com o Token do Prestador</h3>", unsafe_allow_html=True)
-        token_input = st.text_input("Introduza o seu Token de Acesso", type="password")
-        if st.button("🚀 Entrar no Painel", use_container_width=True):
-            if not token_input:
-                st.error("Por favor, introduza o token.")
-            else:
-                aprovado = False
-                try:
-                    df_prov = get_all_providers()
-                    if not df_prov.empty and 'token' in df_prov.columns:
-                        match = df_prov[df_prov['token'] == token_input]
-                        if not match.empty:
-                            if int(match.iloc[0].get('approved', 0)) == 1:
-                                aprovado = True
-                except Exception:
-                    pass
-
-                if aprovado:
-                    st.query_params["prestador"] = token_input
-                    st.rerun()
+                    """
+                    components.html(video_fundo_html, height=480)
                 else:
-                    st.error("Token inválido ou registo ainda não aprovado pelo Administrador.")
+                    st.markdown("""
+                        <div style="border: 4px solid #FFC107; border-radius: 10px; padding: 100px 20px; text-align: center; background: rgba(0,0,0,0.95); color: #ffffff; font-family: monospace; margin-top: 5px; margin-bottom: 40px; font-weight: bold; text-shadow: 1px 1px 3px rgba(0,0,0,0.9);">
+                            <div style="font-size: 40px; margin-bottom: 10px;">📺</div>
+                            <p style="color: #ffffff; font-size: 16px; margin: 0; font-weight: bold; text-shadow: 1px 1px 3px rgba(0,0,0,0.9);">Aguardando o prestador selecionar um vídeo clipe no painel de controle...</p>
+                        </div>
+                    """, unsafe_allow_html=True)
 
-    with aba2:
-        custom_show_register_page()
+    except Exception as e:
+        st.error(f"Erro de sincronização na TV: {e}")
 
-    with aba3:
-        st.markdown("<h3 style='color: #FFC107; font-family: monospace; font-weight: bold; text-shadow: 1px 1px 3px rgba(0,0,0,0.9);'>Acesso Restrito ao Administrador</h3>", unsafe_allow_html=True)
-        senha_admin = st.text_input("Senha de Administrador", type="password")
-        if st.button("🔑 Entrar como Admin", use_container_width=True):
-            if senha_admin == "admin123" or senha_admin == "ffkaraoke2026":
-                st.query_params["admin"] = "true"
-                st.rerun()
+def show_client_screen():
+    query_params = st.query_params
+    provider_token = query_params.get("prestador") or query_params.get("provider", None)
+
+    if not provider_token:
+        st.error("Tela inválida. Falta o parâmetro do prestador.")
+        return
+
+    st.markdown("""
+    <style>
+    .stApp { background-color: #000000; color: white; }
+    </style>""", unsafe_allow_html=True)
+
+    renderizar_ecra_tv(provider_token)
+
+def show_provider_panel_center(token):
+    show_provider_panel_custom(token)
+
+def main():
+    try:
+        query_params = st.query_params
+        
+        if "page" in query_params and query_params["page"] == "register":
+            custom_show_register_page()
+            return
+
+        if "page" in query_params and query_params["page"] == "client_register":
+            show_client_page()
+            return
+
+        if "page" in query_params and query_params["page"] == "client_screen":
+            show_client_screen()
+            return
+
+        token = query_params.get("prestador") or query_params.get("token") or query_params.get("provider")
+        
+        if token:
+            df = get_all_providers()
+            if df.empty or 'token' not in df.columns or not (df['token'] == token).any():
+                show_provider_panel_center(token)
+                return
+                
+            prior_prestador = df[df['token'] == token]
+            if not prior_prestador.empty:
+                row = prior_prestador.iloc[0]
+                if row.get('approved', 1) == 1:
+                    show_provider_panel_custom(token)
+                    return
+                else:
+                    st.warning("⏳ O seu registo aguarda aprovação do Administrador.")
+                    return
             else:
-                st.error("Senha de administrador incorreta.")
+                show_provider_panel_custom(token)
+                return
+            
+        st.markdown("""
+            <style>
+            .stApp {
+                background-color: #000000 !important;
+                color: #ffffff !important;
+                font-weight: bold !important;
+            }
+            .block-container {
+                background-color: #000000 !important;
+                border: 4px solid #FFC107 !important;
+                border-radius: 12px;
+                padding: 3rem !important;
+            }
+            h1, h2, h3, h4, h5, h6, p, span, label, div, button, input {
+                font-weight: bold !important;
+                text-shadow: 1px 1px 3px rgba(0,0,0,0.9);
+            }
+            </style>
+        """, unsafe_allow_html=True)
+
+        if not st.session_state.get("admin_logged", False):
+            st.title("🔒 FFKaraoke - Área Restrita (Administrador)")
+            
+            with st.form("form_admin_login"):
+                senha = st.text_input("Palavra-passe de Administrador", type="password")
+                submitted = st.form_submit_button("Entrar")
+                
+                if submitted:
+                    if senha == "ffkaraoke2026" or senha == "admin123":
+                        st.session_state["admin_logged"] = True
+                        st.success("Sessão iniciada com sucesso!")
+                        st.rerun()
+                    else:
+                        st.error("Palavra-passe incorreta.")
+
+        if st.session_state.get("admin_logged", False):
+            st.markdown("---")
+            st.subheader("⚡ Gestão de Reforços de Tempo Pendentes")
+            try:
+                res_all_ref = requests.get(f"{FIREBASE_URL}/reforcos_pendentes.json", timeout=10)
+                if res_all_ref.status_code == 200 and res_all_ref.json():
+                    all_refs = res_all_ref.json()
+                    tem_reforcos = False
+                    for tok, refs_dict in all_refs.items():
+                        if isinstance(refs_dict, dict):
+                            for r_id, r_data in refs_dict.items():
+                                if r_data.get("approved", 0) == 0:
+                                    tem_reforcos = True
+                                    st.markdown(f"""
+                                    <div style="background: rgba(0,0,0,0.95); border: 2px solid #FFC107; padding: 12px; border-radius: 6px; margin-bottom: 10px;">
+                                        <b>Prestador:</b> {r_data.get('nome_prestador')} (Token: {tok})<br>
+                                        <b>Referência / Comprovativo:</b> {r_data.get('referencia')}<br>
+                                        <b>Duração Solicitada:</b> {r_data.get('tempo_plano')}
+                                    </div>
+                                    """, unsafe_allow_html=True)
+                                    
+                                    col_s, col_n = st.columns(2)
+                                    with col_s:
+                                        if st.button("✅ Aprovar Reforço", key=f"aprov_ref_{tok}_{r_id}"):
+                                            r_data["approved"] = 1
+                                            requests.put(f"{FIREBASE_URL}/reforcos_aprovados/{tok}/{r_id}.json", json=r_data)
+                                            requests.delete(f"{FIREBASE_URL}/reforcos_pendentes/{tok}/{r_id}.json")
+                                            st.success("Reforço aprovado e acumulado com sucesso!")
+                                            st.rerun()
+                                    with col_n:
+                                        if st.button("❌ Recusar Reforço", key=f"rec_ref_{tok}_{r_id}"):
+                                            requests.delete(f"{FIREBASE_URL}/reforcos_pendentes/{tok}/{r_id}.json")
+                                            st.warning("Reforço recusado.")
+                                            st.rerun()
+                    if not tem_reforcos:
+                        st.info("Nenhum pedido de reforço pendente neste momento.")
+                else:
+                    st.info("Nenhum pedido de reforço pendente neste momento.")
+            except Exception as e:
+                st.warning(f"Não foi possível carregar os reforços pendentes: {e}")
+
+            show_admin_panel()
+                
+    except Exception as e:
+        st.error(f"Ocorreu um erro ao carregar a aplicação: {e}")
 
 if __name__ == "__main__":
     main()
