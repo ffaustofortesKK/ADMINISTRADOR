@@ -12,6 +12,7 @@ import cloudinary
 import cloudinary.api
 import cloudinary.uploader
 import cloudinary.search
+from modules.prestador import show_provider_panel_custom, renderizar_ecra_tv
 
 # Configuração estrita do caminho absoluto para evitar erros de importação
 current_dir = os.path.dirname(os.path.abspath(__file__))
