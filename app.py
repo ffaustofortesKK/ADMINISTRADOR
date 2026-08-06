@@ -840,7 +840,7 @@ def show_provider_panel_custom(provider_token):
         
         st.markdown(f"""
             <div class="card-tv">
-                <div class="link-title-tv">📺 LINK DA TELA DE TV / REPRODUÇÃO</div>
+                <div class="link-title-tv">📺 LINK DA TELA </div>
                 <a href="{link_tv_rel}" target="_blank" class="link-text-tv">{link_tv_absoluto}</a>
             </div>
         """, unsafe_allow_html=True)
