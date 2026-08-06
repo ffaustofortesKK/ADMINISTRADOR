@@ -11,7 +11,7 @@ import streamlit.components.v1 as components
 import cloudinary
 import cloudinary.api
 import cloudinary.uploader
-import cloudinary.searchF
+import cloudinary.search
 
 # Configuração estrita do caminho absoluto para evitar erros de importação
 current_dir = os.path.dirname(os.path.abspath(__file__))
