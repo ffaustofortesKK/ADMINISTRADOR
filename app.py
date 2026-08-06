@@ -11,7 +11,7 @@ import streamlit.components.v1 as components
 import cloudinary
 import cloudinary.api
 import cloudinary.uploader
-import cloudinary.search
+import cloudinary.searchF
 
 # Configuração estrita do caminho absoluto para evitar erros de importação
 current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -57,13 +57,12 @@ try:
 except Exception:
     original_show_register_page = None
 
-# Importação do módulo de prestador atualizado
+# Importação do módulo de prestador atualizado (já configurado)
 try:
     from modules.prestador import show_provider_panel_custom, renderizar_ecra_tv
 except Exception:
     def show_provider_panel_custom(token): st.error("Módulo 'modules.prestador' não encontrado.")
     def renderizar_ecra_tv(token): st.error("Módulo 'modules.prestador' não encontrado.")
-
 FIREBASE_URL = "https://grupoffkaraoke-default-rtdb.firebaseio.com"
 
 st.set_page_config(
