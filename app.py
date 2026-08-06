@@ -13,6 +13,7 @@ import cloudinary.api
 import cloudinary.uploader
 import cloudinary.search
 from modules.prestador import show_provider_panel_custom
+
 # Configuração estrita do caminho absoluto para evitar erros de importação
 current_dir = os.path.dirname(os.path.abspath(__file__))
 if current_dir not in sys.path:
@@ -47,6 +48,7 @@ try:
 except Exception:
     def show_admin_panel(): st.error("Módulo 'modules.admin' não encontrado.")
 
+# Importações de módulos do projeto com tratamento de segurança
 try:
     from modules.client import show_client_page
 except Exception:
@@ -57,12 +59,12 @@ try:
 except Exception:
     original_show_register_page = None
 
-# Importação do módulo de prestador atualizado (já configurado)
 try:
     from modules.prestador import show_provider_panel_custom, renderizar_ecra_tv
 except Exception:
     def show_provider_panel_custom(token): st.error("Módulo 'modules.prestador' não encontrado.")
     def renderizar_ecra_tv(token): st.error("Módulo 'modules.prestador' não encontrado.")
+        
 FIREBASE_URL = "https://grupoffkaraoke-default-rtdb.firebaseio.com"
 
 st.set_page_config(
