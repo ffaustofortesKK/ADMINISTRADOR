@@ -80,15 +80,15 @@ def renderizar_gestao_fila_prestador(provider_token):
         if pendentes:
             st.markdown("""
                 <div style="background-color: rgba(0,0,0,0.95); border: 4px solid #FFC107; padding: 15px; border-radius: 8px; text-align: center; margin-bottom: 20px;">
-                    <div style="color: #ffeb3b; font-family: monospace; font-size: 15px; font-weight: bold; margin-bottom: 5px;">Confirmação de Pedido</div>
-                    <div style="color: #ffeb3b; font-family: monospace; font-size: 18px; font-weight: bold; margin-bottom: 10px;">QUER CANTAR</div>
+                    <div style="color: #ffeb3b !important; font-family: monospace; font-size: 15px; font-weight: bold; margin-bottom: 5px;">Confirmação de Pedido</div>
+                    <div style="color: #ffeb3b !important; font-family: monospace; font-size: 18px; font-weight: bold; margin-bottom: 10px;">QUER CANTAR</div>
             """, unsafe_allow_html=True)
             
             for p in pendentes:
                 titulo_p = obter_titulo_seguro(p.get("musica", {}))
                 cliente_p = p.get("cliente", "Convidado")
                 st.markdown(f"""
-                    <div style="color: #ffeb3b; font-family: monospace; font-size: 15px; margin-bottom: 15px; font-weight: bold;">
+                    <div style="color: #ffeb3b !important; font-family: monospace; font-size: 15px; margin-bottom: 15px; font-weight: bold;">
                         <b>{titulo_p}</b> <span style="font-size: 13px;">({cliente_p})</span>
                     </div>
                 """, unsafe_allow_html=True)
@@ -106,7 +106,7 @@ def renderizar_gestao_fila_prestador(provider_token):
                         st.rerun()
             st.markdown("</div>", unsafe_allow_html=True)
 
-        st.markdown("### <span style='color: #ffeb3b;'>📋 Estado da Fila e Controlo de Reprodução</span>", unsafe_allow_html=True)
+        st.markdown("### <span style='color: #ffeb3b !important;'>📋 Estado da Fila e Controlo de Reprodução</span>", unsafe_allow_html=True)
 
         if pedidos_ativos:
             for idx, p in enumerate(pedidos_ativos, start=1):
@@ -122,10 +122,10 @@ def renderizar_gestao_fila_prestador(provider_token):
                     st.markdown(f"""
                         <div style="background: rgba(0,0,0,0.95); border: 4px solid {cor_borda}; border-radius: 8px; padding: 12px 15px; margin-bottom: 10px; font-family: monospace;">
                             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-                                <span style="color: #ffeb3b; font-weight: bold; font-size: 14px;">{badge_texto}</span>
-                                <span style="color: #ffeb3b; font-size: 13px;">Cliente: <b>{cliente_nome}</b></span>
+                                <span style="color: #ffeb3b !important; font-weight: bold; font-size: 14px;">{badge_texto}</span>
+                                <span style="color: #ffeb3b !important; font-size: 13px;">Cliente: <b>{cliente_nome}</b></span>
                             </div>
-                            <div style="color: #ffeb3b; font-size: 16px; font-weight: bold; margin-bottom: 8px;">
+                            <div style="color: #ffeb3b !important; font-size: 16px; font-weight: bold; margin-bottom: 8px;">
                                 🎶 {titulo_musica}
                             </div>
                         </div>
@@ -153,7 +153,7 @@ def renderizar_gestao_fila_prestador(provider_token):
                     st.markdown("<hr style='margin: 5px 0 15px 0; border-color: #333;'>", unsafe_allow_html=True)
         else:
             st.markdown("""
-                <div style="background-color: rgba(0,0,0,0.95); border: 4px solid #FFC107; border-radius: 8px; padding: 15px; color: #ffeb3b; width: 100%; font-family: monospace; font-size: 14px; margin-bottom: 20px; text-align: center; font-weight: bold;">
+                <div style="background-color: rgba(0,0,0,0.95); border: 4px solid #FFC107; border-radius: 8px; padding: 15px; color: #ffeb3b !important; width: 100%; font-family: monospace; font-size: 14px; margin-bottom: 20px; text-align: center; font-weight: bold;">
                     NENHUM PEDIDO NA LISTA NESTE MOMENTO.<br>À ESPERA DE NOVOS PEDIDOS...
                 </div>
             """, unsafe_allow_html=True)
@@ -212,8 +212,12 @@ def show_provider_panel_custom(token):
     </style>
     """, unsafe_allow_html=True)
 
-    # Título com a cor amarela garantida explicitamente
-    st.markdown("<h2 style='color: #ffeb3b;'>🎤 <span style='color: #ffeb3b;'>PAINEL DO PRESTADOR</span> — FF Karaoke</h2>", unsafe_allow_html=True)
+    # Título principal com cor amarela fixa forçada
+    st.markdown("""
+        <h2 style='color: #ffeb3b !important; font-family: monospace;'>
+            🎤 <span style='color: #ffeb3b !important;'>PAINEL DO PRESTADOR</span> — FF Karaoke
+        </h2>
+    """, unsafe_allow_html=True)
     st.markdown("---")
 
     base_domain = "https://appadm.streamlit.app"
