@@ -31,8 +31,8 @@ def show_provider_panel_custom(provider_token, FIREBASE_URL):
         st.error(f"Erro ao carregar dados do Firebase: {e}")
         pedidos_ativos = []
 
-    # Abas organizadas: Pedidos, Vídeo de Fundo, Perfil/Configurações do Prestador
-    tab1, tab2, tab3 = st.tabs(["🎵 Fila de Pedidos", "📺 Vídeo de Fundo", "⚙️ Perfil e Configurações"])
+    # Abas organizadas: Pedidos, Vídeo de Fundo, Perfil e Customização Avançada
+    tab1, tab2, tab3 = st.tabs(["🎵 Fila de Pedidos", "📺 Vídeo de Fundo", "⚙️ Perfil, Cores e Campos"])
 
     with tab1:
         st.subheader("Gerenciamento da Fila de Espera")
@@ -74,23 +74,48 @@ def show_provider_panel_custom(provider_token, FIREBASE_URL):
             st.rerun()
 
     with tab3:
-        st.subheader("👤 Perfil do Estabelecimento e Definições")
-        st.write("Atualize as informações do seu espaço exibidas para os clientes na plataforma.")
+        st.subheader("👤 Perfil, Cores e Customização de Campos")
+        st.write("Altere os dados institucionais, personalize letras, cores das caixas e campos exibidos na TV e no painel.")
         
         perfil_atual = _obter_perfil_prestador(provider_token, FIREBASE_URL)
         
+        st.markdown("### 📋 Informações Básicas do Espaço")
         nome_estabelecimento = st.text_input("Nome do Estabelecimento / Espaço:", value=perfil_atual.get("nome", ""))
         responsavel = st.text_input("Nome do Responsável:", value=perfil_atual.get("responsavel", ""))
         contacto = st.text_input("Contacto Telefónico:", value=perfil_atual.get("contacto", ""))
         
-        if st.button("💾 Guardar Alterações do Perfil"):
+        st.markdown("### 🎨 Personalização Visual e Textos do Ecrã")
+        col_c1, col_c2 = st.columns(2)
+        with col_c1:
+            cor_texto_atual = perfil_atual.get("cor_texto", "#FFFFFF")
+            cor_texto = st.color_picker("Cor das Letras / Textos:", value=cor_texto_atual)
+        with col_c2:
+            cor_borda_atual = perfil_atual.get("cor_borda", "#FFC107")
+            cor_borda = st.color_picker("Cor dos Contornos / Bordas:", value=cor_borda_atual)
+
+        fonte_escolhida = st.selectbox(
+            "Estilo de Letra (Fonte):", 
+            ["monospace", "Arial", "Courier New", "Verdana", "Georgia"],
+            index=["monospace", "Arial", "Courier New", "Verdana", "Georgia"].index(perfil_atual.get("fonte", "monospace")) if perfil_atual.get("fonte") in ["monospace", "Arial", "Courier New", "Verdana", "Georgia"] else 0
+        )
+
+        mensagem_rodape = st.text_input(
+            "Mensagem Personalizada do Letreiro (Rodapé da TV):", 
+            value=perfil_atual.get("mensagem_rodape", "FF KARAOKE CLOUD 🎤 CANTE COMIGO 🎶 A SUA MÚSICA FAVORITA")
+        )
+        
+        if st.button("💾 Guardar Todas as Alterações"):
             dados_atualizados = {
                 "nome": nome_estabelecimento,
                 "responsavel": responsavel,
-                "contacto": contacto
+                "contacto": contacto,
+                "cor_texto": cor_texto,
+                "cor_borda": cor_borda,
+                "fonte": fonte_escolhida,
+                "mensagem_rodape": mensagem_rodape
             }
             _salvar_perfil_prestador(provider_token, dados_atualizados, FIREBASE_URL)
-            st.success("Perfil do prestador atualizado com sucesso!")
+            st.success("Perfil e customizações guardados com sucesso!")
             st.rerun()
             
         st.markdown("---")
@@ -113,29 +138,36 @@ def renderizar_ecra_tv(provider_token, FIREBASE_URL, limpar_nome_musica_func=Non
             pedidos_ativos = [p for p in pedidos if p.get("estado") in ["pendente", "aprovado"]]
             pedidos_ativos.sort(key=lambda x: x.get("timestamp", 0))
             tocando_agora = next((p for p in pedidos_ativos if p.get("estado") == "aprovado"), None)
+
+        # Buscar definições customizadas do perfil do prestador
+        perfil = _obter_perfil_prestador(provider_token, FIREBASE_URL)
+        cor_txt = perfil.get("cor_texto", "#FFFFFF")
+        cor_brd = perfil.get("cor_borda", "#FFC107")
+        fonte_utilizada = perfil.get("fonte", "monospace")
+        texto_rodape = perfil.get("mensagem_rodape", "FF KARAOKE CLOUD 🎤 CANTE COMIGO 🎶 A SUA MÚSICA FAVORITA")
         
-        frame_styles = """
+        frame_styles = f"""
             <style>
-                @keyframes pulseSpeaker {
-                    0% { transform: scale(1); filter: drop-shadow(0 0 2px #FFC107); }
-                    50% { transform: scale(1.12); filter: drop-shadow(0 0 14px #FFC107); }
-                    100% { transform: scale(1); filter: drop-shadow(0 0 2px #FFC107); }
-                }
-                @keyframes bounceIcon {
-                    0%, 100% { transform: translateY(0) rotate(0deg); }
-                    50% { transform: translateY(-5px) rotate(10deg); }
-                }
-                @keyframes marqueeFast {
-                    0% { transform: translateX(0%); }
-                    100% { transform: translateX(-50%); }
-                }
-                .speaker-box {
+                @keyframes pulseSpeaker {{
+                    0% {{ transform: scale(1); filter: drop-shadow(0 0 2px {cor_brd}); }}
+                    50% {{ transform: scale(1.12); filter: drop-shadow(0 0 14px {cor_brd}); }}
+                    100% {{ transform: scale(1); filter: drop-shadow(0 0 2px {cor_brd}); }}
+                }}
+                @keyframes bounceIcon {{
+                    0%, 100% {{ transform: translateY(0) rotate(0deg); }}
+                    50% {{ transform: translateY(-5px) rotate(10deg); }}
+                }}
+                @keyframes marqueeFast {{
+                    0% {{ transform: translateX(0%); }}
+                    100% {{ transform: translateX(-50%); }}
+                }}
+                .speaker-box {{
                     position: fixed;
                     z-index: 99998;
                     width: 90px;
                     height: 140px;
                     background: #111;
-                    border: 4px solid #FFC107;
+                    border: 4px solid {cor_brd};
                     border-radius: 10px;
                     display: flex;
                     flex-direction: column;
@@ -145,64 +177,64 @@ def renderizar_ecra_tv(provider_token, FIREBASE_URL, limpar_nome_musica_func=Non
                     box-shadow: 0 0 15px rgba(255, 193, 7, 0.4);
                     pointer-events: none;
                     animation: pulseSpeaker 0.55s infinite ease-in-out;
-                }
-                .woofer {
+                }}
+                .woofer {{
                     width: 55px;
                     height: 55px;
-                    border: 3px solid #FFC107;
+                    border: 3px solid {cor_brd};
                     border-radius: 50%;
                     background: radial-gradient(circle, #333 30%, #000 90%);
                     display: flex;
                     align-items: center;
                     justify-content: center;
-                    box-shadow: inset 0 0 8px #FFC107;
-                }
-                .woofer-inner {
+                    box-shadow: inset 0 0 8px {cor_brd};
+                }}
+                .woofer-inner {{
                     width: 22px;
                     height: 22px;
-                    background: #FFC107;
+                    background: {cor_brd};
                     border-radius: 50%;
-                }
-                .speaker-tl { top: 15px; left: 15px; }
-                .speaker-tr { top: 15px; right: 15px; }
-                .speaker-bl { bottom: 50px; left: 15px; }
-                .speaker-br { bottom: 50px; right: 15px; }
+                }}
+                .speaker-tl {{ top: 15px; left: 15px; }}
+                .speaker-tr {{ top: 15px; right: 15px; }}
+                .speaker-bl {{ bottom: 50px; left: 15px; }}
+                .speaker-br {{ bottom: 50px; right: 15px; }}
 
-                .marquee-footer {
+                .marquee-footer {{
                     position: fixed;
                     bottom: 0;
                     left: 0;
                     width: 100vw;
                     height: 38px;
                     background: #111;
-                    border-top: 4px solid #FFC107;
+                    border-top: 4px solid {cor_brd};
                     z-index: 99997;
                     overflow: hidden;
                     display: flex;
                     align-items: center;
                     white-space: nowrap;
                     pointer-events: none;
-                }
-                .marquee-track {
+                }}
+                .marquee-track {{
                     display: inline-block;
                     white-space: nowrap;
                     animation: marqueeFast 15s linear infinite;
-                    font-family: monospace;
+                    font-family: {fonte_utilizada};
                     font-size: 16px;
-                    color: #ffffff;
+                    color: {cor_txt};
                     font-weight: bold;
                     text-shadow: 1px 1px 3px rgba(0,0,0,0.9);
-                }
-                .marquee-item {
+                }}
+                .marquee-item {{
                     display: inline-flex;
                     align-items: center;
                     gap: 12px;
                     margin-right: 40px;
-                }
-                .icon-anim {
+                }}
+                .icon-anim {{
                     display: inline-block;
                     animation: bounceIcon 0.8s infinite ease-in-out;
-                }
+                }}
             </style>
             <div class="speaker-box speaker-tl"><div class="woofer"><div class="woofer-inner"></div></div><div class="woofer"><div class="woofer-inner"></div></div></div>
             <div class="speaker-box speaker-tr"><div class="woofer"><div class="woofer-inner"></div></div><div class="woofer"><div class="woofer-inner"></div></div></div>
@@ -211,8 +243,8 @@ def renderizar_ecra_tv(provider_token, FIREBASE_URL, limpar_nome_musica_func=Non
 
             <div class="marquee-footer">
                 <div class="marquee-track">
-                    <span class="marquee-item"><span class="icon-anim">🎵</span> FF KARAOKE CLOUD <span class="icon-anim">🎤</span> CANTE COMIGO <span class="icon-anim">🎶</span> A SUA MÚSICA FAVORITA <span class="icon-anim">🎙️</span> DIVIRTA-SE AO MÁXIMO</span>
-                    <span class="marquee-item"><span class="icon-anim">🎵</span> FF KARAOKE CLOUD <span class="icon-anim">🎤</span> CANTE COMIGO <span class="icon-anim">🎶</span> A SUA MÚSICA FAVORITA <span class="icon-anim">🎙️</span> DIVIRTA-SE AO MÁXIMO</span>
+                    <span class="marquee-item"><span class="icon-anim">🎵</span> {texto_rodape}</span>
+                    <span class="marquee-item"><span class="icon-anim">🎵</span> {texto_rodape}</span>
                 </div>
             </div>
         """
@@ -242,7 +274,7 @@ def renderizar_ecra_tv(provider_token, FIREBASE_URL, limpar_nome_musica_func=Non
                 .countdown-overlay {{
                     position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
                     background: rgba(0,0,0,0.95); display: flex; justify-content: center; align-items: center;
-                    z-index: 99999; color: #ffffff; font-family: monospace; font-size: 15vw; font-weight: bold;
+                    z-index: 99999; color: {cor_txt}; font-family: {fonte_utilizada}; font-size: 15vw; font-weight: bold;
                     text-shadow: 2px 2px 5px rgba(0,0,0,0.9); animation: zoomInNumber 0.9s ease-in-out infinite;
                 }}
             </style>
@@ -251,8 +283,8 @@ def renderizar_ecra_tv(provider_token, FIREBASE_URL, limpar_nome_musica_func=Non
                 <video id="karaoke-player" width="100%" height="100%" autoplay playsinline style="object-fit: contain; background: black; width: 100%; height: 100%;">
                     <source src="{url_video}" type="video/mp4">
                 </video>
-                <div id="audio-warning" style="display: none; position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); text-align: center; background: #222; border: 4px solid #FFC107; padding: 10px 20px; border-radius: 5px; z-index: 99999;">
-                    <p style="color: #ffffff; margin: 0 0 8px 0; font-family: monospace; font-size: 14px; font-weight: bold;">⚠️ O navegador bloqueou o áudio automático.</p>
+                <div id="audio-warning" style="display: none; position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); text-align: center; background: #222; border: 4px solid {cor_brd}; padding: 10px 20px; border-radius: 5px; z-index: 99999;">
+                    <p style="color: {cor_txt}; margin: 0 0 8px 0; font-family: {fonte_utilizada}; font-size: 14px; font-weight: bold;">⚠️ O navegador bloqueou o áudio automático.</p>
                     <button onclick="unmuteVideo()" style="background-color: #4CAF50; color: white; border: none; padding: 8px 16px; font-size: 15px; border-radius: 4px; cursor: pointer; font-weight: bold;">🔊 CLIQUE AQUI PARA ATIVAR O SOM</button>
                 </div>
             </div>
@@ -312,15 +344,15 @@ def renderizar_ecra_tv(provider_token, FIREBASE_URL, limpar_nome_musica_func=Non
                 if proximo_cantor:
                     c_prox = proximo_cantor.get("cliente", "Convidado")
                     st.markdown(f"""
-                        <div style="border: 4px solid #FFC107; border-radius: 10px; padding: 15px; background: rgba(0,0,0,0.95); margin-bottom: 15px; display: flex; align-items: center; gap: 15px;">
-                            <span style="color: #ffffff; font-size: 20px; font-weight: bold; font-family: monospace;">Á SEGUIR</span>
-                            <span style="color: #ffffff; font-size: 20px; font-weight: bold; font-family: monospace; text-transform: uppercase;">{c_prox}</span>
+                        <div style="border: 4px solid {cor_brd}; border-radius: 10px; padding: 15px; background: rgba(0,0,0,0.95); margin-bottom: 15px; display: flex; align-items: center; gap: 15px;">
+                            <span style="color: {cor_txt}; font-size: 20px; font-weight: bold; font-family: {fonte_utilizada};">Á SEGUIR</span>
+                            <span style="color: {cor_txt}; font-size: 20px; font-weight: bold; font-family: {fonte_utilizada}; text-transform: uppercase;">{c_prox}</span>
                         </div>
                     """, unsafe_allow_html=True)
                 else:
-                    st.markdown("""
-                        <div style="border: 4px solid #FFC107; border-radius: 10px; padding: 15px; text-align: center; background: rgba(0,0,0,0.95); margin-bottom: 15px;">
-                            <h2 style="color: #ffffff; margin: 0; font-family: monospace; font-weight: bold;">🎤 FILA DE ESPERA VAZIA</h2>
+                    st.markdown(f"""
+                        <div style="border: 4px solid {cor_brd}; border-radius: 10px; padding: 15px; text-align: center; background: rgba(0,0,0,0.95); margin-bottom: 15px;">
+                            <h2 style="color: {cor_txt}; margin: 0; font-family: {fonte_utilizada}; font-weight: bold;">🎤 FILA DE ESPERA VAZIA</h2>
                         </div>
                     """, unsafe_allow_html=True)
                 
@@ -328,18 +360,18 @@ def renderizar_ecra_tv(provider_token, FIREBASE_URL, limpar_nome_musica_func=Non
                 demais_pedidos = pedidos_ativos[1:] if len(pedidos_ativos) > 1 else []
                 for idx, p_item in enumerate(demais_pedidos, start=2):
                     c_item = p_item.get("cliente", "Convidado")
-                    html_caixas += f'<div style="background: rgba(0,0,0,0.95); border: 4px solid #FFC107; border-radius: 8px; padding: 12px; color: #ffffff; font-family: monospace; font-size: 16px; font-weight: bold;"><b>{idx}.</b> {c_item}</div>'
+                    html_caixas += f'<div style="background: rgba(0,0,0,0.95); border: 4px solid {cor_brd}; border-radius: 8px; padding: 12px; color: {cor_txt}; font-family: {fonte_utilizada}; font-size: 16px; font-weight: bold;"><b>{idx}.</b> {c_item}</div>'
                 html_caixas += '</div>'
                 st.markdown(html_caixas, unsafe_allow_html=True)
 
             with col_dir:
                 if url_clipe_fundo:
                     video_fundo_html = f"""
-                    <div style="display: flex; justify-content: center; background: rgba(0,0,0,0.95); border: 4px solid #FFC107; border-radius: 10px; padding: 5px; width: 100%; position: relative; margin-top: 5px; margin-bottom: 40px;">
+                    <div style="display: flex; justify-content: center; background: rgba(0,0,0,0.95); border: 4px solid {cor_brd}; border-radius: 10px; padding: 5px; width: 100%; position: relative; margin-top: 5px; margin-bottom: 40px;">
                         <video id="fundo-player" width="100%" height="450px" autoplay loop playsinline controlslist="nodownload noremoteplayback" disablepictureinpicture style="object-fit: contain; background: black; border-radius: 8px;">
                             <source src="{url_clipe_fundo}" type="video/mp4">
                         </video>
-                        <div id="fundo-audio-warning" style="display: none; position: absolute; bottom: 15px; right: 15px; background: rgba(0,0,0,0.8); border: 2px solid #FFC107; padding: 6px 10px; border-radius: 5px; cursor: pointer;" onclick="unmuteFundo()">
+                        <div id="fundo-audio-warning" style="display: none; position: absolute; bottom: 15px; right: 15px; background: rgba(0,0,0,0.8); border: 2px solid {cor_brd}; padding: 6px 10px; border-radius: 5px; cursor: pointer;" onclick="unmuteFundo()">
                             <span style="font-size: 18px;" title="Ativar Som">🔊</span>
                         </div>
                     </div>
@@ -363,10 +395,10 @@ def renderizar_ecra_tv(provider_token, FIREBASE_URL, limpar_nome_musica_func=Non
                     """
                     components.html(video_fundo_html, height=480)
                 else:
-                    st.markdown("""
-                        <div style="border: 4px solid #FFC107; border-radius: 10px; padding: 100px 20px; text-align: center; background: rgba(0,0,0,0.95); color: #ffffff; font-family: monospace; margin-top: 5px; margin-bottom: 40px; font-weight: bold;">
+                    st.markdown(f"""
+                        <div style="border: 4px solid {cor_brd}; border-radius: 10px; padding: 100px 20px; text-align: center; background: rgba(0,0,0,0.95); color: {cor_txt}; font-family: {fonte_utilizada}; margin-top: 5px; margin-bottom: 40px; font-weight: bold;">
                             <div style="font-size: 40px; margin-bottom: 10px;">📺</div>
-                            <p style="color: #ffffff; font-size: 16px; margin: 0; font-weight: bold;">Aguardando o prestador selecionar um vídeo clipe no painel de controle...</p>
+                            <p style="color: {cor_txt}; font-size: 16px; margin: 0; font-weight: bold;">Aguardando o prestador selecionar um vídeo clipe no painel de controle...</p>
                         </div>
                     """, unsafe_allow_html=True)  
     except Exception as e:
