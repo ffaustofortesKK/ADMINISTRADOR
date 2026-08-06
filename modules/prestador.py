@@ -18,60 +18,43 @@ def show_provider_panel_custom(provider_token, FIREBASE_URL):
     st.markdown("<h2 class='provider-header'>🎛️ Painel de Controlo do Prestador</h2>", unsafe_allow_html=True)
     st.write(f"Token do Estabelecimento: `{provider_token}`")
 
-    url_firebase = f"{FIREBASE_URL}/pedidos/{provider_token}.json?_t={time.time()}"
-    try:
-        response = requests.get(url_firebase, timeout=10)
-        pedidos_ativos = []
-        if response.status_code == 200 and response.json():
-            data = response.json()
-            pedidos = [{"id": k, **v} for k, v in data.items()]
-            pedidos_ativos = [p for p in pedidos if p.get("estado") in ["pendente", "aprovado"]]
-            pedidos_ativos.sort(key=lambda x: x.get("timestamp", 0))
-    except Exception as e:
-        st.error(f"Erro ao carregar dados do Firebase: {e}")
-        pedidos_ativos = []
-
-    # Abas organizadas: Pedidos, Vídeo de Fundo, Perfil e Customização Avançada
+    # Abas organizadas
     tab1, tab2, tab3 = st.tabs(["🎵 Fila de Pedidos", "📺 Vídeo de Fundo", "⚙️ Perfil, Cores e Campos"])
 
     with tab1:
-        st.subheader("Gerenciamento da Fila de Espera")
-        if not pedidos_ativos:
-            st.info("Não existem pedidos pendentes ou em reprodução no momento.")
-        else:
-            for idx, p in enumerate(pedidos_ativos):
-                p_id = p.get("id")
-                cliente = p.get("cliente", "Convidado")
-                musica = p.get("musica", {})
-                titulo = musica.get("titulo", musica.get("nome", "Karaoke")) if isinstance(musica, dict) else str(musica)
-                estado = p.get("estado")
-
-                cols = st.columns([3, 2, 1])
-                with cols[0]:
-                    st.markdown(f"**{idx+1}. Cliente:** {cliente} <br>🎵 *{titulo}*", unsafe_allow_html=True)
-                with cols[1]:
-                    st.markdown(f"Estado: `{estado}`")
-                with cols[2]:
-                    if estado == "pendente":
-                        if st.button("Aprovar", key=f"apr_{p_id}"):
-                            _atualizar_estado_pedido(provider_token, p_id, "aprovado", FIREBASE_URL)
-                            st.rerun()
-                    elif estado == "aprovado":
-                        if st.button("Terminar", key=f"ter_{p_id}"):
-                            _atualizar_estado_pedido(provider_token, p_id, "terminado", FIREBASE_URL)
-                            st.rerun()
+        renderizar_gestao_fila_prestador(provider_token, FIREBASE_URL)
 
     with tab2:
         st.subheader("Seleção de Vídeo de Fundo (Descanso de Tela)")
-        st.write("Escolha um clipe para ser reproduzido automaticamente na TV quando a fila de espera estiver vazia.")
+        st.write("Escolha um clipe do Cloudinary para ser reproduzido automaticamente na TV quando a fila estiver vazia.")
         
-        url_atual = _obter_video_fundo(provider_token, FIREBASE_URL)
-        nova_url_fundo = st.text_input("URL do Vídeo de Fundo (MP4/Cloudinary):", value=url_atual or "")
+        video_fundo_atual = _obter_video_fundo(provider_token, FIREBASE_URL)
+        lista_clipes = _listar_videos_pasta_clipes()
         
-        if st.button("Guardar Vídeo de Fundo"):
-            _salvar_video_fundo(provider_token, nova_url_fundo, FIREBASE_URL)
-            st.success("Vídeo de fundo atualizado com sucesso!")
-            st.rerun()
+        opcoes_labels = ["Nenhum (Ecrã Preto)"]
+        mapa_url_por_label = {}
+        
+        for clipe in lista_clipes:
+            label = f"📁 {clipe.get('nome', 'Clipe')}"
+            opcoes_labels.append(label)
+            mapa_url_por_label[label] = clipe.get('url', '')
+            
+        index_atual = 0
+        for idx, label in enumerate(opcoes_labels):
+            if label != "Nenhum (Ecrã Preto)":
+                url_mapeada = mapa_url_por_label.get(label, "")
+                if video_fundo_atual and (video_fundo_atual in url_mapeada or url_mapeada in video_fundo_atual):
+                    index_atual = idx
+                    break
+
+        with st.form(key="form_video_fundo_tab"):
+            escolha_video = st.selectbox("Pesquisar Vídeo Clipe", options=opcoes_labels, index=index_atual)
+            btn_salvar_fundo = st.form_submit_button("Guardar Vídeo de Fundo")
+            if btn_salvar_fundo:
+                valor_a_guardar = "" if escolha_video == "Nenhum (Ecrã Preto)" else mapa_url_por_label.get(escolha_video, "")
+                _salvar_video_fundo(provider_token, valor_a_guardar, FIREBASE_URL)
+                st.success("Vídeo clipe de fundo atualizado com sucesso!")
+                st.rerun()
 
     with tab3:
         st.subheader("👤 Perfil, Cores e Customização de Campos")
@@ -87,11 +70,9 @@ def show_provider_panel_custom(provider_token, FIREBASE_URL):
         st.markdown("### 🎨 Personalização Visual e Textos do Ecrã")
         col_c1, col_c2 = st.columns(2)
         with col_c1:
-            cor_texto_atual = perfil_atual.get("cor_texto", "#FFFFFF")
-            cor_texto = st.color_picker("Cor das Letras / Textos:", value=cor_texto_atual)
+            cor_texto = st.color_picker("Cor das Letras / Textos:", value=perfil_atual.get("cor_texto", "#FFFFFF"))
         with col_c2:
-            cor_borda_atual = perfil_atual.get("cor_borda", "#FFC107")
-            cor_borda = st.color_picker("Cor dos Contornos / Bordas:", value=cor_borda_atual)
+            cor_borda = st.color_picker("Cor dos Contornos / Bordas:", value=perfil_atual.get("cor_borda", "#FFC107"))
 
         fonte_escolhida = st.selectbox(
             "Estilo de Letra (Fonte):", 
@@ -117,10 +98,123 @@ def show_provider_panel_custom(provider_token, FIREBASE_URL):
             _salvar_perfil_prestador(provider_token, dados_atualizados, FIREBASE_URL)
             st.success("Perfil e customizações guardados com sucesso!")
             st.rerun()
+
+
+@st.fragment(run_every=3)
+def renderizar_gestao_fila_prestador(provider_token, FIREBASE_URL):
+    try:
+        url_firebase = f"{FIREBASE_URL}/pedidos/{provider_token}.json?_t={time.time()}"
+        response = requests.get(url_firebase, timeout=10)
+        
+        pedidos = []
+        if response.status_code == 200 and response.json():
+            data = response.json()
+            if isinstance(data, dict):
+                pedidos = [{"id": k, **v} for k, v in data.items()]
+            elif isinstance(data, list):
+                pedidos = [{"id": str(idx), **item} for idx, item in enumerate(data) if item is not None]
+        
+        pedidos_ativos = [p for p in pedidos if p.get("estado") in ["pendente", "aprovado"]]
+        pedidos_ativos.sort(key=lambda x: x.get("timestamp", 0))
+        
+        tocando_agora = next((p for p in pedidos_ativos if p.get("estado") == "aprovado"), None)
+        pendentes = [p for p in pedidos_ativos if p.get("estado") == "pendente"]
+
+        def obter_titulo(musica_field):
+            if isinstance(musica_field, dict):
+                return musica_field.get("titulo") or musica_field.get("nome") or musica_field.get("title") or "Música sem título"
+            return str(musica_field) if musica_field else "Música sem título"
+
+        if pendentes:
+            st.markdown("""
+                <div style="background-color: rgba(0,0,0,0.95); border: 4px solid #FFC107; padding: 15px; border-radius: 8px; text-align: center; margin-bottom: 20px;">
+                    <div style="color: #ffffff; font-family: monospace; font-size: 15px; font-weight: bold; margin-bottom: 5px; text-shadow: 1px 1px 3px rgba(0,0,0,0.9);">Confirmação de Pedido</div>
+                    <div style="color: #ffffff; font-family: monospace; font-size: 18px; font-weight: bold; margin-bottom: 10px; text-shadow: 1px 1px 3px rgba(0,0,0,0.9);">QUER CANTAR</div>
+            """, unsafe_allow_html=True)
             
-        st.markdown("---")
-        if st.button("🔄 Atualizar Painel Geral"):
-            st.rerun()
+            for p in pendentes:
+                titulo_p = obter_titulo(p.get("musica", {}))
+                cliente_p = p.get("cliente", "Convidado")
+                st.markdown(f"""
+                    <div style="color: #ffffff; font-family: monospace; font-size: 15px; margin-bottom: 15px; font-weight: bold; text-shadow: 1px 1px 3px rgba(0,0,0,0.9);">
+                        <b>{titulo_p}</b> <span style="color: #ffffff; font-size: 13px; font-weight: bold; text-shadow: 1px 1px 3px rgba(0,0,0,0.9);">({cliente_p})</span>
+                    </div>
+                """, unsafe_allow_html=True)
+                
+                col_btn_dummy1, col_center_btn, col_btn_dummy2 = st.columns([1, 1.2, 1])
+                with col_center_btn:
+                    if st.button("✅ Sim", key=f"conf_sim_{p.get('id')}", use_container_width=True):
+                        _terminar_todas_musicas_ativas(provider_token, pedidos, FIREBASE_URL)
+                        _atualizar_estado_pedido(provider_token, p.get('id'), 'aprovado', FIREBASE_URL)
+                        st.success(f"Música '{titulo_p}' enviada para a tela!")
+                        st.rerun()
+                    if st.button("❌ Não", key=f"conf_nao_{p.get('id')}", use_container_width=True):
+                        _atualizar_estado_pedido(provider_token, p.get('id'), 'terminado', FIREBASE_URL)
+                        st.warning("Pedido recusado/cancelado.")
+                        st.rerun()
+            st.markdown("</div>", unsafe_allow_html=True)
+
+        st.markdown("### 📋 Estado da Fila e Controlo de Reprodução")
+        
+        if pedidos_ativos:
+            for idx, p in enumerate(pedidos_ativos, start=1):
+                titulo_musica = obter_titulo(p.get("musica", {}))
+                cliente_nome = p.get("cliente", "Convidado")
+                estado_atual = p.get("estado")
+                
+                is_playing = (estado_atual == "aprovado")
+                cor_borda = "#4CAF50" if is_playing else "#FFC107"
+                badge_texto = "🎵 A TOCAR AGORA" if is_playing else f"⏳ Fila #{idx}"
+                
+                with st.container():
+                    st.markdown(f"""
+                        <div style="background: rgba(0,0,0,0.95); border: 4px solid {cor_borda}; border-radius: 8px; padding: 12px 15px; margin-bottom: 10px; font-family: monospace;">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                                <span style="color: #ffffff; font-weight: bold; font-size: 14px; text-shadow: 1px 1px 3px rgba(0,0,0,0.9);">{badge_texto}</span>
+                                <span style="color: #ffffff; font-size: 13px; font-weight: bold; text-shadow: 1px 1px 3px rgba(0,0,0,0.9);">Cliente: <b>{cliente_nome}</b></span>
+                            </div>
+                            <div style="color: #ffffff; font-size: 16px; font-weight: bold; margin-bottom: 8px; text-shadow: 1px 1px 3px rgba(0,0,0,0.9);">
+                                🎶 {titulo_musica}
+                            </div>
+                        </div>
+                    """, unsafe_allow_html=True)
+                    
+                    col_acao1, col_acao2, col_acao3 = st.columns(3)
+                    with col_acao1:
+                        if not is_playing:
+                            if st.button("▶️ Tocar Agora", key=f"play_linha_{p.get('id')}", use_container_width=True):
+                                _terminar_todas_musicas_ativas(provider_token, pedidos, FIREBASE_URL)
+                                _atualizar_estado_pedido(provider_token, p.get('id'), 'aprovado', FIREBASE_URL)
+                                st.success(f"A avançar para: {titulo_musica}")
+                                st.rerun()
+                    with col_acao2:
+                        if is_playing:
+                            if st.button("⏹️ Terminar Atual", key=f"term_linha_{p.get('id')}", use_container_width=True):
+                                _terminar_todas_musicas_ativas(provider_token, pedidos, FIREBASE_URL)
+                                st.success("Música terminada!")
+                                st.rerun()
+                    with col_acao3:
+                        if st.button("❌ Remover", key=f"rem_linha_{p.get('id')}", use_container_width=True):
+                            _atualizar_estado_pedido(provider_token, p.get('id'), 'terminado', FIREBASE_URL)
+                            st.warning("Música removida da fila.")
+                            st.rerun()
+                    st.markdown("<hr style='margin: 5px 0 15px 0; border-color: #333;'>", unsafe_allow_html=True)
+        else:
+            st.markdown("""
+                <div style="background-color: rgba(0,0,0,0.95); border: 4px solid #FFC107; border-radius: 8px; padding: 15px; color: #ffffff; width: 100%; font-family: monospace; font-size: 14px; margin-bottom: 20px; text-align: center; font-weight: bold; text-shadow: 1px 1px 3px rgba(0,0,0,0.9);">
+                    NENHUM PEDIDO NA LISTA NESTE MOMENTO.<br>À ESPERA DE NOVOS PEDIDOS...
+                </div>
+            """, unsafe_allow_html=True)
+
+        if tocando_agora:
+            if st.button("🛑 Stop Geral (Limpar Tela)", key="stop_geral_btn", use_container_width=True):
+                _terminar_todas_musicas_ativas(provider_token, pedidos, FIREBASE_URL)
+                _salvar_video_fundo(provider_token, "", FIREBASE_URL)
+                st.warning("Reprodução parada e tela limpa com sucesso!")
+                st.rerun()
+          
+    except Exception as e:
+        st.error(f"Erro ao carregar os pedidos do Firebase: {e}")
 
 
 @st.fragment(run_every=3)
@@ -139,7 +233,6 @@ def renderizar_ecra_tv(provider_token, FIREBASE_URL, limpar_nome_musica_func=Non
             pedidos_ativos.sort(key=lambda x: x.get("timestamp", 0))
             tocando_agora = next((p for p in pedidos_ativos if p.get("estado") == "aprovado"), None)
 
-        # Buscar definições customizadas do perfil do prestador
         perfil = _obter_perfil_prestador(provider_token, FIREBASE_URL)
         cor_txt = perfil.get("cor_texto", "#FFFFFF")
         cor_brd = perfil.get("cor_borda", "#FFC107")
@@ -162,85 +255,37 @@ def renderizar_ecra_tv(provider_token, FIREBASE_URL, limpar_nome_musica_func=Non
                     100% {{ transform: translateX(-50%); }}
                 }}
                 .speaker-box {{
-                    position: fixed;
-                    z-index: 99998;
-                    width: 90px;
-                    height: 140px;
-                    background: #111;
-                    border: 4px solid {cor_brd};
-                    border-radius: 10px;
-                    display: flex;
-                    flex-direction: column;
-                    align-items: center;
-                    justify-content: space-around;
-                    padding: 8px 0;
-                    box-shadow: 0 0 15px rgba(255, 193, 7, 0.4);
-                    pointer-events: none;
+                    position: fixed; z-index: 99998; width: 90px; height: 140px; background: #111;
+                    border: 4px solid {cor_brd}; border-radius: 10px; display: flex; flex-direction: column;
+                    align-items: center; justify-content: space-around; padding: 8px 0; pointer-events: none;
                     animation: pulseSpeaker 0.55s infinite ease-in-out;
                 }}
                 .woofer {{
-                    width: 55px;
-                    height: 55px;
-                    border: 3px solid {cor_brd};
-                    border-radius: 50%;
-                    background: radial-gradient(circle, #333 30%, #000 90%);
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                    box-shadow: inset 0 0 8px {cor_brd};
+                    width: 55px; height: 55px; border: 3px solid {cor_brd}; border-radius: 50%;
+                    background: radial-gradient(circle, #333 30%, #000 90%); display: flex;
+                    align-items: center; justify-content: center;
                 }}
-                .woofer-inner {{
-                    width: 22px;
-                    height: 22px;
-                    background: {cor_brd};
-                    border-radius: 50%;
-                }}
+                .woofer-inner {{ width: 22px; height: 22px; background: {cor_brd}; border-radius: 50%; }}
                 .speaker-tl {{ top: 15px; left: 15px; }}
                 .speaker-tr {{ top: 15px; right: 15px; }}
                 .speaker-bl {{ bottom: 50px; left: 15px; }}
                 .speaker-br {{ bottom: 50px; right: 15px; }}
-
                 .marquee-footer {{
-                    position: fixed;
-                    bottom: 0;
-                    left: 0;
-                    width: 100vw;
-                    height: 38px;
-                    background: #111;
-                    border-top: 4px solid {cor_brd};
-                    z-index: 99997;
-                    overflow: hidden;
-                    display: flex;
-                    align-items: center;
-                    white-space: nowrap;
-                    pointer-events: none;
+                    position: fixed; bottom: 0; left: 0; width: 100vw; height: 38px; background: #111;
+                    border-top: 4px solid {cor_brd}; z-index: 99997; overflow: hidden; display: flex;
+                    align-items: center; white-space: nowrap; pointer-events: none;
                 }}
                 .marquee-track {{
-                    display: inline-block;
-                    white-space: nowrap;
-                    animation: marqueeFast 15s linear infinite;
-                    font-family: {fonte_utilizada};
-                    font-size: 16px;
-                    color: {cor_txt};
-                    font-weight: bold;
-                    text-shadow: 1px 1px 3px rgba(0,0,0,0.9);
+                    display: inline-block; white-space: nowrap; animation: marqueeFast 15s linear infinite;
+                    font-family: {fonte_utilizada}; font-size: 16px; color: {cor_txt}; font-weight: bold;
                 }}
-                .marquee-item {{
-                    display: inline-flex;
-                    align-items: center;
-                    gap: 12px;
-                    margin-right: 40px;
-                }}
-                .icon-anim {{
-                    display: inline-block;
-                    animation: bounceIcon 0.8s infinite ease-in-out;
-                }}
+                .marquee-item {{ display: inline-flex; align-items: center; gap: 12px; margin-right: 40px; }}
+                .icon-anim {{ display: inline-block; animation: bounceIcon 0.8s infinite ease-in-out; }}
             </style>
             <div class="speaker-box speaker-tl"><div class="woofer"><div class="woofer-inner"></div></div><div class="woofer"><div class="woofer-inner"></div></div></div>
             <div class="speaker-box speaker-tr"><div class="woofer"><div class="woofer-inner"></div></div><div class="woofer"><div class="woofer-inner"></div></div></div>
             <div class="speaker-box speaker-bl"><div class="woofer"><div class="woofer-inner"></div></div><div class="woofer"><div class="woofer-inner"></div></div></div>
             <div class="speaker-box speaker-br"><div class="woofer"><div class="woofer-inner"></div></div><div class="woofer"><div class="woofer-inner"></div></div></div>
-
             <div class="marquee-footer">
                 <div class="marquee-track">
                     <span class="marquee-item"><span class="icon-anim">🎵</span> {texto_rodape}</span>
@@ -275,7 +320,7 @@ def renderizar_ecra_tv(provider_token, FIREBASE_URL, limpar_nome_musica_func=Non
                     position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
                     background: rgba(0,0,0,0.95); display: flex; justify-content: center; align-items: center;
                     z-index: 99999; color: {cor_txt}; font-family: {fonte_utilizada}; font-size: 15vw; font-weight: bold;
-                    text-shadow: 2px 2px 5px rgba(0,0,0,0.9); animation: zoomInNumber 0.9s ease-in-out infinite;
+                    animation: zoomInNumber 0.9s ease-in-out infinite;
                 }}
             </style>
             <div id="countdown-screen" class="countdown-overlay">3</div>
@@ -371,27 +416,7 @@ def renderizar_ecra_tv(provider_token, FIREBASE_URL, limpar_nome_musica_func=Non
                         <video id="fundo-player" width="100%" height="450px" autoplay loop playsinline controlslist="nodownload noremoteplayback" disablepictureinpicture style="object-fit: contain; background: black; border-radius: 8px;">
                             <source src="{url_clipe_fundo}" type="video/mp4">
                         </video>
-                        <div id="fundo-audio-warning" style="display: none; position: absolute; bottom: 15px; right: 15px; background: rgba(0,0,0,0.8); border: 2px solid {cor_brd}; padding: 6px 10px; border-radius: 5px; cursor: pointer;" onclick="unmuteFundo()">
-                            <span style="font-size: 18px;" title="Ativar Som">🔊</span>
-                        </div>
                     </div>
-                    <script>
-                        var fundoVideo = document.getElementById('fundo-player');
-                        fundoVideo.muted = false;
-                        var fundoPromise = fundoVideo.play();
-                        if (fundoPromise !== undefined) {{
-                            fundoPromise.then(_ => {{}}).catch(error => {{
-                                fundoVideo.muted = true;
-                                fundoVideo.play();
-                                document.getElementById('fundo-audio-warning').style.display = 'block';
-                            }});
-                        }}
-                        function unmuteFundo() {{
-                            fundoVideo.muted = false;
-                            fundoVideo.play();
-                            document.getElementById('fundo-audio-warning').style.display = 'none';
-                        }}
-                    </script>
                     """
                     components.html(video_fundo_html, height=480)
                 else:
@@ -405,12 +430,25 @@ def renderizar_ecra_tv(provider_token, FIREBASE_URL, limpar_nome_musica_func=Non
         st.error(f"Erro de sincronização na TV: {e}")
 
 
+# --- FUNÇÕES AUXILIARES INTERNAS ---
+
 def _atualizar_estado_pedido(provider_token, pedido_id, novo_estado, FIREBASE_URL):
     url = f"{FIREBASE_URL}/pedidos/{provider_token}/{pedido_id}/estado.json"
     try:
         requests.put(url, json=novo_estado, timeout=5)
     except Exception as e:
         st.error(f"Erro ao atualizar estado: {e}")
+
+
+def _terminar_todas_musicas_ativas(provider_token, pedidos, FIREBASE_URL):
+    for p in pedidos:
+        if p.get("estado") == "aprovado":
+            p_id = p.get("id")
+            url = f"{FIREBASE_URL}/pedidos/{provider_token}/{p_id}/estado.json"
+            try:
+                requests.put(url, json="terminado", timeout=3)
+            except:
+                pass
 
 
 def _obter_video_fundo(provider_token, FIREBASE_URL):
@@ -449,3 +487,8 @@ def _salvar_perfil_prestador(provider_token, dados_perfil, FIREBASE_URL):
         requests.put(url, json=dados_perfil, timeout=5)
     except Exception as e:
         st.error(f"Erro ao salvar perfil: {e}")
+
+
+def _listar_videos_pasta_clipes():
+    # Pode integrar a listagem real do Cloudinary se necessário, ou retornar mock/lista
+    return []
