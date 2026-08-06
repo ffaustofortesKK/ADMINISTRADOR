@@ -1260,23 +1260,26 @@ def main():
         
         if token:
             df = get_all_providers()
+            # Verifica se o prestador está cadastrado na base de dados
             if df.empty or 'token' not in df.columns or not (df['token'] == token).any():
-                show_provider_panel_center(token)
+                st.error("❌ Token de prestador inválido ou não encontrado.")
+                if st.button("Fazer Registo"):
+                    st.query_params["page"] = "register"
+                    st.rerun()
                 return
                 
             prior_prestador = df[df['token'] == token]
             if not prior_prestador.empty:
                 row = prior_prestador.iloc[0]
-                if row.get('approved', 1) == 1:
+                # Verifica se foi aprovado pelo admin (aceita 1, '1', True por segurança)
+                if int(row.get('approved', 0)) == 1:
                     show_provider_panel_custom(token)
                     return
                 else:
                     st.warning("⏳ O seu registo aguarda aprovação do Administrador.")
                     return
-            else:
-                show_provider_panel_custom(token)
-                return
-            
+        
+        # Se nenhum token foi fornecido na URL, exibe a página de login do Administrador
         st.markdown("""
             <style>
             .stApp {
