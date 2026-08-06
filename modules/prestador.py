@@ -15,7 +15,7 @@ def show_provider_panel_custom(provider_token, FIREBASE_URL):
         </style>
     """, unsafe_allow_html=True)
 
-    st.markdown("<h2 class='provider-header'>🎛️ Painel de Controlo do Prestador</h2>", unsafe_allow_html=True)
+    st.markdown("<h2 class='provider-header'>🎛️ Painel de Controlo do Prestador2</h2>", unsafe_allow_html=True)
     st.write(f"Token do Estabelecimento: `{provider_token}`")
 
     url_firebase = f"{FIREBASE_URL}/pedidos/{provider_token}.json?_t={time.time()}"
