@@ -81,7 +81,7 @@ def renderizar_gestao_fila_prestador(provider_token, nome_prestador="PRESTADOR",
                     <a href="{link_cliente}" target="_blank" style="color: #fff; font-size: 12px; word-break: break-all;">{link_cliente}</a>
                 </div>
                 <div style="background: rgba(0,0,0,0.9); border: 2px solid #9C27B0; padding: 10px; border-radius: 6px; font-family: monospace;">
-                    <span style="font-size: 12px; color: #BA68C8;">📺 LINK DA TELA DE TV / REPRODUÇÃO</span><br>
+                    <span style="font-size: 12px; color: #BA68C8;">📺 LINK DA TELA / REPRODUÇÃO</span><br>
                     <a href="{link_tela}" target="_blank" style="color: #fff; font-size: 12px; word-break: break-all;">{link_tela}</a>
                 </div>
             """, unsafe_allow_html=True)
