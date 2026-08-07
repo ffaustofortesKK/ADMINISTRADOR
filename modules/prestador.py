@@ -51,15 +51,23 @@ def listar_videos_pasta_clipes():
 
 # --- Função Principal do Módulo (Painel Completo do Prestador) ---
 @st.fragment(run_every=3)
-def renderizar_gestao_fila_prestador(provider_token, nome_prestador="PRESTADOR", plano_info="02:00:00 (2 Horas - 12 Mil Kwanzas)"):
+def renderizar_gestao_fila_prestador(provider_token, nome_prestador="PRESTADOR", tempo_plano="2 Horas - 12 Mil Kwanzas", segundos_restantes=7200):
     try:
-        # 1. CABEÇALHO PERSONALIZÁVEL DO PRESTADOR (Agora gerido totalmente aqui!)
+        # Formatar o tempo restante para exibição no cabeçalho
+        horas_restantes = segundos_restantes // 3600
+        min_restantes = (segundos_restantes % 3600) // 60
+        seg_restantes = segundos_restantes % 60
+        tempo_formatado = f"{int(horas_restantes):02d}:{int(min_restantes):02d}:{int(seg_restantes):02d}"
+        
+        classe_piscar = "animation: piscarRelogio 1s infinite;" if segundos_restantes <= 1800 and segundos_restantes > 0 else ""
+
+        # 1. CABEÇALHO PERSONALIZÁVEL DO PRESTADOR
         st.markdown(f"""
             <div style="background: rgba(0,0,0,0.85); border: 3px solid #FFC107; padding: 15px; border-radius: 8px; margin-bottom: 20px; font-family: monospace;">
                 <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap;">
-                    <h2 style="color: #ffffff; margin: 0; font-size: 22px;">🎤 PAINEL DO  PRESTADOR2: {nome_prestador}</h2>
+                    <h2 style="color: #ffffff; margin: 0; font-size: 22px;">🎤 PAINEL DO PRESTADOR: {nome_prestador}</h2>
                     <div style="background: #111; border: 2px solid #FFC107; padding: 8px 12px; border-radius: 6px; color: #fff; font-size: 14px;">
-                        <b>TEMPO / PLANO ESCOLHIDO:</b><br>⏱️ {plano_info}
+                        <b>TEMPO / PLANO ESCOLHIDO:</b><br><span style="{classe_piscar}">⏱️ {tempo_formatado} ({tempo_plano})</span>
                     </div>
                 </div>
                 <div style="margin-top: 10px; color: #aaa; font-size: 13px;">
@@ -81,7 +89,7 @@ def renderizar_gestao_fila_prestador(provider_token, nome_prestador="PRESTADOR",
                     <a href="{link_cliente}" target="_blank" style="color: #fff; font-size: 12px; word-break: break-all;">{link_cliente}</a>
                 </div>
                 <div style="background: rgba(0,0,0,0.9); border: 2px solid #9C27B0; padding: 10px; border-radius: 6px; font-family: monospace;">
-                    <span style="font-size: 12px; color: #BA68C8;">📺 LINK DA TELA / REPRODUÇÃO</span><br>
+                    <span style="font-size: 12px; color: #BA68C8;">📺 LINK DA TELA DE TV / REPRODUÇÃO</span><br>
                     <a href="{link_tela}" target="_blank" style="color: #fff; font-size: 12px; word-break: break-all;">{link_tela}</a>
                 </div>
             """, unsafe_allow_html=True)
