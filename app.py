@@ -521,7 +521,7 @@ def renderizar_gestao_fila_prestador(provider_token):
                 definir_video_fundo(provider_token, "")
                 st.warning("Reprodução parada e tela limpa com sucesso!")
                 st.rerun()
-
+                
         st.markdown("---")
         
         video_fundo_atual = obter_video_fundo(provider_token)
