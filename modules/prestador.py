@@ -22,11 +22,16 @@ def terminar_todas_musicas_ativas(token, pedidos):
         if p.get("estado") == "aprovado":
             atualizar_estado_pedido(token, p.get("id"), "terminado")
 
-# --- Fragmento Corrigido (Autossuficiente) ---
+# --- Fragmento Sem Argumentos ---
 @st.fragment(run_every=3)
-def renderizar_gestao_fila_prestador(provider_token):
-    # A função só recebe o token, nada mais, evitando o erro de argumentos extra
-    url_firebase = f"{FIREBASE_URL}/pedidos/{provider_token}.json?_t={time.time()}"
+def renderizar_gestao_fila_prestador():
+    # Recupera o token do session_state (definido na função principal)
+    token = st.session_state.get("current_provider_token")
+    if not token:
+        st.error("Token de prestador não encontrado.")
+        return
+
+    url_firebase = f"{FIREBASE_URL}/pedidos/{token}.json?_t={time.time()}"
     try:
         response = requests.get(url_firebase, timeout=5)
         pedidos = []
@@ -40,35 +45,40 @@ def renderizar_gestao_fila_prestador(provider_token):
         pedidos_ativos = [p for p in pedidos if p.get("estado") in ["pendente", "aprovado"]]
         pedidos_ativos.sort(key=lambda x: x.get("timestamp", 0))
 
-        # UI do Fragmento
-        st.markdown("### 📋 Gestão de Fila em Tempo Real")
+        st.markdown("### 📋 Gestão de Fila")
+        
         if not pedidos_ativos:
-            st.info("Nenhum pedido ativo.")
+            st.info("Nenhum pedido na fila.")
             return
 
         for p in pedidos_ativos:
             titulo = limpar_nome_musica(p.get("musica", {}))
             estado = p.get("estado")
+            
             col1, col2 = st.columns([3, 1])
             with col1:
-                st.write(f"{'🎵' if estado == 'aprovado' else '⏳'} {titulo} ({p.get('cliente', 'Convidado')})")
+                st.write(f"{'🎵 A Tocar' if estado == 'aprovado' else '⏳ Pendente'}: {titulo}")
             with col2:
                 if estado == "pendente":
                     if st.button("Aprovar", key=f"apr_{p['id']}"):
-                        terminar_todas_musicas_ativas(provider_token, pedidos)
-                        atualizar_estado_pedido(provider_token, p['id'], 'aprovado')
+                        terminar_todas_musicas_ativas(token, pedidos)
+                        atualizar_estado_pedido(token, p['id'], 'aprovado')
                         st.rerun()
                 elif estado == "aprovado":
                     if st.button("Terminar", key=f"ter_{p['id']}"):
-                        atualizar_estado_pedido(provider_token, p['id'], 'terminado')
+                        atualizar_estado_pedido(token, p['id'], 'terminado')
                         st.rerun()
+                        
     except Exception as e:
-        st.error("Erro ao atualizar fila.")
+        st.error(f"Erro ao atualizar: {e}")
 
-# --- Painel Principal ---
+# --- Função Principal ---
 def show_provider_panel_custom(provider_token):
-    st.title("Painel do Prestador")
-    st.write(f"Token: {provider_token}")
+    # Guardamos o token no state para o fragmento aceder
+    st.session_state["current_provider_token"] = provider_token
     
-    # Exibe o fragmento passando apenas o argumento necessário
-    renderizar_gestao_fila_prestador(provider_token)
+    st.title("Painel do Prestador")
+    st.write(f"Gestão ativa para o token: {provider_token}")
+    
+    # Chamada SEM argumentos (evita o erro de keyword argument)
+    renderizar_gestao_fila_prestador()
