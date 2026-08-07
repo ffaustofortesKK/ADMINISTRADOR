@@ -57,7 +57,7 @@ def renderizar_gestao_fila_prestador(provider_token, nome_prestador="PRESTADOR",
         st.markdown(f"""
             <div style="background: rgba(0,0,0,0.85); border: 3px solid #FFC107; padding: 15px; border-radius: 8px; margin-bottom: 20px; font-family: monospace;">
                 <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap;">
-                    <h2 style="color: #ffffff; margin: 0; font-size: 22px;">🎤 PAINEL DO PRESTADOR: {nome_prestador}</h2>
+                    <h2 style="color: #ffffff; margin: 0; font-size: 22px;">🎤 PAINEL DO PRESTADOR2: {nome_prestador}</h2>
                     <div style="background: #111; border: 2px solid #FFC107; padding: 8px 12px; border-radius: 6px; color: #fff; font-size: 14px;">
                         <b>TEMPO / PLANO ESCOLHIDO:</b><br>⏱️ {plano_info}
                     </div>
