@@ -53,6 +53,8 @@ def listar_videos_pasta_clipes():
 @st.fragment(run_every=3)
 def renderizar_gestao_fila_prestador(provider_token, nome_prestador="PRESTADOR", tempo_plano="2 Horas - 12 Mil Kwanzas", segundos_restantes=7200):
     try:
+        url_fundo_painel = "https://cdn.phototourl.com/free/2026-08-03-694a4a2e-9914-4da8-93b2-87538a4805ab.png"
+
         # Formatar o tempo restante para exibição no cabeçalho
         horas_restantes = segundos_restantes // 3600
         min_restantes = (segundos_restantes % 3600) // 60
@@ -60,6 +62,26 @@ def renderizar_gestao_fila_prestador(provider_token, nome_prestador="PRESTADOR",
         tempo_formatado = f"{int(horas_restantes):02d}:{int(min_restantes):02d}:{int(seg_restantes):02d}"
         
         classe_piscar = "animation: piscarRelogio 1s infinite;" if segundos_restantes <= 1800 and segundos_restantes > 0 else ""
+
+        # Aplicar fundo visual e estilos
+        st.markdown(f"""
+            <style>
+            .stApp {{
+                background: url("{url_fundo_painel}") no-repeat center center fixed !important;
+                background-size: cover !important;
+            }}
+            .block-container {{
+                background: rgba(0, 0, 0, 0.90) !important;
+                border-radius: 12px;
+                border: 4px solid #FFC107 !important;
+            }}
+            @keyframes piscarRelogio {{
+                0% {{ opacity: 1; color: #FFC107; }}
+                50% {{ opacity: 0.3; color: #ff5252; }}
+                100% {{ opacity: 1; color: #FFC107; }}
+            }}
+            </style>
+        """, unsafe_allow_html=True)
 
         # 1. CABEÇALHO PERSONALIZÁVEL DO PRESTADOR
         st.markdown(f"""
@@ -102,6 +124,18 @@ def renderizar_gestao_fila_prestador(provider_token, nome_prestador="PRESTADOR",
                     <img src="{qr_url}" width="110" style="border-radius: 4px; margin-top: 4px;">
                 </div>
             """, unsafe_allow_html=True)
+
+        st.markdown("---")
+
+        # 3. GESTÃO DE VÍDEO / CLIPE DE FUNDO PARA A TELA DE TV
+        st.markdown("### 🎬 Vídeo / Fundo da Tela de TV")
+        with st.expander("⚙️ Configurar Vídeo de Fundo da Tela", expanded=False):
+            video_atual = obter_video_fundo(provider_token)
+            novo_video_url = st.text_input("URL Direta do Vídeo / Fundo (MP4 ou Imagem)", value=video_atual)
+            if st.button("Guardar Vídeo/Fundo"):
+                definir_video_fundo(provider_token, novo_video_url)
+                st.success("Vídeo/Fundo atualizado com sucesso!")
+                st.rerun()
 
         st.markdown("---")
 
