@@ -53,6 +53,25 @@ except Exception:
     def show_client_page(): st.error("Módulo 'modules.client' não encontrado.")
 
 try:
+    from modules.prestador import (
+        renderizar_gestao_fila_prestador,
+        limpar_nome_musica,
+        atualizar_estado_pedido,
+        terminar_todas_musicas_ativas,
+        obter_video_fundo,
+        definir_video_fundo,
+        listar_videos_pasta_clipes
+    )
+except Exception:
+    def renderizar_gestao_fila_prestador(token): st.error("Módulo 'modules.prestador' não encontrado.")
+    def limpar_nome_musica(m): return "Música"
+    def atualizar_estado_pedido(t, p, e): pass
+    def terminar_todas_musicas_ativas(t, ps): pass
+    def obter_video_fundo(t): return ""
+    def definir_video_fundo(t, u): pass
+    def listar_videos_pasta_clipes(): return []
+
+try:
     from modules.register import show_register_page as original_show_register_page
 except Exception:
     original_show_register_page = None
