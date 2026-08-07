@@ -1,12 +1,53 @@
+from datetime import datetime
 import time
 import urllib.parse
-from datetime import datetime
 import requests
 import streamlit as st
 
 FIREBASE_URL = "https://grupoffkaraoke-default-rtdb.firebaseio.com"
 
-# --- Fragmento com NOVO NOME para forçar o Streamlit a reconhecer a nova assinatura ---
+# --- Funções auxiliares caso não estejam definidas noutro lugar do seu projeto ---
+def limpar_nome_musica(musica_obj):
+    if isinstance(musica_obj, dict):
+        return musica_obj.get("titulo", "Música Desconhecida")
+    return str(musica_obj)
+
+def atualizar_estado_pedido(provider_token, pedido_id, novo_estado):
+    try:
+        requests.patch(f"{FIREBASE_URL}/pedidos/{provider_token}/{pedido_id}.json", json={"estado": novo_estado}, timeout=5)
+    except Exception:
+        pass
+
+def terminar_todas_musicas_ativas(provider_token, pedidos):
+    for p in pedidos:
+        if p.get("estado") == "aprovado":
+            atualizar_estado_pedido(provider_token, p.get("id"), "terminado")
+
+def definir_video_fundo(provider_token, url_video):
+    try:
+        requests.put(f"{FIREBASE_URL}/config_video/{provider_token}.json", json={"url": url_video}, timeout=5)
+    except Exception:
+        pass
+
+def obter_video_fundo(provider_token):
+    try:
+        res = requests.get(f"{FIREBASE_URL}/config_video/{provider_token}.json", timeout=5)
+        if res.status_code == 200 and res.json():
+            return res.json().get("url", "")
+    except Exception:
+        pass
+    return ""
+
+def listar_videos_pasta_clipes():
+    # Retorne aqui a sua lista de clipes do Cloudinary se aplicável, ex:
+    return []
+
+def get_all_providers():
+    import pandas as pd
+    # Retorne o seu DataFrame de prestadores se aplicável
+    return pd.DataFrame()
+
+
 @st.fragment(run_every=3)
 def renderizar_gestao_fila_prestador(provider_token):
     try:
@@ -139,7 +180,6 @@ def renderizar_gestao_fila_prestador(provider_token):
                 options=opcoes_labels, 
                 index=index_atual
             )
-
             st.markdown("""
                 <style>
                 div[data-testid="stFormSubmitButton"] button {
@@ -184,7 +224,6 @@ def show_provider_panel_custom(provider_token):
             tempo_plano = row.get('tempo_plano', row.get('tempo', '2 Horas - 12 Mil Kwanzas'))
             data_registo_str = row.get('data_registo', None)
 
-    # Obter bónus de tempo acumulado por reforços aprovados no Firebase
     segundos_bónus = 0
     try:
         res_ref = requests.get(f"{FIREBASE_URL}/reforcos_aprovados/{provider_token}.json", timeout=5)
@@ -201,7 +240,7 @@ def show_provider_panel_custom(provider_token):
                         segundos_bónus += 7200
     except Exception:
         pass
-
+        
     segundos_base = 7200
     if "3 Horas" in tempo_plano:
         segundos_base = 10800
@@ -215,7 +254,6 @@ def show_provider_panel_custom(provider_token):
     
     if data_registo_str:
         try:
-            # Compatibilidade total para parse de data com frações de segundos ou formatos ISO
             dt_str_clean = data_registo_str.split('.')[0]
             try:
                 dt_reg = datetime.strptime(dt_str_clean, "%Y-%m-%d %H:%M:%S")
@@ -266,7 +304,6 @@ def show_provider_panel_custom(provider_token):
         margin-bottom: 2rem;
         border: 4px solid #FFC107 !important;
     }}
-
     .panel-header {{
         display: flex;
         align-items: center;
@@ -387,7 +424,7 @@ def show_provider_panel_custom(provider_token):
             </div>
         </div>
     """, unsafe_allow_html=True)
-
+    
     st.markdown(aviso_reforço_html, unsafe_allow_html=True)
     
     link_cliente_rel = f"/?page=client_register&prestador={provider_token}"
