@@ -448,99 +448,82 @@ def renderizar_gestao_fila_prestador(provider_token):
             data = response.json()
             pedidos = [{"id": k, **v} for k, v in data.items()]
             
-        pedidos_ativos = [p for p in pedidos if p.get("estado") in ["pendente", "aprovado"]]
+        # Consideramos todos os pedidos que não estejam terminados (vão direto para a fila ativa)
+        pedidos_ativos = [p for p in pedidos if p.get("estado") != "terminado"]
         pedidos_ativos.sort(key=lambda x: x.get("timestamp", 0))
         
+        # Se não houver nenhum aprovado mas houver pedidos, o primeiro passa a aprovado automaticamente
         tocando_agora = next((p for p in pedidos_ativos if p.get("estado") == "aprovado"), None)
-        pendentes = [p for p in pedidos_ativos if p.get("estado") == "pendente"]
-
-        if pendentes:
-            st.markdown("""
-                <div style="background-color: rgba(0,0,0,0.95); border: 4px solid #FFC107; padding: 15px; border-radius: 8px; text-align: center; margin-bottom: 20px;">
-                    <div style="color: #ffffff; font-family: monospace; font-size: 15px; font-weight: bold; margin-bottom: 5px; text-shadow: 1px 1px 3px rgba(0,0,0,0.9);">Confirmação de Pedido</div>
-                    <div style="color: #ffffff; font-family: monospace; font-size: 18px; font-weight: bold; margin-bottom: 10px; text-shadow: 1px 1px 3px rgba(0,0,0,0.9);">QUER CANTAR</div>
-            """, unsafe_allow_html=True)
-            
-            for p in pendentes:
-                titulo_p = limpar_nome_musica(p.get("musica", {}))
-                cliente_p = p.get("cliente", "Convidado")
-                st.markdown(f"""
-                    <div style="color: #ffffff; font-family: monospace; font-size: 15px; margin-bottom: 15px; font-weight: bold; text-shadow: 1px 1px 3px rgba(0,0,0,0.9);">
-                        <b>{titulo_p}</b> <span style="color: #ffffff; font-size: 13px; font-weight: bold; text-shadow: 1px 1px 3px rgba(0,0,0,0.9);">({cliente_p})</span>
-                    </div>
-                """, unsafe_allow_html=True)
-                
-                col_btn_dummy1, col_center_btn, col_btn_dummy2 = st.columns([1, 1.2, 1])
-                with col_center_btn:
-                    if st.button("✅ Sim", key=f"conf_sim_{p.get('id')}", use_container_width=True):
-                        terminar_todas_musicas_ativas(provider_token, pedidos)
-                        atualizar_estado_pedido(provider_token, p.get('id'), 'aprovado')
-                        st.success(f"Música '{titulo_p}' enviada para a tela!")
-                        st.rerun()
-                    if st.button("❌ Não", key=f"conf_nao_{p.get('id')}", use_container_width=True):
-                        atualizar_estado_pedido(provider_token, p.get('id'), 'terminado')
-                        st.warning("Pedido recusado/cancelado.")
-                        st.rerun()
-            st.markdown("</div>", unsafe_allow_html=True)
+        if not tocando_agora and pedidos_ativos:
+            primeiro_id = pedidos_ativos[0].get('id')
+            atualizar_estado_pedido(provider_token, primeiro_id, 'aprovado')
+            pedidos_ativos[0]['estado'] = 'aprovado'
+            tocando_agora = pedidos_ativos[0]
 
         st.markdown("### 📋 Estado da Fila e Controlo de Reprodução")
 
         if pedidos_ativos:
+            # Tabela limpa e organizada que cresce automaticamente com os pedidos
+            tabela_html = """
+            <div style="overflow-x: auto; margin-bottom: 15px;">
+                <table style="width: 100%; border-collapse: collapse; background: #000000; border: 2px solid #FFC107; font-family: monospace;">
+                    <thead>
+                        <tr style="border-bottom: 2px solid #FFC107; background: rgba(255,193,7,0.1);">
+                            <th style="padding: 10px; color: #FFC107; text-align: center; width: 60px; border-right: 1px solid #FFC107;">Nº</th>
+                            <th style="padding: 10px; color: #FFC107; text-align: left; width: 180px; border-right: 1px solid #FFC107;">CLIENTE</th>
+                            <th style="padding: 10px; color: #FFC107; text-align: left; border-right: 1px solid #FFC107;">TITULO</th>
+                            <th style="padding: 10px; color: #FFC107; text-align: center; width: 100px;">AÇÃO</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+            """
+            
             for idx, p in enumerate(pedidos_ativos, start=1):
                 titulo_musica = limpar_nome_musica(p.get("musica", {}))
                 cliente_nome = p.get("cliente", "Convidado")
                 estado_atual = p.get("estado")
-                
                 is_playing = (estado_atual == "aprovado")
-                cor_borda = "#4CAF50" if is_playing else "#FFC107"
-                badge_texto = "🎵 A TOCAR AGORA" if is_playing else f"⏳ Fila #{idx}"
                 
-                with st.container():
-                    st.markdown(f"""
-                        <div style="background: rgba(0,0,0,0.95); border: 4px solid {cor_borda}; border-radius: 8px; padding: 12px 15px; margin-bottom: 10px; font-family: monospace;">
-                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-                                <span style="color: #ffffff; font-weight: bold; font-size: 14px; text-shadow: 1px 1px 3px rgba(0,0,0,0.9);">{badge_texto}</span>
-                                <span style="color: #ffffff; font-size: 13px; font-weight: bold; text-shadow: 1px 1px 3px rgba(0,0,0,0.9);">Cliente: <b>{cliente_nome}</b></span>
-                            </div>
-                            <div style="color: #ffffff; font-size: 16px; font-weight: bold; margin-bottom: 8px; text-shadow: 1px 1px 3px rgba(0,0,0,0.9);">
-                                🎶 {titulo_musica}
-                            </div>
-                        </div>
-                    """, unsafe_allow_html=True)
-                    
-                    col_acao1, col_acao2, col_acao3 = st.columns(3)
-                    with col_acao1:
-                        if not is_playing:
-                            if st.button("▶️ Tocar Agora", key=f"play_linha_{p.get('id')}", use_container_width=True):
-                                terminar_todas_musicas_ativas(provider_token, pedidos)
-                                atualizar_estado_pedido(provider_token, p.get('id'), 'aprovado')
-                                st.success(f"A avançar para: {titulo_musica}")
-                                st.rerun()
-                    with col_acao2:
-                        if is_playing:
-                            if st.button("⏹️ Terminar Atual", key=f"term_linha_{p.get('id')}", use_container_width=True):
-                                terminar_todas_musicas_ativas(provider_token, pedidos)
-                                st.success("Música terminada!")
-                                st.rerun()
-                    with col_acao3:
-                        if st.button("❌ Remover", key=f"rem_linha_{p.get('id')}", use_container_width=True):
-                            atualizar_estado_pedido(provider_token, p.get('id'), 'terminado')
-                            st.warning("Música removida da fila.")
+                cor_fundo_linha = "rgba(76, 175, 80, 0.15)" if is_playing else "transparent"
+                marcador_pos = "🎵" if is_playing else f"{idx}º"
+                
+                tabela_html += f"""
+                        <tr style="border-bottom: 1px solid #333; background: {cor_fundo_linha};">
+                            <td style="padding: 8px; color: #ffffff; text-align: center; font-weight: bold; border-right: 1px solid #333;">{marcador_pos}</td>
+                            <td style="padding: 8px; color: #FFC107; font-weight: bold; border-right: 1px solid #333;">{cliente_nome}</td>
+                            <td style="padding: 8px; color: #ffffff; font-weight: bold; border-right: 1px solid #333;">🎶 {titulo_musica}</td>
+                            <td style="padding: 8px; text-align: center; color: #ff5252;">
+                """
+                tabela_html += f"</td></tr>"
+                
+            tabela_html += "</tbody></table></div>"
+            st.markdown(tabela_html, unsafe_allow_html=True)
+
+            # Botões de gestão rápida por linha abaixo da tabela
+            for idx, p in enumerate(pedidos_ativos, start=1):
+                titulo_musica = limpar_nome_musica(p.get("musica", {}))
+                cliente_nome = p.get("cliente", "Convidado")
+                is_playing = (p.get("estado") == "aprovado")
+                
+                col_info, col_b1, col_b2 = st.columns([3, 1.2, 1.2])
+                with col_info:
+                    st.markdown(f"<span style='font-family: monospace; font-size: 13px;'><b>{idx}º</b> - {cliente_nome}: {titulo_musica}</span>", unsafe_allow_html=True)
+                with col_b1:
+                    if not is_playing:
+                        if st.button("▶️ Tocar", key=f"play_t_{p.get('id')}", use_container_width=True):
+                            terminar_todas_musicas_ativas(provider_token, pedidos)
+                            atualizar_estado_pedido(provider_token, p.get('id'), 'aprovado')
                             st.rerun()
-                    st.markdown("<hr style='margin: 5px 0 15px 0; border-color: #333;'>", unsafe_allow_html=True)
+                with col_b2:
+                    if st.button("❌ Remover", key=f"rem_t_{p.get('id')}", use_container_width=True):
+                        atualizar_estado_pedido(provider_token, p.get('id'), 'terminado')
+                        st.rerun()
         else:
             st.markdown("""
-                <div style="background-color: rgba(0,0,0,0.95); border: 4px solid #FFC107; border-radius: 8px; padding: 15px; color: #ffffff; width: 100%; font-family: monospace; font-size: 14px; margin-bottom: 20px; text-align: center; font-weight: bold; text-shadow: 1px 1px 3px rgba(0,0,0,0.9);">
+                <div style="background-color: rgba(0,0,0,0.95); border: 4px solid #FFC107; border-radius: 8px; padding: 15px; color: #ffffff; font-family: monospace; font-size: 14px; margin-bottom: 20px; text-align: center; font-weight: bold;">
                     NENHUM PEDIDO NA LISTA NESTE MOMENTO.<br>À ESPERA DE NOVOS PEDIDOS...
                 </div>
             """, unsafe_allow_html=True)
-
-        if tocando_agora:
-            if st.button("🛑 Stop Geral (Limpar Tela)", key="stop_geral_btn", use_container_width=True):
-                terminar_todas_musicas_ativas(provider_token, pedidos)
-                definir_video_fundo(provider_token, "")
-                st.warning("Reprodução parada e tela limpa com sucesso!")
-                st.rerun()
 
         st.markdown("---")
         
@@ -564,38 +547,17 @@ def renderizar_gestao_fila_prestador(provider_token):
                     break
 
         with st.form(key="form_video_fundo"):
-            escolha_video = st.selectbox(
-                "Pesquisar Vídeo Clipe", 
-                options=opcoes_labels, 
-                index=index_atual
-            )
-
-            st.markdown("""
-                <style>
-                div[data-testid="stFormSubmitButton"] button {
-                    background-color: #4CAF50 !important;
-                    color: white !important;
-                    border: 2px solid #2E7D32 !important;
-                }
-                div[data-testid="stFormSubmitButton"] button:hover {
-                    background-color: #43A047 !important;
-                }
-                </style>
-            """, unsafe_allow_html=True)
-
+            escolha_video = st.selectbox("Pesquisar Vídeo Clipe", options=opcoes_labels, index=index_atual)
             btn_salvar_fundo = st.form_submit_button("Pesquisar Vídeo Clipe")
             if btn_salvar_fundo:
-                if escolha_video == "Nenhum (Ecrã Preto)":
-                    valor_a_guardar = ""
-                else:
-                    valor_a_guardar = mapa_url_por_label.get(escolha_video, "")
-                    
+                valor_a_guardar = "" if escolha_video == "Nenhum (Ecrã Preto)" else mapa_url_por_label.get(escolha_video, "")
                 definir_video_fundo(provider_token, valor_a_guardar)
                 st.success("Vídeo clipe de fundo iniciado com sucesso na tela!")
                 st.rerun()
             
     except Exception as e:
         st.error(f"Erro ao carregar os pedidos do Firebase: {e}")
+
 
 def show_provider_panel_custom(provider_token):
     url_logotipo = "https://cdn.phototourl.com/free/2026-08-03-8b13edf5-0257-491d-ab78-f0d5329ffc15.jpg"
@@ -614,7 +576,6 @@ def show_provider_panel_custom(provider_token):
             tempo_plano = row.get('tempo_plano', row.get('tempo', '2 Horas - 12 Mil Kwanzas'))
             data_registo_str = row.get('data_registo', None)
 
-    # Obter bónus de tempo acumulado por reforços aprovados no Firebase
     segundos_bónus = 0
     try:
         res_ref = requests.get(f"{FIREBASE_URL}/reforcos_aprovados/{provider_token}.json", timeout=5)
@@ -623,22 +584,16 @@ def show_provider_panel_custom(provider_token):
             if isinstance(dados_ref, dict):
                 for r_id, r_info in dados_ref.items():
                     t_ref = r_info.get("tempo_plano", "")
-                    if "3 Horas" in t_ref:
-                        segundos_bónus += 10800
-                    elif "4 Horas" in t_ref:
-                        segundos_bónus += 14400
-                    elif "2 Horas" in t_ref:
-                        segundos_bónus += 7200
+                    if "3 Horas" in t_ref: segundos_bónus += 10800
+                    elif "4 Horas" in t_ref: segundos_bónus += 14400
+                    elif "2 Horas" in t_ref: segundos_bónus += 7200
     except Exception:
         pass
 
     segundos_base = 7200
-    if "3 Horas" in tempo_plano:
-        segundos_base = 10800
-    elif "4 Horas" in tempo_plano:
-        segundos_base = 14400
-    elif "2 Horas" in tempo_plano:
-        segundos_base = 7200
+    if "3 Horas" in tempo_plano: segundos_base = 10800
+    elif "4 Horas" in tempo_plano: segundos_base = 14400
+    elif "2 Horas" in tempo_plano: segundos_base = 7200
 
     segundos_totais = segundos_base + segundos_bónus
     segundos_restantes = segundos_totais
@@ -655,7 +610,6 @@ def show_provider_panel_custom(provider_token):
             segundos_restantes = max(0, int(segundos_totais - diff))
         except Exception as e:
             print(f"Erro ao calcular tempo restante: {e}")
-            pass
 
     horas_restantes = segundos_restantes // 3600
     min_restantes = (segundos_restantes % 3600) // 60
@@ -668,9 +622,7 @@ def show_provider_panel_custom(provider_token):
         classe_piscar = "animation: piscarRelogio 1s infinite;"
         aviso_reforço_html = """
         <div style="background: rgba(255,0,0,0.85); border: 3px solid #ffeb3b; padding: 10px; border-radius: 6px; margin-bottom: 15px; text-align: center; animation: pulseAviso 1s infinite;">
-            <span style="color: #ffffff; font-size: 14px; font-weight: bold; text-shadow: 1px 1px 3px rgba(0,0,0,0.9);">
-                O SEU TEMPO ESTA TERMINANDO. PARA QUE NÃO PERCAS OS SEUS REGISTOS PEÇA REFORÇO DE TEMPO.
-            </span>
+            <span style="color: #ffffff; font-size: 14px; font-weight: bold;">O SEU TEMPO ESTA TERMINANDO. PEÇA REFORÇO DE TEMPO.</span>
             <div style="margin-top: 8px;">
                 <a href="#reforco_seccao" style="background: #FFC107; color: #000; padding: 6px 12px; border-radius: 4px; text-decoration: none; font-weight: bold; font-size: 13px;">⚡ PEDIR REFORÇO AGORA</a>
             </div>
@@ -683,7 +635,6 @@ def show_provider_panel_custom(provider_token):
         background: url("{url_fundo_painel}") no-repeat center center fixed !important;
         background-size: cover !important;
     }}
-    
     .block-container {{
         padding-top: 2.5rem !important;
         padding-bottom: 2.5rem !important;
@@ -696,7 +647,6 @@ def show_provider_panel_custom(provider_token):
         border: 4px solid #FFC107 !important;
         max-width: 1400px;
     }}
-
     .panel-header {{
         display: flex;
         align-items: center;
@@ -705,34 +655,15 @@ def show_provider_panel_custom(provider_token):
         padding-bottom: 12px;
         margin-bottom: 20px;
     }}
-    
-    @keyframes pulseAviso {{
-        0% {{ opacity: 1; transform: scale(1); }}
-        50% {{ opacity: 0.7; transform: scale(1.01); }}
-        100% {{ opacity: 1; transform: scale(1); }}
-    }}
-
-    @keyframes piscarRelogio {{
-        0% {{ opacity: 1; color: #FFC107; }}
-        50% {{ opacity: 0.3; color: #ff5252; }}
-        100% {{ opacity: 1; color: #FFC107; }}
-    }}
-    
     .card-link, .card-tv {{
         background: #000000 !important;
         border: 4px solid #FFC107 !important;
         border-radius: 8px;
         padding: 12px 15px;
-        text-align: left;
-        box-shadow: 0 4px 15px rgba(255, 193, 7, 0.25);
         margin-bottom: 15px;
         width: 100%;
     }}
-    .card-tv {{
-        border: 4px solid #9c27b0 !important;
-        box-shadow: 0 4px 15px rgba(156, 39, 176, 0.25);
-    }}
-
+    .card-tv {{ border: 4px solid #9c27b0 !important; }}
     .qr-box {{
         background: #000;
         border: 4px solid #FFC107 !important;
@@ -742,49 +673,27 @@ def show_provider_panel_custom(provider_token):
         align-items: center;
         justify-content: center;
     }}
-    
     .link-title, .link-title-tv {{
-        font-family: monospace;
-        color: #ffffff !important;
-        font-size: 14px;
-        font-weight: bold !important;
-        margin-bottom: 4px;
-        text-shadow: 1px 1px 3px rgba(0,0,0,0.9) !important;
+        font-family: monospace; color: #ffffff !important; font-size: 14px; font-weight: bold !important; margin-bottom: 4px;
     }}
     .link-text, .link-text-tv {{
-        font-family: monospace;
-        color: #ffffff !important;
-        font-size: 12px;
-        word-break: break-all;
-        text-decoration: underline;
-        font-weight: bold !important;
-        text-shadow: 1px 1px 3px rgba(0,0,0,0.9) !important;
+        font-family: monospace; color: #ffffff !important; font-size: 12px; word-break: break-all; text-decoration: underline; font-weight: bold !important;
     }}
-    .top-logo {{
-        width: 60px;
-        height: 60px;
-        border-radius: 50%;
-        border: 3px solid #FFC107;
-        object-fit: cover;
-    }}
-    
-    h1, h2, h3, h4, h5, h6, p, label, span, div, .stMarkdown {{
-        color: #ffffff !important;
-        font-weight: bold !important;
-        text-shadow: 1px 1px 3px rgba(0,0,0,0.9) !important;
-    }}
+    .top-logo {{ width: 60px; height: 60px; border-radius: 50%; border: 3px solid #FFC107; object-fit: cover; }}
+    h1, h2, h3, h4, h5, h6, p, label, span, div, .stMarkdown {{ color: #ffffff !important; font-weight: bold !important; }}
+    @keyframes piscarRelogio {{ 0% {{ opacity: 1; color: #FFC107; }} 50% {{ opacity: 0.3; color: #ff5252; }} 100% {{ opacity: 1; color: #FFC107; }} }}
     </style>
     """, unsafe_allow_html=True)
 
-    # Cabeçalho estruturado com colunas para evitar sobreposição do logotipo
+    # Cabeçalho e Identidade do Prestador
     col_head_txt, col_head_logo = st.columns([5, 1])
     with col_head_txt:
         st.markdown(f"""
             <div style="display: flex; align-items: center; gap: 15px;">
                 <span style="font-size: 32px;">🎤</span>
                 <div>
-                    <h1 style="margin: 0; color: #ffffff; font-family: monospace; font-size: 22px; text-transform: uppercase; font-weight: bold;">PAINEL DO PRESTADOR: {nome_prestador}</h1>
-                    <p style="margin: 3px 0 0 0; color: #ffffff; font-size: 13px; font-family: monospace;">TOKEN: <code style="background: #222; color: #ffffff; padding: 2px 6px; border-radius: 4px;">{provider_token}</code></p>
+                    <h1 style="margin: 0; font-family: monospace; font-size: 22px; text-transform: uppercase;">PAINEL DO PRESTADOR: {nome_prestador}</h1>
+                    <p style="margin: 3px 0 0 0; font-size: 13px; font-family: monospace;">TOKEN: <code style="background: #222; color: #ffffff; padding: 2px 6px; border-radius: 4px;">{provider_token}</code></p>
                 </div>
             </div>
         """, unsafe_allow_html=True)
@@ -800,10 +709,9 @@ def show_provider_panel_custom(provider_token):
     host_dominio = st.context.headers.get('Host', 'grupoffkaraoke.streamlit.app')
     link_cliente_absoluto = f"https://{host_dominio}{link_cliente_rel}"
     link_tv_absoluto = f"https://{host_dominio}{link_tv_rel}"
-    
     qr_url_cliente = f"https://api.qrserver.com/v1/create-qr-code/?size=150x150&data={urllib.parse.quote(link_cliente_absoluto)}"
 
-    # Layout Principal em 2 Colunas Balanceadas (Esquerda: Links e Gestão / Direita: Temporizador e QR Code)
+    # Layout de 2 Colunas: Links à Esquerda / Relógio a Contar e QR Code à Direita
     col_esq, col_dir = st.columns([2.2, 1])
     
     with col_esq:
@@ -825,7 +733,7 @@ def show_provider_panel_custom(provider_token):
         st.markdown(f"""
             <div style="background: rgba(255,193,7,0.15); border: 3px solid #FFC107; padding: 10px; border-radius: 8px; text-align: center; margin-bottom: 12px;">
                 <div style="font-family: monospace; color: #ffffff; font-size: 10px; text-transform: uppercase;">TEMPO / PLANO ESCOLHIDO</div>
-                <div style="font-family: monospace; color: #FFC107; font-size: 14px; font-weight: bold; {classe_piscar}">⏱️ {tempo_formatado}</div>
+                <div style="font-family: monospace; color: #FFC107; font-size: 16px; font-weight: bold; {classe_piscar}">⏱️ {tempo_formatado}</div>
                 <div style="font-family: monospace; color: #fff; font-size: 11px;">({tempo_plano})</div>
             </div>
         """, unsafe_allow_html=True)
@@ -838,45 +746,7 @@ def show_provider_panel_custom(provider_token):
         """, unsafe_allow_html=True)
 
     st.markdown("<hr style='border-color: #333; margin: 20px 0;'>", unsafe_allow_html=True)
-
-    st.markdown("<div id='reforco_seccao'></div>", unsafe_allow_html=True)
-    if segundos_restantes <= 1800:
-        st.markdown("### ⚡ Solicitar Reforço de Tempo")
-        with st.form("form_reforco_prestador"):
-            referencia_comprovativo = st.text_input("Referência de Pagamento / Nº de Comprovativo")
-            duracao_reforco = st.selectbox(
-                "Duração Pretendida", 
-                options=[
-                    "2 Horas - 12 Mil Kwanzas", 
-                    "3 Horas - 15 Mil Kwanzas", 
-                    "4 Horas - 20 Mil Kwanzas"
-                ]
-            )
-            btn_sub_reforco = st.form_submit_button("Submeter Pedido de Reforço")
-            if btn_sub_reforco:
-                if not referencia_comprovativo:
-                    st.error("Por favor, preencha a Referência de Pagamento / Nº de Comprovativo.")
-                else:
-                    dados_reforco = {
-                        "token": provider_token,
-                        "nome_prestador": nome_prestador,
-                        "referencia": referencia_comprovativo,
-                        "tempo_plano": duracao_reforco,
-                        "approved": 0,
-                        "data_registo": str(datetime.now())
-                    }
-                    try:
-                        import uuid
-                        ref_id = str(uuid.uuid4())[:8]
-                        requests.put(f"{FIREBASE_URL}/reforcos_pendentes/{provider_token}/{ref_id}.json", json=dados_reforco, timeout=10)
-                        st.success("Pedido de reforço submetido com sucesso! Aguarde a confirmação do Administrador.")
-                    except Exception as err:
-                        st.error(f"Erro ao enviar reforço: {err}")
-
-    st.markdown("<div style='height: 10px;'></div>", unsafe_allow_html=True)
-    
-    # Renderiza a fila e o seletor de vídeos abaixo alinhados corretamente
-    renderizar_gestao_fila_prestador(provider_token)@st.fragment(run_every=3)
+    renderizar_gestao_fila_prestador(provider_token)
 def renderizar_ecra_tv(provider_token):
     try:
         url_firebase = f"{FIREBASE_URL}/pedidos/{provider_token}.json?_t={time.time()}"
