@@ -13,7 +13,7 @@ import cloudinary.api
 import cloudinary.uploader
 import cloudinary.search
 import importlib
-import prestador
+from modules import prestador
 
 importlib.reload(prestador)
 
