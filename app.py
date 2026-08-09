@@ -12,6 +12,10 @@ import cloudinary
 import cloudinary.api
 import cloudinary.uploader
 import cloudinary.search
+import importlib
+import prestador
+
+importlib.reload(prestador)
 
 # Configuração estrita do caminho absoluto para evitar erros de importação
 current_dir = os.path.dirname(os.path.abspath(__file__))
