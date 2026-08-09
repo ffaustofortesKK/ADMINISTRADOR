@@ -3,6 +3,9 @@ import streamlit.components.v1 as components
 import pandas as pd
 import requests
 import json
+import time
+
+FIREBASE_URL = "https://ffkaraokecloud-default-rtdb.firebaseio.com"
 
 # Configuração da página principal
 st.set_page_config(
@@ -13,17 +16,41 @@ st.set_page_config(
 
 def get_all_providers():
     try:
+        url = f"{FIREBASE_URL}/prestadores.json"
+        response = requests.get(url, timeout=5)
+        if response.status_code == 200 and response.json():
+            data = response.json()
+            lista = [{"token": k, **v} for k, v in data.items()]
+            return pd.DataFrame(lista)
         return pd.DataFrame()
     except:
         return pd.DataFrame()
 
 def obter_video_fundo(token):
-    return ""
+    try:
+        url = f"{FIREBASE_URL}/video_fundo/{token}.json"
+        response = requests.get(url, timeout=5)
+        if response.status_code == 200 and response.json():
+            data = response.json()
+            if isinstance(data, dict):
+                return data.get("url", "")
+            return str(data)
+        return ""
+    except:
+        return ""
+
+def limpar_nome_musica(musica_obj):
+    if isinstance(musica_obj, dict):
+        return musica_obj.get("titulo", "Música Desconhecida")
+    return str(musica_obj)
 
 def show_register_page():
     st.title("Registo de Novo Prestador")
 
 def show_client_page():
+    query_params = st.query_params
+    provider_token = query_params.get("prestador") or query_params.get("provider", None)
+
     st.markdown("""
         <style>
         .stApp { background-color: #000000; color: white; }
@@ -44,13 +71,30 @@ def show_client_page():
     """, unsafe_allow_html=True)
     
     st.title("🎤 Registo de Pedido de Karaoke")
+    if not provider_token:
+        st.error("Token do prestador não especificado no link.")
+        return
+
     with st.form("form_cliente_registo"):
         nome_cliente = st.text_input("O seu Nome / Convidado")
         musica_escolhida = st.text_input("Nome da Música / Artista")
-        submitted = st.form_submit_button("ENTRAR")
+        submitted = st.form_submit_button("ENTRAR NA FILA")
         if submitted:
             if nome_cliente and musica_escolhida:
-                st.success(f"Pedido registado com sucesso para {nome_cliente}!")
+                novo_pedido = {
+                    "cliente": nome_cliente,
+                    "musica": {"titulo": musica_escolhida},
+                    "estado": "pendente",
+                    "timestamp": time.time()
+                }
+                try:
+                    res = requests.post(f"{FIREBASE_URL}/pedidos/{provider_token}.json", json=novo_pedido, timeout=5)
+                    if res.status_code == 200:
+                        st.success(f"Pedido registado com sucesso para {nome_cliente}!")
+                    else:
+                        st.error("Erro ao comunicar com o servidor de base de dados.")
+                except Exception as ex:
+                    st.error(f"Erro de ligação: {ex}")
             else:
                 st.warning("Por favor, preencha todos os campos.")
 
@@ -61,19 +105,28 @@ def show_admin_panel():
     st.title("Painel de Administração Global")
     st.write("Bem-vindo ao painel administrativo da plataforma FF Karaoke Cloud.")
 
+@st.fragment(run_every=1)
 def renderizar_ecra_tv(provider_token):
     try:
-        FIREBASE_URL = "https://ffkaraokecloud-default-rtdb.firebaseio.com"
+        url_firebase_pedidos = f"{FIREBASE_URL}/pedidos/{provider_token}.json?_t={time.time()}"
+        response = requests.get(url_firebase_pedidos, timeout=10)
         
-        pedidos_ativos = []
-        tocando_agora = {"id": "123", "cliente": "Convidado"}
+        pedidos = []
+        if response.status_code == 200 and response.json():
+            data = response.json()
+            pedidos = [{"id": k, **v} for k, v in data.items()]
+            
+        pedidos_ativos = [p for p in pedidos if p.get("estado") in ["pendente", "aprovado"]]
+        pedidos_ativos.sort(key=lambda x: x.get("timestamp", 0))
         
+        tocando_agora = next((p for p in pedidos_ativos if p.get("estado") == "aprovado"), None)
+        if not tocando_agora and pedidos_ativos:
+            tocando_agora = pedidos_ativos[0]
+
         url_imagem_moldura = "https://cdn.phototourl.com/free/2026-08-03-694a4a2e-9914-4da8-93b2-87538a4805ab.png"
 
-        # CSS Forçado para sobrepor os fundos nativos do Streamlit
         frame_styles = f"""
         <style>
-            /* Força o fundo da página inteira e do container principal */
             stApp, .stApp, [data-testid="stAppViewContainer"], [data-testid="stHeader"] {{
                 background-color: #000000 !important;
                 background-image: url("{url_imagem_moldura}") !important;
@@ -81,8 +134,6 @@ def renderizar_ecra_tv(provider_token):
                 background-position: center !important;
                 background-repeat: no-repeat !important;
             }}
-            
-            /* Margens internas ajustadas para manter o conteúdo dentro da moldura dourada */
             .block-container {{
                 background: transparent !important;
                 padding-top: 5rem !important;
@@ -94,19 +145,22 @@ def renderizar_ecra_tv(provider_token):
         """
 
         url_clipe_fundo = obter_video_fundo(provider_token)
-        proximo_cantor = pedidos_ativos[0] if pedidos_ativos else None
+        demais_pedidos = [p for p in pedidos_ativos if p.get("id") != (tocando_agora.get("id") if tocando_agora else None)]
+        proximo_cantor = demais_pedidos[0] if demais_pedidos else (tocando_agora if not demais_pedidos else None)
 
         st.markdown(frame_styles, unsafe_allow_html=True)
 
         col_esq, col_dir = st.columns([1, 1])
         
         with col_esq:
-            if proximo_cantor:
-                c_prox = proximo_cantor.get("cliente", "Convidado")
+            if tocando_agora:
+                c_prox = tocando_agora.get("cliente", "Convidado")
+                t_prox = limpar_nome_musica(tocando_agora.get("musica", {}))
                 st.markdown(f"""
-                    <div style="border: 2px solid #FFC107; border-radius: 10px; padding: 15px; background: rgba(17,17,17,0.85); margin-bottom: 15px; display: flex; align-items: center; gap: 15px;">
-                        <span style="color: #FFC107; font-size: 20px; font-weight: bold; font-family: monospace;">Á SEGUIR</span>
-                        <span style="color: #ffffff; font-size: 20px; font-weight: bold; font-family: monospace; text-transform: uppercase;">{c_prox}</span>
+                    <div style="border: 2px solid #FFC107; border-radius: 10px; padding: 15px; background: rgba(17,17,17,0.85); margin-bottom: 15px;">
+                        <span style="color: #FFC107; font-size: 16px; font-weight: bold; font-family: monospace;">A TOCKAR / À SEGUIR:</span><br>
+                        <span style="color: #ffffff; font-size: 22px; font-weight: bold; font-family: monospace; text-transform: uppercase;">{c_prox}</span><br>
+                        <span style="color: #FFC107; font-size: 14px; font-family: monospace;">🎵 {t_prox}</span>
                     </div>
                 """, unsafe_allow_html=True)
             else:
@@ -117,12 +171,13 @@ def renderizar_ecra_tv(provider_token):
                 """, unsafe_allow_html=True)
             
             html_caixas = '<div style="display: flex; flex-direction: column; gap: 8px; margin-bottom: 40px;">'
-            demais_pedidos = pedidos_ativos[1:] if len(pedidos_ativos) > 1 else []
+            fila_restante = demais_pedidos[1:] if tocando_agora else demais_pedidos
             
-            for idx, p_item in enumerate(demais_pedidos, start=2):
+            for idx, p_item in enumerate(fila_restante, start=1):
                 c_item = p_item.get("cliente", "Convidado")
-                texto_caixa = f"<b>{idx}.</b> {c_item}"
-                html_caixas += f'<div style="background: rgba(17,17,17,0.85); border: 2px solid #FFC107; border-radius: 8px; padding: 12px; color: #fff; font-family: monospace; font-size: 16px;">{texto_caixa}</div>'
+                t_item = limpar_nome_musica(p_item.get("musica", {}))
+                texto_caixa = f"<b>{idx}.</b> {c_item} - <span style='color: #FFC107;'>{t_item}</span>"
+                html_caixas += f'<div style="background: rgba(17,17,17,0.85); border: 2px solid #FFC107; border-radius: 8px; padding: 12px; color: #fff; font-family: monospace; font-size: 15px;">{texto_caixa}</div>'
             
             html_caixas += '</div>'
             st.markdown(html_caixas, unsafe_allow_html=True)
