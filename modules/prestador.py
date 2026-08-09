@@ -1,51 +1,13 @@
-from datetime import datetime
+import streamlit as st
+import requests
 import time
 import urllib.parse
-import requests
-import streamlit as st
+from datetime import datetime
 
-FIREBASE_URL = "https://grupoffkaraoke-default-rtdb.firebaseio.com"
-
-def limpar_nome_musica(musica_obj):
-    if isinstance(musica_obj, dict):
-        return musica_obj.get("titulo", "Música Desconhecida")
-    return str(musica_obj)
-
-def atualizar_estado_pedido(provider_token, pedido_id, novo_estado):
-    try:
-        requests.patch(f"{FIREBASE_URL}/pedidos/{provider_token}/{pedido_id}.json", json={"estado": novo_estado}, timeout=5)
-    except Exception:
-        pass
-
-def terminar_todas_musicas_ativas(provider_token, pedidos):
-    for p in pedidos:
-        if p.get("estado") == "aprovado":
-            atualizar_estado_pedido(provider_token, p.get("id"), "terminado")
-
-def definir_video_fundo(provider_token, url_video):
-    try:
-        requests.put(f"{FIREBASE_URL}/config_video/{provider_token}.json", json={"url": url_video}, timeout=5)
-    except Exception:
-        pass
-
-def obter_video_fundo(provider_token):
-    try:
-        res = requests.get(f"{FIREBASE_URL}/config_video/{provider_token}.json", timeout=5)
-        if res.status_code == 200 and res.json():
-            return res.json().get("url", "")
-    except Exception:
-        pass
-    return ""
-
-def listar_videos_pasta_clipes():
-    return []
-
-def get_all_providers():
-    import pandas as pd
-    return pd.DataFrame()
-
-@st.fragment(run_every=3)
-def renderizar_gestao_fila_prestador(provider_token):
+def renderizar_gestao_fila_prestador(provider_token, FIREBASE_URL, limpar_nome_musica, terminar_todas_musicas_ativas, atualizar_estado_pedido, definir_video_fundo, obter_video_fundo, listar_videos_pasta_clipes):
+    """
+    Renderiza a gestão completa da fila e o controlo de reprodução para o prestador.
+    """
     try:
         url_firebase = f"{FIREBASE_URL}/pedidos/{provider_token}.json?_t={time.time()}"
         response = requests.get(url_firebase, timeout=10)
@@ -199,8 +161,11 @@ def renderizar_gestao_fila_prestador(provider_token):
             
     except Exception as e:
         st.error(f"Erro ao carregar os pedidos do Firebase: {e}")
-        
-def show_provider_panel_custom(provider_token):
+
+def show_provider_panel_custom(provider_token, FIREBASE_URL, get_all_providers, listar_videos_pasta_clipes, obter_video_fundo, definir_video_fundo, terminar_todas_musicas_ativas, atualizar_estado_pedido, limpar_nome_musica):
+    """
+    Renderiza o painel completo do prestador (incluindo temporizadores, QR codes, reforços e a fila).
+    """
     url_logotipo = "https://cdn.phototourl.com/free/2026-08-03-8b13edf5-0257-491d-ab78-f0d5329ffc15.jpg"
     url_fundo_painel = "https://cdn.phototourl.com/free/2026-08-03-694a4a2e-9914-4da8-93b2-87538a4805ab.png"
 
@@ -233,7 +198,7 @@ def show_provider_panel_custom(provider_token):
                         segundos_bónus += 7200
     except Exception:
         pass
-        
+
     segundos_base = 7200
     if "3 Horas" in tempo_plano:
         segundos_base = 10800
@@ -285,14 +250,10 @@ def show_provider_panel_custom(provider_token):
         background-size: cover !important;
     }}
     .block-container {{
-        padding-top: 3rem !important;
-        padding-bottom: 3rem !important;
-        padding-left: 5rem !important;
-        padding-right: 5rem !important;
+        padding: 3rem 5rem !important;
         background: rgba(0, 0, 0, 0.90) !important;
         border-radius: 12px;
-        margin-top: 2rem;
-        margin-bottom: 2rem;
+        margin: 2rem 0;
         border: 4px solid #FFC107 !important;
     }}
     .panel-header {{
@@ -319,15 +280,12 @@ def show_provider_panel_custom(provider_token):
         border: 4px solid #FFC107 !important;
         border-radius: 8px;
         padding: 12px 15px;
-        text-align: left;
-        box-shadow: 0 4px 15px rgba(255, 193, 7, 0.25);
         margin-bottom: 15px;
         display: block;
         width: 100%;
     }}
     .card-tv {{
         border: 4px solid #9c27b0 !important;
-        box-shadow: 0 4px 15px rgba(156, 39, 176, 0.25);
     }}
     .qr-box {{
         background: #000;
@@ -380,17 +338,17 @@ def show_provider_panel_custom(provider_token):
             <div style="display: flex; align-items: center; gap: 15px;">
                 <span style="font-size: 32px;">🎤</span>
                 <div>
-                    <h1 style="margin: 0; color: #ffffff; font-family: monospace; font-size: 24px; text-transform: uppercase; font-weight: bold; text-shadow: 1px 1px 3px rgba(0,0,0,0.9);">PAINEL DO PRESTADOR: {nome_prestador}</h1>
-                    <p style="margin: 3px 0 0 0; color: #ffffff; font-size: 13px; font-family: monospace; font-weight: bold; text-shadow: 1px 1px 3px rgba(0,0,0,0.9);">TOKEN: <code style="background: #222; color: #ffffff; padding: 2px 6px; border-radius: 4px; font-weight: bold;">{provider_token}</code></p>
+                    <h1 style="margin: 0; color: #ffffff; font-family: monospace; font-size: 24px; text-transform: uppercase; font-weight: bold;">PAINEL DO PRESTADOR: {nome_prestador}</h1>
+                    <p style="margin: 3px 0 0 0; color: #ffffff; font-size: 13px; font-family: monospace;">TOKEN: <code style="background: #222; color: #ffffff; padding: 2px 6px; border-radius: 4px;">{provider_token}</code></p>
                 </div>
             </div>
             <div style="background: rgba(255,193,7,0.15); border: 2px solid #FFC107; padding: 6px 12px; border-radius: 8px; text-align: right; margin-right: 80px;">
-                <div style="font-family: monospace; color: #ffffff; font-size: 11px; text-transform: uppercase; font-weight: bold; text-shadow: 1px 1px 3px rgba(0,0,0,0.9);">TEMPO / PLANO ESCOLHIDO</div>
-                <div style="font-family: monospace; color: #FFC107; font-size: 15px; font-weight: bold; text-shadow: 1px 1px 3px rgba(0,0,0,0.9); {classe_piscar}">⏱️ {tempo_formatado} ({tempo_plano})</div>
+                <div style="font-family: monospace; color: #ffffff; font-size: 11px; text-transform: uppercase;">TEMPO / PLANO ESCOLHIDO</div>
+                <div style="font-family: monospace; color: #FFC107; font-size: 15px; font-weight: bold; {classe_piscar}">⏱️ {tempo_formatado} ({tempo_plano})</div>
             </div>
         </div>
     """, unsafe_allow_html=True)
-    
+
     st.markdown(aviso_reforço_html, unsafe_allow_html=True)
     
     link_cliente_rel = f"/?page=client_register&prestador={provider_token}"
@@ -403,24 +361,21 @@ def show_provider_panel_custom(provider_token):
     qr_url_cliente = f"https://api.qrserver.com/v1/create-qr-code/?size=150x150&data={urllib.parse.quote(link_cliente_absoluto)}"
 
     col_links, col_qr = st.columns([3, 1])
-    
     with col_links:
         st.markdown(f"""
             <div class="card-link">
-                <div class="link-title">🔗 LINK DO CLIE (REGISTO DE MÚSICA)</div>
+                <div class="link-title">🔗 LINK DO CLIENTE (REGISTO DE MÚSICA)</div>
                 <a href="{link_cliente_rel}" target="_blank" class="link-text">{link_cliente_absoluto}</a>
             </div>
         """, unsafe_allow_html=True)
-        
         st.markdown(f"""
             <div class="card-tv">
-                <div class="link-title-tv">📺 LINK DA TELA DE TV </div>
+                <div class="link-title-tv">📺 LINK DA TELA DE TV / REPRODUÇÃO</div>
                 <a href="{link_tv_rel}" target="_blank" class="link-text-tv">{link_tv_absoluto}</a>
             </div>
         """, unsafe_allow_html=True)
-        
     with col_qr:
-        st.markdown("<div style='font-family: monospace; color: #ffffff; font-size: 11px; font-weight: bold; margin-bottom: 2px; text-align: center; text-shadow: 1px 1px 3px rgba(0,0,0,0.9);'>QR CODE CLIENTE</div>", unsafe_allow_html=True)
+        st.markdown("<div style='font-family: monospace; color: #ffffff; font-size: 11px; font-weight: bold; margin-bottom: 2px; text-align: center;'>QR CODE CLIENTE</div>", unsafe_allow_html=True)
         st.markdown(f"""
             <div class="qr-box">
                 <img src="{qr_url_cliente}" width="110" style="border-radius: 4px;" />
@@ -432,14 +387,7 @@ def show_provider_panel_custom(provider_token):
         st.markdown("### ⚡ Solicitar Reforço de Tempo")
         with st.form("form_reforco_prestador"):
             referencia_comprovativo = st.text_input("Referência de Pagamento / Nº de Comprovativo")
-            duracao_reforco = st.selectbox(
-                "Duração Pretendida", 
-                options=[
-                    "2 Horas - 12 Mil Kwanzas", 
-                    "3 Horas - 15 Mil Kwanzas", 
-                    "4 Horas - 20 Mil Kwanzas"
-                ]
-            )
+            duracao_reforco = st.selectbox("Duração Pretendida", ["2 Horas - 12 Mil Kwanzas", "3 Horas - 15 Mil Kwanzas", "4 Horas - 20 Mil Kwanzas"])
             btn_sub_reforco = st.form_submit_button("Submeter Pedido de Reforço")
             if btn_sub_reforco:
                 if not referencia_comprovativo:
@@ -462,4 +410,4 @@ def show_provider_panel_custom(provider_token):
                         st.error(f"Erro ao enviar reforço: {err}")
 
     st.markdown("<div style='height: 10px;'></div>", unsafe_allow_html=True)
-    renderizar_gestao_fila_prestador(provider_token)
+    renderizar_gestao_fila_prestador(provider_token, FIREBASE_URL, limpar_nome_musica, terminar_todas_musicas_ativas, atualizar_estado_pedido, definir_video_fundo, obter_video_fundo, listar_videos_pasta_clipes)
