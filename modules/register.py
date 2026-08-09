@@ -8,7 +8,7 @@ def show_register_page():
     st.markdown("""
         <style>
         .stApp {
-            background: url('https://cdn.phototourl.com/free/2026-08-03-694a4a2e-9914-4da8-93b2-87538a4805ab.png') no-repeat center center fixed !important;
+            background: url('https://cdn.phototourl.com/free/2026-08-09-2e698cdf-874c-4072-805e-f3c6f992d562.png') no-repeat center center fixed !important;
             background-size: cover !important;
             color: #ffffff !important;
             font-weight: bold !important;
