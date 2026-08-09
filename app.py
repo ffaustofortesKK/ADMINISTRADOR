@@ -645,7 +645,6 @@ def show_provider_panel_custom(provider_token):
     
     if data_registo_str:
         try:
-            # Compatibilidade total para parse de data com frações de segundos ou formatos ISO
             dt_str_clean = data_registo_str.split('.')[0]
             try:
                 dt_reg = datetime.strptime(dt_str_clean, "%Y-%m-%d %H:%M:%S")
@@ -686,15 +685,16 @@ def show_provider_panel_custom(provider_token):
     }}
     
     .block-container {{
-        padding-top: 3rem !important;
-        padding-bottom: 3rem !important;
-        padding-left: 5rem !important;
-        padding-right: 5rem !important;
-        background: rgba(0, 0, 0, 0.90) !important;
+        padding-top: 2.5rem !important;
+        padding-bottom: 2.5rem !important;
+        padding-left: 3rem !important;
+        padding-right: 3rem !important;
+        background: rgba(0, 0, 0, 0.92) !important;
         border-radius: 12px;
-        margin-top: 2rem;
-        margin-bottom: 2rem;
+        margin-top: 1.5rem;
+        margin-bottom: 1.5rem;
         border: 4px solid #FFC107 !important;
+        max-width: 1400px;
     }}
 
     .panel-header {{
@@ -704,7 +704,6 @@ def show_provider_panel_custom(provider_token):
         border-bottom: 4px solid #FFC107;
         padding-bottom: 12px;
         margin-bottom: 20px;
-        position: relative;
     }}
     
     @keyframes pulseAviso {{
@@ -727,9 +726,7 @@ def show_provider_panel_custom(provider_token):
         text-align: left;
         box-shadow: 0 4px 15px rgba(255, 193, 7, 0.25);
         margin-bottom: 15px;
-        display: block;
         width: 100%;
-        max-width: 100%;
     }}
     .card-tv {{
         border: 4px solid #9c27b0 !important;
@@ -740,53 +737,32 @@ def show_provider_panel_custom(provider_token):
         background: #000;
         border: 4px solid #FFC107 !important;
         border-radius: 8px;
-        padding: 4px;
+        padding: 10px;
         display: flex;
         align-items: center;
         justify-content: center;
-        height: 100%;
     }}
     
-    .link-title {{
+    .link-title, .link-title-tv {{
         font-family: monospace;
         color: #ffffff !important;
-        font-size: 15px;
+        font-size: 14px;
         font-weight: bold !important;
         margin-bottom: 4px;
         text-shadow: 1px 1px 3px rgba(0,0,0,0.9) !important;
     }}
-    .link-title-tv {{
+    .link-text, .link-text-tv {{
         font-family: monospace;
         color: #ffffff !important;
-        font-size: 15px;
-        font-weight: bold !important;
-        margin-bottom: 4px;
-        text-shadow: 1px 1px 3px rgba(0,0,0,0.9) !important;
-    }}
-    .link-text {{
-        font-family: monospace;
-        color: #ffffff !important;
-        font-size: 13px;
-        word-break: break-all;
-        text-decoration: underline;
-        font-weight: bold !important;
-        text-shadow: 1px 1px 3px rgba(0,0,0,0.9) !important;
-    }}
-    .link-text-tv {{
-        font-family: monospace;
-        color: #ffffff !important;
-        font-size: 13px;
+        font-size: 12px;
         word-break: break-all;
         text-decoration: underline;
         font-weight: bold !important;
         text-shadow: 1px 1px 3px rgba(0,0,0,0.9) !important;
     }}
     .top-logo {{
-        position: absolute;
-        top: -10px;
-        right: 0px;
-        width: 70px;
-        height: 70px;
+        width: 60px;
+        height: 60px;
         border-radius: 50%;
         border: 3px solid #FFC107;
         object-fit: cover;
@@ -798,26 +774,24 @@ def show_provider_panel_custom(provider_token):
         text-shadow: 1px 1px 3px rgba(0,0,0,0.9) !important;
     }}
     </style>
-    
-    <img src="{url_logotipo}" class="top-logo" />
     """, unsafe_allow_html=True)
 
-    st.markdown(f"""
-        <div class="panel-header">
+    # Cabeçalho estruturado com colunas para evitar sobreposição do logotipo
+    col_head_txt, col_head_logo = st.columns([5, 1])
+    with col_head_txt:
+        st.markdown(f"""
             <div style="display: flex; align-items: center; gap: 15px;">
                 <span style="font-size: 32px;">🎤</span>
                 <div>
-                    <h1 style="margin: 0; color: #ffffff; font-family: monospace; font-size: 24px; text-transform: uppercase; font-weight: bold; text-shadow: 1px 1px 3px rgba(0,0,0,0.9);">PAINEL DO PRESTADOR: {nome_prestador}</h1>
-                    <p style="margin: 3px 0 0 0; color: #ffffff; font-size: 13px; font-family: monospace; font-weight: bold; text-shadow: 1px 1px 3px rgba(0,0,0,0.9);">TOKEN: <code style="background: #222; color: #ffffff; padding: 2px 6px; border-radius: 4px; font-weight: bold;">{provider_token}</code></p>
+                    <h1 style="margin: 0; color: #ffffff; font-family: monospace; font-size: 22px; text-transform: uppercase; font-weight: bold;">PAINEL DO PRESTADOR: {nome_prestador}</h1>
+                    <p style="margin: 3px 0 0 0; color: #ffffff; font-size: 13px; font-family: monospace;">TOKEN: <code style="background: #222; color: #ffffff; padding: 2px 6px; border-radius: 4px;">{provider_token}</code></p>
                 </div>
             </div>
-            <div style="background: rgba(255,193,7,0.15); border: 2px solid #FFC107; padding: 6px 12px; border-radius: 8px; text-align: right; margin-right: 80px;">
-                <div style="font-family: monospace; color: #ffffff; font-size: 11px; text-transform: uppercase; font-weight: bold; text-shadow: 1px 1px 3px rgba(0,0,0,0.9);">TEMPO / PLANO ESCOLHIDO</div>
-                <div style="font-family: monospace; color: #FFC107; font-size: 15px; font-weight: bold; text-shadow: 1px 1px 3px rgba(0,0,0,0.9); {classe_piscar}">⏱️ {tempo_formatado} ({tempo_plano})</div>
-            </div>
-        </div>
-    """, unsafe_allow_html=True)
+        """, unsafe_allow_html=True)
+    with col_head_logo:
+        st.markdown(f'<div style="text-align: right;"><img src="{url_logotipo}" class="top-logo" /></div>', unsafe_allow_html=True)
 
+    st.markdown("<hr style='border-color: #FFC107; margin: 15px 0;'>", unsafe_allow_html=True)
     st.markdown(aviso_reforço_html, unsafe_allow_html=True)
     
     link_cliente_rel = f"/?page=client_register&prestador={provider_token}"
@@ -829,9 +803,10 @@ def show_provider_panel_custom(provider_token):
     
     qr_url_cliente = f"https://api.qrserver.com/v1/create-qr-code/?size=150x150&data={urllib.parse.quote(link_cliente_absoluto)}"
 
-    col_links, col_qr = st.columns([3, 1])
+    # Layout Principal em 2 Colunas Balanceadas (Esquerda: Links e Gestão / Direita: Temporizador e QR Code)
+    col_esq, col_dir = st.columns([2.2, 1])
     
-    with col_links:
+    with col_esq:
         st.markdown(f"""
             <div class="card-link">
                 <div class="link-title">🔗 LINK DO CLIENTE (REGISTO DE MÚSICA)</div>
@@ -845,14 +820,24 @@ def show_provider_panel_custom(provider_token):
                 <a href="{link_tv_rel}" target="_blank" class="link-text-tv">{link_tv_absoluto}</a>
             </div>
         """, unsafe_allow_html=True)
-        
-    with col_qr:
-        st.markdown("<div style='font-family: monospace; color: #ffffff; font-size: 11px; font-weight: bold; margin-bottom: 2px; text-align: center; text-shadow: 1px 1px 3px rgba(0,0,0,0.9);'>QR CODE CLIENTE</div>", unsafe_allow_html=True)
+
+    with col_dir:
         st.markdown(f"""
-            <div class="qr-box">
-                <img src="{qr_url_cliente}" width="110" style="border-radius: 4px;" />
+            <div style="background: rgba(255,193,7,0.15); border: 3px solid #FFC107; padding: 10px; border-radius: 8px; text-align: center; margin-bottom: 12px;">
+                <div style="font-family: monospace; color: #ffffff; font-size: 10px; text-transform: uppercase;">TEMPO / PLANO ESCOLHIDO</div>
+                <div style="font-family: monospace; color: #FFC107; font-size: 14px; font-weight: bold; {classe_piscar}">⏱️ {tempo_formatado}</div>
+                <div style="font-family: monospace; color: #fff; font-size: 11px;">({tempo_plano})</div>
             </div>
         """, unsafe_allow_html=True)
+        
+        st.markdown("<div style='font-family: monospace; color: #ffffff; font-size: 11px; font-weight: bold; margin-bottom: 4px; text-align: center;'>QR CODE CLIENTE</div>", unsafe_allow_html=True)
+        st.markdown(f"""
+            <div class="qr-box">
+                <img src="{qr_url_cliente}" width="120" style="border-radius: 4px;" />
+            </div>
+        """, unsafe_allow_html=True)
+
+    st.markdown("<hr style='border-color: #333; margin: 20px 0;'>", unsafe_allow_html=True)
 
     st.markdown("<div id='reforco_seccao'></div>", unsafe_allow_html=True)
     if segundos_restantes <= 1800:
@@ -889,9 +874,9 @@ def show_provider_panel_custom(provider_token):
                         st.error(f"Erro ao enviar reforço: {err}")
 
     st.markdown("<div style='height: 10px;'></div>", unsafe_allow_html=True)
-    renderizar_gestao_fila_prestador(provider_token)
-
-@st.fragment(run_every=3)
+    
+    # Renderiza a fila e o seletor de vídeos abaixo alinhados corretamente
+    renderizar_gestao_fila_prestador(provider_token)@st.fragment(run_every=3)
 def renderizar_ecra_tv(provider_token):
     try:
         url_firebase = f"{FIREBASE_URL}/pedidos/{provider_token}.json?_t={time.time()}"
