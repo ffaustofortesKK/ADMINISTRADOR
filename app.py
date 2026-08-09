@@ -13,7 +13,23 @@ import cloudinary.api
 import cloudinary.uploader
 import cloudinary.search
 import importlib
+
+# --- 1. CONFIGURAR OS CAMINHOS PRIMEIRO ---
+current_dir = os.path.dirname(os.path.abspath(__file__))
+if current_dir not in sys.path:
+    sys.path.insert(0, current_dir)
+
+utils_path = os.path.join(current_dir, "utils")
+if utils_path not in sys.path:
+    sys.path.insert(0, utils_path)
+
+modules_path = os.path.join(current_dir, "modules")
+if modules_path not in sys.path:
+    sys.path.insert(0, modules_path)
+
+# --- 2. DEPOIS IMPORTAR OS MÓDULOS ---
 from modules import prestador
+importlib.reload(prestador)
 
 importlib.reload(prestador)
 
