@@ -6,7 +6,6 @@ import streamlit as st
 
 FIREBASE_URL = "https://grupoffkaraoke-default-rtdb.firebaseio.com"
 
-# --- Funções auxiliares caso não estejam definidas noutro lugar do seu projeto ---
 def limpar_nome_musica(musica_obj):
     if isinstance(musica_obj, dict):
         return musica_obj.get("titulo", "Música Desconhecida")
@@ -39,12 +38,10 @@ def obter_video_fundo(provider_token):
     return ""
 
 def listar_videos_pasta_clipes():
-    # Retorne aqui a sua lista de clipes do Cloudinary se aplicável, ex:
     return []
 
 def get_all_providers():
     import pandas as pd
-    # Retorne o seu DataFrame de prestadores se aplicável
     return pd.DataFrame()
 
 @st.fragment(run_every=3)
@@ -195,11 +192,7 @@ def renderizar_gestao_fila_prestador(provider_token):
 
             btn_salvar_fundo = st.form_submit_button("Pesquisar Vídeo Clipe")
             if btn_salvar_fundo:
-                if escolha_video == "Nenhum (Ecrã Preto)":
-                    valor_a_guardar = ""
-                else:
-                    valor_a_guardar = mapa_url_por_label.get(escolha_video, "")
-                    
+                valor_a_guardar = "" if escolha_video == "Nenhum (Ecrã Preto)" else mapa_url_por_label.get(escolha_video, "")
                 definir_video_fundo(provider_token, valor_a_guardar)
                 st.success("Vídeo clipe de fundo iniciado com sucesso na tela!")
                 st.rerun()
@@ -262,8 +255,7 @@ def show_provider_panel_custom(provider_token):
                 
             diff = (datetime.now() - dt_reg).total_seconds()
             segundos_restantes = max(0, int(segundos_totais - diff))
-        except Exception as e:
-            print(f"Erro ao calcular tempo restante: {e}")
+        except Exception:
             pass
 
     horas_restantes = segundos_restantes // 3600
@@ -292,7 +284,6 @@ def show_provider_panel_custom(provider_token):
         background: url("{url_fundo_painel}") no-repeat center center fixed !important;
         background-size: cover !important;
     }}
-    
     .block-container {{
         padding-top: 3rem !important;
         padding-bottom: 3rem !important;
@@ -313,19 +304,16 @@ def show_provider_panel_custom(provider_token):
         margin-bottom: 20px;
         position: relative;
     }}
-    
     @keyframes pulseAviso {{
         0% {{ opacity: 1; transform: scale(1); }}
         50% {{ opacity: 0.7; transform: scale(1.01); }}
         100% {{ opacity: 1; transform: scale(1); }}
     }}
-
     @keyframes piscarRelogio {{
         0% {{ opacity: 1; color: #FFC107; }}
         50% {{ opacity: 0.3; color: #ff5252; }}
         100% {{ opacity: 1; color: #FFC107; }}
     }}
-    
     .card-link, .card-tv {{
         background: #000000 !important;
         border: 4px solid #FFC107 !important;
@@ -336,13 +324,11 @@ def show_provider_panel_custom(provider_token):
         margin-bottom: 15px;
         display: block;
         width: 100%;
-        max-width: 100%;
     }}
     .card-tv {{
         border: 4px solid #9c27b0 !important;
         box-shadow: 0 4px 15px rgba(156, 39, 176, 0.25);
     }}
-
     .qr-box {{
         background: #000;
         border: 4px solid #FFC107 !important;
@@ -353,8 +339,7 @@ def show_provider_panel_custom(provider_token):
         justify-content: center;
         height: 100%;
     }}
-    
-    .link-title {{
+    .link-title, .link-title-tv {{
         font-family: monospace;
         color: #ffffff !important;
         font-size: 15px;
@@ -362,24 +347,7 @@ def show_provider_panel_custom(provider_token):
         margin-bottom: 4px;
         text-shadow: 1px 1px 3px rgba(0,0,0,0.9) !important;
     }}
-    .link-title-tv {{
-        font-family: monospace;
-        color: #ffffff !important;
-        font-size: 15px;
-        font-weight: bold !important;
-        margin-bottom: 4px;
-        text-shadow: 1px 1px 3px rgba(0,0,0,0.9) !important;
-    }}
-    .link-text {{
-        font-family: monospace;
-        color: #ffffff !important;
-        font-size: 13px;
-        word-break: break-all;
-        text-decoration: underline;
-        font-weight: bold !important;
-        text-shadow: 1px 1px 3px rgba(0,0,0,0.9) !important;
-    }}
-    .link-text-tv {{
+    .link-text, .link-text-tv {{
         font-family: monospace;
         color: #ffffff !important;
         font-size: 13px;
@@ -398,14 +366,12 @@ def show_provider_panel_custom(provider_token):
         border: 3px solid #FFC107;
         object-fit: cover;
     }}
-    
     h1, h2, h3, h4, h5, h6, p, label, span, div, .stMarkdown {{
         color: #ffffff !important;
         font-weight: bold !important;
         text-shadow: 1px 1px 3px rgba(0,0,0,0.9) !important;
     }}
     </style>
-    
     <img src="{url_logotipo}" class="top-logo" />
     """, unsafe_allow_html=True)
 
@@ -414,7 +380,7 @@ def show_provider_panel_custom(provider_token):
             <div style="display: flex; align-items: center; gap: 15px;">
                 <span style="font-size: 32px;">🎤</span>
                 <div>
-                    <h1 style="margin: 0; color: #ffffff; font-family: monospace; font-size: 24px; text-transform: uppercase; font-weight: bold; text-shadow: 1px 1px 3px rgba(0,0,0,0.9);">PAINEL DO PRESTADOR2: {nome_prestador}</h1>
+                    <h1 style="margin: 0; color: #ffffff; font-family: monospace; font-size: 24px; text-transform: uppercase; font-weight: bold; text-shadow: 1px 1px 3px rgba(0,0,0,0.9);">PAINEL DO PRESTADOR: {nome_prestador}</h1>
                     <p style="margin: 3px 0 0 0; color: #ffffff; font-size: 13px; font-family: monospace; font-weight: bold; text-shadow: 1px 1px 3px rgba(0,0,0,0.9);">TOKEN: <code style="background: #222; color: #ffffff; padding: 2px 6px; border-radius: 4px; font-weight: bold;">{provider_token}</code></p>
                 </div>
             </div>
