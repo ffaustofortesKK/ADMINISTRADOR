@@ -437,7 +437,7 @@ def obter_url_video_cloudinary(musica_obj, titulo_limpo):
     encoded_title = urllib.parse.quote(titulo_limpo + ".mp4")
     return f"https://res.cloudinary.com/{cloud_name}/video/upload/f_auto,q_auto/{encoded_title}"
 
-@st.fragment(run_every=3)
+@st.fragment(run_every=1)
 def renderizar_gestao_fila_prestador(provider_token):
     try:
         url_firebase = f"{FIREBASE_URL}/pedidos/{provider_token}.json?_t={time.time()}"
@@ -524,7 +524,7 @@ def renderizar_gestao_fila_prestador(provider_token):
             else:
                 st.markdown("""
                     <div style="background: #000000; border: 3px solid #FFC107; border-radius: 6px; padding: 20px; text-align: center; font-family: monospace; color: #FFC107; font-weight: bold;">
-                        NENHUMA MÚSICA EM REPRODUÇÃO
+                        NENHUMA MÚSICA EM REPRODUÇÃO - À ESPERA DA FILA DE ESPERA
                     </div>
                 """, unsafe_allow_html=True)
 
@@ -556,7 +556,7 @@ def renderizar_gestao_fila_prestador(provider_token):
                 if btn_salvar_fundo:
                     valor_a_guardar = "" if escolha_video == "Nenhum (Ecrã Preto)" else mapa_url_por_label.get(escolha_video, "")
                     definir_video_fundo(provider_token, valor_a_guardar)
-                    st.success("Vídeo clipe de fundo iniciado com sucesso na tela!")
+                    st.success("Vídeo clipe de fundo atualizado e em reprodução na tela!")
                     st.rerun()
             
     except Exception as e:
@@ -740,7 +740,7 @@ def show_provider_panel_custom(provider_token):
             <div style="display: flex; align-items: center; gap: 12px; padding-top: 5px;">
                 <span style="font-size: 28px;">🎤</span>
                 <div>
-                    <h1 style="margin: 0; color: #FFC107; font-family: monospace; font-size: 20px; text-transform: uppercase; font-weight: bold;">PAINEL DO PRESTADOR: {nome_prestador}</h1>
+                    <h1 style="margin: 0; color: #FFC107; font-family: monospace; font-size: 20px; text-transform: uppercase; font-weight: bold;">PAINEL DO PRESTADOR: <span style="color: #FFC107;">{nome_prestador}</span></h1>
                 </div>
             </div>
         """, unsafe_allow_html=True)
@@ -823,6 +823,7 @@ def show_provider_panel_custom(provider_token):
 
     st.markdown("<div style='height: 5px;'></div>", unsafe_allow_html=True)
     renderizar_gestao_fila_prestador(provider_token)
+    
 def renderizar_ecra_tv(provider_token):
     try:
         url_firebase = f"{FIREBASE_URL}/pedidos/{provider_token}.json?_t={time.time()}"
