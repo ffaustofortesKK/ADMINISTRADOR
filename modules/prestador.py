@@ -407,7 +407,7 @@ def show_provider_panel_custom(provider_token):
     with col_links:
         st.markdown(f"""
             <div class="card-link">
-                <div class="link-title">🔗 LINK DO CLIENTE (REGISTO DE MÚSICA)</div>
+                <div class="link-title">🔗 LINK DO CLIENTE3 (REGISTO DE MÚSICA)</div>
                 <a href="{link_cliente_rel}" target="_blank" class="link-text">{link_cliente_absoluto}</a>
             </div>
         """, unsafe_allow_html=True)
