@@ -448,11 +448,9 @@ def renderizar_gestao_fila_prestador(provider_token):
             data = response.json()
             pedidos = [{"id": k, **v} for k, v in data.items()]
             
-        # Filtra apenas os pedidos pendentes ou aprovados
         pedidos_ativos = [p for p in pedidos if p.get("estado") in ["pendente", "aprovado"]]
         pedidos_ativos.sort(key=lambda x: x.get("timestamp", 0))
         
-        # 2º Requisito: A música entra automaticamente (se não houver nenhuma a tocar, a primeira passa logo para aprovado)
         tocando_agora = next((p for p in pedidos_ativos if p.get("estado") == "aprovado"), None)
         if not tocando_agora and pedidos_ativos:
             primeiro_id = pedidos_ativos[0].get('id')
@@ -460,59 +458,28 @@ def renderizar_gestao_fila_prestador(provider_token):
             pedidos_ativos[0]["estado"] = "aprovado"
             tocando_agora = pedidos_ativos[0]
 
-        # Layout em grelha: Coluna da Esquerda (Tabela + Leitor) | Coluna da Direita (Pesquisa Vídeo Clip + Botão)
         col_esq, col_dir = st.columns([1.5, 1], gap="medium")
         
         with col_esq:
             st.markdown("### 📋 Estado da Fila e Controlo de Reprodução")
 
             if pedidos_ativos:
-                linhas_tabela = ""
-                # 1º Requisito: Adiciona numeração sequencial e a tabela cresce dinamicamente com os pedidos
                 for idx, p in enumerate(pedidos_ativos, start=1):
                     titulo_musica = limpar_nome_musica(p.get("musica", {}))
-                    cliente_nome = p.get("cliente", "Convidado")
+                    cliente_nome = p.get("cliente", "Convidado").upper()
                     
-                    # Botão individual de remover (mini X na ponta da linha da tabela como na imagem)
-                    btn_rem_key = f"rem_tabela_{p.get('id')}"
-                    
-                    linhas_tabela += f'''
-                        <tr style="border-bottom: 1px solid #FFC107; background: #000000;">
-                            <td style="padding: 6px 8px; color: #FFC107; text-align: center; font-weight: bold; border-right: 1px solid #FFC107; font-family: monospace;">{idx}</td>
-                            <td style="padding: 6px 8px; color: #FFC107; font-weight: bold; border-right: 1px solid #FFC107; font-family: monospace; text-transform: uppercase;">{cliente_nome}</td>
-                            <td style="padding: 6px 8px; color: #FFC107; font-weight: bold; border-right: 1px solid #FFC107; font-family: monospace;">{titulo_musica}</td>
-                            <td style="padding: 4px; text-align: center; width: 40px;">
-                                <form action="" method="get">
-                                    <button name="del_id" value="{p.get('id')}" style="background: #ff5252; color: white; border: none; border-radius: 3px; cursor: pointer; font-weight: bold; padding: 2px 6px;">✕</button>
-                                </form>
-                            </td>
-                        </tr>
-                    '''
-
-                tabela_html = f'''
-                    <div style="overflow-x: auto; margin-bottom: 15px;">
-                        <table style="width: 100%; border-collapse: collapse; background: #000000; border: 2px solid #FFC107; font-family: monospace;">
-                            <thead>
-                                <tr style="border-bottom: 2px solid #FFC107; background: rgba(255,193,7,0.1);">
-                                    <th style="padding: 8px; color: #FFC107; text-align: center; width: 50px; border-right: 1px solid #FFC107;">Nº</th>
-                                    <th style="padding: 8px; color: #FFC107; text-align: left; width: 130px; border-right: 1px solid #FFC107;">CLIENTE</th>
-                                    <th style="padding: 8px; color: #FFC107; text-align: left; border-right: 1px solid #FFC107;">TITULO</th>
-                                    <th style="padding: 8px; color: #FFC107; text-align: center; width: 50px;">🗑️</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {linhas_tabela}
-                            </tbody>
-                        </table>
-                    </div>
-                '''
-                st.markdown(tabela_html, unsafe_allow_html=True)
-
-                # Tratamento de remoção via Streamlit state se acionado na tabela
-                for p in pedidos_ativos:
-                    if st.session_state.get(f"del_{p.get('id')}"):
-                        atualizar_estado_pedido(provider_token, p.get('id'), 'terminado')
-                        st.rerun()
+                    c_num, c_cli, c_tit, c_btn = st.columns([0.5, 2, 4, 0.8])
+                    with c_num:
+                        st.markdown(f"<div style='background:#000; color:#FFC107; border:1px solid #FFC107; padding:6px; text-align:center; font-family:monospace; font-weight:bold; border-radius:4px;'>{idx}</div>", unsafe_allow_html=True)
+                    with c_cli:
+                        st.markdown(f"<div style='background:#000; color:#FFC107; border:1px solid #FFC107; padding:6px; font-family:monospace; font-weight:bold; border-radius:4px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;'>{cliente_nome}</div>", unsafe_allow_html=True)
+                    with c_tit:
+                        st.markdown(f"<div style='background:#000; color:#FFC107; border:1px solid #FFC107; padding:6px; font-family:monospace; font-weight:bold; border-radius:4px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;'>{titulo_musica}</div>", unsafe_allow_html=True)
+                    with c_btn:
+                        if st.button("✕", key=f"del_fila_{p.get('id')}", use_container_width=True):
+                            atualizar_estado_pedido(provider_token, p.get('id'), 'terminado')
+                            st.rerun()
+                st.markdown("<div style='height: 10px;'></div>", unsafe_allow_html=True)
             else:
                 st.markdown("""
                     <div style="background-color: #000000; border: 2px solid #FFC107; border-radius: 6px; padding: 12px; color: #FFC107; font-family: monospace; font-size: 13px; margin-bottom: 15px; text-align: center; font-weight: bold;">
@@ -520,7 +487,6 @@ def renderizar_gestao_fila_prestador(provider_token):
                     </div>
                 """, unsafe_allow_html=True)
 
-            # 4º Requisito: Leitor Karaoke com o nome do cantor em amarelo e tamanho grande
             st.markdown("### LEITOR KARAOKE")
             
             if tocando_agora:
@@ -528,21 +494,12 @@ def renderizar_gestao_fila_prestador(provider_token):
                 musica_atual = limpar_nome_musica(tocando_agora.get("musica", {}))
                 
                 st.markdown(f"""
-                    <div style="background: #000000; border: 3px solid #FFC107; border-radius: 6px; padding: 15px; margin-bottom: 15px;">
-                        <div style="display: flex; align-items: center; gap: 15px;">
-                            <div style="display: flex; flex-direction: column; gap: 6px; min-width: 140px;">
-                                <a href="#" target="_self" style="background: #000; color: #FFC107; border: 2px solid #FFC107; padding: 6px 10px; border-radius: 4px; text-decoration: none; font-family: monospace; font-size: 11px; font-weight: bold; text-align: center; display: block;">▶️ Tocar o Karaoke</a>
-                                <a href="#" target="_self" style="background: #000; color: #FFC107; border: 2px solid #FFC107; padding: 6px 10px; border-radius: 4px; text-decoration: none; font-family: monospace; font-size: 11px; font-weight: bold; text-align: center; display: block;">⏹️ Parar o Karaoke</a>
-                                <a href="#" target="_self" style="background: #000; color: #FFC107; border: 2px solid #FFC107; padding: 6px 10px; border-radius: 4px; text-decoration: none; font-family: monospace; font-size: 11px; font-weight: bold; text-align: center; display: block;">⏭️ Avançar Karaoke</a>
-                            </div>
-                            <div style="flex-grow: 1; border-left: 2px solid #333; padding-left: 15px;">
-                                <div style="color: #FFC107; font-family: monospace; font-size: 26px; font-weight: bold; text-transform: uppercase; margin-bottom: 4px; text-shadow: 2px 2px 4px rgba(0,0,0,0.9);">
-                                    {cantor_atual}
-                                </div>
-                                <div style="color: #ffffff; font-family: monospace; font-size: 13px; font-weight: bold;">
-                                    {musica_atual}
-                                </div>
-                            </div>
+                    <div style="background: #000000; border: 3px solid #FFC107; border-radius: 6px; padding: 20px; margin-bottom: 15px; text-align: center;">
+                        <div style="color: #FFC107; font-family: monospace; font-size: 32px; font-weight: bold; text-transform: uppercase; margin-bottom: 8px; text-shadow: 2px 2px 6px rgba(0,0,0,0.9);">
+                            {cantor_atual}
+                        </div>
+                        <div style="color: #ffffff; font-family: monospace; font-size: 15px; font-weight: bold;">
+                            {musica_atual}
                         </div>
                     </div>
                 """, unsafe_allow_html=True)
@@ -664,7 +621,6 @@ def show_provider_panel_custom(provider_token):
         except Exception:
             pass
 
-    # 3º Requisito: O tempo do plano escolhido tem de estar a contar por decrescente em tempo real com o componente visual exacto da imagem
     horas_restantes = segundos_restantes // 3600
     min_restantes = (segundos_restantes % 3600) // 60
     seg_restantes = segundos_restantes % 60
@@ -768,8 +724,6 @@ def show_provider_panel_custom(provider_token):
     </style>
     """, unsafe_allow_html=True)
 
-    # Posicionamento exato tal como na imagem de referência:
-    # Topo esquerdo: Relógio/Tempo plano | Topo Centro-Esquerda: Título | Topo Direita: Logotipo
     col_topo_1, col_topo_2, col_topo_3 = st.columns([1.2, 3, 0.8])
     
     with col_topo_1:
@@ -806,7 +760,6 @@ def show_provider_panel_custom(provider_token):
     
     qr_url_cliente = f"https://api.qrserver.com/v1/create-qr-code/?size=150x150&data={urllib.parse.quote(link_cliente_absoluto)}"
 
-    # Linha central: Links do Cliente e TV na Esquerda | QR Code na Direita exatamente como na imagem
     col_links, col_qr = st.columns([2.5, 1], gap="medium")
     
     with col_links:
