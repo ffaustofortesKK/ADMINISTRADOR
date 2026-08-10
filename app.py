@@ -1054,13 +1054,12 @@ def renderizar_ecra_tv(provider_token):
                     var token = "{provider_token}";
                     var firebaseURL = "{FIREBASE_URL}/pedidos/" + token + "/" + pedidoId + ".json";
                     
-                    // Atualiza o estado para 'terminado' usando PATCH ou PUT com o objeto completo/estado
                     fetch(firebaseURL, {{
                         method: 'PATCH',
                         body: JSON.stringify({{ estado: 'terminado' }}),
                         headers: {{ 'Content-Type': 'application/json' }}
                     }}).then(response => {{
-                        setTimeout(function() {{ window.location.reload(); }}, 300);
+                        window.location.reload();
                     }}).catch(err => {{
                         window.location.reload();
                     }});
@@ -1172,21 +1171,6 @@ def renderizar_ecra_tv(provider_token):
 
     except Exception as e:
         st.error(f"Erro de sincronização na TV: {e}")
-        
-def show_client_screen():
-    query_params = st.query_params
-    provider_token = query_params.get("prestador") or query_params.get("provider", None)
-
-    if not provider_token:
-        st.error("Tela inválida. Falta o parâmetro do prestador.")
-        return
-
-    st.markdown("""
-    <style>
-    .stApp { background-color: #000000; color: white; }
-    </style>""", unsafe_allow_html=True)
-
-    renderizar_ecra_tv(provider_token)
 
 def show_provider_panel_center(token):
     show_provider_panel_custom(token)
