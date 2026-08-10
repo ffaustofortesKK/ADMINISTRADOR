@@ -1,8 +1,19 @@
+import os
+import sys
+
+# Garante que a raiz do projeto é detetada pelo Python antes de importar configurações globais
+ROOT_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+if ROOT_DIR not in sys.path:
+    sys.path.insert(0, ROOT_DIR)
+
 import streamlit as st
 import requests
 import time
 import urllib.parse
 from datetime import datetime
+
+from config import FIREBASE_URL
+from utils import get_all_providers
 
 # --- FUNÇÕES AUXILIARES ---
 
@@ -26,8 +37,11 @@ def definir_video_fundo(provider_token, url_video):
 
 def obter_video_fundo(provider_token):
     url = f"{FIREBASE_URL}/configuracoes/{provider_token}/video_fundo.json"
-    response = requests.get(url)
-    return response.json() if response.status_code == 200 else ""
+    try:
+        response = requests.get(url, timeout=5)
+        return response.json() if response.status_code == 200 else ""
+    except Exception:
+        return ""
 
 def listar_videos_pasta_clipes():
     return []
@@ -254,7 +268,6 @@ def show_provider_panel_custom(provider_token):
     </style>
     """, unsafe_allow_html=True)
 
-    # Layout superior ajustado: Título à esquerda, Relógio e QR Code à direita (lado a lado)
     col_topo_esq, col_topo_dir = st.columns([2.2, 1])
 
     with col_topo_esq:
@@ -274,7 +287,7 @@ def show_provider_panel_custom(provider_token):
 
         st.markdown(f"""
             <div class="card-link">
-                <div class="link-title">🔗 LINK1 DO CLIENTE (REGISTO DE MÚSICA)</div>
+                <div class="link-title">🔗 LINK DO CLIENTE (REGISTO DE MÚSICA)</div>
                 <a href="{link_cliente_rel}" target="_blank" class="link-text">{link_cliente_absoluto}</a>
             </div>
             <div class="card-tv">
