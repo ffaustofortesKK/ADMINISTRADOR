@@ -1085,11 +1085,15 @@ def renderizar_ecra_tv(provider_token):
             
             with col_esq:
                 if proximo_cantor:
-                    c_prox = proximo_cantor.get("cliente", "Convidado")
+                    c_prox = proximo_cantor.get("cliente", "Convidado").upper()
+                    m_raw = proximo_cantor.get("musica", {})
+                    t_prox = limpar_nome_musica(m_raw.get("titulo", m_raw.get("nome", m_raw)) if isinstance(m_raw, dict) else str(m_raw))
+                    
                     st.markdown(f"""
-                        <div style="border: 4px solid #FFC107; border-radius: 10px; padding: 15px; background: rgba(0,0,0,0.95); margin-bottom: 15px; display: flex; align-items: center; gap: 15px;">
-                            <span style="color: #ffffff; font-size: 20px; font-weight: bold; font-family: monospace; text-shadow: 1px 1px 3px rgba(0,0,0,0.9);">Á SEGUIR</span>
-                            <span style="color: #ffffff; font-size: 20px; font-weight: bold; font-family: monospace; text-transform: uppercase; text-shadow: 1px 1px 3px rgba(0,0,0,0.9);">{c_prox}</span>
+                        <div style="border: 4px solid #FFC107; border-radius: 10px; padding: 15px; background: rgba(0,0,0,0.95); margin-bottom: 15px;">
+                            <div style="color: #FFC107; font-size: 14px; font-weight: bold; font-family: monospace; margin-bottom: 5px;">À SEGUIR:</div>
+                            <div style="color: #ffffff; font-size: 20px; font-weight: bold; font-family: monospace; text-transform: uppercase; text-shadow: 1px 1px 3px rgba(0,0,0,0.9);">🎤 {c_prox}</div>
+                            <div style="color: #FFC107; font-size: 16px; font-family: monospace; margin-top: 4px; text-shadow: 1px 1px 3px rgba(0,0,0,0.9);">🎵 {t_prox}</div>
                         </div>
                     """, unsafe_allow_html=True)
                 else:
@@ -1103,9 +1107,17 @@ def renderizar_ecra_tv(provider_token):
                 demais_pedidos = pedidos_ativos[1:] if len(pedidos_ativos) > 1 else []
                 
                 for idx, p_item in enumerate(demais_pedidos, start=2):
-                    c_item = p_item.get("cliente", "Convidado")
-                    texto_caixa = f"<b>{idx}.</b> {c_item}"
-                    html_caixas += f'<div style="background: rgba(0,0,0,0.95); border: 4px solid #FFC107; border-radius: 8px; padding: 12px; color: #ffffff; font-family: monospace; font-size: 16px; font-weight: bold; text-shadow: 1px 1px 3px rgba(0,0,0,0.9);">{texto_caixa}</div>'
+                    c_item = p_item.get("cliente", "Convidado").upper()
+                    m_item_raw = p_item.get("musica", {})
+                    t_item = limpar_nome_musica(m_item_raw.get("titulo", m_item_raw.get("nome", m_item_raw)) if isinstance(m_item_raw, dict) else str(m_item_raw))
+                    
+                    html_caixas += f'''
+                        <div style="background: rgba(0,0,0,0.95); border: 4px solid #FFC107; border-radius: 8px; padding: 10px 14px; color: #ffffff; font-family: monospace; text-shadow: 1px 1px 3px rgba(0,0,0,0.9);">
+                            <span style="color: #FFC107; font-weight: bold; font-size: 16px;">{idx}.</span> 
+                            <span style="font-weight: bold; font-size: 15px;">{c_item}</span> 
+                            <span style="color: #bbb; font-size: 14px;">— <i>{t_item}</i></span>
+                        </div>
+                    '''
                 
                 html_caixas += '</div>'
                 st.markdown(html_caixas, unsafe_allow_html=True)
