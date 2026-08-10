@@ -1,3 +1,9 @@
+import os
+import sys
+
+# Adiciona a pasta raiz ao caminho do Python para encontrar o config.py
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+
 import streamlit as st
 import requests
 import time
