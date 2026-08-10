@@ -1173,7 +1173,6 @@ def renderizar_ecra_tv(provider_token):
         st.error(f"Erro de sincronização na TV: {e}")
 
 def show_provider_panel_center(token):
-    show_provider_panel_custom(token)
 
 def main():
     try:
