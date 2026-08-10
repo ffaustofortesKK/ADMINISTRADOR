@@ -14,7 +14,7 @@ import cloudinary.uploader
 import cloudinary.search
 import importlib
 
-# --- 1. CONFIGURAR OS CAMINHOS PRIMEIRO (Apenas a Raiz e os Utils) ---
+# --- 1. CONFIGURAR OS CAMINHOS PRIMEIRO ---
 current_dir = os.path.dirname(os.path.abspath(__file__))
 if current_dir not in sys.path:
     sys.path.insert(0, current_dir)
@@ -23,9 +23,10 @@ utils_path = os.path.join(current_dir, "utils")
 if utils_path not in sys.path:
     sys.path.insert(0, utils_path)
 
-# (Removido modules_path do sys.path para permitir que os submódulos encontrem o config.py na raiz)
+# AVISO: A linha que adicionava a pasta "modules" ao sys.path foi removida daqui
+# para evitar que o Python se confunda e procure o config.py dentro de /modules/.
 
-# --- 2. CONFIGURAÇÕES GLOBAIS E DO CLOUDINARY ---
+# --- 2. CONFIGURAÇÕES GLOBAIS ---
 FIREBASE_URL = "https://grupoffkaraoke-default-rtdb.firebaseio.com"
 
 st.set_page_config(
@@ -34,6 +35,7 @@ st.set_page_config(
     layout="wide"
 )
 
+# Configuração do Cloudinary com as credenciais oficiais
 cloudinary.config(
     cloud_name="yhwgjh7g",
     api_key="852434629995691",
@@ -64,7 +66,7 @@ try:
 except Exception:
     original_show_register_page = None
 
-# Importação do módulo prestador corrigida
+# Importação e recarregamento seguro do módulo prestador
 from modules import prestador
 importlib.reload(prestador)
 
