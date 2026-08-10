@@ -956,6 +956,32 @@ def renderizar_ecra_tv(provider_token):
             </div>
         """
 
+        # Script extra para forçar atualização automática se o estado mudar na base de dados
+        polling_script = f"""
+            <script>
+                var tokenCheck = "{provider_token}";
+                var currentActiveId = "{tocando_agora.get('id') if tocando_agora else 'none'}";
+                
+                setInterval(function() {{
+                    fetch("{FIREBASE_URL}/pedidos/" + tokenCheck + ".json")
+                        .then(res => res.json())
+                        .then(data => {{
+                            if (!data) return;
+                            var foundAprovado = null;
+                            for (var key in data) {{
+                                if (data[key].estado === "aprovado") {{
+                                    foundAprovado = key;
+                                    break;
+                                }}
+                            }}
+                            if (foundAprovado !== currentActiveId) {{
+                                window.location.reload();
+                            }}
+                        }}).catch(err => {{}});
+                }}, 3000);
+            </script>
+        """
+
         if tocando_agora:
             musica = tocando_agora.get("musica", {})
             if isinstance(musica, dict):
@@ -1012,6 +1038,8 @@ def renderizar_ecra_tv(provider_token):
                     <button onclick="unmuteVideo()" style="background-color: #4CAF50; color: white; border: none; padding: 8px 16px; font-size: 15px; border-radius: 4px; cursor: pointer; font-weight: bold;">🔊 CLIQUE AQUI PARA ATIVAR O SOM</button>
                 </div>
             </div>
+
+            {polling_script}
 
             <script>
                 var count = 3;
@@ -1080,6 +1108,7 @@ def renderizar_ecra_tv(provider_token):
             proximo_cantor = pedidos_ativos[0] if pedidos_ativos else None
 
             st.markdown(frame_styles, unsafe_allow_html=True)
+            st.markdown(polling_script, unsafe_allow_html=True)
 
             col_esq, col_dir = st.columns([1, 1])
             
@@ -1171,7 +1200,7 @@ def renderizar_ecra_tv(provider_token):
 
     except Exception as e:
         st.error(f"Erro de sincronização na TV: {e}")
-
+        
 def show_client_screen():
 
     query_params = st.query_params
