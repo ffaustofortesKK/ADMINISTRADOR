@@ -1,17 +1,5 @@
 import os
 import sys
-
-# Força o caminho absoluto da raiz para o Python encontrar o config.py
-ROOT_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
-if ROOT_DIR not in sys.path:
-    sys.path.insert(0, ROOT_DIR)
-
-# Importação protegida com fallback direto para evitar qualquer falha de módulo
-try:
-    from config import FIREBASE_URL
-except ImportError:
-    FIREBASE_URL = "https://ff-karaoke-cloud-default-rtdb.firebaseio.com"
-
 import streamlit as st
 import requests
 import time
@@ -21,6 +9,9 @@ import cloudinary
 import cloudinary.api
 import cloudinary.uploader
 import cloudinary.search
+
+# Constante direta do Firebase para evitar falhas de importação de módulos
+FIREBASE_URL = "https://ff-karaoke-cloud-default-rtdb.firebaseio.com"
 
 # --- FUNÇÕES AUXILIARES ---
 
