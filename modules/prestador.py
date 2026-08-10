@@ -1,13 +1,11 @@
 import os
 import sys
 
-# Garante que a raiz do projeto é adicionada ao path antes de importar o config
-current_dir = os.path.dirname(os.path.abspath(__file__))
-parent_dir = os.path.abspath(os.path.join(current_dir, '..'))
-if parent_dir not in sys.path:
-    sys.path.insert(0, parent_dir)
+# Garante que a raiz do projeto é detetada pelo Python antes de importar configurações globais
+ROOT_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+if ROOT_DIR not in sys.path:
+    sys.path.insert(0, ROOT_DIR)
 
-from config import FIREBASE_URL
 import streamlit as st
 import requests
 import time
