@@ -1052,11 +1052,12 @@ def renderizar_ecra_tv(provider_token):
                 function stopKaraoke() {{
                     var pedidoId = "{tocando_agora.get('id')}";
                     var token = "{provider_token}";
-                    var firebaseURL = "{FIREBASE_URL}/pedidos/" + token + "/" + pedidoId + "/estado.json";
+                    var firebaseURL = "{FIREBASE_URL}/pedidos/" + token + "/" + pedidoId + ".json";
                     
+                    // Atualiza o estado para 'terminado' usando PATCH ou PUT com o objeto completo/estado
                     fetch(firebaseURL, {{
-                        method: 'PUT',
-                        body: JSON.stringify('terminado'),
+                        method: 'PATCH',
+                        body: JSON.stringify({{ estado: 'terminado' }}),
                         headers: {{ 'Content-Type': 'application/json' }}
                     }}).then(response => {{
                         setTimeout(function() {{ window.location.reload(); }}, 300);
@@ -1087,7 +1088,11 @@ def renderizar_ecra_tv(provider_token):
                 if proximo_cantor:
                     c_prox = proximo_cantor.get("cliente", "Convidado").upper()
                     m_raw = proximo_cantor.get("musica", {})
-                    t_prox = limpar_nome_musica(m_raw.get("titulo", m_raw.get("nome", m_raw)) if isinstance(m_raw, dict) else str(m_raw))
+                    if isinstance(m_raw, dict):
+                        t_texto = m_raw.get("titulo", m_raw.get("nome", ""))
+                    else:
+                        t_texto = str(m_raw)
+                    t_prox = limpar_nome_musica(t_texto)
                     
                     st.markdown(f"""
                         <div style="border: 4px solid #FFC107; border-radius: 10px; padding: 15px; background: rgba(0,0,0,0.95); margin-bottom: 15px;">
@@ -1109,7 +1114,11 @@ def renderizar_ecra_tv(provider_token):
                 for idx, p_item in enumerate(demais_pedidos, start=2):
                     c_item = p_item.get("cliente", "Convidado").upper()
                     m_item_raw = p_item.get("musica", {})
-                    t_item = limpar_nome_musica(m_item_raw.get("titulo", m_item_raw.get("nome", m_item_raw)) if isinstance(m_item_raw, dict) else str(m_item_raw))
+                    if isinstance(m_item_raw, dict):
+                        t_item_texto = m_item_raw.get("titulo", m_item_raw.get("nome", ""))
+                    else:
+                        t_item_texto = str(m_item_raw)
+                    t_item = limpar_nome_musica(t_item_texto)
                     
                     html_caixas += f'''
                         <div style="background: rgba(0,0,0,0.95); border: 4px solid #FFC107; border-radius: 8px; padding: 10px 14px; color: #ffffff; font-family: monospace; text-shadow: 1px 1px 3px rgba(0,0,0,0.9);">
@@ -1163,7 +1172,7 @@ def renderizar_ecra_tv(provider_token):
 
     except Exception as e:
         st.error(f"Erro de sincronização na TV: {e}")
-
+        
 def show_client_screen():
     query_params = st.query_params
     provider_token = query_params.get("prestador") or query_params.get("provider", None)
