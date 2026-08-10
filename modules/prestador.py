@@ -1,8 +1,11 @@
 import os
 import sys
 
-# Adiciona a pasta raiz ao caminho do Python ANTES de qualquer import local
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+# Adiciona a raiz do projeto ao sys.path para garantir que os módulos globais sejam encontrados
+current_dir = os.path.dirname(os.path.abspath(__file__))
+parent_dir = os.path.abspath(os.path.join(current_dir, '..'))
+if parent_dir not in sys.path:
+    sys.path.insert(0, parent_dir)
 
 import streamlit as st
 import requests
@@ -10,7 +13,6 @@ import time
 import urllib.parse
 from datetime import datetime
 
-# Agora o Python consegue encontrar o config e o utils na raiz do projeto
 from config import FIREBASE_URL
 from utils import limpar_nome_musica, obter_url_video_cloudinary, obter_video_fundo, get_all_providers
 
