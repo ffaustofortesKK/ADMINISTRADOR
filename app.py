@@ -1,11 +1,5 @@
 import sys
 import os
-
-# Adiciona explicitamente a raiz do projeto ao início do caminho do Python
-ROOT_DIR = os.path.abspath(os.path.dirname(__file__))
-if ROOT_DIR not in sys.path:
-    sys.path.insert(0, ROOT_DIR)
-
 import time
 import datetime
 from datetime import datetime, timedelta
@@ -19,9 +13,6 @@ import cloudinary.api
 import cloudinary.uploader
 import cloudinary.search
 import importlib
-
-# As suas importações de módulos vêm logo a seguir:
-from modules import prestador
 
 # --- 1. CONFIGURAR OS CAMINHOS PRIMEIRO ---
 current_dir = os.path.dirname(os.path.abspath(__file__))
