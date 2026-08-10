@@ -454,5 +454,4 @@ def show_provider_panel_custom(provider_token):
 
     st.markdown("<hr style='border-color: #FFC107; margin: 15px 0;'>", unsafe_allow_html=True)
     
-    # Chama o fragmento da fila e controlos
     renderizar_gestao_fila_prestador(provider_token)
