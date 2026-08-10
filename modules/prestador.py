@@ -1,19 +1,17 @@
 import os
 import sys
 
-# Força a inclusão da raiz do projeto no path do Python
+# Força o caminho absoluto da raiz para o Python encontrar o config.py
 ROOT_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 if ROOT_DIR not in sys.path:
     sys.path.insert(0, ROOT_DIR)
 
+# Importação protegida com fallback direto para evitar qualquer falha de módulo
 try:
     from config import FIREBASE_URL
 except ImportError:
-    # Fallback caso o config esteja na raiz mas o path falhe
     FIREBASE_URL = "https://ff-karaoke-cloud-default-rtdb.firebaseio.com"
 
-# ... restante código
-from config import FIREBASE_URL
 import streamlit as st
 import requests
 import time
