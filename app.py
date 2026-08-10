@@ -14,7 +14,7 @@ import cloudinary.uploader
 import cloudinary.search
 import importlib
 
-# --- 1. CONFIGURAR OS CAMINHOS PRIMEIRO ---
+# --- 1. CONFIGURAR OS CAMINHOS PRIMEIRO (Apenas a Raiz e os Utils) ---
 current_dir = os.path.dirname(os.path.abspath(__file__))
 if current_dir not in sys.path:
     sys.path.insert(0, current_dir)
@@ -23,30 +23,17 @@ utils_path = os.path.join(current_dir, "utils")
 if utils_path not in sys.path:
     sys.path.insert(0, utils_path)
 
-modules_path = os.path.join(current_dir, "modules")
-if modules_path not in sys.path:
-    sys.path.insert(0, modules_path)
+# (Removido modules_path do sys.path para permitir que os submódulos encontrem o config.py na raiz)
 
-# --- 2. DEPOIS IMPORTAR OS MÓDULOS ---
-from modules import prestador
-importlib.reload(prestador)
+# --- 2. CONFIGURAÇÕES GLOBAIS E DO CLOUDINARY ---
+FIREBASE_URL = "https://grupoffkaraoke-default-rtdb.firebaseio.com"
 
-importlib.reload(prestador)
+st.set_page_config(
+    page_title="FFKaraoke - Gestão de Acessos",
+    page_icon="🎤",
+    layout="wide"
+)
 
-# Configuração estrita do caminho absoluto para evitar erros de importação
-current_dir = os.path.dirname(os.path.abspath(__file__))
-if current_dir not in sys.path:
-    sys.path.insert(0, current_dir)
-
-utils_path = os.path.join(current_dir, "utils")
-if utils_path not in sys.path:
-    sys.path.insert(0, utils_path)
-
-modules_path = os.path.join(current_dir, "modules")
-if modules_path not in sys.path:
-    sys.path.insert(0, modules_path)
-
-# Configuração do Cloudinary com as credenciais oficiais
 cloudinary.config(
     cloud_name="yhwgjh7g",
     api_key="852434629995691",
@@ -54,7 +41,7 @@ cloudinary.config(
     secure=True
 )
 
-# Importações seguras com fallbacks para garantir robustez da aplicação
+# --- 3. IMPORTAÇÕES SEGURAS DE MÓDULOS E UTILS ---
 try:
     from utils.db_manager import init_db, get_all_providers
 except Exception:
@@ -76,6 +63,10 @@ try:
     from modules.register import show_register_page as original_show_register_page
 except Exception:
     original_show_register_page = None
+
+# Importação do módulo prestador corrigida
+from modules import prestador
+importlib.reload(prestador)
 
 FIREBASE_URL = "https://grupoffkaraoke-default-rtdb.firebaseio.com"
 
