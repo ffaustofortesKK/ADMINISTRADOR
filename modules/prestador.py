@@ -12,7 +12,7 @@ import time
 import urllib.parse
 from datetime import datetime
 
-from config import FIREBASE_URL
+from administrador.config import FIREBASE_URL
 from utils import limpar_nome_musica, obter_url_video_cloudinary, obter_video_fundo, get_all_providers
 
 def renderizar_gestao_fila_prestador(provider_token):
