@@ -1,10 +1,13 @@
 import os
 import sys
 
-# Garante que a raiz do projeto está no path do Python
+# Adiciona a raiz do projeto ao path do Python para detetar o config e os utils
 ROOT_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 if ROOT_DIR not in sys.path:
     sys.path.insert(0, ROOT_DIR)
+
+from config import FIREBASE_URL
+from utils import limpar_nome_musica, obter_url_video_cloudinary, obter_video_fundo, get_all_providers
 
 import streamlit as st
 import requests
