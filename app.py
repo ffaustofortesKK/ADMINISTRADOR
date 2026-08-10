@@ -23,17 +23,28 @@ utils_path = os.path.join(current_dir, "utils")
 if utils_path not in sys.path:
     sys.path.insert(0, utils_path)
 
-# AVISO: A linha que adicionava a pasta "modules" ao sys.path foi removida daqui
-# para evitar que o Python se confunda e procure o config.py dentro de /modules/.
+modules_path = os.path.join(current_dir, "modules")
+if modules_path not in sys.path:
+    sys.path.insert(0, modules_path)
 
-# --- 2. CONFIGURAÇÕES GLOBAIS ---
-FIREBASE_URL = "https://grupoffkaraoke-default-rtdb.firebaseio.com"
+# --- 2. DEPOIS IMPORTAR OS MÓDULOS ---
+from modules import prestador
+importlib.reload(prestador)
 
-st.set_page_config(
-    page_title="FFKaraoke - Gestão de Acessos",
-    page_icon="🎤",
-    layout="wide"
-)
+importlib.reload(prestador)
+
+# Configuração estrita do caminho absoluto para evitar erros de importação
+current_dir = os.path.dirname(os.path.abspath(__file__))
+if current_dir not in sys.path:
+    sys.path.insert(0, current_dir)
+
+utils_path = os.path.join(current_dir, "utils")
+if utils_path not in sys.path:
+    sys.path.insert(0, utils_path)
+
+modules_path = os.path.join(current_dir, "modules")
+if modules_path not in sys.path:
+    sys.path.insert(0, modules_path)
 
 # Configuração do Cloudinary com as credenciais oficiais
 cloudinary.config(
@@ -43,7 +54,7 @@ cloudinary.config(
     secure=True
 )
 
-# --- 3. IMPORTAÇÕES SEGURAS DE MÓDULOS E UTILS ---
+# Importações seguras com fallbacks para garantir robustez da aplicação
 try:
     from utils.db_manager import init_db, get_all_providers
 except Exception:
@@ -65,10 +76,6 @@ try:
     from modules.register import show_register_page as original_show_register_page
 except Exception:
     original_show_register_page = None
-
-# Importação e recarregamento seguro do módulo prestador
-from modules import prestador
-importlib.reload(prestador)
 
 FIREBASE_URL = "https://grupoffkaraoke-default-rtdb.firebaseio.com"
 
