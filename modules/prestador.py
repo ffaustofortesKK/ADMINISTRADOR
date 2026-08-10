@@ -1,8 +1,14 @@
 import os
 import sys
 
-# Força o Python a encontrar a raiz do projeto antes de importar config ou utils
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+# Adiciona explicitamente o diretório pai (raiz do projeto) ao início do path do Python
+current_dir = os.path.dirname(os.path.abspath(__file__))
+parent_dir = os.path.dirname(current_dir)
+if parent_dir not in sys.path:
+    sys.path.insert(0, parent_dir)
+
+from config import FIREBASE_URL
+from utils import limpar_nome_musica, obter_url_video_cloudinary, obter_video_fundo, get_all_providers
 
 from config import FIREBASE_URL
 from utils import limpar_nome_musica, obter_url_video_cloudinary, obter_video_fundo, get_all_providers
