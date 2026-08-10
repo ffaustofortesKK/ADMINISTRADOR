@@ -1,7 +1,7 @@
 import os
 import sys
 
-# Adiciona a pasta raiz ao caminho do Python para encontrar o config.py
+# Adiciona a pasta raiz ao caminho do Python ANTES de qualquer import local
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 import streamlit as st
@@ -9,6 +9,8 @@ import requests
 import time
 import urllib.parse
 from datetime import datetime
+
+# Agora o Python consegue encontrar o config e o utils na raiz do projeto
 from config import FIREBASE_URL
 from utils import limpar_nome_musica, obter_url_video_cloudinary, obter_video_fundo, get_all_providers
 
