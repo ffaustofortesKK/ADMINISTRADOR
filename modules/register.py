@@ -1,13 +1,13 @@
 import streamlit as st
-from utils.db_manager import add_provider, get_all_providers
-import uuid
-import time
+import pandas as pd
 import requests
+from datetime import datetime
+import time
 
 FIREBASE_URL = "https://ffkaraoke-default-rtdb.firebaseio.com"
 
+# --- CÓDIGO DA PÁGINA DE REGISTO DO PRESTADOR ---
 def show_register_page():
-    # Remove o fundo da caixa central, deixando apenas a imagem geral de fundo
     st.markdown("""
         <style>
         .stApp {
@@ -55,7 +55,7 @@ def show_register_page():
                     "4 Horas - 20 Mil Kwanzas": {"horas": 4, "valor": 20000.0}
                 }
                 
-                duracao_escolhida = st.selectbox("Duração Pretendida", list(duracao_opcoes.keys()))
+                duracao_escolhida = st.selectbox("Contrato", list(duracao_opcoes.keys()))
                 
                 submitted = st.form_submit_button("Enviar Permissão")
                 
@@ -78,7 +78,7 @@ def show_register_page():
                             st.error(f"Erro ao guardar o registo: {e}")
                     else:
                         st.warning("Por favor, preencha todos os campos obrigatórios (Nome, Telefone e Estabelecimento/Restaurante).")
-            
+
         if st.session_state["token_gerado"]:
             token_atual = st.session_state["token_gerado"]
             df = get_all_providers()
@@ -99,7 +99,6 @@ def show_register_page():
             
             if aprovado:
                 st.success("🎉 O seu perfil foi aprovado pelo Administrador!")
-                
                 if st.button("🚀 Clique aqui para abrir o seu Painel de Prestador", type="primary"):
                     st.query_params["token"] = token_atual
                     if "page" in st.query_params:
