@@ -4,6 +4,7 @@ import datetime
 import time
 import urllib.parse
 import uuid
+import pandas as pd
 
 # Configuração da Página do Streamlit
 st.set_page_config(
@@ -22,12 +23,10 @@ def get_all_providers():
         response = requests.get(f"{FIREBASE_URL}/prestadores.json", timeout=10)
         if response.status_code == 200 and response.json():
             data = response.json()
-            import pandas as pd
             providers_list = [{"token": k, **v} for k, v in data.items()]
             return pd.DataFrame(providers_list)
     except Exception:
         pass
-    import pandas as pd
     return pd.DataFrame()
 
 def obter_video_fundo(provider_token):
@@ -115,14 +114,25 @@ def renderizar_gestao_fila_prestador(provider_token):
         if response.status_code == 200 and response.json():
             data = response.json()
             for k, v in data.items():
-                st.markdown(f"- **{v.get('cliente')}** cantará: *{limpar_nome_musica(v.get('musica'))}* (Estado: `{v.get('estado')}`)")
+                col_info, col_acao = st.columns([3, 1])
+                with col_info:
+                    st.markdown(f"- **{v.get('cliente')}** cantará: *{limpar_nome_musica(v.get('musica'))}* (Estado: `{v.get('estado')}`)")
+                with col_acao:
+                    estado_atual = v.get('estado')
+                    if estado_atual == "pendente":
+                        if st.button("▶️ Tocar", key=f"tocar_{k}"):
+                            requests.patch(f"{FIREBASE_URL}/pedidos/{provider_token}/{k}.json", json={"estado": "aprovado"}, timeout=10)
+                            st.rerun()
+                    elif estado_atual == "aprovado":
+                        if st.button("✔️ Concluir", key=f"concluir_{k}"):
+                            requests.patch(f"{FIREBASE_URL}/pedidos/{provider_token}/{k}.json", json={"estado": "concluido"}, timeout=10)
+                            st.rerun()
         else:
             st.info("Nenhum pedido na fila de momento.")
     except Exception as e:
         st.warning(f"Não foi possível carregar a fila: {e}")
 
 def show_provider_panel_custom(provider_token):
-    # Recuperar dados do prestador do Firebase
     try:
         res = requests.get(f"{FIREBASE_URL}/prestadores/{provider_token}.json", timeout=10)
         p_data = res.json() if res.status_code == 200 and res.json() else {}
@@ -135,14 +145,13 @@ def show_provider_panel_custom(provider_token):
     url_fundo_painel = p_data.get("url_fundo", "https://images.unsplash.com/photo-1514525253161-7a46d19cd819")
     url_logotipo = p_data.get("url_logo", "https://i.imgur.com/74a1XKt.png")
     
-    # Cálculo de tempo
     data_reg_str = p_data.get("data_registo", str(datetime.datetime.now()))
     try:
         dt_reg = datetime.datetime.fromisoformat(data_reg_str)
     except Exception:
         dt_reg = datetime.datetime.now()
 
-    segundos_totais = 7200 # Padrão 2 horas
+    segundos_totais = 7200 
     if "3" in tempo_plano:
         segundos_totais = 10800
     elif "4" in tempo_plano:
