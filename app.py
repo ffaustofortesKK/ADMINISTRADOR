@@ -1080,22 +1080,22 @@ def show_admin_panel():
             if pendentes.empty:
                 st.success("Não existem novos pedidos de registo pendentes.")
             else:
-                # Linha de cabeçalho unificada da grelha conforme a referência visual exata
+                # Cabeçalho com tamanho de letra aumentado em 30% (aprox 1.3em / 18px)
                 st.markdown("""
-                <div style="background: linear-gradient(180deg, rgba(30,30,30,0.95), rgba(15,15,15,0.95)); border: 2px solid #FFC107; border-radius: 8px 8px 0 0; padding: 10px 15px; margin-bottom: 0px; border-bottom: 1px solid #FFC107;">
+                <div style="background: linear-gradient(180deg, rgba(30,30,30,0.95), rgba(15,15,15,0.95)); border: 2px solid #FFC107; border-radius: 8px 8px 0 0; padding: 12px 15px; margin-bottom: 0px; border-bottom: 1px solid #FFC107;">
                 """, unsafe_allow_html=True)
                 
                 hc1, hc2, hc3, hc4, hc5, hc6 = st.columns([2.2, 1.4, 1.4, 2.0, 1.1, 1.1])
                 with hc1:
-                    st.markdown("<div style='text-align: center; font-weight: bold; color: #FFD700;'>Nome</div>", unsafe_allow_html=True)
+                    st.markdown("<div style='text-align: center; font-weight: bold; color: #FFD700; font-size: 18px;'>Nome</div>", unsafe_allow_html=True)
                 with hc2:
-                    st.markdown("<div style='text-align: center; font-weight: bold; color: #FFD700;'>Telefone:</div>", unsafe_allow_html=True)
+                    st.markdown("<div style='text-align: center; font-weight: bold; color: #FFD700; font-size: 18px;'>Telefone:</div>", unsafe_allow_html=True)
                 with hc3:
-                    st.markdown("<div style='text-align: center; font-weight: bold; color: #FFD700;'>Estabelecimento</div>", unsafe_allow_html=True)
+                    st.markdown("<div style='text-align: center; font-weight: bold; color: #FFD700; font-size: 18px;'>Estabelecimento</div>", unsafe_allow_html=True)
                 with hc4:
-                    st.markdown("<div style='text-align: center; font-weight: bold; color: #FFD700;'>Duração Solicitada</div>", unsafe_allow_html=True)
+                    st.markdown("<div style='text-align: center; font-weight: bold; color: #FFD700; font-size: 18px;'>Duração Solicitada</div>", unsafe_allow_html=True)
                 with hc5:
-                    st.markdown("<div style='text-align: center; font-weight: bold; color: #FFD700;'>Ações</div>", unsafe_allow_html=True)
+                    st.markdown("<div style='text-align: center; font-weight: bold; color: #FFD700; font-size: 18px;'>Ações</div>", unsafe_allow_html=True)
                 with hc6:
                     st.markdown("", unsafe_allow_html=True)
                     
@@ -1110,42 +1110,43 @@ def show_admin_panel():
                     expires_at = row.get('expires_at', 'N/A')
                     token = row.get('token', '')
                     
+                    # Linhas fechadas verticalmente e sem espaços excessivos entre elas (padding reduzido e margem mínima)
                     st.markdown("""
-                    <div style="background: linear-gradient(180deg, rgba(17,17,17,0.95), rgba(5,5,5,0.95)); border-left: 2px solid #FFC107; border-right: 2px solid #FFC107; border-bottom: 2px solid #FFC107; padding: 10px; margin-bottom: 8px;">
+                    <div style="background: linear-gradient(180deg, rgba(17,17,17,0.95), rgba(5,5,5,0.95)); border-left: 2px solid #FFC107; border-right: 2px solid #FFC107; border-bottom: 2px solid #FFC107; padding: 3px 10px; margin-bottom: 2px;">
                     """, unsafe_allow_html=True)
                     
                     rc1, rc2, rc3, rc4, rc5, rc6 = st.columns([2.2, 1.4, 1.4, 2.0, 1.1, 1.1])
                     
                     with rc1:
                         st.markdown(f"""
-                        <div style="border-right: 2px solid #444; padding-right: 8px; height: 100%;">
-                            <div style='margin-top: 6px;'>🎤 <b>{nome}</b></div>
+                        <div style="border-right: 2px solid #444; padding-right: 8px; padding-top: 2px; padding-bottom: 2px;">
+                            <div>🎤 <b>{nome}</b></div>
                         </div>
                         """, unsafe_allow_html=True)
                         
                     with rc2:
                         st.markdown(f"""
-                        <div style="border-right: 2px solid #444; padding-right: 8px; height: 100%;">
-                            <div style='margin-top: 6px;'>📞 <b style="color: #FFD700;">{telefone}</b></div>
+                        <div style="border-right: 2px solid #444; padding-right: 8px; padding-top: 2px; padding-bottom: 2px;">
+                            <div>📞 <b style="color: #FFD700;">{telefone}</b></div>
                         </div>
                         """, unsafe_allow_html=True)
                         
                     with rc3:
                         st.markdown(f"""
-                        <div style="border-right: 2px solid #444; padding-right: 8px; height: 100%;">
-                            <div style='margin-top: 6px;'>🏠 <b style="color: #FFD700;">{estabelecimento}</b></div>
+                        <div style="border-right: 2px solid #444; padding-right: 8px; padding-top: 2px; padding-bottom: 2px;">
+                            <div>🏠 <b style="color: #FFD700;">{estabelecimento}</b></div>
                         </div>
                         """, unsafe_allow_html=True)
                         
                     with rc4:
                         st.markdown(f"""
-                        <div style="border-right: 2px solid #444; padding-right: 8px; height: 100%;">
-                            <div style='margin-top: 4px;'><b>{expires_at}</b><br><span style='font-size: 11px; color: #FFD700;'>Ref: {payment_ref} ({amount_paid})</span></div>
+                        <div style="border-right: 2px solid #444; padding-right: 8px; padding-top: 2px; padding-bottom: 2px;">
+                            <div><b>{expires_at}</b><br><span style='font-size: 11px; color: #FFD700;'>Ref: {payment_ref} ({amount_paid})</span></div>
                         </div>
                         """, unsafe_allow_html=True)
                     
                     with rc5:
-                        st.markdown("<div style='margin-top: 8px;'></div>", unsafe_allow_html=True)
+                        st.markdown("<div style='margin-top: 1px;'></div>", unsafe_allow_html=True)
                         if st.button("❌ Recusar", key=f"btn_rec_{token}"):
                             try:
                                 atualizado = False
@@ -1168,7 +1169,7 @@ def show_admin_panel():
                                 st.error(f"Erro ao recusar: {e}")
                                 
                     with rc6:
-                        st.markdown("<div style='margin-top: 8px;'></div>", unsafe_allow_html=True)
+                        st.markdown("<div style='margin-top: 1px;'></div>", unsafe_allow_html=True)
                         if st.button("✅ Aprovar", key=f"btn_aprov_{token}"):
                             approve_provider(token)
                             st.success(f"Prestador {nome} aprovado com sucesso!")
