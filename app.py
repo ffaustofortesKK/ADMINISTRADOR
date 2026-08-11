@@ -16,6 +16,11 @@ import importlib
 import streamlit as st
 import requests
 from utils.db_manager import get_all_providers
+import streamlit as st
+import time
+import pandas as pd
+from datetime import datetime
+from utils.db_manager import get_all_providers, get_active_providers, approve_provider, get_total_revenue
 
 # Definição das URLs e funções auxiliares/componentes
 FIREBASE_URL = "https://ffkaraoke-default-rtdb.firebaseio.com" # Substitua pela sua URL real do Firebase se necessário
