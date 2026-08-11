@@ -1006,17 +1006,18 @@ def show_admin_panel():
     .link-box b, .link-box a {
         color: #FFD700 !important;
     }
+    /* Aumentado o tamanho do badge de pendentes em 50% conforme solicitado */
     .badge-pendente-global {
         background-color: #ff3333;
         color: #ffffff;
-        padding: 6px 14px;
+        padding: 9px 21px;
         border-radius: 50%;
         font-weight: 900;
-        font-size: 16px;
+        font-size: 24px;
         display: inline-block;
-        box-shadow: 0px 0px 10px rgba(255, 51, 51, 0.5);
+        box-shadow: 0px 0px 14px rgba(255, 51, 51, 0.7);
         text-align: center;
-        min-width: 35px;
+        min-width: 52px;
     }
     p, span, label, h1, h2, h3, h4, h5, h6 {
         color: #ffffff !important;
@@ -1093,17 +1094,17 @@ def show_admin_panel():
                     
                     st.markdown('<div class="adm-horizontal-card">', unsafe_allow_html=True)
                     
-                    # Grelha rigorosamente alinhada em colunas idêntica à referência visual enviada
+                    # Grelha rigorosamente ajustada em colunas exatamente igual ao layout pretendido na imagem
                     rc1, rc2, rc3, rc4, rc5, rc6 = st.columns([2.2, 1.4, 1.4, 2.0, 1.1, 1.1])
                     
                     with rc1:
                         st.markdown(f"<span style='font-size: 11px; color: #aaa;'>Nome</span><br>🎤 <b>{nome}</b>", unsafe_allow_html=True)
                     with rc2:
-                        st.markdown(f"<span style='font-size: 11px; color: #aaa;'>Telefone</span><br>📞 <b>{telefone}</b>", unsafe_allow_html=True)
+                        st.markdown(f"<span style='font-size: 11px; color: #aaa;'>Telefone:</span><br>📞 <b>{telefone}</b>", unsafe_allow_html=True)
                     with rc3:
                         st.markdown(f"<span style='font-size: 11px; color: #aaa;'>Estabelecimento</span><br>🏠 <b>{estabelecimento}</b>", unsafe_allow_html=True)
                     with rc4:
-                        st.markdown(f"<span style='font-size: 11px; color: #aaa;'>Duração Solicitada</span><br>⏱️ <b>{expires_at}</b><br><span style='font-size: 11px; color: #FFD700;'>Ref: {payment_ref} ({amount_paid})</span>", unsafe_allow_html=True)
+                        st.markdown(f"<span style='font-size: 11px; color: #aaa;'>⏱️ Duração Solicitada</span><br><b>{expires_at}</b><br><span style='font-size: 11px; color: #FFD700;'>Ref: {payment_ref} ({amount_paid})</span>", unsafe_allow_html=True)
                     
                     with rc5:
                         st.markdown("<div style='margin-top: 6px;'></div>", unsafe_allow_html=True)
