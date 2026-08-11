@@ -817,7 +817,7 @@ def show_provider_panel_custom(provider_token):
                         import uuid
                         ref_id = str(uuid.uuid4())[:8]
                         requests.put(f"{FIREBASE_URL}/reforcos_pendentes/{provider_token}/{ref_id}.json", json=dados_reforco, timeout=10)
-                        st.success("Pedido de reforço submetido com sucesso! Aguarde a confirmação do Administrador.")
+                        st.success("Aguarde a confirmação do Administrador.")
                     except Exception as err:
                         st.error(f"Erro ao enviar reforço: {err}")
 
