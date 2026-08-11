@@ -978,13 +978,13 @@ def show_admin_panel():
         border-radius: 12px;
         padding: 3rem !important;
     }
-    .adm-card {
-        background: linear-gradient(180deg, rgba(17,17,17,0.9), rgba(5,5,5,0.9));
+    .adm-row-card {
+        background: linear-gradient(180deg, rgba(17,17,17,0.95), rgba(5,5,5,0.95));
         border: 2px solid #D4AF37;
-        border-radius: 12px;
-        padding: 20px;
-        margin-bottom: 15px;
-        box-shadow: 0px 0px 15px rgba(212,175,55,0.15);
+        border-radius: 10px;
+        padding: 12px 15px;
+        margin-bottom: 12px;
+        box-shadow: 0px 0px 10px rgba(212,175,55,0.2);
     }
     .link-box {
         background: rgba(17, 17, 17, 0.9);
@@ -1077,27 +1077,28 @@ def show_admin_panel():
                     for index, row in pendentes.iterrows():
                         nome = row.get('name', 'Desconhecido')
                         telefone = row.get('phone', 'N/A')
+                        estabelecimento = row.get('estabelecimento', row.get('venue', 'N/A'))
                         payment_ref = row.get('payment_ref', 'N/A')
+                        amount_paid = row.get('amount_paid', 'N/A')
                         expires_at = row.get('expires_at', 'N/A')
                         token = row.get('token', '')
                         
-                        st.markdown(f"""
-                        <div class="adm-card">
-                            <h3 style="color: #D4AF37; margin-top: 0;">🎤 {nome}</h3>
-                            <p style="margin: 4px 0; color: #ccc;"><b>📞 Telefone:</b> {telefone}</p>
-                            <p style="margin: 4px 0; color: #ccc;"><b>💳 Referência de Pagamento:</b> <code>{payment_ref}</code></p>
-                            <p style="margin: 4px 0; color: #ccc;"><b>⏱️ Duração Solicitada / Expira:</b> {expires_at}</p>
-                        </div>
-                        """, unsafe_allow_html=True)
+                        # Estrutura em linha idêntica à referência visual com colunas proporcionais
+                        st.markdown('<div class="adm-row-card">', unsafe_allow_html=True)
+                        c1, c2, c3, c4, c5, c6 = st.columns([2.2, 1.5, 1.5, 2.0, 1.1, 1.1])
                         
-                        col_aprov, col_recus = st.columns(2)
-                        with col_aprov:
-                            if st.button(f"✅ Aprovar Prestador", key=f"btn_aprovar_{token}"):
-                                approve_provider(token)
-                                st.success(f"Prestador {nome} aprovado com sucesso!")
-                                st.rerun()
-                        with col_recus:
-                            if st.button(f"❌ Recusar Prestador", key=f"btn_recusar_{token}"):
+                        with c1:
+                            st.markdown(f"<small style='color: #888;'>Nome</small><br><b>🎤 {nome}</b>", unsafe_allow_html=True)
+                        with c2:
+                            st.markdown(f"<small style='color: #888;'>Telefone</small><br><b>📞 {telefone}</b>", unsafe_allow_html=True)
+                        with c3:
+                            st.markdown(f"<small style='color: #888;'>Estabelecimento</small><br><b>🏠 {estabelecimento}</b>", unsafe_allow_html=True)
+                        with c4:
+                            st.markdown(f"<small style='color: #888;'>Duração / Pagamento</small><br><b>⏱️ {expires_at}</b><br><span style='font-size:12px; color:#FFD700;'>Ref: {payment_ref} ({amount_paid})</span>", unsafe_allow_html=True)
+                        
+                        with c5:
+                            st.markdown("<div style='height: 4px;'></div>", unsafe_allow_html=True)
+                            if st.button("❌ Recusar", key=f"btn_rec_{token}"):
                                 try:
                                     atualizado = False
                                     for node in ["providers", "prestadores", "prestadores_pendentes"]:
@@ -1109,18 +1110,23 @@ def show_admin_panel():
                                                     requests.patch(f"{FIREBASE_URL}/{node}/{key}.json", json={"approved": -1}, timeout=10)
                                                     atualizado = True
                                                     
-                                    if atualizado:
-                                        st.warning(f"Registo de {nome} marcado como recusado.")
-                                    else:
+                                    if not atualizado:
                                         requests.patch(f"{FIREBASE_URL}/providers/{token}.json", json={"approved": -1}, timeout=10)
                                         requests.patch(f"{FIREBASE_URL}/prestadores/{token}.json", json={"approved": -1}, timeout=10)
-                                        st.warning(f"Registo de {nome} marcado como recusado (fallback).")
                                         
+                                    st.warning(f"Registo de {nome} recusado.")
                                     st.rerun()
                                 except Exception as e:
-                                    st.error(f"Erro ao recusar prestador: {e}")
-                                    
-                        st.markdown("---")
+                                    st.error(f"Erro: {e}")
+
+                        with c6:
+                            st.markdown("<div style='height: 4px;'></div>", unsafe_allow_html=True)
+                            if st.button("✅ Aprovar", key=f"btn_aprov_{token}"):
+                                approve_provider(token)
+                                st.success(f"Prestador {nome} aprovado!")
+                                st.rerun()
+                                
+                        st.markdown('</div>', unsafe_allow_html=True)
 
             st.markdown("---")
             st.subheader("⚡ Gestão de Reforços de Tempo Pendentes")
@@ -1137,11 +1143,8 @@ def show_admin_panel():
                                 if r_data.get("approved", 0) == 0:
                                     tem_reforcos = True
                                     st.markdown(f"""
-                                    <div class="adm-card">
-                                        <h3 style="color: #D4AF37; margin-top: 0;">⚡ Reforço: {r_data.get('nome_prestador')}</h3>
-                                        <p style="margin: 4px 0; color: #ccc;"><b>🔑 Token:</b> {tok}</p>
-                                        <p style="margin: 4px 0; color: #ccc;"><b>💳 Referência / Comprovativo:</b> <code>{r_data.get('referencia')}</code></p>
-                                        <p style="margin: 4px 0; color: #ccc;"><b>⏱️ Duração Solicitada:</b> {r_data.get('tempo_plano')}</p>
+                                    <div class="adm-row-card">
+                                        <b>⚡ Reforço:</b> {r_data.get('nome_prestador')} | <b>Duração:</b> {r_data.get('tempo_plano')} | <b>Ref:</b> <code>{r_data.get('referencia')}</code>
                                     </div>
                                     """, unsafe_allow_html=True)
                                     
@@ -1153,20 +1156,17 @@ def show_admin_panel():
                                             requests.delete(f"{FIREBASE_URL}/reforcos_pendentes/{tok}/{r_id}.json")
                                             st.success("Reforço aprovado com sucesso!")
                                             st.rerun()
-                                            
                                     with col_n:
                                         if st.button("❌ Recusar Reforço", key=f"rec_ref_{tok}_{r_id}"):
                                             requests.delete(f"{FIREBASE_URL}/reforcos_pendentes/{tok}/{r_id}.json")
                                             st.warning("Reforço recusado.")
                                             st.rerun()
-                                            
                                     st.markdown("---")
                                     
                     if not tem_reforcos:
                         st.info("Nenhum pedido de reforço pendente neste momento.")
                 else:
                     st.info("Nenhum pedido de reforço pendente neste momento.")
-                    
             except Exception as e:
                 st.warning(f"Não foi possível carregar os reforços pendentes: {e}")
 
@@ -1233,82 +1233,3 @@ def show_admin_panel():
 
     time.sleep(10)
     st.rerun()
-
-
-def main():
-    try:
-        query_params = st.query_params
-        
-        if "page" in query_params and query_params["page"] == "register":
-            if original_show_register_page:
-                original_show_register_page()
-            else:
-                st.error("Página de registo não disponível.")
-            return
-
-        if "page" in query_params and query_params["page"] == "client_register":
-            show_client_page()
-            return
-
-        token = query_params.get("prestador") or query_params.get("token") or query_params.get("provider")
-        
-        if token:
-            df = get_all_providers()
-            if df.empty or 'token' not in df.columns or not (df['token'] == token).any():
-                show_provider_panel_center(token)
-                return
-                
-            prior_prestador = df[df['token'] == token]
-            if not prior_prestador.empty:
-                row = prior_prestador.iloc[0]
-                if row.get('approved', 1) == 1:
-                    show_provider_panel_custom(token)
-                    return
-                else:
-                    st.warning("⏳ O seu registo aguarda aprovação do Administrador.")
-                    return
-            else:
-                show_provider_panel_custom(token)
-                return
-            
-        st.markdown("""
-            <style>
-            .stApp {
-                background-color: #000000 !important;
-                color: #ffffff !important;
-                font-weight: bold !important;
-            }
-            .block-container {
-                background-color: #000000 !important;
-                border: 4px solid #FFC107 !important;
-                border-radius: 12px;
-                padding: 3rem !important;
-            }
-            h1, h2, h3, h4, h5, h6, p, span, label, div, button, input {
-                font-weight: bold !important;
-                text-shadow: 1px 1px 3px rgba(0,0,0,0.9);
-            }
-            </style>
-        """, unsafe_allow_html=True)
-
-        if not st.session_state.get("admin_logged", False):
-            st.title("🔒 FFKaraoke - (Administrador)")
-            with st.form("form_admin_login"):
-                senha = st.text_input("Palavra-passe de Administrador", type="password")
-                submitted = st.form_submit_button("Entrar")
-                if submitted:
-                    if senha == "ffkaraoke2026" or senha == "admin123":
-                        st.session_state["admin_logged"] = True
-                        st.success("Sessão iniciada com sucesso!")
-                        st.rerun()
-                    else:
-                        st.error("Palavra-passe incorreta.")
-
-        if st.session_state.get("admin_logged", False):
-            show_admin_panel()
-                
-    except Exception as e:
-        st.error(f"Ocorreu um erro ao carregar a aplicação: {e}")
-
-if __name__ == "__main__":
-    main()
