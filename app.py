@@ -1001,11 +1001,13 @@ def show_admin_panel():
         background-color: #ff3333;
         color: #ffffff;
         padding: 6px 14px;
-        border-radius: 20px;
+        border-radius: 50%;
         font-weight: 900;
         font-size: 16px;
         display: inline-block;
         box-shadow: 0px 0px 10px rgba(255, 51, 51, 0.5);
+        text-align: center;
+        min-width: 35px;
     }
     p, span, label, h1, h2, h3, h4, h5, h6 {
         color: #ffffff !important;
@@ -1026,7 +1028,7 @@ def show_admin_panel():
         st.subheader("🛠️ Painel de Administração — FF Karaoke")
     with col_t2:
         if pendentes_count > 0:
-            st.markdown(f"⏳ Pendentes: <span class='badge-pendente-global'>{pendentes_count}</span>", unsafe_allow_html=True)
+            st.markdown(f"⏳ <span class='badge-pendente-global'>{pendentes_count}</span>", unsafe_allow_html=True)
         else:
             st.markdown("✅ Sem Pendentes", unsafe_allow_html=True)
             
@@ -1082,6 +1084,7 @@ def show_admin_panel():
                     
                     st.markdown('<div class="adm-horizontal-card">', unsafe_allow_html=True)
                     
+                    # Layout em colunas exato à referência visual
                     rc1, rc2, rc3, rc4, rc5, rc6 = st.columns([2.2, 1.4, 1.4, 2.0, 1.1, 1.1])
                     
                     with rc1:
@@ -1111,16 +1114,16 @@ def show_admin_panel():
                                     requests.patch(f"{FIREBASE_URL}/providers/{token}.json", json={"approved": -1}, timeout=10)
                                     requests.patch(f"{FIREBASE_URL}/prestadores/{token}.json", json={"approved": -1}, timeout=10)
                                     
-                                st.warning(f"Registo de {nome} recusado.")
+                                st.warning(f"Registo de {nome} recusado com sucesso e enviado para o histórico.")
                                 st.rerun()
                             except Exception as e:
-                                st.error(f"Erro: {e}")
+                                st.error(f"Erro ao recusar: {e}")
                                 
                     with rc6:
                         st.markdown("<div style='margin-top: 6px;'></div>", unsafe_allow_html=True)
                         if st.button("✅ Aprovar", key=f"btn_aprov_{token}"):
                             approve_provider(token)
-                            st.success(f"Prestador {nome} aprovado!")
+                            st.success(f"Prestador {nome} aprovado com sucesso!")
                             st.rerun()
                             
                     st.markdown('</div>', unsafe_allow_html=True)
@@ -1202,7 +1205,7 @@ def show_admin_panel():
 
     with aba4:
         st.subheader("📈 Relatórios Financeiros e Histórico Completo")
-        st.write("Registo integral de todas as transações, valores e tempos solicitados (incluindo licenças expiradas).")
+        st.write("Registo integral de todas as transações, valores e tempos solicitados (incluindo licenças expiradas e recusadas).")
         
         total_recebido = get_total_revenue()
         total_prestadores = len(df_all) if not df_all.empty else 0
@@ -1258,8 +1261,12 @@ def main():
             prior_prestador = df[df['token'] == token]
             if not prior_prestador.empty:
                 row = prior_prestador.iloc[0]
-                if row.get('approved', 1) == 1:
+                status_aprov = int(row.get('approved', 1))
+                if status_aprov == 1:
                     show_provider_panel_custom(token)
+                    return
+                elif status_aprov == -1:
+                    st.error("❌ O seu registo foi recusado pelo Administrador. Por favor, verifique os dados ou entre em contacto.")
                     return
                 else:
                     st.warning("⏳ O seu registo aguarda aprovação do Administrador.")
