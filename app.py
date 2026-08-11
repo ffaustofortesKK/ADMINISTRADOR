@@ -978,7 +978,6 @@ def show_client_screen():
     renderizar_ecra_tv(provider_token)
 
 
-
 def show_provider_panel_center(token):
 
 
