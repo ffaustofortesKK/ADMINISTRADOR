@@ -129,7 +129,8 @@ try:
 except Exception:
     pass
     
-def custom_show_register_page():
+def show_register_page():
+    custom_show_register_page()
     url_fundo_painel = "https://cdn.phototourl.com/free/2026-08-03-694a4a2e-9914-4da8-93b2-87538a4805ab.png"
     url_logotipo = "https://cdn.phototourl.com/free/2026-08-03-8b13edf5-0257-491d-ab78-f0d5329ffc15.jpg"
     
@@ -153,7 +154,7 @@ def custom_show_register_page():
         color: #ffffff !important;
     }}
 
-    h1, h2, h3, h4, h5, h6, p, label, span {{
+    h1, h2, h3, h4, h5, h6, p, label, span, div {{
         color: #ffffff !important;
         font-weight: bold !important;
         text-shadow: 1px 1px 3px rgba(0,0,0,0.9);
@@ -314,9 +315,15 @@ def custom_show_register_page():
         st.rerun()
         return
 
-    # Formulário Único
+    if "original_show_register_page" in globals() and original_show_register_page:
+        try:
+            original_show_register_page()
+            return
+        except Exception:
+            pass
+
     st.markdown("<h1>🎤 FFKaraoke - Registo de Prestador</h1>", unsafe_allow_html=True)
-    st.markdown("<p>Preencha os seus dados, indique o estabelecimento e escolha o tempo pretendido para solicitar o seu acesso.</p>", unsafe_allow_html=True)
+    st.markdown("<p>Preencha os seus dados e escolha a duração pretendida para solicitar o seu acesso.</p>", unsafe_allow_html=True)
     
     with st.form("form_registo_prestador_custom"):
         col1, col2 = st.columns(2)
@@ -326,9 +333,8 @@ def custom_show_register_page():
             sobrenome = st.text_input("Sobrenome")
             
         telefone = st.text_input("Número de Telefone")
-        estabelecimento = st.text_input("Estabelecimento / Restaurante")
         duracao = st.selectbox(
-            "Contrato", 
+            "Duração Pretendida", 
             options=[
                 "2 Horas - 12 Mil Kwanzas", 
                 "3 Horas - 15 Mil Kwanzas", 
@@ -338,11 +344,13 @@ def custom_show_register_page():
         submitted = st.form_submit_button("Enviar Permissão")
         
         if submitted:
-            if not nome or not telefone or not estabelecimento:
+            if not nome or not telefone:
                 st.error("Por favor, preencha todos os campos obrigatórios.")
             else:
+                referencia_fake = "Plano Selecionado Direto"
                 nome_completo = f"{nome} {sobrenome}".strip()
                 
+                # Verificar se o telefone já tem histórico de recusas
                 rejection_count = 0
                 try:
                     df_all = get_all_providers()
@@ -356,24 +364,25 @@ def custom_show_register_page():
                 except Exception:
                     pass
 
+                # Se já tiver 3 ou mais recusas, bloquear logo de início (estado -2)
                 status_inicial = -2 if rejection_count >= 3 else 0
 
                 try:
                     from utils.db_manager import save_provider_request
-                    token_gerado = save_provider_request(nome, sobrenome, telefone, estabelecimento, duracao)
+                    token_gerado = save_provider_request(nome, sobrenome, telefone, referencia_fake, duracao)
                     st.session_state["token_pendente_prestador"] = token_gerado
                     st.session_state["nome_pendente_prestador"] = nome_completo
                     st.rerun()
                 except Exception as e:
+                    import uuid
                     token_gerado = str(uuid.uuid4())[:8]
                     dados_reg = {
                         "nome_prestador": nome_completo,
                         "name": nome_completo,
                         "telefone": telefone,
                         "phone": telefone,
-                        "estabelecimento": estabelecimento,
-                        "referencia": estabelecimento,
-                        "payment_ref": estabelecimento,
+                        "referencia": referencia_fake,
+                        "payment_ref": referencia_fake,
                         "tempo_plano": duracao,
                         "approved": status_inicial,
                         "rejection_count": rejection_count,
@@ -389,8 +398,13 @@ def custom_show_register_page():
                     except Exception as err:
                         st.error(f"Erro ao submeter registo: {err}")
 
-def show_register_page():
-    custom_show_register_page()
+def atualizar_estado_pedido(provider_token, pedido_id, novo_estado):
+    try:
+        url = f"{FIREBASE_URL}/pedidos/{provider_token}/{pedido_id}/estado.json"
+        response = requests.put(url, json=novo_estado, timeout=10)
+        return response.status_code == 200
+    except Exception:
+        return False
 
 def terminar_todas_musicas_ativas(provider_token, pedidos):
     for p in pedidos:
