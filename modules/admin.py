@@ -1,8 +1,11 @@
 import streamlit as st
 import time
 import pandas as pd
+import requests
 from datetime import datetime
 from utils.db_manager import get_all_providers, get_active_providers, approve_provider, get_total_revenue
+
+FIREBASE_URL = "https://ffkaraoke-default-rtdb.firebaseio.com"
 
 def show_admin_panel():
     st.markdown("""
@@ -108,7 +111,7 @@ def show_admin_panel():
                 st.image(qr_api_url, width=140, caption="QR Code de Registo")
 
         # -------------------------------------------------------------
-        # ABA 2: Pedidos e Aprovação dos Prestadores
+        # ABA 2: Pedidos e Aprovação (Novos Registos e Reforços de Tempo)
         # -------------------------------------------------------------
         with aba2:
             st.subheader("📋 Pedidos de Registo Pendentes")
@@ -120,7 +123,7 @@ def show_admin_panel():
                 pendentes = df_all[df_all['approved'].astype(int) == 0]
                 
                 if pendentes.empty:
-                    st.success("Não existem pedidos de registo pendentes neste momento.")
+                    st.success("Não existem novos pedidos de registo pendentes.")
                 else:
                     for index, row in pendentes.iterrows():
                         nome = row.get('name', 'Desconhecido')
@@ -143,6 +146,55 @@ def show_admin_panel():
                             st.success(f"Prestador {nome} aprovado com sucesso!")
                             st.rerun()
                         st.markdown("---")
+
+            # --- SECÇÃO DE REFORÇOS DE TEMPO PENDENTES ---
+            st.markdown("---")
+            st.subheader("⚡ Gestão de Reforços de Tempo Pendentes")
+            
+            try:
+                res_all_ref = requests.get(f"{FIREBASE_URL}/reforcos_pendentes.json", timeout=10)
+                if res_all_ref.status_code == 200 and res_all_ref.json():
+                    all_refs = res_all_ref.json()
+                    tem_reforcos = False
+                    
+                    for tok, refs_dict in all_refs.items():
+                        if isinstance(refs_dict, dict):
+                            for r_id, r_data in refs_dict.items():
+                                if r_data.get("approved", 0) == 0:
+                                    tem_reforcos = True
+                                    st.markdown(f"""
+                                    <div class="adm-card">
+                                        <h3 style="color: #D4AF37; margin-top: 0;">⚡ Reforço: {r_data.get('nome_prestador')}</h3>
+                                        <p style="margin: 4px 0; color: #ccc;"><b>🔑 Token:</b> {tok}</p>
+                                        <p style="margin: 4px 0; color: #ccc;"><b>💳 Referência / Comprovativo:</b> <code>{r_data.get('referencia')}</code></p>
+                                        <p style="margin: 4px 0; color: #ccc;"><b>⏱️ Duração Solicitada:</b> {r_data.get('tempo_plano')}</p>
+                                    </div>
+                                    """, unsafe_allow_html=True)
+                                    
+                                    col_s, col_n = st.columns(2)
+                                    with col_s:
+                                        if st.button("✅ Aprovar Reforço", key=f"aprov_ref_{tok}_{r_id}"):
+                                            r_data["approved"] = 1
+                                            requests.put(f"{FIREBASE_URL}/reforcos_aprovados/{tok}/{r_id}.json", json=r_data)
+                                            requests.delete(f"{FIREBASE_URL}/reforcos_pendentes/{tok}/{r_id}.json")
+                                            st.success("Reforço aprovado com sucesso!")
+                                            st.rerun()
+                                            
+                                    with col_n:
+                                        if st.button("❌ Recusar Reforço", key=f"rec_ref_{tok}_{r_id}"):
+                                            requests.delete(f"{FIREBASE_URL}/reforcos_pendentes/{tok}/{r_id}.json")
+                                            st.warning("Reforço recusado.")
+                                            st.rerun()
+                                            
+                                    st.markdown("---")
+                                    
+                    if not tem_reforcos:
+                        st.info("Nenhum pedido de reforço pendente neste momento.")
+                else:
+                    st.info("Nenhum pedido de reforço pendente neste momento.")
+                    
+            except Exception as e:
+                st.warning(f"Não foi possível carregar os reforços pendentes: {e}")
 
         # -------------------------------------------------------------
         # ABA 3: Gestão Total (Ativos com contagem decrescente de tempo)
