@@ -1000,14 +1000,16 @@ def show_admin_panel():
     .badge-pendente-global {
         background-color: #ff3333;
         color: #ffffff;
-        padding: 6px 14px;
+        padding: 4px 10px;
         border-radius: 50%;
         font-weight: 900;
-        font-size: 16px;
+        font-size: 14px;
         display: inline-block;
-        box-shadow: 0px 0px 10px rgba(255, 51, 51, 0.5);
+        box-shadow: 0px 0px 8px rgba(255, 51, 51, 0.6);
         text-align: center;
-        min-width: 35px;
+        min-width: 28px;
+        margin-left: 8px;
+        vertical-align: middle;
     }
     p, span, label, h1, h2, h3, h4, h5, h6 {
         color: #ffffff !important;
@@ -1023,20 +1025,15 @@ def show_admin_panel():
     if not df_all.empty and 'approved' in df_all.columns:
         pendentes_count = len(df_all[df_all['approved'].astype(int) == 0])
 
-    col_t1, col_t2 = st.columns([3, 1])
-    with col_t1:
-        st.subheader("🛠️ Painel de Administração — FF Karaoke")
-    with col_t2:
-        if pendentes_count > 0:
-            st.markdown(f"⏳ <span class='badge-pendente-global'>{pendentes_count}</span>", unsafe_allow_html=True)
-        else:
-            st.markdown("✅ Sem Pendentes", unsafe_allow_html=True)
-            
+    st.subheader("🛠️ Painel de Administração — FF Karaoke")
     st.markdown("---")
+
+    # Montagem do título da aba com o contador integrado exatamente em cima
+    label_aba2 = f"⏳ Pedidos e Aprovação <span class='badge-pendente-global'>{pendentes_count}</span>" if pendentes_count > 0 else "⏳ Pedidos e Aprovação"
 
     aba1, aba2, aba3, aba4 = st.tabs([
         "🔗 Link e QR Registo", 
-        "⏳ Pedidos e Aprovação", 
+        label_aba2, 
         "📊 Gestão Total", 
         "📈 Relatórios e Estatísticas"
     ])
@@ -1084,7 +1081,6 @@ def show_admin_panel():
                     
                     st.markdown('<div class="adm-horizontal-card">', unsafe_allow_html=True)
                     
-                    # Layout em colunas exato à referência visual
                     rc1, rc2, rc3, rc4, rc5, rc6 = st.columns([2.2, 1.4, 1.4, 2.0, 1.1, 1.1])
                     
                     with rc1:
@@ -1233,86 +1229,3 @@ def show_admin_panel():
 
     time.sleep(10)
     st.rerun()
-
-
-def main():
-    try:
-        query_params = st.query_params
-        
-        if "page" in query_params and query_params["page"] == "register":
-            if original_show_register_page:
-                original_show_register_page()
-            else:
-                st.error("Página de registo não disponível.")
-            return
-
-        if "page" in query_params and query_params["page"] == "client_register":
-            show_client_page()
-            return
-
-        token = query_params.get("prestador") or query_params.get("token") or query_params.get("provider")
-        
-        if token:
-            df = get_all_providers()
-            if df.empty or 'token' not in df.columns or not (df['token'] == token).any():
-                show_provider_panel_center(token)
-                return
-                
-            prior_prestador = df[df['token'] == token]
-            if not prior_prestador.empty:
-                row = prior_prestador.iloc[0]
-                status_aprov = int(row.get('approved', 1))
-                if status_aprov == 1:
-                    show_provider_panel_custom(token)
-                    return
-                elif status_aprov == -1:
-                    st.error("❌ O seu registo foi recusado pelo Administrador. Por favor, verifique os dados ou entre em contacto.")
-                    return
-                else:
-                    st.warning("⏳ O seu registo aguarda aprovação do Administrador.")
-                    return
-            else:
-                show_provider_panel_custom(token)
-                return
-            
-        st.markdown("""
-            <style>
-            .stApp {
-                background-color: #000000 !important;
-                color: #ffffff !important;
-                font-weight: bold !important;
-            }
-            .block-container {
-                background-color: #000000 !important;
-                border: 4px solid #FFC107 !important;
-                border-radius: 12px;
-                padding: 3rem !important;
-            }
-            h1, h2, h3, h4, h5, h6, p, span, label, div, button, input {
-                font-weight: bold !important;
-                text-shadow: 1px 1px 3px rgba(0,0,0,0.9);
-            }
-            </style>
-        """, unsafe_allow_html=True)
-
-        if not st.session_state.get("admin_logged", False):
-            st.title("🔒 FFKaraoke - (Administrador)")
-            with st.form("form_admin_login"):
-                senha = st.text_input("Palavra-passe de Administrador", type="password")
-                submitted = st.form_submit_button("Entrar")
-                if submitted:
-                    if senha == "ffkaraoke2026" or senha == "admin123":
-                        st.session_state["admin_logged"] = True
-                        st.success("Sessão iniciada com sucesso!")
-                        st.rerun()
-                    else:
-                        st.error("Palavra-passe incorreta.")
-
-        if st.session_state.get("admin_logged", False):
-            show_admin_panel()
-                
-    except Exception as e:
-        st.error(f"Ocorreu um erro ao carregar a aplicação: {e}")
-
-if __name__ == "__main__":
-    main()
