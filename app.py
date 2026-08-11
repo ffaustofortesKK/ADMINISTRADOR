@@ -341,6 +341,7 @@ def custom_show_register_page():
             ]
         )
         submitted = st.form_submit_button("Enviar Permissão")
+        
         if submitted:
             if not nome or not telefone:
                 st.error("Por favor, preencha todos os campos obrigatórios.")
