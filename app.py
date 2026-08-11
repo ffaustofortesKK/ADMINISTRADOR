@@ -129,8 +129,7 @@ try:
 except Exception:
     pass
     
-def show_register_page():
-    custom_show_register_page()
+def custom_show_register_page():
     url_fundo_painel = "https://cdn.phototourl.com/free/2026-08-03-694a4a2e-9914-4da8-93b2-87538a4805ab.png"
     url_logotipo = "https://cdn.phototourl.com/free/2026-08-03-8b13edf5-0257-491d-ab78-f0d5329ffc15.jpg"
     
@@ -342,7 +341,6 @@ def show_register_page():
             ]
         )
         submitted = st.form_submit_button("Enviar Permissão")
-        
         if submitted:
             if not nome or not telefone:
                 st.error("Por favor, preencha todos os campos obrigatórios.")
