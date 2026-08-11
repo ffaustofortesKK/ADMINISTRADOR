@@ -969,9 +969,6 @@ import requests
 from datetime import datetime
 import time
 
-# Certifique-se de que estas variáveis e funções auxiliares estão definidas no seu escopo global:
-# FIREBASE_URL, get_all_providers, get_active_providers, get_total_revenue, approve_provider, original_show_register_page, show_client_page, show_provider_panel_center, show_provider_panel_custom
-
 def show_admin_panel():
     st.markdown("""
     <style>
@@ -987,7 +984,6 @@ def show_admin_panel():
         border-radius: 12px;
         padding: 3rem !important;
     }
-    /* Estilo de grelha unificada com separadores internos em tabela exata */
     .adm-grid-table {
         background: linear-gradient(180deg, rgba(17,17,17,0.95), rgba(5,5,5,0.95));
         border: 2px solid #FFC107;
@@ -1008,7 +1004,6 @@ def show_admin_panel():
     .link-box b, .link-box a {
         color: #FFD700 !important;
     }
-    /* Aumentado em 50% o tamanho do badge de pendentes */
     .badge-pendente-global {
         background-color: #ff3333;
         color: #ffffff;
@@ -1085,6 +1080,27 @@ def show_admin_panel():
             if pendentes.empty:
                 st.success("Não existem novos pedidos de registo pendentes.")
             else:
+                # Linha de cabeçalho unificada da grelha conforme a referência visual exata
+                st.markdown("""
+                <div style="background: linear-gradient(180deg, rgba(30,30,30,0.95), rgba(15,15,15,0.95)); border: 2px solid #FFC107; border-radius: 8px 8px 0 0; padding: 10px 15px; margin-bottom: 0px; border-bottom: 1px solid #FFC107;">
+                """, unsafe_allow_html=True)
+                
+                hc1, hc2, hc3, hc4, hc5, hc6 = st.columns([2.2, 1.4, 1.4, 2.0, 1.1, 1.1])
+                with hc1:
+                    st.markdown("<div style='text-align: center; font-weight: bold; color: #FFD700;'>Nome</div>", unsafe_allow_html=True)
+                with hc2:
+                    st.markdown("<div style='text-align: center; font-weight: bold; color: #FFD700;'>Telefone:</div>", unsafe_allow_html=True)
+                with hc3:
+                    st.markdown("<div style='text-align: center; font-weight: bold; color: #FFD700;'>Estabelecimento</div>", unsafe_allow_html=True)
+                with hc4:
+                    st.markdown("<div style='text-align: center; font-weight: bold; color: #FFD700;'>Duração Solicitada</div>", unsafe_allow_html=True)
+                with hc5:
+                    st.markdown("<div style='text-align: center; font-weight: bold; color: #FFD700;'>Ações</div>", unsafe_allow_html=True)
+                with hc6:
+                    st.markdown("", unsafe_allow_html=True)
+                    
+                st.markdown('</div>', unsafe_allow_html=True)
+
                 for index, row in pendentes.iterrows():
                     nome = row.get('name', 'Desconhecido')
                     telefone = row.get('phone', 'N/A')
@@ -1094,9 +1110,8 @@ def show_admin_panel():
                     expires_at = row.get('expires_at', 'N/A')
                     token = row.get('token', '')
                     
-                    # Bloco estruturado dentro da grelha com bordas verticais divisórias idênticas ao modelo pretendido
                     st.markdown("""
-                    <div style="background: linear-gradient(180deg, rgba(17,17,17,0.95), rgba(5,5,5,0.95)); border: 2px solid #FFC107; border-radius: 8px; margin-bottom: 15px; padding: 10px; box-shadow: 0px 0px 12px rgba(212,175,55,0.25);">
+                    <div style="background: linear-gradient(180deg, rgba(17,17,17,0.95), rgba(5,5,5,0.95)); border-left: 2px solid #FFC107; border-right: 2px solid #FFC107; border-bottom: 2px solid #FFC107; padding: 10px; margin-bottom: 8px;">
                     """, unsafe_allow_html=True)
                     
                     rc1, rc2, rc3, rc4, rc5, rc6 = st.columns([2.2, 1.4, 1.4, 2.0, 1.1, 1.1])
@@ -1104,7 +1119,6 @@ def show_admin_panel():
                     with rc1:
                         st.markdown(f"""
                         <div style="border-right: 2px solid #444; padding-right: 8px; height: 100%;">
-                            <span style='font-size: 11px; color: #aaa; background: #222; padding: 2px 6px; border-radius: 4px;'>Nome</span><br>
                             <div style='margin-top: 6px;'>🎤 <b>{nome}</b></div>
                         </div>
                         """, unsafe_allow_html=True)
@@ -1112,7 +1126,6 @@ def show_admin_panel():
                     with rc2:
                         st.markdown(f"""
                         <div style="border-right: 2px solid #444; padding-right: 8px; height: 100%;">
-                            <span style='font-size: 11px; color: #aaa; background: #222; padding: 2px 6px; border-radius: 4px;'>Telefone:</span><br>
                             <div style='margin-top: 6px;'>📞 <b style="color: #FFD700;">{telefone}</b></div>
                         </div>
                         """, unsafe_allow_html=True)
@@ -1120,7 +1133,6 @@ def show_admin_panel():
                     with rc3:
                         st.markdown(f"""
                         <div style="border-right: 2px solid #444; padding-right: 8px; height: 100%;">
-                            <span style='font-size: 11px; color: #aaa; background: #222; padding: 2px 6px; border-radius: 4px;'>Estabelecimento</span><br>
                             <div style='margin-top: 6px;'>🏠 <b style="color: #FFD700;">{estabelecimento}</b></div>
                         </div>
                         """, unsafe_allow_html=True)
@@ -1128,7 +1140,6 @@ def show_admin_panel():
                     with rc4:
                         st.markdown(f"""
                         <div style="border-right: 2px solid #444; padding-right: 8px; height: 100%;">
-                            <span style='font-size: 11px; color: #aaa; background: #222; padding: 2px 6px; border-radius: 4px;'>⏱️ Duração Solicitada</span><br>
                             <div style='margin-top: 4px;'><b>{expires_at}</b><br><span style='font-size: 11px; color: #FFD700;'>Ref: {payment_ref} ({amount_paid})</span></div>
                         </div>
                         """, unsafe_allow_html=True)
