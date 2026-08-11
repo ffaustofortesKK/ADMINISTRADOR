@@ -987,13 +987,15 @@ def show_admin_panel():
         border-radius: 12px;
         padding: 3rem !important;
     }
-    .adm-horizontal-card {
+    /* Estilo de grelha unificada com separadores internos em tabela exata */
+    .adm-grid-table {
         background: linear-gradient(180deg, rgba(17,17,17,0.95), rgba(5,5,5,0.95));
-        border: 2px solid #D4AF37;
-        border-radius: 10px;
-        padding: 12px 18px;
+        border: 2px solid #FFC107;
+        border-radius: 8px;
+        width: 100%;
         margin-bottom: 15px;
         box-shadow: 0px 0px 12px rgba(212,175,55,0.25);
+        border-collapse: collapse;
     }
     .link-box {
         background: rgba(17, 17, 17, 0.9);
@@ -1006,7 +1008,7 @@ def show_admin_panel():
     .link-box b, .link-box a {
         color: #FFD700 !important;
     }
-    /* Aumentado o tamanho do badge de pendentes em 50% conforme solicitado */
+    /* Aumentado em 50% o tamanho do badge de pendentes */
     .badge-pendente-global {
         background-color: #ff3333;
         color: #ffffff;
@@ -1092,22 +1094,47 @@ def show_admin_panel():
                     expires_at = row.get('expires_at', 'N/A')
                     token = row.get('token', '')
                     
-                    st.markdown('<div class="adm-horizontal-card">', unsafe_allow_html=True)
+                    # Bloco estruturado dentro da grelha com bordas verticais divisórias idênticas ao modelo pretendido
+                    st.markdown("""
+                    <div style="background: linear-gradient(180deg, rgba(17,17,17,0.95), rgba(5,5,5,0.95)); border: 2px solid #FFC107; border-radius: 8px; margin-bottom: 15px; padding: 10px; box-shadow: 0px 0px 12px rgba(212,175,55,0.25);">
+                    """, unsafe_allow_html=True)
                     
-                    # Grelha rigorosamente ajustada em colunas exatamente igual ao layout pretendido na imagem
                     rc1, rc2, rc3, rc4, rc5, rc6 = st.columns([2.2, 1.4, 1.4, 2.0, 1.1, 1.1])
                     
                     with rc1:
-                        st.markdown(f"<span style='font-size: 11px; color: #aaa;'>Nome</span><br>🎤 <b>{nome}</b>", unsafe_allow_html=True)
+                        st.markdown(f"""
+                        <div style="border-right: 2px solid #444; padding-right: 8px; height: 100%;">
+                            <span style='font-size: 11px; color: #aaa; background: #222; padding: 2px 6px; border-radius: 4px;'>Nome</span><br>
+                            <div style='margin-top: 6px;'>🎤 <b>{nome}</b></div>
+                        </div>
+                        """, unsafe_allow_html=True)
+                        
                     with rc2:
-                        st.markdown(f"<span style='font-size: 11px; color: #aaa;'>Telefone:</span><br>📞 <b>{telefone}</b>", unsafe_allow_html=True)
+                        st.markdown(f"""
+                        <div style="border-right: 2px solid #444; padding-right: 8px; height: 100%;">
+                            <span style='font-size: 11px; color: #aaa; background: #222; padding: 2px 6px; border-radius: 4px;'>Telefone:</span><br>
+                            <div style='margin-top: 6px;'>📞 <b style="color: #FFD700;">{telefone}</b></div>
+                        </div>
+                        """, unsafe_allow_html=True)
+                        
                     with rc3:
-                        st.markdown(f"<span style='font-size: 11px; color: #aaa;'>Estabelecimento</span><br>🏠 <b>{estabelecimento}</b>", unsafe_allow_html=True)
+                        st.markdown(f"""
+                        <div style="border-right: 2px solid #444; padding-right: 8px; height: 100%;">
+                            <span style='font-size: 11px; color: #aaa; background: #222; padding: 2px 6px; border-radius: 4px;'>Estabelecimento</span><br>
+                            <div style='margin-top: 6px;'>🏠 <b style="color: #FFD700;">{estabelecimento}</b></div>
+                        </div>
+                        """, unsafe_allow_html=True)
+                        
                     with rc4:
-                        st.markdown(f"<span style='font-size: 11px; color: #aaa;'>⏱️ Duração Solicitada</span><br><b>{expires_at}</b><br><span style='font-size: 11px; color: #FFD700;'>Ref: {payment_ref} ({amount_paid})</span>", unsafe_allow_html=True)
+                        st.markdown(f"""
+                        <div style="border-right: 2px solid #444; padding-right: 8px; height: 100%;">
+                            <span style='font-size: 11px; color: #aaa; background: #222; padding: 2px 6px; border-radius: 4px;'>⏱️ Duração Solicitada</span><br>
+                            <div style='margin-top: 4px;'><b>{expires_at}</b><br><span style='font-size: 11px; color: #FFD700;'>Ref: {payment_ref} ({amount_paid})</span></div>
+                        </div>
+                        """, unsafe_allow_html=True)
                     
                     with rc5:
-                        st.markdown("<div style='margin-top: 6px;'></div>", unsafe_allow_html=True)
+                        st.markdown("<div style='margin-top: 8px;'></div>", unsafe_allow_html=True)
                         if st.button("❌ Recusar", key=f"btn_rec_{token}"):
                             try:
                                 atualizado = False
@@ -1130,7 +1157,7 @@ def show_admin_panel():
                                 st.error(f"Erro ao recusar: {e}")
                                 
                     with rc6:
-                        st.markdown("<div style='margin-top: 6px;'></div>", unsafe_allow_html=True)
+                        st.markdown("<div style='margin-top: 8px;'></div>", unsafe_allow_html=True)
                         if st.button("✅ Aprovar", key=f"btn_aprov_{token}"):
                             approve_provider(token)
                             st.success(f"Prestador {nome} aprovado com sucesso!")
@@ -1153,7 +1180,7 @@ def show_admin_panel():
                             if r_data.get("approved", 0) == 0:
                                 tem_reforcos = True
                                 st.markdown(f"""
-                                <div class="adm-horizontal-card">
+                                <div class="adm-grid-table" style="padding: 12px;">
                                     <b>⚡ Reforço:</b> {r_data.get('nome_prestador')} | <b>Duração:</b> {r_data.get('tempo_plano')} | <b>Ref:</b> <code>{r_data.get('referencia')}</code>
                                 </div>
                                 """, unsafe_allow_html=True)
