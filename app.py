@@ -153,7 +153,7 @@ def custom_show_register_page():
         color: #ffffff !important;
     }}
 
-    h1, h2, h3, h4, h5, h6, p, label, span, div {{
+    h1, h2, h3, h4, h5, h6, p, label, span {{
         color: #ffffff !important;
         font-weight: bold !important;
         text-shadow: 1px 1px 3px rgba(0,0,0,0.9);
@@ -314,7 +314,7 @@ def custom_show_register_page():
         st.rerun()
         return
 
-    # Formulário Único e Atualizado
+    # Formulário Único
     st.markdown("<h1>🎤 FFKaraoke - Registo de Prestador</h1>", unsafe_allow_html=True)
     st.markdown("<p>Preencha os seus dados, indique o estabelecimento e escolha o tempo pretendido para solicitar o seu acesso.</p>", unsafe_allow_html=True)
     
@@ -391,14 +391,6 @@ def custom_show_register_page():
 
 def show_register_page():
     custom_show_register_page()
-
-def atualizar_estado_pedido(provider_token, pedido_id, novo_estado):
-    try:
-        url = f"{FIREBASE_URL}/pedidos/{provider_token}/{pedido_id}/estado.json"
-        response = requests.put(url, json=novo_estado, timeout=10)
-        return response.status_code == 200
-    except Exception:
-        return False
 
 def terminar_todas_musicas_ativas(provider_token, pedidos):
     for p in pedidos:
