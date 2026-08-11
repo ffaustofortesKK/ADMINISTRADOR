@@ -91,7 +91,7 @@ def show_register_page():
                     if k in st.session_state:
                         del st.session_state[k]
                 st.rerun()
-            return  # Para garantir que nada abaixo é executado
+            return
 
         if aprovado:
             st.markdown(f"""
@@ -107,7 +107,7 @@ def show_register_page():
                 if "token_pendente_prestador" in st.session_state:
                     del st.session_state["token_pendente_prestador"]
                 st.rerun()
-            return  # Para garantir que nada abaixo é executado
+            return
         
         # Ecrã de espera com animação
         st.markdown(f"""
@@ -188,11 +188,13 @@ def show_register_page():
         st.rerun()
         return
 
-    # 2. SÓ APARECE SE NÃO HOUVER TOKEN PENDENTE (O formulário original)
+    # 2. SÓ APARECE SE NÃO HOUVER TOKEN PENDENTE
     st.markdown("<h1>🎤 FFKaraoke - Registo de Prestador</h1>", unsafe_allow_html=True)
     st.markdown("<p>Preencha os seus dados, indique o estabelecimento e escolha a duração pretendida para solicitar o seu acesso.</p>", unsafe_allow_html=True)
     
-    with st.form("form_registo_prestador_custom"):
+    form_key = f"form_registo_{st.session_state.get('form_counter', 0)}"
+    
+    with st.form(form_key, clear_on_submit=True):
         col1, col2 = st.columns(2)
         with col1:
             nome = st.text_input("Nome")
@@ -213,8 +215,10 @@ def show_register_page():
         
         if submitted:
             if not nome or not telefone or not estabelecimento:
-                st.error("Por favor, preencha todos os campos obrigatórios (Nome, Telefone e Estabelecimento).")
+                st.error("Por favor, preencha todos os campos obrigatórios.")
             else:
+                st.session_state['form_counter'] = st.session_state.get('form_counter', 0) + 1
+                
                 nome_completo = f"{nome} {sobrenome}".strip()
                 token_gerado = str(uuid.uuid4()).replace("-", "")[:32]
                 dados_escolha = duracao_opcoes[duracao_escolhida]
@@ -226,10 +230,6 @@ def show_register_page():
                 try:
                     from utils.db_manager import add_provider
                     add_provider(nome_completo, telefone, payment_ref, hours, token_gerado, amount_paid=valor_pago)
-                    st.session_state["token_pendente_prestador"] = token_gerado
-                    st.session_state["token_gerado"] = token_gerado
-                    st.session_state["nome_pendente_prestador"] = nome_completo
-                    st.rerun()
                 except Exception:
                     dados_reg = {
                         "nome_prestador": nome_completo,
@@ -245,12 +245,10 @@ def show_register_page():
                         "token": token_gerado,
                         "data_registo": str(datetime.now())
                     }
-                    try:
-                        requests.put(f"{FIREBASE_URL}/prestadores_pendentes/{token_gerado}.json", json=dados_reg, timeout=10)
-                        requests.put(f"{FIREBASE_URL}/providers/{token_gerado}.json", json=dados_reg, timeout=10)
-                        st.session_state["token_pendente_prestador"] = token_gerado
-                        st.session_state["token_gerado"] = token_gerado
-                        st.session_state["nome_pendente_prestador"] = nome_completo
-                        st.rerun()
-                    except Exception as err:
-                        st.error(f"Erro ao submeter registo: {err}")
+                    requests.put(f"{FIREBASE_URL}/prestadores_pendentes/{token_gerado}.json", json=dados_reg, timeout=10)
+                    requests.put(f"{FIREBASE_URL}/providers/{token_gerado}.json", json=dados_reg, timeout=10)
+                
+                st.session_state["token_pendente_prestador"] = token_gerado
+                st.session_state["token_gerado"] = token_gerado
+                st.session_state["nome_pendente_prestador"] = nome_completo
+                st.rerun()
