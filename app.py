@@ -963,6 +963,15 @@ def show_client_screen():
 def show_provider_panel_center(token):
     show_provider_panel_custom(token)
 
+import streamlit as st
+import pandas as pd
+import requests
+from datetime import datetime
+import time
+
+# Certifique-se de que estas variáveis e funções auxiliares estão definidas no seu escopo global:
+# FIREBASE_URL, get_all_providers, get_active_providers, get_total_revenue, approve_provider, original_show_register_page, show_client_page, show_provider_panel_center, show_provider_panel_custom
+
 def show_admin_panel():
     st.markdown("""
     <style>
@@ -1000,13 +1009,14 @@ def show_admin_panel():
     .badge-pendente-global {
         background-color: #ff3333;
         color: #ffffff;
-        padding: 2px 8px;
+        padding: 6px 14px;
         border-radius: 50%;
         font-weight: 900;
-        font-size: 13px;
+        font-size: 16px;
         display: inline-block;
-        box-shadow: 0px 0px 8px rgba(255, 51, 51, 0.6);
+        box-shadow: 0px 0px 10px rgba(255, 51, 51, 0.5);
         text-align: center;
+        min-width: 35px;
     }
     p, span, label, h1, h2, h3, h4, h5, h6 {
         color: #ffffff !important;
@@ -1022,13 +1032,17 @@ def show_admin_panel():
     if not df_all.empty and 'approved' in df_all.columns:
         pendentes_count = len(df_all[df_all['approved'].astype(int) == 0])
 
-    st.subheader("🛠️ Painel de Administração — FF Karaoke")
+    col_t1, col_t2 = st.columns([3, 1])
+    with col_t1:
+        st.subheader("🛠️ Painel de Administração — FF Karaoke")
+    with col_t2:
+        if pendentes_count > 0:
+            st.markdown(f"⏳ <span class='badge-pendente-global'>{pendentes_count}</span>", unsafe_allow_html=True)
+        else:
+            st.markdown("✅ Sem Pendentes", unsafe_allow_html=True)
+            
     st.markdown("---")
 
-    # Layout personalizado para colocar o balão de pendentes em cima da aba respetiva
-    col_tab1, col_tab2, col_tab3, col_tab4 = st.columns([1.5, 1.8, 1.2, 1.8])
-    
-    # Criamos as abas normalmente do Streamlit logo abaixo
     aba1, aba2, aba3, aba4 = st.tabs([
         "🔗 Link e QR Registo", 
         "⏳ Pedidos e Aprovação", 
@@ -1057,10 +1071,6 @@ def show_admin_panel():
             st.image(qr_api_url, width=140, caption="QR Code de Registo")
 
     with aba2:
-        # Indicador visual flutuante em cima da aba Pedidos e Aprovação
-        if pendentes_count > 0:
-            st.markdown(f"<div style='text-align: left; margin-bottom: 5px;'>⏳ <span class='badge-pendente-global'>{pendentes_count}</span></div>", unsafe_allow_html=True)
-        
         st.subheader("📋 Pedidos de Registo Pendentes")
         st.write("Analise as informações enviadas por cada prestador e aprove ou recuse o acesso conforme a confirmação do pagamento.")
         
@@ -1083,6 +1093,7 @@ def show_admin_panel():
                     
                     st.markdown('<div class="adm-horizontal-card">', unsafe_allow_html=True)
                     
+                    # Grelha rigorosamente alinhada em colunas idêntica à referência visual enviada
                     rc1, rc2, rc3, rc4, rc5, rc6 = st.columns([2.2, 1.4, 1.4, 2.0, 1.1, 1.1])
                     
                     with rc1:
@@ -1099,21 +1110,20 @@ def show_admin_panel():
                         if st.button("❌ Recusar", key=f"btn_rec_{token}"):
                             try:
                                 atualizado = False
-                                dados_payload = {"approved": -1, "rejection_reason": "O seu registo foi recusado pelo Administrador."}
                                 for node in ["providers", "prestadores", "prestadores_pendentes"]:
                                     resp = requests.get(f"{FIREBASE_URL}/{node}.json", timeout=10)
                                     if resp.status_code == 200 and resp.json():
                                         dados = resp.json()
                                         for key, val in dados.items():
-                                            if isinstance(val, dict) and (val.get("token") == token or key == token):
-                                                requests.patch(f"{FIREBASE_URL}/{node}/{key}.json", json=dados_payload, timeout=10)
+                                            if isinstance(val, dict) and val.get("token") == token:
+                                                requests.patch(f"{FIREBASE_URL}/{node}/{key}.json", json={"approved": -1}, timeout=10)
                                                 atualizado = True
                                                 
                                 if not atualizado:
-                                    requests.patch(f"{FIREBASE_URL}/providers/{token}.json", json=dados_payload, timeout=10)
-                                    requests.patch(f"{FIREBASE_URL}/prestadores/{token}.json", json=dados_payload, timeout=10)
+                                    requests.patch(f"{FIREBASE_URL}/providers/{token}.json", json={"approved": -1}, timeout=10)
+                                    requests.patch(f"{FIREBASE_URL}/prestadores/{token}.json", json={"approved": -1}, timeout=10)
                                     
-                                st.warning(f"Registo de {nome} recusado. Notificação enviada ao prestador.")
+                                st.warning(f"Registo de {nome} recusado com sucesso e enviado para o histórico.")
                                 st.rerun()
                             except Exception as e:
                                 st.error(f"Erro ao recusar: {e}")
