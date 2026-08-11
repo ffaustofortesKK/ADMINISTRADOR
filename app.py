@@ -13,17 +13,6 @@ import cloudinary.api
 import cloudinary.uploader
 import cloudinary.search
 import importlib
-import streamlit as st
-import requests
-from utils.db_manager import get_all_providers
-import streamlit as st
-import time
-import pandas as pd
-from datetime import datetime
-from utils.db_manager import get_all_providers, get_active_providers, approve_provider, get_total_revenue
-
-# Definição das URLs e funções auxiliares/componentes
-FIREBASE_URL = "https://ffkaraoke-default-rtdb.firebaseio.com" # Substitua pela sua URL real do Firebase se necessário
 
 # --- 1. CONFIGURAR OS CAMINHOS PRIMEIRO ---
 current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -38,26 +27,7 @@ modules_path = os.path.join(current_dir, "modules")
 if modules_path not in sys.path:
     sys.path.insert(0, modules_path)
 
-# --- 2. DEPOIS IMPORTAR OS MÓDULOS ---
-from modules import prestador
-importlib.reload(prestador)
-
-importlib.reload(prestador)
-
-# Configuração estrita do caminho absoluto para evitar erros de importação
-current_dir = os.path.dirname(os.path.abspath(__file__))
-if current_dir not in sys.path:
-    sys.path.insert(0, current_dir)
-
-utils_path = os.path.join(current_dir, "utils")
-if utils_path not in sys.path:
-    sys.path.insert(0, utils_path)
-
-modules_path = os.path.join(current_dir, "modules")
-if modules_path not in sys.path:
-    sys.path.insert(0, modules_path)
-
-# Configuração do Cloudinary com as credenciais oficiais
+# --- 2. CONFIGURAÇÃO DO CLOUDINARY ---
 cloudinary.config(
     cloud_name="yhwgjh7g",
     api_key="852434629995691",
@@ -65,13 +35,17 @@ cloudinary.config(
     secure=True
 )
 
-# Importações seguras com fallbacks para garantir robustez da aplicação
+# --- 3. IMPORTAÇÕES SEGURAS COM FALLBACKS ---
+FIREBASE_URL = "https://grupoffkaraoke-default-rtdb.firebaseio.com"
+
 try:
-    from utils.db_manager import init_db, get_all_providers
+    from utils.db_manager import init_db, get_all_providers, get_active_providers, approve_provider, get_total_revenue
 except Exception:
     def init_db(): pass
-    def get_all_providers(): 
-        return pd.DataFrame(columns=['token', 'approved', 'data_registo', 'nome_prestador', 'tempo_plano'])
+    def get_all_providers(): return pd.DataFrame(columns=['token', 'approved', 'data_registo', 'nome_prestador', 'tempo_plano'])
+    def get_active_providers(): return pd.DataFrame(columns=['token', 'approved', 'data_registo', 'nome_prestador', 'tempo_plano'])
+    def approve_provider(token): pass
+    def get_total_revenue(): return 0.0
 
 try:
     from modules.admin import show_admin_panel
@@ -79,24 +53,33 @@ except Exception:
     def show_admin_panel(): st.error("Módulo 'modules.admin' não encontrado.")
 
 try:
-    from modules.client import show_client_page
+    from modules.client import show_client_page, show_client_screen
 except Exception:
-    def show_client_page(): st.error("Módulo 'modules.client' não encontrado.")
+    def show_client_page(): st.error("Módulo de cliente não encontrado.")
+    def show_client_screen(): st.error("Ecrã de cliente não encontrado.")
 
 try:
-    from modules.register import show_register_page as original_show_register_page
+    from modules.register import show_register_page as custom_show_register_page
 except Exception:
-    original_show_register_page = None
+    def custom_show_register_page(): st.error("Módulo de registo não encontrado.")
 
-FIREBASE_URL = "https://grupoffkaraoke-default-rtdb.firebaseio.com"
+try:
+    from modules import prestador
+    importlib.reload(prestador)
+    show_provider_panel_custom = getattr(prestador, "show_provider_panel_custom", lambda t: st.error("Função do prestador não encontrada."))
+    show_provider_panel_center = getattr(prestador, "show_provider_panel_center", lambda t: show_provider_panel_custom(t))
+except Exception:
+    def show_provider_panel_custom(t): st.error("Módulo 'prestador' não encontrado.")
+    def show_provider_panel_center(t): st.error("Módulo 'prestador' não encontrado.")
 
+# --- 4. CONFIGURAÇÃO DA PÁGINA ---
 st.set_page_config(
     page_title="FFKaraoke - Gestão de Acessos",
     page_icon="🎤",
     layout="wide"
 )
 
-# --- BLOQUEIO TOTAL E RADICAL DO BOTÃO GERENCIAR APLICATIVO E ELEMENTOS CLOUD ---
+# --- BLOQUEIO DO BOTÃO GERENCIAR APLICATIVO ---
 st.markdown("""
     <style>
     div[data-testid="stToolbar"], header, footer, 
@@ -109,45 +92,138 @@ st.markdown("""
         pointer-events: none !important;
     }
     </style>
-
-    <script>
-    function annihilateManageButton() {
-        const walkDOM = (node) => {
-            if (node.shadowRoot) {
-                walkDOM(node.shadowRoot);
-            }
-            let children = node.children || node.childNodes;
-            for (let i = 0; i < children.length; i++) {
-                let child = children[i];
-                if (child.nodeType === 1) {
-                    let text = child.innerText || child.textContent || "";
-                    let titleAttr = child.getAttribute ? (child.getAttribute('title') || '') : '';
-                    let ariaLabel = child.getAttribute ? (child.getAttribute('aria-label') || '') : '';
-                    
-                    if (
-                        text.includes("Gerenciar") || 
-                        text.includes("Manage app") || 
-                        text.includes("Hosted with") ||
-                        titleAttr.includes("Manage app") ||
-                        ariaLabel.includes("Manage app")
-                    ) {
-                        let target = child.closest('div[style*="position: fixed"]') || child.parentElement || child;
-                        target.remove();
-                    }
-                    walkDOM(child);
-                }
-            }
-        };
-        walkDOM(document.body);
-    }
-    setInterval(annihilateManageButton, 300);
-    </script>
 """, unsafe_allow_html=True)
 
 try:
     init_db()
 except Exception:
     pass
+
+def main():
+    try:
+        query_params = st.query_params
+        
+        if "page" in query_params and query_params["page"] == "register":
+            custom_show_register_page()
+            return
+
+        if "page" in query_params and query_params["page"] == "client_register":
+            show_client_page()
+            return
+
+        if "page" in query_params and query_params["page"] == "client_screen":
+            show_client_screen()
+            return
+
+        token = query_params.get("prestador") or query_params.get("token") or query_params.get("provider")
+        
+        if token:
+            df = get_all_providers()
+            if df.empty or 'token' not in df.columns or not (df['token'] == token).any():
+                show_provider_panel_center(token)
+                return
+                
+            prior_prestador = df[df['token'] == token]
+            if not prior_prestador.empty:
+                row = prior_prestador.iloc[0]
+                if row.get('approved', 1) == 1:
+                    show_provider_panel_custom(token)
+                    return
+                else:
+                    st.warning("⏳ O seu registo aguarda aprovação do Administrador.")
+                    return
+            else:
+                show_provider_panel_custom(token)
+                return
+            
+        st.markdown("""
+            <style>
+            .stApp {
+                background-color: #000000 !important;
+                color: #ffffff !important;
+                font-weight: bold !important;
+            }
+            .block-container {
+                background-color: #000000 !important;
+                border: 4px solid #FFC107 !important;
+                border-radius: 12px;
+                padding: 3rem !important;
+            }
+            h1, h2, h3, h4, h5, h6, p, span, label, div, button, input {
+                font-weight: bold !important;
+                text-shadow: 1px 1px 3px rgba(0,0,0,0.9);
+            }
+            </style>
+        """, unsafe_allow_html=True)
+
+        if not st.session_state.get("admin_logged", False):
+            st.title("🔒 FFKaraoke - Área Restrita (Administrador)")
+            
+            with st.form("form_admin_login"):
+                senha = st.text_input("Palavra-passe de Administrador", type="password")
+                submitted = st.form_submit_button("Entrar")
+                
+                if submitted:
+                    if senha == "ffkaraoke2026" or senha == "admin123":
+                        st.session_state["admin_logged"] = True
+                        st.success("Sessão iniciada com sucesso!")
+                        st.rerun()
+                    else:
+                        st.error("Palavra-passe incorreta.")
+
+        if st.session_state.get("admin_logged", False):
+            st.markdown("---")
+            st.subheader("⚡ Gestão de Reforços de Tempo Pendentes")
+            
+            try:
+                res_all_ref = requests.get(f"{FIREBASE_URL}/reforcos_pendentes.json", timeout=10)
+                if res_all_ref.status_code == 200 and res_all_ref.json():
+                    all_refs = res_all_ref.json()
+                    tem_reforcos = False
+                    
+                    for tok, refs_dict in all_refs.items():
+                        if isinstance(refs_dict, dict):
+                            for r_id, r_data in refs_dict.items():
+                                if r_data.get("approved", 0) == 0:
+                                    tem_reforcos = True
+                                    st.markdown(f"""
+                                    <div style="background: rgba(0,0,0,0.95); border: 2px solid #FFC107; padding: 12px; border-radius: 6px; margin-bottom: 10px;">
+                                        <b>Prestador:</b> {r_data.get('nome_prestador')} (Token: {tok})<br>
+                                        <b>Referência / Comprovativo:</b> {r_data.get('referencia')}<br>
+                                        <b>Duração Solicitada:</b> {r_data.get('tempo_plano')}
+                                    </div>
+                                    """, unsafe_allow_html=True)
+                                    
+                                    col_s, col_n = st.columns(2)
+                                    with col_s:
+                                        if st.button("✅ Aprovar Reforço", key=f"aprov_ref_{tok}_{r_id}"):
+                                            r_data["approved"] = 1
+                                            requests.put(f"{FIREBASE_URL}/reforcos_aprovados/{tok}/{r_id}.json", json=r_data)
+                                            requests.delete(f"{FIREBASE_URL}/reforcos_pendentes/{tok}/{r_id}.json")
+                                            st.success("Reforço aprovado e acumulado com sucesso!")
+                                            st.rerun()
+                                            
+                                    with col_n:
+                                        if st.button("❌ Recusar Reforço", key=f"rec_ref_{tok}_{r_id}"):
+                                            requests.delete(f"{FIREBASE_URL}/reforcos_pendentes/{tok}/{r_id}.json")
+                                            st.warning("Reforço recusado.")
+                                            st.rerun()
+                                            
+                    if not tem_reforcos:
+                        st.info("Nenhum pedido de reforço pendente neste momento.")
+                else:
+                    st.info("Nenhum pedido de reforço pendente neste momento.")
+                    
+            except Exception as e:
+                st.warning(f"Não foi possível carregar os reforços pendentes: {e}")
+
+            show_admin_panel()
+                
+    except Exception as e:
+        st.error(f"Ocorreu um erro crítico na aplicação: {e}")
+
+if __name__ == "__main__":
+    main()
 
 def custom_show_register_page():
     url_fundo_painel = "https://cdn.phototourl.com/free/2026-08-03-694a4a2e-9914-4da8-93b2-87538a4805ab.png"
