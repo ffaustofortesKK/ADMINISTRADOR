@@ -563,7 +563,8 @@ def show_provider_panel_custom(provider_token):
     url_fundo_painel = "https://cdn.phototourl.com/free/2026-08-03-694a4a2e-9914-4da8-93b2-87538a4805ab.png"
 
     df_prov = get_all_providers()
-    nome_prestador = "CARLOS MIGUEL"
+    nome_prestador = "PRESTADOR"
+    estabelecimento = "ESTABELECIMENTO"
     tempo_plano = "2 Horas - 12 Mil Kwanzas"
     data_registo_str = None
     
@@ -571,7 +572,8 @@ def show_provider_panel_custom(provider_token):
         match = df_prov[df_prov['token'] == provider_token]
         if not match.empty:
             row = match.iloc[0]
-            nome_prestador = row.get('nome_prestador', row.get('nome', 'CARLOS MIGUEL')).upper()
+            nome_prestador = row.get('nome_prestador', row.get('nome', 'PRESTADOR')).upper()
+            estabelecimento = row.get('estabelecimento', row.get('nome_estabelecimento', 'ESTABELECIMENTO')).upper()
             tempo_plano = row.get('tempo_plano', row.get('tempo', '2 Horas - 12 Mil Kwanzas'))
             data_registo_str = row.get('data_registo', None)
 
@@ -735,7 +737,7 @@ def show_provider_panel_custom(provider_token):
             <div style="display: flex; align-items: center; gap: 12px; padding-top: 5px;">
                 <span style="font-size: 28px;">🎤</span>
                 <div>
-                    <h1 style="margin: 0; color: #FFC107; font-family: monospace; font-size: 20px; text-transform: uppercase; font-weight: bold;">PAINEL DO PRESTADOR: <span style="color: #FFC107;">{nome_prestador}</span></h1>
+                    <h1 style="margin: 0; color: #FFC107; font-family: monospace; font-size: 20px; text-transform: uppercase; font-weight: bold;">PAINEL DO PRESTADOR: <span style="color: #FFC107;">{estabelecimento}</span></h1>
                 </div>
             </div>
         """, unsafe_allow_html=True)
@@ -803,6 +805,7 @@ def show_provider_panel_custom(provider_token):
                     dados_reforco = {
                         "token": provider_token,
                         "nome_prestador": nome_prestador,
+                        "estabelecimento": estabelecimento,
                         "referencia": referencia_comprovativo,
                         "tempo_plano": duracao_reforco,
                         "approved": 0,
@@ -822,10 +825,17 @@ def show_provider_panel_custom(provider_token):
 @st.fragment(run_every=1)
 def renderizar_ecra_tv(provider_token):
     try:
-        # Busca o vídeo de fundo definido pelo prestador em tempo real
         video_fundo_url = obter_video_fundo(provider_token)
         
-        # Busca a música ativa na fila para exibir na tela
+        # Obter nome do estabelecimento para o canto superior direito
+        df_prov = get_all_providers()
+        estabelecimento = "ESTABELECIMENTO"
+        if not df_prov.empty and 'token' in df_prov.columns:
+            match = df_prov[df_prov['token'] == provider_token]
+            if not match.empty:
+                row = match.iloc[0]
+                estabelecimento = row.get('estabelecimento', row.get('nome_estabelecimento', 'ESTABELECIMENTO')).upper()
+
         url_firebase = f"{FIREBASE_URL}/pedidos/{provider_token}.json?_t={time.time()}"
         response = requests.get(url_firebase, timeout=10)
         
@@ -837,7 +847,6 @@ def renderizar_ecra_tv(provider_token):
             pedidos_ativos.sort(key=lambda x: x.get("timestamp", 0))
             tocando_agora = next((p for p in pedidos_ativos if p.get("estado") == "aprovado"), None)
 
-        # Renderização do Ecrã/Tela de TV com o Vídeo Clipe de fundo comandado pelo Prestador
         st.markdown("""
             <style>
             .stApp {
@@ -851,6 +860,21 @@ def renderizar_ecra_tv(provider_token):
                 min-height: 100%;
                 z-index: 0;
                 object-fit: cover;
+            }
+            .header-estabelecimento {
+                position: fixed;
+                top: 20px;
+                right: 30px;
+                z-index: 9999;
+                background: rgba(0, 0, 0, 0.85);
+                border: 2px solid #FFC107;
+                padding: 10px 20px;
+                border-radius: 8px;
+                font-family: monospace;
+                color: #FFC107;
+                font-size: 16px;
+                font-weight: bold;
+                box-shadow: 0 0 15px rgba(255, 193, 7, 0.4);
             }
             .content-overlay {
                 position: relative;
@@ -871,6 +895,9 @@ def renderizar_ecra_tv(provider_token):
             }
             </style>
         """, unsafe_allow_html=True)
+
+        # Canto Superior Direito com o Nome do Estabelecimento
+        st.markdown(f'<div class="header-estabelecimento">📍 {estabelecimento}</div>', unsafe_allow_html=True)
 
         if video_fundo_url:
             st.markdown(f"""
@@ -910,7 +937,7 @@ def renderizar_ecra_tv(provider_token):
 
 def show_client_screen_page(provider_token):
     renderizar_ecra_tv(provider_token)
-        
+    
 def show_client_screen():
 
     query_params = st.query_params
