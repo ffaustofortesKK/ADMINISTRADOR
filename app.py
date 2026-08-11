@@ -292,7 +292,7 @@ def custom_show_register_page():
             pass
 
     st.markdown("<h1>🎤 FFKaraoke - Registo de Prestador</h1>", unsafe_allow_html=True)
-    st.markdown("<p>Preencha os seus dados e escolha a duração pretendida para solicitar o seu acesso.</p>", unsafe_allow_html=True)
+    st.markdown("<p>Preencha os seus dados, informe o estabelecimento e escolha a duração pretendida para solicitar o seu acesso.</p>", unsafe_allow_html=True)
     
     with st.form("form_registo_prestador_custom"):
         col1, col2 = st.columns(2)
@@ -302,6 +302,7 @@ def custom_show_register_page():
             sobrenome = st.text_input("Sobrenome")
             
         telefone = st.text_input("Número de Telefone")
+        estabelecimento = st.text_input("Nome do Estabelecimento / Restaurante")
         duracao = st.selectbox(
             "Duração Pretendida", 
             options=[
@@ -313,36 +314,30 @@ def custom_show_register_page():
         
         submitted = st.form_submit_button("Enviar Permissão")
         if submitted:
-            if not nome or not telefone:
-                st.error("Por favor, preencha todos os campos obrigatórios.")
+            if not nome or not telefone or not estabelecimento:
+                st.error("Por favor, preencha todos os campos obrigatórios (incluindo o Estabelecimento).")
             else:
                 referencia_fake = "Plano Selecionado Direto"
+                import uuid
+                token_gerado = str(uuid.uuid4())[:8]
+                nome_completo = f"{nome} {sobrenome}".strip()
+                dados_reg = {
+                    "nome_prestador": nome_completo,
+                    "telefone": telefone,
+                    "estabelecimento": estabelecimento,
+                    "referencia": referencia_fake,
+                    "tempo_plano": duracao,
+                    "approved": 0,
+                    "token": token_gerado,
+                    "data_registo": str(datetime.now())
+                }
                 try:
-                    from utils.db_manager import save_provider_request
-                    token_gerado = save_provider_request(nome, sobrenome, telefone, referencia_fake, duracao)
+                    requests.put(f"{FIREBASE_URL}/prestadores_pendentes/{token_gerado}.json", json=dados_reg, timeout=10)
                     st.session_state["token_pendente_prestador"] = token_gerado
-                    st.session_state["nome_pendente_prestador"] = f"{nome} {sobrenome}".strip()
+                    st.session_state["nome_pendente_prestador"] = nome_completo
                     st.rerun()
-                except Exception as e:
-                    import uuid
-                    token_gerado = str(uuid.uuid4())[:8]
-                    nome_completo = f"{nome} {sobrenome}".strip()
-                    dados_reg = {
-                        "nome_prestador": nome_completo,
-                        "telefone": telefone,
-                        "referencia": referencia_fake,
-                        "tempo_plano": duracao,
-                        "approved": 0,
-                        "token": token_gerado,
-                        "data_registo": str(datetime.now())
-                    }
-                    try:
-                        requests.put(f"{FIREBASE_URL}/prestadores_pendentes/{token_gerado}.json", json=dados_reg, timeout=10)
-                        st.session_state["token_pendente_prestador"] = token_gerado
-                        st.session_state["nome_pendente_prestador"] = nome_completo
-                        st.rerun()
-                    except Exception as err:
-                        st.error(f"Erro ao submeter registo: {err}")
+                except Exception as err:
+                    st.error(f"Erro ao submeter registo: {err}")
 
 def atualizar_estado_pedido(provider_token, pedido_id, novo_estado):
     try:
