@@ -220,7 +220,7 @@ def custom_show_register_page():
                 st.rerun()
             return
         
-        # Enquanto estiver pendente
+        # Enquanto estiver pendente (Ecrã de espera isolado)
         st.markdown(f"""
             <style>
             @keyframes spinMic {{
@@ -295,8 +295,7 @@ def custom_show_register_page():
             </div>
         """, unsafe_allow_html=True)
         
-        time.sleep(3)
-        st.rerun()
+        # IMPORTANTE: O return garante que o código do formulário abaixo nunca é alcançado quando há token pendente
         return
 
     if "original_show_register_page" in globals() and original_show_register_page:
@@ -306,6 +305,7 @@ def custom_show_register_page():
         except Exception:
             pass
 
+    # Formulário de Registo (só executa se NÃO houver token pendente na sessão)
     st.markdown("<h1>🎤 FFKaraoke - Registo de Prestador</h1>", unsafe_allow_html=True)
     st.markdown("<p>Preencha os seus dados e escolha a duração pretendida para solicitar o seu acesso.</p>", unsafe_allow_html=True)
     
