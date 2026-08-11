@@ -314,15 +314,9 @@ def custom_show_register_page():
         st.rerun()
         return
 
-    if "original_show_register_page" in globals() and original_show_register_page:
-        try:
-            original_show_register_page()
-            return
-        except Exception:
-            pass
-
+    # Formulário Único e Atualizado
     st.markdown("<h1>🎤 FFKaraoke - Registo de Prestador</h1>", unsafe_allow_html=True)
-    st.markdown("<p>Preencha os seus dados e escolha a duração pretendida para solicitar o seu acesso.</p>", unsafe_allow_html=True)
+    st.markdown("<p>Preencha os seus dados, indique o estabelecimento e escolha o tempo pretendido para solicitar o seu acesso.</p>", unsafe_allow_html=True)
     
     with st.form("form_registo_prestador_custom"):
         col1, col2 = st.columns(2)
@@ -332,8 +326,9 @@ def custom_show_register_page():
             sobrenome = st.text_input("Sobrenome")
             
         telefone = st.text_input("Número de Telefone")
+        estabelecimento = st.text_input("Estabelecimento / Restaurante")
         duracao = st.selectbox(
-            "Duração Pretendida", 
+            "Contrato", 
             options=[
                 "2 Horas - 12 Mil Kwanzas", 
                 "3 Horas - 15 Mil Kwanzas", 
@@ -343,10 +338,9 @@ def custom_show_register_page():
         submitted = st.form_submit_button("Enviar Permissão")
         
         if submitted:
-            if not nome or not telefone:
+            if not nome or not telefone or not estabelecimento:
                 st.error("Por favor, preencha todos os campos obrigatórios.")
             else:
-                referencia_fake = "Plano Selecionado Direto"
                 nome_completo = f"{nome} {sobrenome}".strip()
                 
                 rejection_count = 0
@@ -366,7 +360,7 @@ def custom_show_register_page():
 
                 try:
                     from utils.db_manager import save_provider_request
-                    token_gerado = save_provider_request(nome, sobrenome, telefone, referencia_fake, duracao)
+                    token_gerado = save_provider_request(nome, sobrenome, telefone, estabelecimento, duracao)
                     st.session_state["token_pendente_prestador"] = token_gerado
                     st.session_state["nome_pendente_prestador"] = nome_completo
                     st.rerun()
@@ -377,8 +371,9 @@ def custom_show_register_page():
                         "name": nome_completo,
                         "telefone": telefone,
                         "phone": telefone,
-                        "referencia": referencia_fake,
-                        "payment_ref": referencia_fake,
+                        "estabelecimento": estabelecimento,
+                        "referencia": estabelecimento,
+                        "payment_ref": estabelecimento,
                         "tempo_plano": duracao,
                         "approved": status_inicial,
                         "rejection_count": rejection_count,
@@ -394,7 +389,6 @@ def custom_show_register_page():
                     except Exception as err:
                         st.error(f"Erro ao submeter registo: {err}")
 
-# Atalho para evitar o erro "name 'show_register_page' is not defined"
 def show_register_page():
     custom_show_register_page()
 
