@@ -150,8 +150,9 @@ def show_admin_panel():
                         with col_recus:
                             if st.button(f"❌ Recusar Prestador", key=f"btn_recusar_{token}"):
                                 try:
-                                    requests.delete(f"{FIREBASE_URL}/prestadores/{token}.json", timeout=10)
-                                    st.warning(f"Registo de {nome} recusado e removido com sucesso.")
+                                    # Atualiza o estado para -1 (Recusado) para notificar o prestador no ecrã de espera
+                                    requests.patch(f"{FIREBASE_URL}/prestadores/{token}.json", json={"approved": -1}, timeout=10)
+                                    st.warning(f"Registo de {nome} marcado como recusado.")
                                     st.rerun()
                                 except Exception as e:
                                     st.error(f"Erro ao recusar prestador: {e}")
@@ -270,7 +271,7 @@ def show_admin_panel():
             else:
                 tabela_relatorio = df_all[['id', 'name', 'phone', 'payment_ref', 'amount_paid', 'expires_at', 'approved']].copy()
                 tabela_relatorio.columns = ['ID', 'Nome', 'Telefone', 'Ref. Pagamento', 'Valor (Kz)', 'Data/Expiração', 'Estado']
-                tabela_relatorio['Estado'] = tabela_relatorio['Estado'].apply(lambda x: "✅ Aprovado" if int(x) == 1 else "⏳ Pendente")
+                tabela_relatorio['Estado'] = tabela_relatorio['Estado'].apply(lambda x: "✅ Aprovado" if int(x) == 1 else ("❌ Recusado" if int(x) == -1 else "⏳ Pendente"))
                 
                 st.dataframe(tabela_relatorio, use_container_width=True, hide_index=True)
 
