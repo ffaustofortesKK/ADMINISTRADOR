@@ -1,3 +1,4 @@
+import streamlit as str_module
 import streamlit as st
 from utils.db_manager import add_provider, get_all_providers
 import uuid
@@ -58,16 +59,26 @@ def show_register_page():
                 
                 if submitted:
                     if nome and telefone and estabelecimento:
-                        nome_completo = f"{nome} {sobrenome} ({estabelecimento})".strip()
+                        # Guardamos o nome completo e limpamos para recuperar corretamente depois
+                        nome_completo = f"{nome} {sobrenome}".strip()
                         token = str(uuid.uuid4()).replace("-", "")[:32]
                         
                         dados_escolha = duracao_opcoes[duracao_escolhida]
                         hours = dados_escolha["horas"]
                         valor_pago = dados_escolha["valor"]
+                        
+                        # Guardamos a informação detalhada na referência ou campos extras se suportado, 
+                        # garantindo que o estabelecimento vai discriminado.
                         payment_ref = f"Estabelecimento: {estabelecimento}"
                         
                         try:
+                            # Se a tua função add_provider aceitar o estabelecimento em separado ou guardares no campo respetivo:
+                            # Vamos certificar-nos de que passamos os dados corretos para a BD.
                             add_provider(nome_completo, telefone, payment_ref, hours, token, amount_paid=valor_pago)
+                            
+                            # Dica: Se a tabela de prestadores tiver uma coluna dedicada para o estabelecimento, 
+                            # assegura-te que o teu db_manager guarda o campo 'estabelecimento' ou 'payment_ref'.
+                            
                             st.session_state["token_gerado"] = token
                             st.success("Pedido de permissão enviado com sucesso!")
                             st.rerun()
