@@ -7,7 +7,6 @@ import uuid
 
 FIREBASE_URL = "https://ffkaraoke-default-rtdb.firebaseio.com"
 
-# Função auxiliar para buscar prestadores (caso não exista no seu utils)
 def get_all_providers():
     try:
         response = requests.get(f"{FIREBASE_URL}/providers.json", timeout=10)
@@ -17,7 +16,6 @@ def get_all_providers():
         pass
     return pd.DataFrame()
 
-# --- CÓDIGO DA PÁGINA DE REGISTO DO PRESTADOR ---
 def show_register_page():
     url_fundo_painel = "https://cdn.phototourl.com/free/2026-08-03-694a4a2e-9914-4da8-93b2-87538a4805ab.png"
     url_logotipo = "https://cdn.phototourl.com/free/2026-08-03-8b13edf5-0257-491d-ab78-f0d5329ffc15.jpg"
@@ -57,7 +55,7 @@ def show_register_page():
     </style>
     """, unsafe_allow_html=True)
 
-    # Verifica se já existe um token pendente na sessão
+    # 1. VERIFICAÇÃO IMEDIATA DO TOKEN (Se existir, mostra o ecrã de espera e FAZ RETURN para o formulário nunca aparecer)
     token_sessao = st.session_state.get("token_pendente_prestador") or st.session_state.get("token_gerado")
 
     if token_sessao:
@@ -80,7 +78,6 @@ def show_register_page():
         except Exception:
             pass
 
-        # Se foi recusado pelo administrador
         if recusado:
             st.markdown(f"""
                 <div style="text-align: center; padding: 40px; font-family: monospace;">
@@ -90,16 +87,12 @@ def show_register_page():
             """, unsafe_allow_html=True)
             
             if st.button("🔄 Submeter Novo Registo", use_container_width=True):
-                if "token_pendente_prestador" in st.session_state:
-                    del st.session_state["token_pendente_prestador"]
-                if "token_gerado" in st.session_state:
-                    del st.session_state["token_gerado"]
-                if "nome_pendente_prestador" in st.session_state:
-                    del st.session_state["nome_pendente_prestador"]
+                for k in ["token_pendente_prestador", "token_gerado", "nome_pendente_prestador"]:
+                    if k in st.session_state:
+                        del st.session_state[k]
                 st.rerun()
-            return
+            return  # Para garantir que nada abaixo é executado
 
-        # Se foi aprovado
         if aprovado:
             st.markdown(f"""
                 <div style="text-align: center; padding: 40px; font-family: monospace;">
@@ -114,10 +107,9 @@ def show_register_page():
                 if "token_pendente_prestador" in st.session_state:
                     del st.session_state["token_pendente_prestador"]
                 st.rerun()
-            return
+            return  # Para garantir que nada abaixo é executado
         
-        # Enquanto estiver pendente - Ecrã de espera com animação
-        url_logotipo = "https://cdn.phototourl.com/free/2026-08-03-8b13edf5-0257-491d-ab78-f0d5329ffc15.jpg"
+        # Ecrã de espera com animação
         st.markdown(f"""
             <style>
             @keyframes spinMic {{
@@ -196,7 +188,7 @@ def show_register_page():
         st.rerun()
         return
 
-    # Formulário de Registo Customizado
+    # 2. SÓ APARECE SE NÃO HOUVER TOKEN PENDENTE (O formulário original)
     st.markdown("<h1>🎤 FFKaraoke - Registo de Prestador</h1>", unsafe_allow_html=True)
     st.markdown("<p>Preencha os seus dados, indique o estabelecimento e escolha a duração pretendida para solicitar o seu acesso.</p>", unsafe_allow_html=True)
     
@@ -231,14 +223,12 @@ def show_register_page():
                 
                 payment_ref = f"Estabelecimento: {estabelecimento}"
                 
-                # Tenta usar a função global se existir, caso contrário faz o put direto no Firebase
                 try:
                     from utils.db_manager import add_provider
                     add_provider(nome_completo, telefone, payment_ref, hours, token_gerado, amount_paid=valor_pago)
                     st.session_state["token_pendente_prestador"] = token_gerado
                     st.session_state["token_gerado"] = token_gerado
                     st.session_state["nome_pendente_prestador"] = nome_completo
-                    st.success("Pedido de permissão enviado com sucesso!")
                     st.rerun()
                 except Exception:
                     dados_reg = {
