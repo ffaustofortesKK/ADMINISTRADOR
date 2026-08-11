@@ -115,7 +115,7 @@ def show_admin_panel():
         # -------------------------------------------------------------
         with aba2:
             st.subheader("📋 Pedidos de Registo Pendentes")
-            st.write("Analise as informações enviadas por cada prestador e aprove o acesso conforme a confirmação do pagamento.")
+            st.write("Analise as informações enviadas por cada prestador e aprove ou recuse o acesso conforme a confirmação do pagamento.")
             
             if df_all.empty:
                 st.info("Nenhum prestador registado na base de dados.")
@@ -141,10 +141,21 @@ def show_admin_panel():
                         </div>
                         """, unsafe_allow_html=True)
                         
-                        if st.button(f"✅ Aprovar Prestador {nome}", key=f"btn_aprovar_{token}"):
-                            approve_provider(token)
-                            st.success(f"Prestador {nome} aprovado com sucesso!")
-                            st.rerun()
+                        col_aprov, col_recus = st.columns(2)
+                        with col_aprov:
+                            if st.button(f"✅ Aprovar Prestador", key=f"btn_aprovar_{token}"):
+                                approve_provider(token)
+                                st.success(f"Prestador {nome} aprovado com sucesso!")
+                                st.rerun()
+                        with col_recus:
+                            if st.button(f"❌ Recusar Prestador", key=f"btn_recusar_{token}"):
+                                try:
+                                    requests.delete(f"{FIREBASE_URL}/prestadores/{token}.json", timeout=10)
+                                    st.warning(f"Registo de {nome} recusado e removido com sucesso.")
+                                    st.rerun()
+                                except Exception as e:
+                                    st.error(f"Erro ao recusar prestador: {e}")
+                                    
                         st.markdown("---")
 
             # --- SECÇÃO DE REFORÇOS DE TEMPO PENDENTES ---
