@@ -1071,24 +1071,22 @@ def show_admin_panel():
             if pendentes.empty:
                 st.success("Não existem novos pedidos de registo pendentes.")
             else:
-                # Cabeçalho unificado da grelha com tamanho de fonte aumentado em 30% (aprox. 18px)
+                # Cabeçalho idêntico ao estilo da imagem com fontes maiores e alinhamento perfeito
                 st.markdown("""
-                <div style="background: linear-gradient(180deg, rgba(30,30,30,0.95), rgba(15,15,15,0.95)); border: 2px solid #FFC107; border-radius: 6px 6px 0 0; padding: 6px 10px; margin-bottom: 0px; border-bottom: 1px solid #FFC107;">
+                <div style="background: linear-gradient(180deg, rgba(30,30,30,0.95), rgba(15,15,15,0.95)); border: 2px solid #FFC107; border-radius: 6px 6px 0 0; padding: 8px 12px; margin-bottom: 0px; border-bottom: 1px solid #FFC107;">
                 """, unsafe_allow_html=True)
                 
-                hc1, hc2, hc3, hc4, hc5, hc6 = st.columns([2.2, 1.4, 1.4, 2.0, 1.1, 1.1])
+                hc1, hc2, hc3, hc4, hc5 = st.columns([2.0, 1.8, 1.8, 2.6, 1.8])
                 with hc1:
-                    st.markdown("<div style='text-align: center; font-weight: bold; color: #FFD700; font-size: 18px;'>Nome</div>", unsafe_allow_html=True)
+                    st.markdown("<div style='text-align: center; font-weight: bold; color: #FFD700; font-size: 20px;'>Nome</div>", unsafe_allow_html=True)
                 with hc2:
-                    st.markdown("<div style='text-align: center; font-weight: bold; color: #FFD700; font-size: 18px;'>Telefone:</div>", unsafe_allow_html=True)
+                    st.markdown("<div style='text-align: center; font-weight: bold; color: #FFD700; font-size: 20px;'>Telefone:</div>", unsafe_allow_html=True)
                 with hc3:
-                    st.markdown("<div style='text-align: center; font-weight: bold; color: #FFD700; font-size: 18px;'>Estabelecimento</div>", unsafe_allow_html=True)
+                    st.markdown("<div style='text-align: center; font-weight: bold; color: #FFD700; font-size: 20px;'>Estabelecimento</div>", unsafe_allow_html=True)
                 with hc4:
-                    st.markdown("<div style='text-align: center; font-weight: bold; color: #FFD700; font-size: 18px;'>Duração Solicitada</div>", unsafe_allow_html=True)
+                    st.markdown("<div style='text-align: center; font-weight: bold; color: #FFD700; font-size: 20px;'>Duração Solicitada</div>", unsafe_allow_html=True)
                 with hc5:
-                    st.markdown("<div style='text-align: center; font-weight: bold; color: #FFD700; font-size: 18px;'>Ações</div>", unsafe_allow_html=True)
-                with hc6:
-                    st.markdown("", unsafe_allow_html=True)
+                    st.markdown("<div style='text-align: center; font-weight: bold; color: #FFD700; font-size: 20px;'>Ações</div>", unsafe_allow_html=True)
                     
                 st.markdown('</div>', unsafe_allow_html=True)
 
@@ -1101,70 +1099,70 @@ def show_admin_panel():
                     expires_at = row.get('expires_at', 'N/A')
                     token = row.get('token', '')
                     
-                    # Linhas compactadas em cerca de 50% e coladas aos elementos sem espaçamentos excessivos
+                    # Linhas compactas alinhadas com as colunas superiores e bordas exatas
                     st.markdown("""
-                    <div style="background: linear-gradient(180deg, rgba(17,17,17,0.95), rgba(5,5,5,0.95)); border-left: 2px solid #FFC107; border-right: 2px solid #FFC107; border-bottom: 2px solid #FFC107; padding: 4px 8px; margin-bottom: 4px;">
+                    <div style="background: linear-gradient(180deg, rgba(17,17,17,0.95), rgba(5,5,5,0.95)); border-left: 2px solid #FFC107; border-right: 2px solid #FFC107; border-bottom: 2px solid #FFC107; padding: 2px 8px; margin-bottom: 3px;">
                     """, unsafe_allow_html=True)
                     
-                    rc1, rc2, rc3, rc4, rc5, rc6 = st.columns([2.2, 1.4, 1.4, 2.0, 1.1, 1.1])
+                    rc1, rc2, rc3, rc4, rc5 = st.columns([2.0, 1.8, 1.8, 2.6, 1.8])
                     
                     with rc1:
                         st.markdown(f"""
-                        <div style="border-right: 2px solid #444; padding-right: 4px; line-height: 1.1; margin-top: 2px;">
+                        <div style="border-right: 2px solid #444; padding-right: 4px; line-height: 1.0; margin-top: 2px; font-size: 14px;">
                             🎤 <b>{nome}</b>
                         </div>
                         """, unsafe_allow_html=True)
                         
                     with rc2:
                         st.markdown(f"""
-                        <div style="border-right: 2px solid #444; padding-right: 4px; line-height: 1.1; margin-top: 2px;">
+                        <div style="border-right: 2px solid #444; padding-right: 4px; line-height: 1.0; margin-top: 2px; font-size: 14px;">
                             📞 <b style="color: #FFD700;">{telefone}</b>
                         </div>
                         """, unsafe_allow_html=True)
                         
                     with rc3:
                         st.markdown(f"""
-                        <div style="border-right: 2px solid #444; padding-right: 4px; line-height: 1.1; margin-top: 2px;">
+                        <div style="border-right: 2px solid #444; padding-right: 4px; line-height: 1.0; margin-top: 2px; font-size: 14px;">
                             🏠 <b style="color: #FFD700;">{estabelecimento}</b>
                         </div>
                         """, unsafe_allow_html=True)
                         
                     with rc4:
                         st.markdown(f"""
-                        <div style="border-right: 2px solid #444; padding-right: 4px; line-height: 1.0; margin-top: 1px;">
+                        <div style="border-right: 2px solid #444; padding-right: 4px; line-height: 1.0; margin-top: 1px; font-size: 13px;">
                             <b>{expires_at}</b><br><span style='font-size: 10px; color: #FFD700;'>Ref: {payment_ref} ({amount_paid})</span>
                         </div>
                         """, unsafe_allow_html=True)
                     
                     with rc5:
-                        st.markdown("<div style='margin-top: 0px;'></div>", unsafe_allow_html=True)
-                        if st.button("❌ Recusar", key=f"btn_rec_{token}"):
-                            try:
-                                atualizado = False
-                                for node in ["providers", "prestadores", "prestadores_pendentes"]:
-                                    resp = requests.get(f"{FIREBASE_URL}/{node}.json", timeout=10)
-                                    if resp.status_code == 200 and resp.json():
-                                        dados = resp.json()
-                                        for key, val in dados.items():
-                                            if isinstance(val, dict) and val.get("token") == token:
-                                                requests.patch(f"{FIREBASE_URL}/{node}/{key}.json", json={"approved": -1}, timeout=10)
-                                                atualizado = True
-                                                
-                                if not atualizado:
-                                    requests.patch(f"{FIREBASE_URL}/providers/{token}.json", json={"approved": -1}, timeout=10)
-                                    requests.patch(f"{FIREBASE_URL}/prestadores/{token}.json", json={"approved": -1}, timeout=10)
-                                    
-                                st.warning(f"Registo de {nome} recusado com sucesso e enviado para o histórico.")
+                        # Colocação lado a lado dos botões de Recusar e Aprovar idêntica à referência visual
+                        b_col1, b_col2 = st.columns(2)
+                        with b_col1:
+                            if st.button("❌ Recusar", key=f"btn_rec_{token}"):
+                                try:
+                                    atualizado = False
+                                    for node in ["providers", "prestadores", "prestadores_pendentes"]:
+                                        resp = requests.get(f"{FIREBASE_URL}/{node}.json", timeout=10)
+                                        if resp.status_code == 200 and resp.json():
+                                            dados = resp.json()
+                                            for key, val in dados.items():
+                                                if isinstance(val, dict) and val.get("token") == token:
+                                                    requests.patch(f"{FIREBASE_URL}/{node}/{key}.json", json={"approved": -1}, timeout=10)
+                                                    atualizado = True
+                                                    
+                                    if not atualizado:
+                                        requests.patch(f"{FIREBASE_URL}/providers/{token}.json", json={"approved": -1}, timeout=10)
+                                        requests.patch(f"{FIREBASE_URL}/prestadores/{token}.json", json={"approved": -1}, timeout=10)
+                                        
+                                    st.warning(f"Registo de {nome} recusado com sucesso e enviado para o histórico.")
+                                    st.rerun()
+                                except Exception as e:
+                                    st.error(f"Erro ao recusar: {e}")
+                        with b_col2:
+                            if st.button("✅ Aprovar", key=f"btn_aprov_{token}"):
+                                approve_provider(token)
+                                st.success(f"Prestador {nome} aprovado com sucesso!")
                                 st.rerun()
-                            except Exception as e:
-                                st.error(f"Erro ao recusar: {e}")
-                                
-                    with rc6:
-                        st.markdown("<div style='margin-top: 0px;'></div>", unsafe_allow_html=True)
-                        if st.button("✅ Aprovar", key=f"btn_aprov_{token}"):
-                            approve_provider(token)
-                            st.success(f"Prestador {nome} aprovado com sucesso!")
-                            st.rerun()
                             
                     st.markdown('</div>', unsafe_allow_html=True)
 
