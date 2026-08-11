@@ -984,15 +984,6 @@ def show_admin_panel():
         border-radius: 12px;
         padding: 3rem !important;
     }
-    .adm-grid-table {
-        background: linear-gradient(180deg, rgba(17,17,17,0.95), rgba(5,5,5,0.95));
-        border: 2px solid #FFC107;
-        border-radius: 8px;
-        width: 100%;
-        margin-bottom: 15px;
-        box-shadow: 0px 0px 12px rgba(212,175,55,0.25);
-        border-collapse: collapse;
-    }
     .link-box {
         background: rgba(17, 17, 17, 0.9);
         border: 1px solid #D4AF37;
@@ -1080,9 +1071,9 @@ def show_admin_panel():
             if pendentes.empty:
                 st.success("Não existem novos pedidos de registo pendentes.")
             else:
-                # Cabeçalho com tamanho de letra aumentado em 30% (aprox 1.3em / 18px)
+                # Cabeçalho unificado da grelha com tamanho de fonte aumentado em 30% (aprox. 18px)
                 st.markdown("""
-                <div style="background: linear-gradient(180deg, rgba(30,30,30,0.95), rgba(15,15,15,0.95)); border: 2px solid #FFC107; border-radius: 8px 8px 0 0; padding: 12px 15px; margin-bottom: 0px; border-bottom: 1px solid #FFC107;">
+                <div style="background: linear-gradient(180deg, rgba(30,30,30,0.95), rgba(15,15,15,0.95)); border: 2px solid #FFC107; border-radius: 6px 6px 0 0; padding: 6px 10px; margin-bottom: 0px; border-bottom: 1px solid #FFC107;">
                 """, unsafe_allow_html=True)
                 
                 hc1, hc2, hc3, hc4, hc5, hc6 = st.columns([2.2, 1.4, 1.4, 2.0, 1.1, 1.1])
@@ -1110,43 +1101,43 @@ def show_admin_panel():
                     expires_at = row.get('expires_at', 'N/A')
                     token = row.get('token', '')
                     
-                    # Linhas fechadas verticalmente e sem espaços excessivos entre elas (padding reduzido e margem mínima)
+                    # Linhas compactadas em cerca de 50% e coladas aos elementos sem espaçamentos excessivos
                     st.markdown("""
-                    <div style="background: linear-gradient(180deg, rgba(17,17,17,0.95), rgba(5,5,5,0.95)); border-left: 2px solid #FFC107; border-right: 2px solid #FFC107; border-bottom: 2px solid #FFC107; padding: 3px 10px; margin-bottom: 2px;">
+                    <div style="background: linear-gradient(180deg, rgba(17,17,17,0.95), rgba(5,5,5,0.95)); border-left: 2px solid #FFC107; border-right: 2px solid #FFC107; border-bottom: 2px solid #FFC107; padding: 4px 8px; margin-bottom: 4px;">
                     """, unsafe_allow_html=True)
                     
                     rc1, rc2, rc3, rc4, rc5, rc6 = st.columns([2.2, 1.4, 1.4, 2.0, 1.1, 1.1])
                     
                     with rc1:
                         st.markdown(f"""
-                        <div style="border-right: 2px solid #444; padding-right: 8px; padding-top: 2px; padding-bottom: 2px;">
-                            <div>🎤 <b>{nome}</b></div>
+                        <div style="border-right: 2px solid #444; padding-right: 4px; line-height: 1.1; margin-top: 2px;">
+                            🎤 <b>{nome}</b>
                         </div>
                         """, unsafe_allow_html=True)
                         
                     with rc2:
                         st.markdown(f"""
-                        <div style="border-right: 2px solid #444; padding-right: 8px; padding-top: 2px; padding-bottom: 2px;">
-                            <div>📞 <b style="color: #FFD700;">{telefone}</b></div>
+                        <div style="border-right: 2px solid #444; padding-right: 4px; line-height: 1.1; margin-top: 2px;">
+                            📞 <b style="color: #FFD700;">{telefone}</b>
                         </div>
                         """, unsafe_allow_html=True)
                         
                     with rc3:
                         st.markdown(f"""
-                        <div style="border-right: 2px solid #444; padding-right: 8px; padding-top: 2px; padding-bottom: 2px;">
-                            <div>🏠 <b style="color: #FFD700;">{estabelecimento}</b></div>
+                        <div style="border-right: 2px solid #444; padding-right: 4px; line-height: 1.1; margin-top: 2px;">
+                            🏠 <b style="color: #FFD700;">{estabelecimento}</b>
                         </div>
                         """, unsafe_allow_html=True)
                         
                     with rc4:
                         st.markdown(f"""
-                        <div style="border-right: 2px solid #444; padding-right: 8px; padding-top: 2px; padding-bottom: 2px;">
-                            <div><b>{expires_at}</b><br><span style='font-size: 11px; color: #FFD700;'>Ref: {payment_ref} ({amount_paid})</span></div>
+                        <div style="border-right: 2px solid #444; padding-right: 4px; line-height: 1.0; margin-top: 1px;">
+                            <b>{expires_at}</b><br><span style='font-size: 10px; color: #FFD700;'>Ref: {payment_ref} ({amount_paid})</span>
                         </div>
                         """, unsafe_allow_html=True)
                     
                     with rc5:
-                        st.markdown("<div style='margin-top: 1px;'></div>", unsafe_allow_html=True)
+                        st.markdown("<div style='margin-top: 0px;'></div>", unsafe_allow_html=True)
                         if st.button("❌ Recusar", key=f"btn_rec_{token}"):
                             try:
                                 atualizado = False
@@ -1169,7 +1160,7 @@ def show_admin_panel():
                                 st.error(f"Erro ao recusar: {e}")
                                 
                     with rc6:
-                        st.markdown("<div style='margin-top: 1px;'></div>", unsafe_allow_html=True)
+                        st.markdown("<div style='margin-top: 0px;'></div>", unsafe_allow_html=True)
                         if st.button("✅ Aprovar", key=f"btn_aprov_{token}"):
                             approve_provider(token)
                             st.success(f"Prestador {nome} aprovado com sucesso!")
@@ -1192,7 +1183,7 @@ def show_admin_panel():
                             if r_data.get("approved", 0) == 0:
                                 tem_reforcos = True
                                 st.markdown(f"""
-                                <div class="adm-grid-table" style="padding: 12px;">
+                                <div style="background: linear-gradient(180deg, rgba(17,17,17,0.95), rgba(5,5,5,0.95)); border: 2px solid #FFC107; border-radius: 6px; padding: 8px; margin-bottom: 8px;">
                                     <b>⚡ Reforço:</b> {r_data.get('nome_prestador')} | <b>Duração:</b> {r_data.get('tempo_plano')} | <b>Ref:</b> <code>{r_data.get('referencia')}</code>
                                 </div>
                                 """, unsafe_allow_html=True)
@@ -1210,7 +1201,7 @@ def show_admin_panel():
                                         requests.delete(f"{FIREBASE_URL}/reforcos_pendentes/{tok}/{r_id}.json")
                                         st.success("Reforço aprovado!")
                                         st.rerun()
-                                st.markdown("<hr style='margin: 10px 0; border-color: #333;'>", unsafe_allow_html=True)
+                                st.markdown("<hr style='margin: 8px 0; border-color: #333;'>", unsafe_allow_html=True)
                                 
                 if not tem_reforcos:
                     st.info("Nenhum pedido de reforço pendente neste momento.")
