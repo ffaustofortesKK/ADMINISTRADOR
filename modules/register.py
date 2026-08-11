@@ -55,7 +55,7 @@ def show_register_page():
                     "4 Horas - 20 Mil Kwanzas": {"horas": 4, "valor": 20000.0}
                 }
                 
-                duracao_escolhida = st.selectbox("Contrato", list(duracao_opcoes.keys()))
+                duracao_escolhida = st.selectbox("Contratos", list(duracao_opcoes.keys()))
                 
                 submitted = st.form_submit_button("Enviar Permissão")
                 
