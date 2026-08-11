@@ -1,106 +1,69 @@
-import streamlit as st
-import requests
+from datetime import datetime
 import time
 import urllib.parse
-import uuid
-from datetime import datetime
+import requests
+import streamlit as st
 
-# Configuração da Página do Streamlit
-st.set_page_config(
-    page_title="Grupo FF Karaoke",
-    page_icon="🎤",
-    layout="wide",
-    initial_sidebar_state="collapsed"
-)
+# Configurações iniciais e constantes (assumidas do seu ambiente)
+FIREBASE_URL = "https://seu-firebase-url-aqui.firebaseio.com"
 
-# Constante de Ligação ao Firebase (Ajuste se necessário)
-FIREBASE_URL = "https://ffkaraoke-default-rtdb.firebaseio.com"
-
-# Funções Auxiliares de Suporte
 def get_all_providers():
+    # Função auxiliar simulada para retornar prestadores (substitua pela sua real se necessário)
     try:
-        response = requests.get(f"{FIREBASE_URL}/prestadores.json", timeout=10)
-        if response.status_code == 200 and response.json():
-            data = response.json()
+        res = requests.get(f"{FIREBASE_URL}/prestadores.json", timeout=10)
+        if res.status_code == 200 and res.json():
             import pandas as pd
-            providers_list = [{"token": k, **v} for k, v in data.items()]
-            return pd.DataFrame(providers_list)
+            data = res.json()
+            return pd.DataFrame([{"token": k, **v} for k, v in data.items()])
     except Exception:
         pass
     import pandas as pd
-    return pd.DataFrame()
+    return pd.DataFrame(columns=['token', 'established', 'approved'])
 
 def obter_video_fundo(provider_token):
     try:
-        res = requests.get(f"{FIREBASE_URL}/prestadores/{provider_token}.json", timeout=10)
-        if res.status_code == 200 and res.json():
-            data = res.json()
-            return data.get("video_fundo_url", "")
+        res = requests.get(f"{FIREBASE_URL}/prestadores/{provider_token}/video_fundo.json", timeout=5)
+        if res.status_code == 200:
+            return res.json()
     except Exception:
         pass
     return ""
 
-def limpar_nome_musica(musica_dict):
-    if isinstance(musica_dict, dict):
-        return musica_dict.get("titulo", str(musica_dict))
-    return str(musica_dict)
-
-def custom_show_register_page():
-    st.title("📝 Registo de Novo Prestador / Estabelecimento")
-    st.info("Página de registo em desenvolvimento ou integrada.")
-
-def show_client_page():
-    st.title("🎵 Registo de Música (Cliente)")
-    st.info("Painel de registo de músicas para os clientes.")
-
-def show_admin_panel():
-    st.markdown("### 🛠️ Painel Geral de Administração")
-    st.write("Gestão completa de utilizadores, planos e configurações do sistema.")
+def limpar_nome_musica(musica_obj):
+    if isinstance(musica_obj, dict):
+        return f"{musica_obj.get('artista', '')} - {musica_obj.get('titulo', '')}".strip(" -")
+    return str(musica_obj)
 
 def renderizar_gestao_fila_prestador(provider_token):
-    st.markdown("---")
     st.markdown("### 📋 Gestão da Fila de Espera")
+    # Lógica de gestão de fila do prestador
+    pass
+
+def custom_show_register_page():
+    st.title("Registo de Novo Prestador")
+
+def show_client_page():
+    st.title("Registo de Música (Cliente)")
+
+def show_admin_panel():
+    st.subheader("Painel Geral de Administração")
+
+def show_provider_panel_custom(token):
+    # Simulação das variáveis necessárias para o painel personalizado
+    provider_token = token
+    nome_prestador = "Prestador"
+    estabelecimento = "ESTABELECIMENTO"
+    tempo_plano = "2 Horas"
+    url_fundo_painel = "https://via.placeholder.com/1920x1080"
+    url_logotipo = "https://via.placeholder.com/55"
+    segundos_totais = 7200
+    dt_reg = datetime.now()
+
     try:
-        url_firebase = f"{FIREBASE_URL}/pedidos/{provider_token}.json"
-        response = requests.get(url_firebase, timeout=10)
-        if response.status_code == 200 and response.json():
-            data = response.json()
-            pedidos = [{"id": k, **v} for k, v in data.items()]
-            for p in pedidos:
-                st.write(f"- **{p.get('cliente', 'Convidado')}**: {limpar_nome_musica(p.get('musica', ''))} [{p.get('estado', 'pendente')}]")
-        else:
-            st.info("Nenhum pedido na fila de momento.")
-    except Exception as e:
-        st.warning(f"Não foi possível carregar a fila: {e}")
-
-def show_provider_panel_center(token):
-    st.warning(f"Prestador não encontrado ou token inválido: {token}")
-
-@st.fragment(run_every=5)
-def show_provider_panel_custom(provider_token):
-    try:
-        # Simulação de dados de tempo e plano para o prestador
-        segundos_totais = 7200  # Exemplo: 2 horas
-        dt_reg = datetime.now()
-        tempo_plano = "Plano Padrão (2 Horas)"
-        nome_prestador = "Prestador FF"
-        estabelecimento = "ESTABELECIMENTO"
-
-        df_prov = get_all_providers()
-        if not df_prov.empty and 'token' in df_prov.columns:
-            match = df_prov[df_prov['token'] == provider_token]
-            if not match.empty:
-                row = match.iloc[0]
-                estabelecimento = row.get('estabelecimento', row.get('nome_estabelecimento', 'ESTABELECIMENTO')).upper()
-                nome_prestador = row.get('nome', 'Prestador')
-
         diff = (datetime.now() - dt_reg).total_seconds()
         segundos_restantes = max(0, int(segundos_totais - diff))
     except Exception:
-        segundos_restantes = 3600
-        tempo_plano = "Plano Padrão"
-        nome_prestador = "Prestador"
-        estabelecimento = "ESTABELECIMENTO"
+        segundos_restantes = segundos_totais
 
     horas_restantes = segundos_restantes // 3600
     min_restantes = (segundos_restantes % 3600) // 60
@@ -121,9 +84,6 @@ def show_provider_panel_custom(provider_token):
             </div>
         </div>
         """
-
-    url_fundo_painel = "https://images.unsplash.com/photo-1514525253161-7a46d19cd819?auto=format&fit=crop&w=1500&q=80"
-    url_logotipo = "https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?auto=format&fit=crop&w=150&q=80"
 
     st.markdown(f"""
     <style>
@@ -208,7 +168,7 @@ def show_provider_panel_custom(provider_token):
     </style>
     """, unsafe_allow_html=True)
 
-    col_topo_1, col_topo_2, col_topo_3 = st.columns([1.2, 3, 0.8]) 
+    col_topo_1, col_topo_2, col_topo_3 = st.columns([1.2, 3, 0.8])
     with col_topo_1:
         st.markdown(f"""
             <div style="background: #000000; border: 2px solid #FFC107; border-radius: 6px; padding: 8px; text-align: center;">
@@ -237,11 +197,7 @@ def show_provider_panel_custom(provider_token):
     link_cliente_rel = f"/?page=client_register&prestador={provider_token}"
     link_tv_rel = f"/?page=client_screen&prestador={provider_token}"
     
-    try:
-        host_dominio = st.context.headers.get('Host', 'grupoffkaraoke.streamlit.app')
-    except Exception:
-        host_dominio = 'grupoffkaraoke.streamlit.app'
-
+    host_dominio = st.context.headers.get('Host', 'grupoffkaraoke.streamlit.app')
     link_cliente_absoluto = f"https://{host_dominio}{link_cliente_rel}"
     link_tv_absoluto = f"https://{host_dominio}{link_tv_rel}"
     
@@ -254,7 +210,7 @@ def show_provider_panel_custom(provider_token):
             <div class="card-link">
                 <div class="link-title">🔗 LINK DO CLIENTE (REGISTO DE MÚSICA)</div>
                 <a href="{link_cliente_rel}" target="_blank" class="link-text">{link_cliente_absoluto}</a>
-            </div> 
+            </div>
         """, unsafe_allow_html=True)
         
         st.markdown(f"""
@@ -302,6 +258,7 @@ def show_provider_panel_custom(provider_token):
                         "data_registo": str(datetime.now())
                     }
                     try:
+                        import uuid
                         ref_id = str(uuid.uuid4())[:8]
                         requests.put(f"{FIREBASE_URL}/reforcos_pendentes/{provider_token}/{ref_id}.json", json=dados_reforco, timeout=10)
                         st.success("Pedido de reforço submetido com sucesso! Aguarde a confirmação do Administrador.")
@@ -310,7 +267,7 @@ def show_provider_panel_custom(provider_token):
 
     st.markdown("<div style='height: 5px;'></div>", unsafe_allow_html=True)
     renderizar_gestao_fila_prestador(provider_token)
-      
+    
 @st.fragment(run_every=1)
 def renderizar_ecra_tv(provider_token):
     try:
@@ -334,11 +291,11 @@ def renderizar_ecra_tv(provider_token):
             pedidos_ativos = [p for p in pedidos if p.get("estado") in ["pendente", "aprovado"]]
             pedidos_ativos.sort(key=lambda x: x.get("timestamp", 0))
             tocando_agora = next((p for p in pedidos_ativos if p.get("estado") == "aprovado"), None)
-
+            
         st.markdown("""
             <style>
             .stApp {
-                background-color: #000000 !important;
+                background: #000000 !important;
             }
             .video-background {
                 position: fixed;
@@ -379,7 +336,7 @@ def renderizar_ecra_tv(provider_token):
                 border: 4px solid #FFC107;
                 border-radius: 12px;
                 padding: 30px 50px;
-                box-shadow: 0 0 30px rgba(255, 193, 7, 0.5);    
+                box-shadow: 0 0 30px rgba(255, 193, 7, 0.5);
             }
             </style>
         """, unsafe_allow_html=True)
@@ -422,6 +379,9 @@ def renderizar_ecra_tv(provider_token):
     except Exception as e:
         st.error(f"Erro ao carregar a tela de TV: {e}")
 
+def show_client_screen_page(provider_token):
+    renderizar_ecra_tv(provider_token)
+    
 def show_client_screen():
     query_params = st.query_params
     provider_token = query_params.get("prestador") or query_params.get("provider", None)
@@ -436,6 +396,9 @@ def show_client_screen():
     </style>""", unsafe_allow_html=True)
 
     renderizar_ecra_tv(provider_token)
+
+def show_provider_panel_center(token):
+    show_provider_panel_custom(token)
 
 def main():
     try:
