@@ -150,9 +150,25 @@ def show_admin_panel():
                         with col_recus:
                             if st.button(f"❌ Recusar Prestador", key=f"btn_recusar_{token}"):
                                 try:
-                                    # Atualiza o estado para -1 (Recusado) para notificar o prestador no ecrã de espera
-                                    requests.patch(f"{FIREBASE_URL}/prestadores/{token}.json", json={"approved": -1}, timeout=10)
-                                    st.warning(f"Registo de {nome} marcado como recusado.")
+                                    # Procura a chave real no Firebase onde este token está guardado e marca approved como -1
+                                    atualizado = False
+                                    for node in ["providers", "prestadores", "prestadores_pendentes"]:
+                                        resp = requests.get(f"{FIREBASE_URL}/{node}.json", timeout=10)
+                                        if resp.status_code == 200 and resp.json():
+                                            dados = resp.json()
+                                            for key, val in dados.items():
+                                                if isinstance(val, dict) and val.get("token") == token:
+                                                    requests.patch(f"{FIREBASE_URL}/{node}/{key}.json", json={"approved": -1}, timeout=10)
+                                                    atualizado = True
+                                                    
+                                    if atualizado:
+                                        st.warning(f"Registo de {nome} marcado como recusado.")
+                                    else:
+                                        # Fallback caso a estrutura use o token diretamente
+                                        requests.patch(f"{FIREBASE_URL}/providers/{token}.json", json={"approved": -1}, timeout=10)
+                                        requests.patch(f"{FIREBASE_URL}/prestadores/{token}.json", json={"approved": -1}, timeout=10)
+                                        st.warning(f"Registo de {nome} marcado como recusado (fallback).")
+                                        
                                     st.rerun()
                                 except Exception as e:
                                     st.error(f"Erro ao recusar prestador: {e}")
