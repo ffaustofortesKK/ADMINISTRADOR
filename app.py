@@ -13,6 +13,12 @@ import cloudinary.api
 import cloudinary.uploader
 import cloudinary.search
 import importlib
+import streamlit as st
+import requests
+from utils.db_manager import get_all_providers
+
+# Definição das URLs e funções auxiliares/componentes
+FIREBASE_URL = "https://ffkaraoke-default-rtdb.firebaseio.com" # Substitua pela sua URL real do Firebase se necessário
 
 # --- 1. CONFIGURAR OS CAMINHOS PRIMEIRO ---
 current_dir = os.path.dirname(os.path.abspath(__file__))
