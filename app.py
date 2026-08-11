@@ -999,7 +999,7 @@ def show_admin_panel():
     }
     .badge-pendente-global {
         background-color: #ff3333;
-        color: #000000;
+        color: #ffffff;
         padding: 6px 14px;
         border-radius: 20px;
         font-weight: 900;
@@ -1082,7 +1082,6 @@ def show_admin_panel():
                     
                     st.markdown('<div class="adm-horizontal-card">', unsafe_allow_html=True)
                     
-                    # Layout idêntico ao da imagem de referência (colunas horizontais)
                     rc1, rc2, rc3, rc4, rc5, rc6 = st.columns([2.2, 1.4, 1.4, 2.0, 1.1, 1.1])
                     
                     with rc1:
