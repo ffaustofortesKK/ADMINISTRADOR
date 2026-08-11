@@ -1068,7 +1068,7 @@ def main():
 
         if not st.session_state.get("admin_logged", False):
 
-            st.title("🔒 FFKaraoke - Área Restrita (Administrador)")
+            st.title("🔒 FFKaraoke -(Administrador)")
 
             
 
