@@ -3,6 +3,9 @@ import streamlit as st
 from utils.db_manager import add_provider, get_all_providers
 import uuid
 import time
+import requests
+
+FIREBASE_URL = "https://ffkaraoke-default-rtdb.firebaseio.com"
 
 def show_register_page():
     # Remove o fundo da caixa central, deixando apenas a imagem geral de fundo
@@ -59,26 +62,16 @@ def show_register_page():
                 
                 if submitted:
                     if nome and telefone and estabelecimento:
-                        # Guardamos o nome completo e limpamos para recuperar corretamente depois
                         nome_completo = f"{nome} {sobrenome}".strip()
                         token = str(uuid.uuid4()).replace("-", "")[:32]
-                        
                         dados_escolha = duracao_opcoes[duracao_escolhida]
                         hours = dados_escolha["horas"]
                         valor_pago = dados_escolha["valor"]
                         
-                        # Guardamos a informação detalhada na referência ou campos extras se suportado, 
-                        # garantindo que o estabelecimento vai discriminado.
                         payment_ref = f"Estabelecimento: {estabelecimento}"
                         
                         try:
-                            # Se a tua função add_provider aceitar o estabelecimento em separado ou guardares no campo respetivo:
-                            # Vamos certificar-nos de que passamos os dados corretos para a BD.
                             add_provider(nome_completo, telefone, payment_ref, hours, token, amount_paid=valor_pago)
-                            
-                            # Dica: Se a tabela de prestadores tiver uma coluna dedicada para o estabelecimento, 
-                            # assegura-te que o teu db_manager guarda o campo 'estabelecimento' ou 'payment_ref'.
-                            
                             st.session_state["token_gerado"] = token
                             st.success("Pedido de permissão enviado com sucesso!")
                             st.rerun()
@@ -92,11 +85,16 @@ def show_register_page():
             df = get_all_providers()
             
             aprovado = False
+            recusado = False
+            
             if not df.empty and 'token' in df.columns:
                 prestador = df[df['token'] == token_atual]
                 if not prestador.empty:
-                    if int(prestador.iloc[0].get('approved', 0)) == 1:
+                    estado = int(prestador.iloc[0].get('approved', 0))
+                    if estado == 1:
                         aprovado = True
+                    elif estado == -1:
+                        recusado = True
 
             st.markdown("---")
             
@@ -107,6 +105,13 @@ def show_register_page():
                     st.query_params["token"] = token_atual
                     if "page" in st.query_params:
                         del st.query_params["page"]
+                    st.rerun()
+            elif recusado:
+                st.error("❌ O seu pedido de acesso foi recusado pelo Administrador.")
+                st.warning("Por favor, verifique os dados ou o comprovativo de pagamento enviado e tente submeter um novo registo.")
+                
+                if st.button("🔄 Tentar Novamente / Novo Registo"):
+                    st.session_state["token_gerado"] = None
                     st.rerun()
             else:
                 st.warning("⏳ O seu registo foi enviado com sucesso e está a aguardar a aprovação do Administrador.")
