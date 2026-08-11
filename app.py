@@ -31,21 +31,6 @@ if modules_path not in sys.path:
 from modules import prestador
 importlib.reload(prestador)
 
-importlib.reload(prestador)
-
-# Configuração estrita do caminho absoluto para evitar erros de importação
-current_dir = os.path.dirname(os.path.abspath(__file__))
-if current_dir not in sys.path:
-    sys.path.insert(0, current_dir)
-
-utils_path = os.path.join(current_dir, "utils")
-if utils_path not in sys.path:
-    sys.path.insert(0, utils_path)
-
-modules_path = os.path.join(current_dir, "modules")
-if modules_path not in sys.path:
-    sys.path.insert(0, modules_path)
-
 # Configuração do Cloudinary com as credenciais oficiais
 cloudinary.config(
     cloud_name="yhwgjh7g",
@@ -56,16 +41,15 @@ cloudinary.config(
 
 # Importações seguras com fallbacks para garantir robustez da aplicação
 try:
-    from utils.db_manager import init_db, get_all_providers
+    from utils.db_manager import init_db, get_all_providers, get_active_providers, approve_provider, get_total_revenue
 except Exception:
     def init_db(): pass
     def get_all_providers(): 
-        return pd.DataFrame(columns=['token', 'approved', 'data_registo', 'nome_prestador', 'tempo_plano'])
-
-try:
-    from modules.admin import show_admin_panel
-except Exception:
-    def show_admin_panel(): st.error("Módulo 'modules.admin' não encontrado.")
+        return pd.DataFrame(columns=['token', 'approved', 'data_registo', 'name', 'phone', 'payment_ref', 'amount_paid', 'expires_at'])
+    def get_active_providers():
+        return pd.DataFrame()
+    def approve_provider(token): pass
+    def get_total_revenue(): return 0.0
 
 try:
     from modules.client import show_client_page
@@ -76,6 +60,13 @@ try:
     from modules.register import show_register_page as original_show_register_page
 except Exception:
     original_show_register_page = None
+
+# Funções auxiliares caso estejam noutros módulos
+try:
+    from modules.prestador import show_provider_panel_custom, show_provider_panel_center
+except Exception:
+    def show_provider_panel_custom(token): st.write("Painel personalizado do prestador")
+    def show_provider_panel_center(token): show_provider_panel_custom(token)
 
 FIREBASE_URL = "https://grupoffkaraoke-default-rtdb.firebaseio.com"
 
@@ -137,7 +128,7 @@ try:
     init_db()
 except Exception:
     pass
-
+    
 def custom_show_register_page():
     url_fundo_painel = "https://cdn.phototourl.com/free/2026-08-03-694a4a2e-9914-4da8-93b2-87538a4805ab.png"
     url_logotipo = "https://cdn.phototourl.com/free/2026-08-03-8b13edf5-0257-491d-ab78-f0d5329ffc15.jpg"
@@ -1249,15 +1240,14 @@ def main():
         query_params = st.query_params
         
         if "page" in query_params and query_params["page"] == "register":
-            custom_show_register_page()
+            if original_show_register_page:
+                original_show_register_page()
+            else:
+                st.error("Página de registo não disponível.")
             return
 
         if "page" in query_params and query_params["page"] == "client_register":
             show_client_page()
-            return
-
-        if "page" in query_params and query_params["page"] == "client_screen":
-            show_client_screen()
             return
 
         token = query_params.get("prestador") or query_params.get("token") or query_params.get("provider")
