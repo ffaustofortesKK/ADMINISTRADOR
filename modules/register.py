@@ -3,7 +3,6 @@ import pandas as pd
 import requests
 from datetime import datetime
 import time
-import uuid
 
 FIREBASE_URL = "https://ffkaraoke-default-rtdb.firebaseio.com"
 
