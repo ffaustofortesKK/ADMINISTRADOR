@@ -1000,16 +1000,13 @@ def show_admin_panel():
     .badge-pendente-global {
         background-color: #ff3333;
         color: #ffffff;
-        padding: 4px 10px;
+        padding: 2px 8px;
         border-radius: 50%;
         font-weight: 900;
-        font-size: 14px;
+        font-size: 13px;
         display: inline-block;
         box-shadow: 0px 0px 8px rgba(255, 51, 51, 0.6);
         text-align: center;
-        min-width: 28px;
-        margin-left: 8px;
-        vertical-align: middle;
     }
     p, span, label, h1, h2, h3, h4, h5, h6 {
         color: #ffffff !important;
@@ -1028,12 +1025,13 @@ def show_admin_panel():
     st.subheader("🛠️ Painel de Administração — FF Karaoke")
     st.markdown("---")
 
-    # Montagem do título da aba com o contador integrado exatamente em cima
-    label_aba2 = f"⏳ Pedidos e Aprovação <span class='badge-pendente-global'>{pendentes_count}</span>" if pendentes_count > 0 else "⏳ Pedidos e Aprovação"
-
+    # Layout personalizado para colocar o balão de pendentes em cima da aba respetiva
+    col_tab1, col_tab2, col_tab3, col_tab4 = st.columns([1.5, 1.8, 1.2, 1.8])
+    
+    # Criamos as abas normalmente do Streamlit logo abaixo
     aba1, aba2, aba3, aba4 = st.tabs([
         "🔗 Link e QR Registo", 
-        label_aba2, 
+        "⏳ Pedidos e Aprovação", 
         "📊 Gestão Total", 
         "📈 Relatórios e Estatísticas"
     ])
@@ -1059,6 +1057,10 @@ def show_admin_panel():
             st.image(qr_api_url, width=140, caption="QR Code de Registo")
 
     with aba2:
+        # Indicador visual flutuante em cima da aba Pedidos e Aprovação
+        if pendentes_count > 0:
+            st.markdown(f"<div style='text-align: left; margin-bottom: 5px;'>⏳ <span class='badge-pendente-global'>{pendentes_count}</span></div>", unsafe_allow_html=True)
+        
         st.subheader("📋 Pedidos de Registo Pendentes")
         st.write("Analise as informações enviadas por cada prestador e aprove ou recuse o acesso conforme a confirmação do pagamento.")
         
@@ -1097,20 +1099,21 @@ def show_admin_panel():
                         if st.button("❌ Recusar", key=f"btn_rec_{token}"):
                             try:
                                 atualizado = False
+                                dados_payload = {"approved": -1, "rejection_reason": "O seu registo foi recusado pelo Administrador."}
                                 for node in ["providers", "prestadores", "prestadores_pendentes"]:
                                     resp = requests.get(f"{FIREBASE_URL}/{node}.json", timeout=10)
                                     if resp.status_code == 200 and resp.json():
                                         dados = resp.json()
                                         for key, val in dados.items():
-                                            if isinstance(val, dict) and val.get("token") == token:
-                                                requests.patch(f"{FIREBASE_URL}/{node}/{key}.json", json={"approved": -1}, timeout=10)
+                                            if isinstance(val, dict) and (val.get("token") == token or key == token):
+                                                requests.patch(f"{FIREBASE_URL}/{node}/{key}.json", json=dados_payload, timeout=10)
                                                 atualizado = True
                                                 
                                 if not atualizado:
-                                    requests.patch(f"{FIREBASE_URL}/providers/{token}.json", json={"approved": -1}, timeout=10)
-                                    requests.patch(f"{FIREBASE_URL}/prestadores/{token}.json", json={"approved": -1}, timeout=10)
+                                    requests.patch(f"{FIREBASE_URL}/providers/{token}.json", json=dados_payload, timeout=10)
+                                    requests.patch(f"{FIREBASE_URL}/prestadores/{token}.json", json=dados_payload, timeout=10)
                                     
-                                st.warning(f"Registo de {nome} recusado com sucesso e enviado para o histórico.")
+                                st.warning(f"Registo de {nome} recusado. Notificação enviada ao prestador.")
                                 st.rerun()
                             except Exception as e:
                                 st.error(f"Erro ao recusar: {e}")
@@ -1229,3 +1232,86 @@ def show_admin_panel():
 
     time.sleep(10)
     st.rerun()
+
+
+def main():
+    try:
+        query_params = st.query_params
+        
+        if "page" in query_params and query_params["page"] == "register":
+            if original_show_register_page:
+                original_show_register_page()
+            else:
+                st.error("Página de registo não disponível.")
+            return
+
+        if "page" in query_params and query_params["page"] == "client_register":
+            show_client_page()
+            return
+
+        token = query_params.get("prestador") or query_params.get("token") or query_params.get("provider")
+        
+        if token:
+            df = get_all_providers()
+            if df.empty or 'token' not in df.columns or not (df['token'] == token).any():
+                show_provider_panel_center(token)
+                return
+                
+            prior_prestador = df[df['token'] == token]
+            if not prior_prestador.empty:
+                row = prior_prestador.iloc[0]
+                status_aprov = int(row.get('approved', 1))
+                if status_aprov == 1:
+                    show_provider_panel_custom(token)
+                    return
+                elif status_aprov == -1:
+                    st.error("❌ O seu registo foi recusado pelo Administrador. Por favor, verifique os dados ou entre em contacto.")
+                    return
+                else:
+                    st.warning("⏳ O seu registo aguarda aprovação do Administrador.")
+                    return
+            else:
+                show_provider_panel_custom(token)
+                return
+            
+        st.markdown("""
+            <style>
+            .stApp {
+                background-color: #000000 !important;
+                color: #ffffff !important;
+                font-weight: bold !important;
+            }
+            .block-container {
+                background-color: #000000 !important;
+                border: 4px solid #FFC107 !important;
+                border-radius: 12px;
+                padding: 3rem !important;
+            }
+            h1, h2, h3, h4, h5, h6, p, span, label, div, button, input {
+                font-weight: bold !important;
+                text-shadow: 1px 1px 3px rgba(0,0,0,0.9);
+            }
+            </style>
+        """, unsafe_allow_html=True)
+
+        if not st.session_state.get("admin_logged", False):
+            st.title("🔒 FFKaraoke - (Administrador)")
+            with st.form("form_admin_login"):
+                senha = st.text_input("Palavra-passe de Administrador", type="password")
+                submitted = st.form_submit_button("Entrar")
+                if submitted:
+                    if senha == "ffkaraoke2026" or senha == "admin123":
+                        st.session_state["admin_logged"] = True
+                        st.success("Sessão iniciada com sucesso!")
+                        st.rerun()
+                    else:
+                        st.error("Palavra-passe incorreta.")
+
+        if st.session_state.get("admin_logged", False):
+            show_admin_panel()
+                
+    except Exception as e:
+        st.error(f"Ocorreu um erro ao carregar a aplicação: {e}")
+
+if __name__ == "__main__":
+    main()
