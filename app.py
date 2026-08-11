@@ -981,6 +981,7 @@ def show_client_screen():
 
 def show_provider_panel_center(token):
 
+
 def main():
     try:
         query_params = st.query_params
