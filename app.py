@@ -1071,7 +1071,7 @@ def show_admin_panel():
             if pendentes.empty:
                 st.success("Não existem novos pedidos de registo pendentes.")
             else:
-                # Cabeçalho idêntico ao estilo da imagem com fontes maiores e alinhamento perfeito
+                # Cabeçalho da grelha
                 st.markdown("""
                 <div style="background: linear-gradient(180deg, rgba(30,30,30,0.95), rgba(15,15,15,0.95)); border: 2px solid #FFC107; border-radius: 6px 6px 0 0; padding: 8px 12px; margin-bottom: 0px; border-bottom: 1px solid #FFC107;">
                 """, unsafe_allow_html=True)
@@ -1099,7 +1099,7 @@ def show_admin_panel():
                     expires_at = row.get('expires_at', 'N/A')
                     token = row.get('token', '')
                     
-                    # Linhas compactas alinhadas com as colunas superiores e bordas exatas
+                    # Linhas compactas com texto de nomes, telefone e estabelecimento aumentados em 50% (~21px)
                     st.markdown("""
                     <div style="background: linear-gradient(180deg, rgba(17,17,17,0.95), rgba(5,5,5,0.95)); border-left: 2px solid #FFC107; border-right: 2px solid #FFC107; border-bottom: 2px solid #FFC107; padding: 2px 8px; margin-bottom: 3px;">
                     """, unsafe_allow_html=True)
@@ -1108,34 +1108,33 @@ def show_admin_panel():
                     
                     with rc1:
                         st.markdown(f"""
-                        <div style="border-right: 2px solid #444; padding-right: 4px; line-height: 1.0; margin-top: 2px; font-size: 14px;">
+                        <div style="border-right: 2px solid #444; padding-right: 4px; line-height: 1.0; margin-top: 2px; font-size: 21px;">
                             🎤 <b>{nome}</b>
                         </div>
                         """, unsafe_allow_html=True)
                         
                     with rc2:
                         st.markdown(f"""
-                        <div style="border-right: 2px solid #444; padding-right: 4px; line-height: 1.0; margin-top: 2px; font-size: 14px;">
+                        <div style="border-right: 2px solid #444; padding-right: 4px; line-height: 1.0; margin-top: 2px; font-size: 21px;">
                             📞 <b style="color: #FFD700;">{telefone}</b>
                         </div>
                         """, unsafe_allow_html=True)
                         
                     with rc3:
                         st.markdown(f"""
-                        <div style="border-right: 2px solid #444; padding-right: 4px; line-height: 1.0; margin-top: 2px; font-size: 14px;">
+                        <div style="border-right: 2px solid #444; padding-right: 4px; line-height: 1.0; margin-top: 2px; font-size: 21px;">
                             🏠 <b style="color: #FFD700;">{estabelecimento}</b>
                         </div>
                         """, unsafe_allow_html=True)
                         
                     with rc4:
                         st.markdown(f"""
-                        <div style="border-right: 2px solid #444; padding-right: 4px; line-height: 1.0; margin-top: 1px; font-size: 13px;">
-                            <b>{expires_at}</b><br><span style='font-size: 10px; color: #FFD700;'>Ref: {payment_ref} ({amount_paid})</span>
+                        <div style="border-right: 2px solid #444; padding-right: 4px; line-height: 1.0; margin-top: 1px; font-size: 15px;">
+                            <b>{expires_at}</b><br><span style='font-size: 12px; color: #FFD700;'>Ref: {payment_ref} ({amount_paid})</span>
                         </div>
                         """, unsafe_allow_html=True)
                     
                     with rc5:
-                        # Colocação lado a lado dos botões de Recusar e Aprovar idêntica à referência visual
                         b_col1, b_col2 = st.columns(2)
                         with b_col1:
                             if st.button("❌ Recusar", key=f"btn_rec_{token}"):
