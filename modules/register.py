@@ -1,4 +1,3 @@
-import streamlit as str_module
 import streamlit as st
 from utils.db_manager import add_provider, get_all_providers
 import uuid
@@ -108,7 +107,7 @@ def show_register_page():
                     st.rerun()
             elif recusado:
                 st.error("❌ O seu pedido de acesso foi recusado pelo Administrador.")
-                st.warning("Por favor, verifique os dados ou o comprovativo de pagamento enviado e tente submeter um novo registo.")
+                st.warning("Por favor, verifique os dados ou o estabelecimento indicado e tente submeter um novo registo.")
                 
                 if st.button("🔄 Tentar Novamente / Novo Registo"):
                     st.session_state["token_gerado"] = None
