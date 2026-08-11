@@ -129,7 +129,7 @@ try:
 except Exception:
     pass
     
-def show_register_page():
+def custom_show_register_page():
     url_fundo_painel = "https://cdn.phototourl.com/free/2026-08-03-694a4a2e-9914-4da8-93b2-87538a4805ab.png"
     url_logotipo = "https://cdn.phototourl.com/free/2026-08-03-8b13edf5-0257-491d-ab78-f0d5329ffc15.jpg"
     
@@ -349,7 +349,6 @@ def show_register_page():
                 referencia_fake = "Plano Selecionado Direto"
                 nome_completo = f"{nome} {sobrenome}".strip()
                 
-                # Verificar se o telefone já tem histórico de recusas
                 rejection_count = 0
                 try:
                     df_all = get_all_providers()
@@ -363,7 +362,6 @@ def show_register_page():
                 except Exception:
                     pass
 
-                # Se já tiver 3 ou mais recusas, bloquear logo de início (estado -2)
                 status_inicial = -2 if rejection_count >= 3 else 0
 
                 try:
@@ -373,7 +371,6 @@ def show_register_page():
                     st.session_state["nome_pendente_prestador"] = nome_completo
                     st.rerun()
                 except Exception as e:
-                    import uuid
                     token_gerado = str(uuid.uuid4())[:8]
                     dados_reg = {
                         "nome_prestador": nome_completo,
@@ -396,6 +393,8 @@ def show_register_page():
                         st.rerun()
                     except Exception as err:
                         st.error(f"Erro ao submeter registo: {err}")
+
+# Atalho para evitar o erro "name 'show_register_page' is not defined"
 def show_register_page():
     custom_show_register_page()
 
