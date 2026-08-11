@@ -128,7 +128,7 @@ def show_admin_panel():
                     
                     st.markdown('<div class="adm-horizontal-card">', unsafe_allow_html=True)
                     
-                    # Layout rigorosamente alinhado em colunas para reproduzir a grelha visual exacta
+                    # Grelha rigorosamente alinhada em colunas idêntica à referência visual enviada
                     rc1, rc2, rc3, rc4, rc5, rc6 = st.columns([2.2, 1.4, 1.4, 2.0, 1.1, 1.1])
                     
                     with rc1:
