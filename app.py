@@ -397,7 +397,7 @@ def show_register_page():
                     except Exception as err:
                         st.error(f"Erro ao submeter registo: {err}")
 def show_register_page():
-custom_show_register_page()
+    custom_show_register_page()
 
 def atualizar_estado_pedido(provider_token, pedido_id, novo_estado):
     try:
