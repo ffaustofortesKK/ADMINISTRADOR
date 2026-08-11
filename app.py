@@ -1099,7 +1099,7 @@ def show_admin_panel():
                     expires_at = row.get('expires_at', 'N/A')
                     token = row.get('token', '')
                     
-                    # Linhas compactas com texto de nomes, telefone e estabelecimento aumentados em 50% (~21px)
+                    # Linhas compactas com texto dos dados (Nome, Telefone, Estabelecimento) aumentado em 80% (cerca de 24px)
                     st.markdown("""
                     <div style="background: linear-gradient(180deg, rgba(17,17,17,0.95), rgba(5,5,5,0.95)); border-left: 2px solid #FFC107; border-right: 2px solid #FFC107; border-bottom: 2px solid #FFC107; padding: 2px 8px; margin-bottom: 3px;">
                     """, unsafe_allow_html=True)
@@ -1108,21 +1108,21 @@ def show_admin_panel():
                     
                     with rc1:
                         st.markdown(f"""
-                        <div style="border-right: 2px solid #444; padding-right: 4px; line-height: 1.0; margin-top: 2px; font-size: 21px;">
-                            🎤 <b>{nome}</b>
+                        <div style="border-right: 2px solid #444; padding-right: 4px; line-height: 1.1; margin-top: 2px; font-size: 24px;">
+                            🎤 <b style="color: #ffffff;">{nome}</b>
                         </div>
                         """, unsafe_allow_html=True)
                         
                     with rc2:
                         st.markdown(f"""
-                        <div style="border-right: 2px solid #444; padding-right: 4px; line-height: 1.0; margin-top: 2px; font-size: 21px;">
+                        <div style="border-right: 2px solid #444; padding-right: 4px; line-height: 1.1; margin-top: 2px; font-size: 24px;">
                             📞 <b style="color: #FFD700;">{telefone}</b>
                         </div>
                         """, unsafe_allow_html=True)
                         
                     with rc3:
                         st.markdown(f"""
-                        <div style="border-right: 2px solid #444; padding-right: 4px; line-height: 1.0; margin-top: 2px; font-size: 21px;">
+                        <div style="border-right: 2px solid #444; padding-right: 4px; line-height: 1.1; margin-top: 2px; font-size: 24px;">
                             🏠 <b style="color: #FFD700;">{estabelecimento}</b>
                         </div>
                         """, unsafe_allow_html=True)
@@ -1130,7 +1130,7 @@ def show_admin_panel():
                     with rc4:
                         st.markdown(f"""
                         <div style="border-right: 2px solid #444; padding-right: 4px; line-height: 1.0; margin-top: 1px; font-size: 15px;">
-                            <b>{expires_at}</b><br><span style='font-size: 12px; color: #FFD700;'>Ref: {payment_ref} ({amount_paid})</span>
+                            <b style="color: #ffffff;">{expires_at}</b><br><span style='font-size: 12px; color: #FFD700;'>Ref: {payment_ref} ({amount_paid})</span>
                         </div>
                         """, unsafe_allow_html=True)
                     
