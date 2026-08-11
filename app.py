@@ -1013,7 +1013,7 @@ def main():
         """, unsafe_allow_html=True)
 
         if not st.session_state.get("admin_logged", False):
-            st.title("🔒 FFKaraoke -(Administrador)")
+            st.title("🔒 FFKaraoke - (Administrador)")
             with st.form("form_admin_login"):
                 senha = st.text_input("Palavra-passe de Administrador", type="password")
                 submitted = st.form_submit_button("Entrar")
