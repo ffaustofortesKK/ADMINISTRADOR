@@ -168,6 +168,7 @@ def custom_show_register_page():
     </style>
     """, unsafe_allow_html=True)
 
+    # 1. VERIFICAÇÃO DE ESTADO PENDENTE
     if "token_pendente_prestador" in st.session_state and st.session_state["token_pendente_prestador"]:
         token_atual = st.session_state["token_pendente_prestador"]
         nome_prestador_temp = st.session_state.get("nome_pendente_prestador", "Prestador")
@@ -176,6 +177,10 @@ def custom_show_register_page():
         recusado = False
         
         try:
+            # Limpa cache do Streamlit para forçar leitura fresca da base de dados/Firebase
+            if hasattr(st, "cache_data"):
+                st.cache_data.clear()
+                
             df_prov = get_all_providers()
             if not df_prov.empty and 'token' in df_prov.columns:
                 match = df_prov[df_prov['token'] == token_atual]
@@ -203,9 +208,9 @@ def custom_show_register_page():
                 if "nome_pendente_prestador" in st.session_state:
                     del st.session_state["nome_pendente_prestador"]
                 st.rerun()
-            return
+            return  # Interrompe totalmente a execução aqui
 
-        # Se foi aprovado — Redireciona diretamente para o painel de trabalho definindo o parâmetro na URL
+        # Se foi aprovado pelo administrador
         if aprovado:
             st.markdown(f"""
                 <div style="text-align: center; padding: 40px; font-family: monospace;">
@@ -214,17 +219,18 @@ def custom_show_register_page():
                 </div>
             """, unsafe_allow_html=True)
             
-            # Limpa o estado pendente e injeta o token do prestador na URL para abrir o painel correto
+            # Limpa os dados temporários da sessão
             if "token_pendente_prestador" in st.session_state:
                 del st.session_state["token_pendente_prestador"]
             if "nome_pendente_prestador" in st.session_state:
                 del st.session_state["nome_pendente_prestador"]
                 
+            # Define o parâmetro na URL para abrir o painel de trabalho e recarrega
             st.query_params["prestador"] = token_atual
             st.rerun()
-            return
+            return  # Interrompe totalmente a execução aqui
         
-        # Enquanto estiver pendente (Ecrã de espera com polling automático)
+        # Enquanto estiver pendente (Mostra apenas o ecrã de espera e faz polling)
         st.markdown(f"""
             <style>
             @keyframes spinMic {{
@@ -299,10 +305,16 @@ def custom_show_register_page():
             </div>
         """, unsafe_allow_html=True)
         
-        # Faz polling a cada 3 segundos para detetar automaticamente se o admin aprovou
-        time.sleep(3)
+        # Botão de verificação manual opcional caso queira forçar a checagem imediata
+        col_b1, col_b2, col_b3 = st.columns([1, 2, 1])
+        with col_b2:
+            if st.button("🔄 Verificar Estado da Aprovação", use_container_width=True):
+                st.rerun()
+
+        # Pausa por 4 segundos e força novo ciclo para detetar a aprovação automaticamente
+        time.sleep(4)
         st.rerun()
-        return
+        return  # BLOQUEIO ABSOLUTO: Impede que qualquer código abaixo seja lido
 
     if "original_show_register_page" in globals() and original_show_register_page:
         try:
@@ -311,7 +323,7 @@ def custom_show_register_page():
         except Exception:
             pass
 
-    # Formulário de Registo (só executa se NÃO houver token pendente na sessão)
+    # 2. FORMULÁRIO DE REGISTO (Só é executado se NÃO existir nenhum token pendente na sessão)
     st.markdown("<h1>🎤 FFKaraoke - Registo de Prestador</h1>", unsafe_allow_html=True)
     st.markdown("<p>Preencha os seus dados e escolha a duração pretendida para solicitar o seu acesso.</p>", unsafe_allow_html=True)
     
@@ -341,7 +353,7 @@ def custom_show_register_page():
                     from utils.db_manager import save_provider_request
                     token_gerado = save_provider_request(nome, sobrenome, telefone, referencia_fake, duracao)
                     st.session_state["token_pendente_prestador"] = token_gerado
-                    st.session_state["nome_pendente_prestador"] = f"{nome} {sobrenome}".strip()
+                    st.session_state["nome_prestador_temp"] = f"{nome} {sobrenome}".strip()
                     st.rerun()
                 except Exception as e:
                     import uuid
