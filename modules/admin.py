@@ -2,7 +2,52 @@ import streamlit as st
 import time
 import pandas as pd
 from datetime import datetime
-from modules.register import get_all_providers, get_active_providers, approve_provider, get_total_revenue, reject_provider
+import sqlite3
+
+# Funções de suporte de base de dados para o Admin
+def get_connection():
+    return sqlite3.connect('database.db', check_same_thread=False)
+
+def get_all_providers():
+    conn = get_connection()
+    try:
+        df = pd.read_sql_query("SELECT * FROM providers", conn)
+        return df
+    except Exception:
+        return pd.DataFrame(columns=['id', 'name', 'phone', 'payment_ref', 'expires_at', 'token', 'approved', 'amount_paid'])
+    finally:
+        conn.close()
+
+def get_active_providers():
+    conn = get_connection()
+    try:
+        df = pd.read_sql_query("SELECT * FROM providers WHERE approved = 1", conn)
+        return df
+    except Exception:
+        return pd.DataFrame(columns=['id', 'name', 'phone', 'payment_ref', 'expires_at', 'token', 'approved', 'amount_paid'])
+    finally:
+        conn.close()
+
+def approve_provider(token):
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("UPDATE providers SET approved = 1 WHERE token = ?", (token,))
+    conn.commit()
+    conn.close()
+
+def reject_provider(token):
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("UPDATE providers SET approved = -1 WHERE token = ?", (token,))
+    conn.commit()
+    conn.close()
+
+def get_total_revenue():
+    df = get_all_providers()
+    if df.empty or 'amount_paid' not in df.columns:
+        return 0.0
+    # Soma apenas os aprovados ou todos os registos válidos pagos
+    return float(df[df['approved'].astype(str).isin(['1', '0', '-1'])]['amount_paid'].sum())
 
 def show_admin_panel():
     st.markdown("""
@@ -55,7 +100,6 @@ def show_admin_panel():
         
         pendentes_count = 0
         if not df_all.empty and 'approved' in df_all.columns:
-            # Consideramos pendente quem tem estado 0 ou 'pendente'
             pendentes_count = len(df_all[df_all['approved'].astype(str).isin(['0', 'pendente'])])
 
         col_t1, col_t2 = st.columns([3, 1])
@@ -76,12 +120,9 @@ def show_admin_panel():
             "📈 Relatórios e Estatísticas"
         ])
 
-        # -------------------------------------------------------------
-        # ABA 1: Link e QR Code para o Registo de Prestadores
-        # -------------------------------------------------------------
         with aba1:
             st.subheader("🔗 Portal do Prestadores")
-            st.write("Partilhe este link ou o QR Code com os prestadores para que possam submeter os seus dados e comprovativo de pagamento.")
+            st.write("Partilhe este link ou o QR Code com os prestadores para que possam submeter os seus dados.")
             base_url = "https://appadm.streamlit.app/?page=register"
             
             col_l, col_q = st.columns([3, 1])
@@ -92,18 +133,14 @@ def show_admin_panel():
                     <a href="{base_url}" target="_blank" style="color: #FFD700; font-size: 16px;">{base_url}</a>
                 </div>
                 """, unsafe_allow_html=True)
-                st.info("Os prestadores que acederem a este link poderão preencher o nome, contacto, referência de pagamento e tempo pretendido.")
-                
+                st.info("Os prestadores que acederem a este link poderão preencher o nome, contacto e tempo pretendido.")
             with col_q:
                 qr_api_url = f"https://api.qrserver.com/v1/create-qr-code/?size=150x150&data={base_url}"
                 st.image(qr_api_url, width=140, caption="QR Code de Registo")
 
-        # -------------------------------------------------------------
-        # ABA 2: Pedidos dos Prestadores (Layout em Tabela com Recusar / Aprovar)
-        # -------------------------------------------------------------
         with aba2:
             st.subheader("📋 Pedidos de Registo Pendentes")
-            st.write("Analise as informações enviadas por cada prestador e aprove ou recuse o acesso conforme a confirmação do pagamento.")
+            st.write("Analise as informações enviadas por cada prestador e aprove ou recuse o acesso.")
             
             if df_all.empty:
                 st.info("Nenhum prestador registado na base de dados.")
@@ -113,7 +150,6 @@ def show_admin_panel():
                 if pendentes.empty:
                     st.success("Não existem pedidos de registo pendentes neste momento.")
                 else:
-                    # Cabeçalho da Tabela personalizada
                     col_h1, col_h2, col_h3, col_h4, col_h5 = st.columns([2, 2, 2, 2, 2])
                     with col_h1: st.markdown("<h4 style='color: #FFC107;'>Nome</h4>", unsafe_allow_html=True)
                     with col_h2: st.markdown("<h4 style='color: #FFC107;'>Telefone</h4>", unsafe_allow_html=True)
@@ -132,26 +168,16 @@ def show_admin_panel():
                         
                         col_r1, col_r2, col_r3, col_r4, col_r5 = st.columns([2, 2, 2, 2, 2])
                         
-                        with col_r1:
-                            st.markdown(f"🎤 {nome}")
-                        with col_r2:
-                            st.markdown(f"📞 {telefone}")
-                        with col_r3:
-                            st.markdown(f"🏠 {payment_ref}")
-                        with col_r4:
-                            st.markdown(f"⏱️ {expires_at}")
+                        with col_r1: st.markdown(f"🎤 {nome}")
+                        with col_r2: st.markdown(f"📞 {telefone}")
+                        with col_r3: st.markdown(f"🏠 {payment_ref}")
+                        with col_r4: st.markdown(f"⏱️ {expires_at}")
                             
                         with col_r5:
                             sub_c1, sub_c2 = st.columns(2)
                             with sub_c1:
                                 if st.button("❌ Recusar", key=f"btn_recusar_{token}"):
-                                    # Função para rejeitar (se não tiver a função reject_provider no db_manager, pode usar lógica equivalente ou adicionar no db_manager)
-                                    try:
-                                        from utils.db_manager import reject_provider
-                                        reject_provider(token)
-                                    except:
-                                        # Fallback se a função não existir no db_manager
-                                        pass
+                                    reject_provider(token)
                                     st.warning(f"Pedido de {nome} recusado.")
                                     st.rerun()
                             with sub_c2:
@@ -162,12 +188,9 @@ def show_admin_panel():
                                     
                         st.markdown("<hr style='margin: 10px 0; border-color: rgba(255,193,7,0.3);'>", unsafe_allow_html=True)
 
-        # -------------------------------------------------------------
-        # ABA 3: Gestão Total (Ativos com contagem decrescente de tempo)
-        # -------------------------------------------------------------
         with aba3:
-            st.subheader("📑 Gestão Total de Prestadores Ativos (Com Contagem Decrescente)")
-            st.write("Apenas prestadores com licença ativa. Assim que o tempo expirar, o prestador desaparece automaticamente daqui.")
+            st.subheader("📑 Gestão Total de Prestadores Ativos")
+            st.write("Apenas prestadores com licença ativa.")
             
             if df_active.empty:
                 st.info("Nenhum prestador com sessão ativa no momento.")
@@ -201,24 +224,16 @@ def show_admin_panel():
                 df_gestao_view = pd.DataFrame(lista_gestao)
                 st.dataframe(df_gestao_view, use_container_width=True, hide_index=True)
 
-        # -------------------------------------------------------------
-        # ABA 4: Relatórios e Estatísticas (Histórico Completo)
-        # -------------------------------------------------------------
         with aba4:
             st.subheader("📈 Relatórios Financeiros e Histórico Completo")
-            st.write("Registo integral de todas as transações, valores e tempos solicitados (incluindo licenças expiradas e recusadas).")
-            
             total_recebido = get_total_revenue()
             total_prestadores = len(df_all) if not df_all.empty else 0
             aprovados_count = len(df_all[df_all['approved'].astype(str) == '1']) if not df_all.empty else 0
             
             col_m1, col_m2, col_m3 = st.columns(3)
-            with col_m1:
-                st.metric(label="💳 Total Geral Faturado", value=f"{total_recebido:,.2f} Kz")
-            with col_m2:
-                st.metric(label="🎤 Total de Prestadores Registados", value=total_prestadores)
-            with col_m3:
-                st.metric(label="✅ Aprovados vs ⏳ Pendentes", value=f"{aprovados_count} / {pendentes_count}")
+            with col_m1: st.metric(label="💳 Total Geral Faturado", value=f"{total_recebido:,.2f} Kz")
+            with col_m2: st.metric(label="🎤 Total de Prestadores Registados", value=total_prestadores)
+            with col_m3: st.metric(label="✅ Aprovados vs ⏳ Pendentes", value=f"{aprovados_count} / {pendentes_count}")
                 
             st.markdown("---")
             st.subheader("📜 Histórico Geral de Registos")
