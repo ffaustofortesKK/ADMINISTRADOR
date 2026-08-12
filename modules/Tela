@@ -6,7 +6,6 @@ import json
 import time
 import urllib.parse
 import uuid
-from datetime import datetime
 
 FIREBASE_URL = "https://ffkaraokecloud-default-rtdb.firebaseio.com"
 
@@ -62,28 +61,26 @@ def obter_video_fundo(provider_token):
         pass
     return ""
 
-@st.cache_data(ttl=300)
 def listar_videos_pasta_clipes():
     videos_encontrados = []
     try:
         import cloudinary
+        import cloudinary.search
         import cloudinary.api
         
-        resultado_alt = cloudinary.api.resources(
-            resource_type="video",
-            type="upload",
-            max_results=500
-        )
-        for recurso in resultado_alt.get("resources", []):
+        resultado = cloudinary.search.Search()\
+            .expression('resource_type:video AND asset_folder=clipes')\
+            .max_results(500)\
+            .execute()
+            
+        for recurso in resultado.get("resources", []):
             url_secure = recurso.get("secure_url", "")
             if url_secure:
                 if "/upload/" in url_secure and "f_auto,q_auto" not in url_secure:
                     url_secure = url_secure.replace("/upload/", "/upload/f_auto,q_auto/")
-                
-                public_id = recurso.get("public_id", "")
                 filename = recurso.get("filename", "")
+                public_id = recurso.get("public_id", "")
                 nome_amigavel = filename if filename else public_id.split("/")[-1]
-                
                 videos_encontrados.append({"nome": nome_amigavel, "url": url_secure})
     except Exception:
         pass
@@ -274,7 +271,7 @@ def renderizar_gestao_fila_prestador(provider_token):
                     definir_video_fundo(provider_token, valor_a_guardar)
                     st.success("Vídeo clipe de fundo atualizado e em reprodução na tela!")
                     st.rerun()
-          
+            
     except Exception as e:
         st.error(f"Erro ao carregar os pedidos do Firebase: {e}")
 
@@ -585,7 +582,7 @@ def renderizar_ecra_tv(provider_token):
                 t_prox = limpar_nome_musica(tocando_agora.get("musica", {}))
                 st.markdown(f"""
                     <div style="border: 2px solid #FFC107; border-radius: 10px; padding: 15px; background: rgba(17,17,17,0.85); margin-bottom: 15px;">
-                        <span style="color: #FFC107; font-size: 16px; font-weight: bold; font-family: monospace;">A TOCAR / A SEGUIR:</span><br>
+                        <span style="color: #FFC107; font-size: 16px; font-weight: bold; font-family: monospace;">A TOCKAR / À SEGUIR:</span><br>
                         <span style="color: #ffffff; font-size: 22px; font-weight: bold; font-family: monospace; text-transform: uppercase;">{c_prox}</span><br>
                         <span style="color: #FFC107; font-size: 14px; font-family: monospace;">🎵 {t_prox}</span>
                     </div>
@@ -689,16 +686,18 @@ def main():
             st.title("🔒 FFKaraoke - Área Restrita")
             with st.form("form_admin_login"):
                 senha = st.text_input("Palavra-passe de Administrador", type="password")
-                if st.form_submit_button("Entrar"):
-                    if senha == "admin123":
+                submitted = st.form_submit_button("Entrar")
+                if submitted:
+                    if senha == "ffkaraoke2026" or senha == "admin123":
                         st.session_state["admin_logged"] = True
+                        st.success("Sessão iniciada com sucesso!")
                         st.rerun()
                     else:
                         st.error("Palavra-passe incorreta.")
-            return
-        
-        show_admin_panel()
 
+        if st.session_state.get("admin_logged", False):
+            show_admin_panel()
+                
     except Exception as e:
         st.error(f"Ocorreu um erro ao carregar a aplicação: {e}")
 
