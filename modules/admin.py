@@ -4,9 +4,6 @@ import requests
 from datetime import datetime
 import time
 
-# Certifique-se de que estas variáveis e funções auxiliares estão definidas no seu escopo global:
-# FIREBASE_URL, get_all_providers, get_active_providers, get_total_revenue, approve_provider, original_show_register_page, show_client_page, show_provider_panel_center, show_provider_panel_custom
-
 def show_admin_panel():
     st.markdown("""
     <style>
@@ -22,14 +19,6 @@ def show_admin_panel():
         border-radius: 12px;
         padding: 3rem !important;
     }
-    .adm-horizontal-card {
-        background: linear-gradient(180deg, rgba(17,17,17,0.95), rgba(5,5,5,0.95));
-        border: 2px solid #D4AF37;
-        border-radius: 10px;
-        padding: 12px 18px;
-        margin-bottom: 15px;
-        box-shadow: 0px 0px 12px rgba(212,175,55,0.25);
-    }
     .link-box {
         background: rgba(17, 17, 17, 0.9);
         border: 1px solid #D4AF37;
@@ -44,14 +33,14 @@ def show_admin_panel():
     .badge-pendente-global {
         background-color: #ff3333;
         color: #ffffff;
-        padding: 6px 14px;
+        padding: 9px 21px;
         border-radius: 50%;
         font-weight: 900;
-        font-size: 16px;
+        font-size: 24px;
         display: inline-block;
-        box-shadow: 0px 0px 10px rgba(255, 51, 51, 0.5);
+        box-shadow: 0px 0px 14px rgba(255, 51, 51, 0.7);
         text-align: center;
-        min-width: 35px;
+        min-width: 52px;
     }
     p, span, label, h1, h2, h3, h4, h5, h6 {
         color: #ffffff !important;
@@ -117,6 +106,25 @@ def show_admin_panel():
             if pendentes.empty:
                 st.success("Não existem novos pedidos de registo pendentes.")
             else:
+                # Cabeçalho da grelha
+                st.markdown("""
+                <div style="background: linear-gradient(180deg, rgba(30,30,30,0.95), rgba(15,15,15,0.95)); border: 2px solid #FFC107; border-radius: 6px 6px 0 0; padding: 8px 12px; margin-bottom: 0px; border-bottom: 1px solid #FFC107;">
+                """, unsafe_allow_html=True)
+                
+                hc1, hc2, hc3, hc4, hc5 = st.columns([2.0, 1.8, 1.8, 2.6, 1.8])
+                with hc1:
+                    st.markdown("<div style='text-align: center; font-weight: bold; color: #FFD700; font-size: 20px;'>Nome</div>", unsafe_allow_html=True)
+                with hc2:
+                    st.markdown("<div style='text-align: center; font-weight: bold; color: #FFD700; font-size: 20px;'>Telefone:</div>", unsafe_allow_html=True)
+                with hc3:
+                    st.markdown("<div style='text-align: center; font-weight: bold; color: #FFD700; font-size: 20px;'>Estabelecimento</div>", unsafe_allow_html=True)
+                with hc4:
+                    st.markdown("<div style='text-align: center; font-weight: bold; color: #FFD700; font-size: 20px;'>Duração Solicitada</div>", unsafe_allow_html=True)
+                with hc5:
+                    st.markdown("<div style='text-align: center; font-weight: bold; color: #FFD700; font-size: 20px;'>Ações</div>", unsafe_allow_html=True)
+                    
+                st.markdown('</div>', unsafe_allow_html=True)
+
                 for index, row in pendentes.iterrows():
                     nome = row.get('name', 'Desconhecido')
                     telefone = row.get('phone', 'N/A')
@@ -126,49 +134,69 @@ def show_admin_panel():
                     expires_at = row.get('expires_at', 'N/A')
                     token = row.get('token', '')
                     
-                    st.markdown('<div class="adm-horizontal-card">', unsafe_allow_html=True)
+                    # Linhas compactas com texto dos dados (Nome, Telefone, Estabelecimento) aumentado em 80% (cerca de 24px)
+                    st.markdown("""
+                    <div style="background: linear-gradient(180deg, rgba(17,17,17,0.95), rgba(5,5,5,0.95)); border-left: 2px solid #FFC107; border-right: 2px solid #FFC107; border-bottom: 2px solid #FFC107; padding: 2px 8px; margin-bottom: 3px;">
+                    """, unsafe_allow_html=True)
                     
-                    # Grelha rigorosamente alinhada em colunas idêntica à referência visual enviada
-                    rc1, rc2, rc3, rc4, rc5, rc6 = st.columns([2.2, 1.4, 1.4, 2.0, 1.1, 1.1])
+                    rc1, rc2, rc3, rc4, rc5 = st.columns([2.0, 1.8, 1.8, 2.6, 1.8])
                     
                     with rc1:
-                        st.markdown(f"<span style='font-size: 11px; color: #aaa;'>Nome</span><br>🎤 <b>{nome}</b>", unsafe_allow_html=True)
+                        st.markdown(f"""
+                        <div style="border-right: 2px solid #444; padding-right: 4px; line-height: 1.1; margin-top: 2px; font-size: 24px;">
+                            🎤 <b style="color: #ffffff;">{nome}</b>
+                        </div>
+                        """, unsafe_allow_html=True)
+                        
                     with rc2:
-                        st.markdown(f"<span style='font-size: 11px; color: #aaa;'>Telefone</span><br>📞 <b>{telefone}</b>", unsafe_allow_html=True)
+                        st.markdown(f"""
+                        <div style="border-right: 2px solid #444; padding-right: 4px; line-height: 1.1; margin-top: 2px; font-size: 24px;">
+                            📞 <b style="color: #FFD700;">{telefone}</b>
+                        </div>
+                        """, unsafe_allow_html=True)
+                        
                     with rc3:
-                        st.markdown(f"<span style='font-size: 11px; color: #aaa;'>Estabelecimento</span><br>🏠 <b>{estabelecimento}</b>", unsafe_allow_html=True)
+                        st.markdown(f"""
+                        <div style="border-right: 2px solid #444; padding-right: 4px; line-height: 1.1; margin-top: 2px; font-size: 24px;">
+                            🏠 <b style="color: #FFD700;">{estabelecimento}</b>
+                        </div>
+                        """, unsafe_allow_html=True)
+                        
                     with rc4:
-                        st.markdown(f"<span style='font-size: 11px; color: #aaa;'>Duração Solicitada</span><br>⏱️ <b>{expires_at}</b><br><span style='font-size: 11px; color: #FFD700;'>Ref: {payment_ref} ({amount_paid})</span>", unsafe_allow_html=True)
+                        st.markdown(f"""
+                        <div style="border-right: 2px solid #444; padding-right: 4px; line-height: 1.0; margin-top: 1px; font-size: 15px;">
+                            <b style="color: #ffffff;">{expires_at}</b><br><span style='font-size: 12px; color: #FFD700;'>Ref: {payment_ref} ({amount_paid})</span>
+                        </div>
+                        """, unsafe_allow_html=True)
                     
                     with rc5:
-                        st.markdown("<div style='margin-top: 6px;'></div>", unsafe_allow_html=True)
-                        if st.button("❌ Recusar", key=f"btn_rec_{token}"):
-                            try:
-                                atualizado = False
-                                for node in ["providers", "prestadores", "prestadores_pendentes"]:
-                                    resp = requests.get(f"{FIREBASE_URL}/{node}.json", timeout=10)
-                                    if resp.status_code == 200 and resp.json():
-                                        dados = resp.json()
-                                        for key, val in dados.items():
-                                            if isinstance(val, dict) and val.get("token") == token:
-                                                requests.patch(f"{FIREBASE_URL}/{node}/{key}.json", json={"approved": -1}, timeout=10)
-                                                atualizado = True
-                                                
-                                if not atualizado:
-                                    requests.patch(f"{FIREBASE_URL}/providers/{token}.json", json={"approved": -1}, timeout=10)
-                                    requests.patch(f"{FIREBASE_URL}/prestadores/{token}.json", json={"approved": -1}, timeout=10)
-                                    
-                                st.warning(f"Registo de {nome} recusado com sucesso e enviado para o histórico.")
+                        b_col1, b_col2 = st.columns(2)
+                        with b_col1:
+                            if st.button("❌ Recusar", key=f"btn_rec_{token}"):
+                                try:
+                                    atualizado = False
+                                    for node in ["providers", "prestadores", "prestadores_pendentes"]:
+                                        resp = requests.get(f"{FIREBASE_URL}/{node}.json", timeout=10)
+                                        if resp.status_code == 200 and resp.json():
+                                            dados = resp.json()
+                                            for key, val in dados.items():
+                                                if isinstance(val, dict) and val.get("token") == token:
+                                                    requests.patch(f"{FIREBASE_URL}/{node}/{key}.json", json={"approved": -1}, timeout=10)
+                                                    atualizado = True
+                                                    
+                                    if not atualizado:
+                                        requests.patch(f"{FIREBASE_URL}/providers/{token}.json", json={"approved": -1}, timeout=10)
+                                        requests.patch(f"{FIREBASE_URL}/prestadores/{token}.json", json={"approved": -1}, timeout=10)
+                                        
+                                    st.warning(f"Registo de {nome} recusado com sucesso e enviado para o histórico.")
+                                    st.rerun()
+                                except Exception as e:
+                                    st.error(f"Erro ao recusar: {e}")
+                        with b_col2:
+                            if st.button("✅ Aprovar", key=f"btn_aprov_{token}"):
+                                approve_provider(token)
+                                st.success(f"Prestador {nome} aprovado com sucesso!")
                                 st.rerun()
-                            except Exception as e:
-                                st.error(f"Erro ao recusar: {e}")
-                                
-                    with rc6:
-                        st.markdown("<div style='margin-top: 6px;'></div>", unsafe_allow_html=True)
-                        if st.button("✅ Aprovar", key=f"btn_aprov_{token}"):
-                            approve_provider(token)
-                            st.success(f"Prestador {nome} aprovado com sucesso!")
-                            st.rerun()
                             
                     st.markdown('</div>', unsafe_allow_html=True)
 
@@ -187,7 +215,7 @@ def show_admin_panel():
                             if r_data.get("approved", 0) == 0:
                                 tem_reforcos = True
                                 st.markdown(f"""
-                                <div class="adm-horizontal-card">
+                                <div style="background: linear-gradient(180deg, rgba(17,17,17,0.95), rgba(5,5,5,0.95)); border: 2px solid #FFC107; border-radius: 6px; padding: 8px; margin-bottom: 8px;">
                                     <b>⚡ Reforço:</b> {r_data.get('nome_prestador')} | <b>Duração:</b> {r_data.get('tempo_plano')} | <b>Ref:</b> <code>{r_data.get('referencia')}</code>
                                 </div>
                                 """, unsafe_allow_html=True)
@@ -205,7 +233,7 @@ def show_admin_panel():
                                         requests.delete(f"{FIREBASE_URL}/reforcos_pendentes/{tok}/{r_id}.json")
                                         st.success("Reforço aprovado!")
                                         st.rerun()
-                                st.markdown("<hr style='margin: 10px 0; border-color: #333;'>", unsafe_allow_html=True)
+                                st.markdown("<hr style='margin: 8px 0; border-color: #333;'>", unsafe_allow_html=True)
                                 
                 if not tem_reforcos:
                     st.info("Nenhum pedido de reforço pendente neste momento.")
