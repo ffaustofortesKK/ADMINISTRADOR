@@ -556,7 +556,6 @@ def renderizar_gestao_fila_prestador(provider_token):
                 escolha_video = st.selectbox("Pesquisar Vídeo Clipe", options=opcoes_labels, index=index_atual, label_visibility="collapsed")
                 st.markdown("<div style='height: 10px;'></div>", unsafe_allow_html=True)
                 
-                # Substituição do botão antigo por dois botões (Play / Stop) lado a lado
                 col_btn_play, col_btn_stop = st.columns(2)
                 with col_btn_play:
                     btn_play_fundo = st.form_submit_button("▶️ Play", use_container_width=True)
@@ -583,7 +582,7 @@ def show_provider_panel_custom(provider_token):
     url_fundo_painel = "https://cdn.phototourl.com/free/2026-08-03-694a4a2e-9914-4da8-93b2-87538a4805ab.png"
 
     df_prov = get_all_providers()
-    nome_prestador = "CARLOS MIGUEL"
+    nome_prestador = "PRESTADOR"
     tempo_plano = "2 Horas - 12 Mil Kwanzas"
     data_registo_str = None
     
@@ -591,7 +590,7 @@ def show_provider_panel_custom(provider_token):
         match = df_prov[df_prov['token'] == provider_token]
         if not match.empty:
             row = match.iloc[0]
-            nome_prestador = row.get('nome_prestador', row.get('nome', 'CARLOS MIGUEL')).upper()
+            nome_prestador = row.get('nome_prestador', row.get('nome', 'PRESTADOR')).upper()
             tempo_plano = row.get('tempo_plano', row.get('tempo', '2 Horas - 12 Mil Kwanzas'))
             data_registo_str = row.get('data_registo', None)
 
