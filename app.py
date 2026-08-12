@@ -838,7 +838,6 @@ def show_provider_panel_custom(provider_token):
     st.markdown("<div style='height: 5px;'></div>", unsafe_allow_html=True)
     renderizar_gestao_fila_prestador(provider_token)
     
-@st.fragment(run_every=1)
 def renderizar_ecra_tv(provider_token):
     try:
         # Busca o vídeo de fundo definido pelo prestador em tempo real
