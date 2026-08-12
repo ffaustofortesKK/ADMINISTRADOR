@@ -439,6 +439,12 @@ def listar_videos_pasta_clipes():
         except Exception as err:
             print(f"Erro crítico ao listar vídeos do Cloudinary: {err}")
             
+    # --- PROTEÇÃO DE SEGURANÇA CONTRA FALHAS DE REDE ---
+    if not videos_encontrados and "cache_segura_clipes" in st.session_state:
+        return st.session_state["cache_segura_clipes"]
+    elif videos_encontrados:
+        st.session_state["cache_segura_clipes"] = videos_encontrados
+        
     return videos_encontrados
 
 def limpar_nome_musica(musica_raw):
