@@ -89,6 +89,25 @@ st.set_page_config(
     layout="wide"
 )
 
+# --- FUNÇÃO SEGURA PARA OBTER VÍDEO DE FUNDO ---
+def obter_video_fundo(provider_token):
+    """
+    Vai buscar o vídeo de fundo ao Firebase de forma segura.
+    Se houver falha de rede ou timeout, apanha o erro e evita que o programa vá abaixo.
+    """
+    try:
+        url = f"{FIREBASE_URL}/video_fundo/{provider_token}.json"
+        response = requests.get(url, timeout=5)
+        
+        if response.status_code == 200:
+            dados = response.json()
+            return dados
+        return None
+        
+    except Exception as e:
+        print(f"Aviso: Não foi possível carregar o vídeo de fundo devido a um erro de rede: {e}")
+        return None
+        
 # --- BLOQUEIO TOTAL E RADICAL DO BOTÃO GERENCIAR APLICATIVO E ELEMENTOS CLOUD ---
 st.markdown("""
     <style>
