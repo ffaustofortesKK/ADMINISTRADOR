@@ -12,6 +12,26 @@ import cloudinary
 import cloudinary.api
 import cloudinary.uploader
 import cloudinary.search
+import importlib
+
+# --- 1. CONFIGURAR OS CAMINHOS PRIMEIRO ---
+current_dir = os.path.dirname(os.path.abspath(__file__))
+if current_dir not in sys.path:
+    sys.path.insert(0, current_dir)
+
+utils_path = os.path.join(current_dir, "utils")
+if utils_path not in sys.path:
+    sys.path.insert(0, utils_path)
+
+modules_path = os.path.join(current_dir, "modules")
+if modules_path not in sys.path:
+    sys.path.insert(0, modules_path)
+
+# --- 2. DEPOIS IMPORTAR OS MÓDULOS ---
+from modules import prestador
+importlib.reload(prestador)
+
+importlib.reload(prestador)
 
 # Configuração estrita do caminho absoluto para evitar erros de importação
 current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -417,7 +437,7 @@ def obter_url_video_cloudinary(musica_obj, titulo_limpo):
     encoded_title = urllib.parse.quote(titulo_limpo + ".mp4")
     return f"https://res.cloudinary.com/{cloud_name}/video/upload/f_auto,q_auto/{encoded_title}"
 
-@st.fragment(run_every=3)
+@st.fragment(run_every=1)
 def renderizar_gestao_fila_prestador(provider_token):
     try:
         url_firebase = f"{FIREBASE_URL}/pedidos/{provider_token}.json?_t={time.time()}"
@@ -432,157 +452,123 @@ def renderizar_gestao_fila_prestador(provider_token):
         pedidos_ativos.sort(key=lambda x: x.get("timestamp", 0))
         
         tocando_agora = next((p for p in pedidos_ativos if p.get("estado") == "aprovado"), None)
-        pendentes = [p for p in pedidos_ativos if p.get("estado") == "pendente"]
+        if not tocando_agora and pedidos_ativos:
+            primeiro_id = pedidos_ativos[0].get('id')
+            atualizar_estado_pedido(provider_token, primeiro_id, 'aprovado')
+            pedidos_ativos[0]["estado"] = "aprovado"
+            tocando_agora = pedidos_ativos[0]
 
-        if pendentes:
-            st.markdown("""
-                <div style="background-color: rgba(0,0,0,0.95); border: 4px solid #FFC107; padding: 15px; border-radius: 8px; text-align: center; margin-bottom: 20px;">
-                    <div style="color: #ffffff; font-family: monospace; font-size: 15px; font-weight: bold; margin-bottom: 5px; text-shadow: 1px 1px 3px rgba(0,0,0,0.9);">Confirmação de Pedido</div>
-                    <div style="color: #ffffff; font-family: monospace; font-size: 18px; font-weight: bold; margin-bottom: 10px; text-shadow: 1px 1px 3px rgba(0,0,0,0.9);">QUER CANTAR</div>
-            """, unsafe_allow_html=True)
+        col_esq, col_dir = st.columns([1.5, 1], gap="medium")
+        
+        with col_esq:
+            st.markdown("### 📋 Estado da Fila e Controlo de Reprodução")
+
+            if pedidos_ativos:
+                for idx, p in enumerate(pedidos_ativos, start=1):
+                    titulo_musica = limpar_nome_musica(p.get("musica", {}))
+                    cliente_nome = p.get("cliente", "Convidado").upper()
+                    
+                    c_num, c_cli, c_tit, c_btn = st.columns([0.5, 2, 4, 0.8])
+                    with c_num:
+                        st.markdown(f"<div style='background:#000; color:#FFC107; border:1px solid #FFC107; padding:6px; text-align:center; font-family:monospace; font-weight:bold; border-radius:4px;'>{idx}</div>", unsafe_allow_html=True)
+                    with c_cli:
+                        st.markdown(f"<div style='background:#000; color:#FFC107; border:1px solid #FFC107; padding:6px; font-family:monospace; font-weight:bold; border-radius:4px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;'>{cliente_nome}</div>", unsafe_allow_html=True)
+                    with c_tit:
+                        st.markdown(f"<div style='background:#000; color:#FFC107; border:1px solid #FFC107; padding:6px; font-family:monospace; font-weight:bold; border-radius:4px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;'>{titulo_musica}</div>", unsafe_allow_html=True)
+                    with c_btn:
+                        if st.button("✕", key=f"del_fila_{p.get('id')}", use_container_width=True):
+                            atualizar_estado_pedido(provider_token, p.get('id'), 'terminado')
+                            st.rerun()
+                st.markdown("<div style='height: 10px;'></div>", unsafe_allow_html=True)
+            else:
+                st.markdown("""
+                    <div style="background-color: #000000; border: 2px solid #FFC107; border-radius: 6px; padding: 12px; color: #FFC107; font-family: monospace; font-size: 13px; margin-bottom: 15px; text-align: center; font-weight: bold;">
+                        NENHUM PEDIDO NA LISTA NESTE MOMENTO.<br>À ESPERA DE NOVOS PEDIDOS...
+                    </div>
+                """, unsafe_allow_html=True)
+
+            st.markdown("### LEITOR KARAOKE")
             
-            for p in pendentes:
-                titulo_p = limpar_nome_musica(p.get("musica", {}))
-                cliente_p = p.get("cliente", "Convidado")
+            if tocando_agora:
+                cantor_atual = tocando_agora.get("cliente", "CONVIDADO").upper()
+                musica_atual = limpar_nome_musica(tocando_agora.get("musica", {}))
+                
                 st.markdown(f"""
-                    <div style="color: #ffffff; font-family: monospace; font-size: 15px; margin-bottom: 15px; font-weight: bold; text-shadow: 1px 1px 3px rgba(0,0,0,0.9);">
-                        <b>{titulo_p}</b> <span style="color: #ffffff; font-size: 13px; font-weight: bold; text-shadow: 1px 1px 3px rgba(0,0,0,0.9);">({cliente_p})</span>
+                    <div style="background: #000000; border: 3px solid #FFC107; border-radius: 6px; padding: 20px; margin-bottom: 15px; text-align: center;">
+                        <div style="color: #FFC107; font-family: monospace; font-size: 32px; font-weight: bold; text-transform: uppercase; margin-bottom: 8px; text-shadow: 2px 2px 6px rgba(0,0,0,0.9);">
+                            {cantor_atual}
+                        </div>
+                        <div style="color: #ffffff; font-family: monospace; font-size: 15px; font-weight: bold;">
+                            {musica_atual}
+                        </div>
                     </div>
                 """, unsafe_allow_html=True)
                 
-                col_btn_dummy1, col_center_btn, col_btn_dummy2 = st.columns([1, 1.2, 1])
-                with col_center_btn:
-                    if st.button("✅ Sim", key=f"conf_sim_{p.get('id')}", use_container_width=True):
+                c_t1, c_t2, c_t3 = st.columns(3)
+                with c_t1:
+                    if st.button("▶️ Tocar o Karaoke", key=f"btn_tocar_{tocando_agora.get('id')}", use_container_width=True):
                         terminar_todas_musicas_ativas(provider_token, pedidos)
-                        atualizar_estado_pedido(provider_token, p.get('id'), 'aprovado')
-                        st.success(f"Música '{titulo_p}' enviada para a tela!")
+                        atualizar_estado_pedido(provider_token, tocando_agora.get('id'), 'aprovado')
                         st.rerun()
-                    if st.button("❌ Não", key=f"conf_nao_{p.get('id')}", use_container_width=True):
-                        atualizar_estado_pedido(provider_token, p.get('id'), 'terminado')
-                        st.warning("Pedido recusado/cancelado.")
+                with c_t2:
+                    if st.button("⏹️ Parar o Karaoke", key=f"btn_parar_{tocando_agora.get('id')}", use_container_width=True):
+                        terminar_todas_musicas_ativas(provider_token, pedidos)
                         st.rerun()
-            st.markdown("</div>", unsafe_allow_html=True)
+                with c_t3:
+                    if st.button("⏭️ Avançar Karaoke", key=f"btn_prox_{tocando_agora.get('id')}", use_container_width=True):
+                        atualizar_estado_pedido(provider_token, tocando_agora.get('id'), 'terminado')
+                        restantes = [x for x in pedidos_ativos if x.get('id') != tocando_agora.get('id')]
+                        if restantes:
+                            atualizar_estado_pedido(provider_token, restantes[0].get('id'), 'aprovado')
+                        st.rerun()
+            else:
+                st.markdown("""
+                    <div style="background: #000000; border: 3px solid #FFC107; border-radius: 6px; padding: 20px; text-align: center; font-family: monospace; color: #FFC107; font-weight: bold;">
+                        NENHUMA MÚSICA EM REPRODUÇÃO - À ESPERA DA FILA DE ESPERA
+                    </div>
+                """, unsafe_allow_html=True)
 
-        st.markdown("### 📋 Estado da Fila e Controlo de Reprodução")
-
-        if pedidos_ativos:
-            for idx, p in enumerate(pedidos_ativos, start=1):
-                titulo_musica = limpar_nome_musica(p.get("musica", {}))
-                cliente_nome = p.get("cliente", "Convidado")
-                estado_atual = p.get("estado")
-                
-                is_playing = (estado_atual == "aprovado")
-                cor_borda = "#4CAF50" if is_playing else "#FFC107"
-                badge_texto = "🎵 A TOCAR AGORA" if is_playing else f"⏳ Fila #{idx}"
-                
-                with st.container():
-                    st.markdown(f"""
-                        <div style="background: rgba(0,0,0,0.95); border: 4px solid {cor_borda}; border-radius: 8px; padding: 12px 15px; margin-bottom: 10px; font-family: monospace;">
-                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-                                <span style="color: #ffffff; font-weight: bold; font-size: 14px; text-shadow: 1px 1px 3px rgba(0,0,0,0.9);">{badge_texto}</span>
-                                <span style="color: #ffffff; font-size: 13px; font-weight: bold; text-shadow: 1px 1px 3px rgba(0,0,0,0.9);">Cliente: <b>{cliente_nome}</b></span>
-                            </div>
-                            <div style="color: #ffffff; font-size: 16px; font-weight: bold; margin-bottom: 8px; text-shadow: 1px 1px 3px rgba(0,0,0,0.9);">
-                                🎶 {titulo_musica}
-                            </div>
-                        </div>
-                    """, unsafe_allow_html=True)
-                    
-                    col_acao1, col_acao2, col_acao3 = st.columns(3)
-                    with col_acao1:
-                        if not is_playing:
-                            if st.button("▶️ Tocar Agora", key=f"play_linha_{p.get('id')}", use_container_width=True):
-                                terminar_todas_musicas_ativas(provider_token, pedidos)
-                                atualizar_estado_pedido(provider_token, p.get('id'), 'aprovado')
-                                st.success(f"A avançar para: {titulo_musica}")
-                                st.rerun()
-                    with col_acao2:
-                        if is_playing:
-                            if st.button("⏹️ Terminar Atual", key=f"term_linha_{p.get('id')}", use_container_width=True):
-                                terminar_todas_musicas_ativas(provider_token, pedidos)
-                                st.success("Música terminada!")
-                                st.rerun()
-                    with col_acao3:
-                        if st.button("❌ Remover", key=f"rem_linha_{p.get('id')}", use_container_width=True):
-                            atualizar_estado_pedido(provider_token, p.get('id'), 'terminado')
-                            st.warning("Música removida da fila.")
-                            st.rerun()
-                    st.markdown("<hr style='margin: 5px 0 15px 0; border-color: #333;'>", unsafe_allow_html=True)
-        else:
-            st.markdown("""
-                <div style="background-color: rgba(0,0,0,0.95); border: 4px solid #FFC107; border-radius: 8px; padding: 15px; color: #ffffff; width: 100%; font-family: monospace; font-size: 14px; margin-bottom: 20px; text-align: center; font-weight: bold; text-shadow: 1px 1px 3px rgba(0,0,0,0.9);">
-                    NENHUM PEDIDO NA LISTA NESTE MOMENTO.<br>À ESPERA DE NOVOS PEDIDOS...
-                </div>
-            """, unsafe_allow_html=True)
-
-        if tocando_agora:
-            if st.button("🛑 Stop Geral (Limpar Tela)", key="stop_geral_btn", use_container_width=True):
-                terminar_todas_musicas_ativas(provider_token, pedidos)
-                definir_video_fundo(provider_token, "")
-                st.warning("Reprodução parada e tela limpa com sucesso!")
-                st.rerun()
-
-        st.markdown("---")
-        
-        video_fundo_atual = obter_video_fundo(provider_token)
-        lista_clipes_cloudinary = listar_videos_pasta_clipes()
-        
-        opcoes_labels = ["Nenhum (Ecrã Preto)"]
-        mapa_url_por_label = {}
-        
-        for clipe in lista_clipes_cloudinary:
-            label = f"📁 {clipe['nome']}"
-            opcoes_labels.append(label)
-            mapa_url_por_label[label] = clipe['url']
+        with col_dir:
+            st.markdown("<div style='height: 5px;'></div>", unsafe_allow_html=True)
+            video_fundo_atual = obter_video_fundo(provider_token)
+            lista_clipes_cloudinary = listar_videos_pasta_clipes()
             
-        index_atual = 0
-        for idx, label in enumerate(opcoes_labels):
-            if label != "Nenhum (Ecrã Preto)":
-                url_mapeada = mapa_url_por_label.get(label, "")
-                if video_fundo_atual and (video_fundo_atual in url_mapeada or url_mapeada in video_fundo_atual):
-                    index_atual = idx
-                    break
+            opcoes_labels = ["Nenhum (Ecrã Preto)"]
+            mapa_url_por_label = {}
+            for clipe in lista_clipes_cloudinary:
+                label = f"📁 {clipe['nome']}"
+                opcoes_labels.append(label)
+                mapa_url_por_label[label] = clipe['url']
+                
+            index_atual = 0
+            for idx, label in enumerate(opcoes_labels):
+                if label != "Nenhum (Ecrã Preto)":
+                    url_mapeada = mapa_url_por_label.get(label, "")
+                    if video_fundo_atual and (video_fundo_atual in url_mapeada or url_mapeada in video_fundo_atual):
+                        index_atual = idx
+                        break
 
-        with st.form(key="form_video_fundo"):
-            escolha_video = st.selectbox(
-                "Pesquisar Vídeo Clipe", 
-                options=opcoes_labels, 
-                index=index_atual
-            )
-
-            st.markdown("""
-                <style>
-                div[data-testid="stFormSubmitButton"] button {
-                    background-color: #4CAF50 !important;
-                    color: white !important;
-                    border: 2px solid #2E7D32 !important;
-                }
-                div[data-testid="stFormSubmitButton"] button:hover {
-                    background-color: #43A047 !important;
-                }
-                </style>
-            """, unsafe_allow_html=True)
-
-            btn_salvar_fundo = st.form_submit_button("Pesquisar Vídeo Clipe")
-            if btn_salvar_fundo:
-                if escolha_video == "Nenhum (Ecrã Preto)":
-                    valor_a_guardar = ""
-                else:
-                    valor_a_guardar = mapa_url_por_label.get(escolha_video, "")
-                    
-                definir_video_fundo(provider_token, valor_a_guardar)
-                st.success("Vídeo clipe de fundo iniciado com sucesso na tela!")
-                st.rerun()
+            with st.form(key="form_video_fundo_pos"):
+                st.markdown("<div style='font-family: monospace; color: #ffffff; font-size: 13px; font-weight: bold; margin-bottom: 5px;'>Pesquisar Vídeo Clipe</div>", unsafe_allow_html=True)
+                escolha_video = st.selectbox("Pesquisar Vídeo Clipe", options=opcoes_labels, index=index_atual, label_visibility="collapsed")
+                st.markdown("<div style='height: 10px;'></div>", unsafe_allow_html=True)
+                btn_salvar_fundo = st.form_submit_button("🎬 TOCAR VIDEO CLIP", use_container_width=True)
+                if btn_salvar_fundo:
+                    valor_a_guardar = "" if escolha_video == "Nenhum (Ecrã Preto)" else mapa_url_por_label.get(escolha_video, "")
+                    definir_video_fundo(provider_token, valor_a_guardar)
+                    st.success("Vídeo clipe de fundo atualizado e em reprodução na tela!")
+                    st.rerun()
             
     except Exception as e:
         st.error(f"Erro ao carregar os pedidos do Firebase: {e}")
+
 
 def show_provider_panel_custom(provider_token):
     url_logotipo = "https://cdn.phototourl.com/free/2026-08-03-8b13edf5-0257-491d-ab78-f0d5329ffc15.jpg"
     url_fundo_painel = "https://cdn.phototourl.com/free/2026-08-03-694a4a2e-9914-4da8-93b2-87538a4805ab.png"
 
     df_prov = get_all_providers()
-    nome_prestador = "Prestador"
+    nome_prestador = "CARLOS MIGUEL"
     tempo_plano = "2 Horas - 12 Mil Kwanzas"
     data_registo_str = None
     
@@ -590,7 +576,7 @@ def show_provider_panel_custom(provider_token):
         match = df_prov[df_prov['token'] == provider_token]
         if not match.empty:
             row = match.iloc[0]
-            nome_prestador = row.get('nome_prestador', row.get('nome', 'Prestador'))
+            nome_prestador = row.get('nome_prestador', row.get('nome', 'CARLOS MIGUEL')).upper()
             tempo_plano = row.get('tempo_plano', row.get('tempo', '2 Horas - 12 Mil Kwanzas'))
             data_registo_str = row.get('data_registo', None)
 
@@ -632,8 +618,7 @@ def show_provider_panel_custom(provider_token):
                 
             diff = (datetime.now() - dt_reg).total_seconds()
             segundos_restantes = max(0, int(segundos_totais - diff))
-        except Exception as e:
-            print(f"Erro ao calcular tempo restante: {e}")
+        except Exception:
             pass
 
     horas_restantes = segundos_restantes // 3600
@@ -662,164 +647,646 @@ def show_provider_panel_custom(provider_token):
         background: url("{url_fundo_painel}") no-repeat center center fixed !important;
         background-size: cover !important;
     }}
-    
     .block-container {{
-        padding-top: 3rem !important;
-        padding-bottom: 3rem !important;
-        padding-left: 5rem !important;
-        padding-right: 5rem !important;
-        background: rgba(0, 0, 0, 0.90) !important;
+        padding-top: 2rem !important;
+        padding-bottom: 2rem !important;
+        padding-left: 2.5rem !important;
+        padding-right: 2.5rem !important;
+        background: rgba(0, 0, 0, 0.95) !important;
         border-radius: 12px;
-        margin-top: 2rem;
-        margin-bottom: 2rem;
+        margin-top: 1rem;
+        margin-bottom: 1rem;
         border: 4px solid #FFC107 !important;
+        max-width: 1400px;
     }}
-
-    .panel-header {{
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        border-bottom: 4px solid #FFC107;
-        padding-bottom: 12px;
-        margin-bottom: 20px;
-        position: relative;
-    }}
-    
     @keyframes pulseAviso {{
         0% {{ opacity: 1; transform: scale(1); }}
         50% {{ opacity: 0.7; transform: scale(1.01); }}
         100% {{ opacity: 1; transform: scale(1); }}
     }}
-
     @keyframes piscarRelogio {{
         0% {{ opacity: 1; color: #FFC107; }}
         50% {{ opacity: 0.3; color: #ff5252; }}
         100% {{ opacity: 1; color: #FFC107; }}
     }}
-    
     .card-link, .card-tv {{
         background: #000000 !important;
-        border: 4px solid #FFC107 !important;
+        border: 3px solid #FFC107 !important;
         border-radius: 8px;
-        padding: 12px 15px;
+        padding: 10px 14px;
         text-align: left;
         box-shadow: 0 4px 15px rgba(255, 193, 7, 0.25);
-        margin-bottom: 15px;
-        display: block;
+        margin-bottom: 12px;
         width: 100%;
-        max-width: 100%;
     }}
     .card-tv {{
-        border: 4px solid #9c27b0 !important;
+        border: 3px solid #9c27b0 !important;
         box-shadow: 0 4px 15px rgba(156, 39, 176, 0.25);
     }}
-
     .qr-box {{
         background: #000;
-        border: 4px solid #FFC107 !important;
+        border: 3px solid #FFC107 !important;
         border-radius: 8px;
-        padding: 4px;
+        padding: 8px;
         display: flex;
         align-items: center;
         justify-content: center;
-        height: 100%;
     }}
-    
-    .link-title {{
+    .link-title, .link-title-tv {{
         font-family: monospace;
         color: #ffffff !important;
-        font-size: 15px;
+        font-size: 13px;
         font-weight: bold !important;
         margin-bottom: 4px;
         text-shadow: 1px 1px 3px rgba(0,0,0,0.9) !important;
     }}
-    .link-title-tv {{
+    .link-text, .link-text-tv {{
         font-family: monospace;
         color: #ffffff !important;
-        font-size: 15px;
+        font-size: 11px;
+        word-break: break-all;
+        text-decoration: underline;
         font-weight: bold !important;
-        margin-bottom: 4px;
         text-shadow: 1px 1px 3px rgba(0,0,0,0.9) !important;
     }}
-    .link-text {{
-        font-family: monospace;
+    .top-logo {{
+        width: 55px;
+        height: 55px;
+        border-radius: 50%;
+        border: 3px solid #FFC107;
+        object-fit: cover;
+    }}
+    h1, h2, h3, h4, h5, h6, p, label, span, div, .stMarkdown {{
         color: #ffffff !important;
+        font-weight: bold !important;
+        text-shadow: 1px 1px 3px rgba(0,0,0,0.9) !important;
     }}
     </style>
     """, unsafe_allow_html=True)
 
-    if not st.session_state.get("admin_logged", False):
-        st.title("🔒 FFKaraoke - Área Restrita (Administrador)")
+    col_topo_1, col_topo_2, col_topo_3 = st.columns([1.2, 3, 0.8])
+    
+    with col_topo_1:
+        st.markdown(f"""
+            <div style="background: #000000; border: 2px solid #FFC107; border-radius: 6px; padding: 8px; text-align: center;">
+                <div style="font-family: monospace; color: #ffffff; font-size: 9px; text-transform: uppercase; letter-spacing: 1px;">TEMPO / PLANO ESCOLHIDO</div>
+                <div style="font-family: monospace; color: #FFC107; font-size: 18px; font-weight: bold; {classe_piscar} margin: 2px 0;">⏱️ {tempo_formatado}</div>
+                <div style="font-family: monospace; color: #fff; font-size: 10px;">({tempo_plano})</div>
+            </div>
+        """, unsafe_allow_html=True)
         
-        with st.form("form_admin_login"):
-            senha = st.text_input("Palavra-passe de Administrador", type="password")
-            submitted = st.form_submit_button("Entrar")
-            
-            if submitted:
-                if senha == "ffkaraoke2026" or senha == "admin123":
-                    st.session_state["admin_logged"] = True
-                    st.success("Sessão iniciada com sucesso!")
-                    st.rerun()
+    with col_topo_2:
+        st.markdown(f"""
+            <div style="display: flex; align-items: center; gap: 12px; padding-top: 5px;">
+                <span style="font-size: 28px;">🎤</span>
+                <div>
+                    <h1 style="margin: 0; color: #FFC107; font-family: monospace; font-size: 20px; text-transform: uppercase; font-weight: bold;">PAINEL DO PRESTADOR: <span style="color: #FFC107;">{nome_prestador}</span></h1>
+                </div>
+            </div>
+        """, unsafe_allow_html=True)
+        
+    with col_topo_3:
+        st.markdown(f'<div style="text-align: right;"><img src="{url_logotipo}" class="top-logo" /></div>', unsafe_allow_html=True)
+
+    st.markdown("<hr style='border-color: #FFC107; margin: 15px 0;'>", unsafe_allow_html=True)
+    st.markdown(aviso_reforço_html, unsafe_allow_html=True)
+    
+    link_cliente_rel = f"/?page=client_register&prestador={provider_token}"
+    link_tv_rel = f"/?page=client_screen&prestador={provider_token}"
+    
+    host_dominio = st.context.headers.get('Host', 'grupoffkaraoke.streamlit.app')
+    link_cliente_absoluto = f"https://{host_dominio}{link_cliente_rel}"
+    link_tv_absoluto = f"https://{host_dominio}{link_tv_rel}"
+    
+    qr_url_cliente = f"https://api.qrserver.com/v1/create-qr-code/?size=150x150&data={urllib.parse.quote(link_cliente_absoluto)}"
+
+    col_links, col_qr = st.columns([2.5, 1], gap="medium")
+    
+    with col_links:
+        st.markdown(f"""
+            <div class="card-link">
+                <div class="link-title">🔗 LINK DO CLIENTE (REGISTO DE MÚSICA)</div>
+                <a href="{link_cliente_rel}" target="_blank" class="link-text">{link_cliente_absoluto}</a>
+            </div>
+        """, unsafe_allow_html=True)
+        
+        st.markdown(f"""
+            <div class="card-tv">
+                <div class="link-title-tv">📺 LINK DA TELA DE TV / REPRODUÇÃO</div>
+                <a href="{link_tv_rel}" target="_blank" class="link-text-tv">{link_tv_absoluto}</a>
+            </div>
+        """, unsafe_allow_html=True)
+
+    with col_qr:
+        st.markdown("<div style='font-family: monospace; color: #ffffff; font-size: 11px; font-weight: bold; margin-bottom: 3px; text-align: center;'>QR CODE CLIENTE</div>", unsafe_allow_html=True)
+        st.markdown(f"""
+            <div class="qr-box">
+                <img src="{qr_url_cliente}" width="110" style="border-radius: 4px;" />
+            </div>
+        """, unsafe_allow_html=True)
+
+    st.markdown("<hr style='border-color: #333; margin: 15px 0;'>", unsafe_allow_html=True)
+
+    st.markdown("<div id='reforco_seccao'></div>", unsafe_allow_html=True)
+    if segundos_restantes <= 1800:
+        st.markdown("### ⚡ Solicitar Reforço de Tempo")
+        with st.form("form_reforco_prestador"):
+            referencia_comprovativo = st.text_input("Referência de Pagamento / Nº de Comprovativo")
+            duracao_reforco = st.selectbox(
+                "Duração Pretendida", 
+                options=[
+                    "2 Horas - 12 Mil Kwanzas", 
+                    "3 Horas - 15 Mil Kwanzas", 
+                    "4 Horas - 20 Mil Kwanzas"
+                ]
+            )
+            btn_sub_reforco = st.form_submit_button("Submeter Pedido de Reforço")
+            if btn_sub_reforco:
+                if not referencia_comprovativo:
+                    st.error("Por favor, preencha a Referência de Pagamento / Nº de Comprovativo.")
                 else:
-                    st.error("Palavra-passe incorreta.")
+                    dados_reforco = {
+                        "token": provider_token,
+                        "nome_prestador": nome_prestador,
+                        "referencia": referencia_comprovativo,
+                        "tempo_plano": duracao_reforco,
+                        "approved": 0,
+                        "data_registo": str(datetime.now())
+                    }
+                    try:
+                        import uuid
+                        ref_id = str(uuid.uuid4())[:8]
+                        requests.put(f"{FIREBASE_URL}/reforcos_pendentes/{provider_token}/{ref_id}.json", json=dados_reforco, timeout=10)
+                        st.success("Pedido de reforço submetido com sucesso! Aguarde a confirmação do Administrador.")
+                    except Exception as err:
+                        st.error(f"Erro ao enviar reforço: {err}")
 
-    if st.session_state.get("admin_logged", False):
-        st.markdown("---")
-        st.subheader("⚡ Gestão de Reforços de Tempo Pendentes")
-        try:
-            res_all_ref = requests.get(f"{FIREBASE_URL}/reforcos_pendentes.json", timeout=10)
-            if res_all_ref.status_code == 200 and res_all_ref.json():
-                all_refs = res_all_ref.json()
-                tem_reforcos = False
-                for tok, refs_dict in all_refs.items():
-                    if isinstance(refs_dict, dict):
-                        for r_id, r_data in refs_dict.items():
-                            if r_data.get("approved", 0) == 0:
-                                tem_reforcos = True
-                                st.markdown(f"""
-                                <div style="background: rgba(0,0,0,0.95); border: 2px solid #FFC107; padding: 12px; border-radius: 6px; margin-bottom: 10px;">
-                                    <b>Prestador:</b> {r_data.get('nome_prestador')} (Token: {tok})<br>
-                                    <b>Referência / Comprovativo:</b> {r_data.get('referencia')}<br>
-                                    <b>Duração Solicitada:</b> {r_data.get('tempo_plano')}
-                                </div>
-                                """, unsafe_allow_html=True)
-                                
-                                col_s, col_n = st.columns(2)
-                                with col_s:
-                                    if st.button("✅ Aprovar Reforço", key=f"aprov_ref_{tok}_{r_id}"):
-                                        r_data["approved"] = 1
-                                        requests.put(f"{FIREBASE_URL}/reforcos_aprovados/{tok}/{r_id}.json", json=r_data)
-                                        requests.delete(f"{FIREBASE_URL}/reforcos_pendentes/{tok}/{r_id}.json")
-                                        st.success("Reforço aprovado e acumulado com sucesso!")
-                                        st.rerun()
-                                with col_n:
-                                    if st.button("❌ Recusar Reforço", key=f"rec_ref_{tok}_{r_id}"):
-                                        requests.delete(f"{FIREBASE_URL}/reforcos_pendentes/{tok}/{r_id}.json")
-                                        st.warning("Reforço recusado.")
-                                        st.rerun()
-                if not tem_reforcos:
-                    st.info("Nenhum pedido de reforço pendente neste momento.")
+    st.markdown("<div style='height: 5px;'></div>", unsafe_allow_html=True)
+    renderizar_gestao_fila_prestador(provider_token)
+    
+def renderizar_ecra_tv(provider_token):
+    try:
+        url_firebase = f"{FIREBASE_URL}/pedidos/{provider_token}.json?_t={time.time()}"
+        response = requests.get(url_firebase, timeout=10)
+        
+        pedidos_ativos = []
+        tocando_agora = None
+        
+        if response.status_code == 200 and response.json():
+            data = response.json()
+            pedidos = [{"id": k, **v} for k, v in data.items()]
+            pedidos_ativos = [p for p in pedidos if p.get("estado") in ["pendente", "aprovado"]]
+            pedidos_ativos.sort(key=lambda x: x.get("timestamp", 0))
+            tocando_agora = next((p for p in pedidos_ativos if p.get("estado") == "aprovado"), None)
+        
+        frame_styles = """
+            <style>
+                @keyframes pulseSpeaker {
+                    0% { transform: scale(1); filter: drop-shadow(0 0 2px #FFC107); }
+                    50% { transform: scale(1.12); filter: drop-shadow(0 0 14px #FFC107); }
+                    100% { transform: scale(1); filter: drop-shadow(0 0 2px #FFC107); }
+                }
+                @keyframes bounceIcon {
+                    0%, 100% { transform: translateY(0) rotate(0deg); }
+                    50% { transform: translateY(-5px) rotate(10deg); }
+                }
+                @keyframes marqueeFast {
+                    0% { transform: translateX(0%); }
+                    100% { transform: translateX(-50%); }
+                }
+                .speaker-box {
+                    position: fixed;
+                    z-index: 99998;
+                    width: 90px;
+                    height: 140px;
+                    background: #111;
+                    border: 4px solid #FFC107;
+                    border-radius: 10px;
+                    display: flex;
+                    flex-direction: column;
+                    align-items: center;
+                    justify-content: space-around;
+                    padding: 8px 0;
+                    box-shadow: 0 0 15px rgba(255, 193, 7, 0.4);
+                    pointer-events: none;
+                    animation: pulseSpeaker 0.55s infinite ease-in-out;
+                }
+                .woofer {
+                    width: 55px;
+                    height: 55px;
+                    border: 3px solid #FFC107;
+                    border-radius: 50%;
+                    background: radial-gradient(circle, #333 30%, #000 90%);
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    box-shadow: inset 0 0 8px #FFC107;
+                }
+                .woofer-inner {
+                    width: 22px;
+                    height: 22px;
+                    background: #FFC107;
+                    border-radius: 50%;
+                }
+                
+                .speaker-tl { top: 15px; left: 15px; }
+                .speaker-tr { top: 15px; right: 15px; }
+                .speaker-bl { bottom: 50px; left: 15px; }
+                .speaker-br { bottom: 50px; right: 15px; }
+
+                .marquee-footer {
+                    position: fixed;
+                    bottom: 0;
+                    left: 0;
+                    width: 100vw;
+                    height: 38px;
+                    background: #111;
+                    border-top: 4px solid #FFC107;
+                    z-index: 99997;
+                    overflow: hidden;
+                    display: flex;
+                    align-items: center;
+                    white-space: nowrap;
+                    pointer-events: none;
+                }
+                .marquee-track {
+                    display: inline-block;
+                    white-space: nowrap;
+                    animation: marqueeFast 15s linear infinite;
+                    font-family: monospace;
+                    font-size: 16px;
+                    color: #ffffff;
+                    font-weight: bold;
+                    text-shadow: 1px 1px 3px rgba(0,0,0,0.9);
+                }
+                .marquee-item {
+                    display: inline-flex;
+                    align-items: center;
+                    gap: 12px;
+                    margin-right: 40px;
+                }
+                .icon-anim {
+                    display: inline-block;
+                    animation: bounceIcon 0.8s infinite ease-in-out;
+                }
+            </style>
+
+            <div class="speaker-box speaker-tl">
+                <div class="woofer"><div class="woofer-inner"></div></div>
+                <div class="woofer"><div class="woofer-inner"></div></div>
+            </div>
+            <div class="speaker-box speaker-tr">
+                <div class="woofer"><div class="woofer-inner"></div></div>
+                <div class="woofer"><div class="woofer-inner"></div></div>
+            </div>
+            <div class="speaker-box speaker-bl">
+                <div class="woofer"><div class="woofer-inner"></div></div>
+                <div class="woofer"><div class="woofer-inner"></div></div>
+            </div>
+            <div class="speaker-box speaker-br">
+                <div class="woofer"><div class="woofer-inner"></div></div>
+                <div class="woofer"><div class="woofer-inner"></div></div>
+            </div>
+
+            <div class="marquee-footer">
+                <div class="marquee-track">
+                    <span class="marquee-item"><span class="icon-anim">🎵</span> FF KARAOKE CLOUD <span class="icon-anim">🎤</span> CANTE COMIGO <span class="icon-anim">🎶</span> A SUA MÚSICA FAVORITA <span class="icon-anim">🎙️</span> DIVIRTA-SE AO MÁXIMO</span>
+                    <span class="marquee-item"><span class="icon-anim">🎵</span> FF KARAOKE CLOUD <span class="icon-anim">🎤</span> CANTE COMIGO <span class="icon-anim">🎶</span> A SUA MÚSICA FAVORITA <span class="icon-anim">🎙️</span> DIVIRTA-SE AO MÁXIMO</span>
+                </div>
+            </div>
+        """
+
+        if tocando_agora:
+            musica = tocando_agora.get("musica", {})
+            if isinstance(musica, dict):
+                titulo = musica.get("titulo", musica.get("nome", "Karaoke"))
+                url_video = musica.get("url_cloudinary", "") or musica.get("url", "")
             else:
-                st.info("Nenhum pedido de reforço pendente neste momento.")
-        except Exception as e:
-            st.warning(f"Não foi possível carregar os reforços pendentes: {e}")
-
-        show_admin_panel()
+                titulo = str(musica)
+                url_video = ""
             
-    else:
-        # Se for um prestador com token na query string ou fluxo normal
-        prestador_token = st.query_params.get("prestador", "")
-        if prestador_token:
-            show_provider_panel_custom(prestador_token)
+            titulo_limpo = limpar_nome_musica(titulo)
+            url_video = obter_url_video_cloudinary(musica, titulo_limpo)
+
+            video_html = f"""
+            <style>
+                body, html {{
+                    margin: 0;
+                    padding: 0;
+                    background: #000;
+                    overflow: hidden;
+                    width: 100vw;
+                    height: 100vh;
+                }}
+                @keyframes zoomInNumber {{
+                    0% {{ transform: scale(0.2); opacity: 0; }}
+                    50% {{ transform: scale(1.2); opacity: 1; }}
+                    100% {{ transform: scale(1); opacity: 1; }}
+                }}
+                .countdown-overlay {{
+                    position: fixed;
+                    top: 0; left: 0; width: 100vw; height: 100vh;
+                    background: rgba(0,0,0,0.95);
+                    display: flex;
+                    justify-content: center;
+                    align-items: center;
+                    z-index: 99999;
+                    color: #ffffff;
+                    font-family: monospace;
+                    font-size: 15vw;
+                    font-weight: bold;
+                    text-shadow: 2px 2px 5px rgba(0,0,0,0.9);
+                    animation: zoomInNumber 0.9s ease-in-out infinite;
+                }}
+            </style>
+
+            <div id="countdown-screen" class="countdown-overlay">3</div>
+
+            <div id="karaoke-container" style="display: none; width: 100vw; height: 100vh; background: black; position: fixed; top: 0; left: 0;">
+                <video id="karaoke-player" width="100%" height="100%" autoplay playsinline style="object-fit: contain; background: black; width: 100%; height: 100%;">
+                    <source src="{url_video}" type="video/mp4">
+                    O seu navegador não suporta a reprodução deste vídeo.
+                </video>
+                <div id="audio-warning" style="display: none; position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); text-align: center; background: #222; border: 4px solid #FFC107; padding: 10px 20px; border-radius: 5px; z-index: 99999;">
+                    <p style="color: #ffffff; margin: 0 0 8px 0; font-family: monospace; font-size: 14px; font-weight: bold; text-shadow: 1px 1px 3px rgba(0,0,0,0.9);">⚠️ O navegador bloqueou o áudio automático.</p>
+                    <button onclick="unmuteVideo()" style="background-color: #4CAF50; color: white; border: none; padding: 8px 16px; font-size: 15px; border-radius: 4px; cursor: pointer; font-weight: bold;">🔊 CLIQUE AQUI PARA ATIVAR O SOM</button>
+                </div>
+            </div>
+
+            <script>
+                var count = 3;
+                var cdScreen = document.getElementById('countdown-screen');
+                
+                var timer = setInterval(function() {{
+                    count--;
+                    if (count > 0) {{
+                        cdScreen.innerText = count;
+                    }} else if (count === 0) {{
+                        cdScreen.innerText = "🎤 CANTE!";
+                    }} else {{
+                        clearInterval(timer);
+                        cdScreen.style.display = 'none';
+                        document.getElementById('karaoke-container').style.display = 'block';
+                        
+                        var video = document.getElementById('karaoke-player');
+                        video.muted = false; 
+                        var playPromise = video.play();
+                        
+                        if (playPromise !== undefined) {{
+                            playPromise.then(_ => {{}}).catch(error => {{
+                                video.muted = true;
+                                video.play();
+                                document.getElementById('audio-warning').style.display = 'block';
+                            }});
+                        }}
+                    }}
+                }}, 1000);
+
+                function unmuteVideo() {{
+                    var video = document.getElementById('karaoke-player');
+                    video.muted = false;
+                    video.play();
+                    document.getElementById('audio-warning').style.display = 'none';
+                }}
+
+                function stopKaraoke() {{
+                    var pedidoId = "{tocando_agora.get('id')}";
+                    var token = "{provider_token}";
+                    var firebaseURL = "{FIREBASE_URL}/pedidos/" + token + "/" + pedidoId + "/estado.json";
+                    
+                    fetch(firebaseURL, {{
+                        method: 'PUT',
+                        body: JSON.stringify('terminado'),
+                        headers: {{ 'Content-Type': 'application/json' }}
+                    }}).then(response => {{
+                        setTimeout(function() {{ window.location.reload(); }}, 300);
+                    }}).catch(err => {{
+                        window.location.reload();
+                    }});
+                }}
+
+                var video = document.getElementById('karaoke-player');
+                if (video) {{
+                    video.onended = function() {{
+                        stopKaraoke();
+                    }};
+                }}
+            </script>
+            """
+            components.html(video_html, height=750, scrolling=False)
+            
         else:
-            custom_show_register_page()
+            url_clipe_fundo = obter_video_fundo(provider_token)
+            proximo_cantor = pedidos_ativos[0] if pedidos_ativos else None
+
+            st.markdown(frame_styles, unsafe_allow_html=True)
+
+            col_esq, col_dir = st.columns([1, 1])
+            
+            with col_esq:
+                if proximo_cantor:
+                    c_prox = proximo_cantor.get("cliente", "Convidado")
+                    st.markdown(f"""
+                        <div style="border: 4px solid #FFC107; border-radius: 10px; padding: 15px; background: rgba(0,0,0,0.95); margin-bottom: 15px; display: flex; align-items: center; gap: 15px;">
+                            <span style="color: #ffffff; font-size: 20px; font-weight: bold; font-family: monospace; text-shadow: 1px 1px 3px rgba(0,0,0,0.9);">Á SEGUIR</span>
+                            <span style="color: #ffffff; font-size: 20px; font-weight: bold; font-family: monospace; text-transform: uppercase; text-shadow: 1px 1px 3px rgba(0,0,0,0.9);">{c_prox}</span>
+                        </div>
+                    """, unsafe_allow_html=True)
+                else:
+                    st.markdown("""
+                        <div style="border: 4px solid #FFC107; border-radius: 10px; padding: 15px; text-align: center; background: rgba(0,0,0,0.95); margin-bottom: 15px;">
+                            <h2 style="color: #ffffff; margin: 0; font-family: monospace; font-weight: bold; text-shadow: 1px 1px 3px rgba(0,0,0,0.9);">🎤 FILA DE ESPERA VAZIA</h2>
+                        </div>
+                    """, unsafe_allow_html=True)
+                
+                html_caixas = '<div style="display: flex; flex-direction: column; gap: 8px; margin-bottom: 40px;">'
+                demais_pedidos = pedidos_ativos[1:] if len(pedidos_ativos) > 1 else []
+                
+                for idx, p_item in enumerate(demais_pedidos, start=2):
+                    c_item = p_item.get("cliente", "Convidado")
+                    texto_caixa = f"<b>{idx}.</b> {c_item}"
+                    html_caixas += f'<div style="background: rgba(0,0,0,0.95); border: 4px solid #FFC107; border-radius: 8px; padding: 12px; color: #ffffff; font-family: monospace; font-size: 16px; font-weight: bold; text-shadow: 1px 1px 3px rgba(0,0,0,0.9);">{texto_caixa}</div>'
+                
+                html_caixas += '</div>'
+                st.markdown(html_caixas, unsafe_allow_html=True)
+
+            with col_dir:
+                if url_clipe_fundo:
+                    video_fundo_html = f"""
+                    <div style="display: flex; justify-content: center; background: rgba(0,0,0,0.95); border: 4px solid #FFC107; border-radius: 10px; padding: 5px; width: 100%; position: relative; margin-top: 5px; margin-bottom: 40px;">
+                        <video id="fundo-player" width="100%" height="450px" autoplay loop playsinline controlslist="nodownload noremoteplayback" disablepictureinpicture style="object-fit: contain; background: black; border-radius: 8px;">
+                            <source src="{url_clipe_fundo}" type="video/mp4">
+                            O seu navegador não suporta vídeo.
+                        </video>
+                        <div id="fundo-audio-warning" style="display: none; position: absolute; bottom: 15px; right: 15px; background: rgba(0,0,0,0.8); border: 2px solid #FFC107; padding: 6px 10px; border-radius: 5px; cursor: pointer;" onclick="unmuteFundo()">
+                            <span style="font-size: 18px;" title="Ativar Som">🔊</span>
+                        </div>
+                    </div>
+                    <script>
+                        var fundoVideo = document.getElementById('fundo-player');
+                        fundoVideo.muted = false;
+                        var fundoPromise = fundoVideo.play();
+                        if (fundoPromise !== undefined) {{
+                            fundoPromise.then(_ => {{}}).catch(error => {{
+                                fundoVideo.muted = true;
+                                fundoVideo.play();
+                                document.getElementById('fundo-audio-warning').style.display = 'block';
+                            }});
+                        }}
+                        function unmuteFundo() {{
+                            fundoVideo.muted = false;
+                            fundoVideo.play();
+                            document.getElementById('fundo-audio-warning').style.display = 'none';
+                        }}
+                    </script>
+                    """
+                    components.html(video_fundo_html, height=480)
+                else:
+                    st.markdown("""
+                        <div style="border: 4px solid #FFC107; border-radius: 10px; padding: 100px 20px; text-align: center; background: rgba(0,0,0,0.95); color: #ffffff; font-family: monospace; margin-top: 5px; margin-bottom: 40px; font-weight: bold; text-shadow: 1px 1px 3px rgba(0,0,0,0.9);">
+                            <div style="font-size: 40px; margin-bottom: 10px;">📺</div>
+                            <p style="color: #ffffff; font-size: 16px; margin: 0; font-weight: bold; text-shadow: 1px 1px 3px rgba(0,0,0,0.9);">Aguardando o prestador selecionar um vídeo clipe no painel de controle...</p>
+                        </div>
+                    """, unsafe_allow_html=True)
+
+    except Exception as e:
+        st.error(f"Erro de sincronização na TV: {e}")
+
+def show_client_screen():
+    query_params = st.query_params
+    provider_token = query_params.get("prestador") or query_params.get("provider", None)
+
+    if not provider_token:
+        st.error("Tela inválida. Falta o parâmetro do prestador.")
+        return
+
+    st.markdown("""
+    <style>
+    .stApp { background-color: #000000; color: white; }
+    </style>""", unsafe_allow_html=True)
+
+    renderizar_ecra_tv(provider_token)
+
+def show_provider_panel_center(token):
+    show_provider_panel_custom(token)
 
 def main():
-    prestador_token = st.query_params.get("prestador", "")
-    if prestador_token:
-        show_provider_panel_custom(prestador_token)
-    else:
-        custom_show_register_page()
+    try:
+        query_params = st.query_params
+        
+        if "page" in query_params and query_params["page"] == "register":
+            custom_show_register_page()
+            return
+
+        if "page" in query_params and query_params["page"] == "client_register":
+            show_client_page()
+            return
+
+        if "page" in query_params and query_params["page"] == "client_screen":
+            show_client_screen()
+            return
+
+        token = query_params.get("prestador") or query_params.get("token") or query_params.get("provider")
+        
+        if token:
+            df = get_all_providers()
+            if df.empty or 'token' not in df.columns or not (df['token'] == token).any():
+                show_provider_panel_center(token)
+                return
+                
+            prior_prestador = df[df['token'] == token]
+            if not prior_prestador.empty:
+                row = prior_prestador.iloc[0]
+                if row.get('approved', 1) == 1:
+                    show_provider_panel_custom(token)
+                    return
+                else:
+                    st.warning("⏳ O seu registo aguarda aprovação do Administrador.")
+                    return
+            else:
+                show_provider_panel_custom(token)
+                return
+            
+        st.markdown("""
+            <style>
+            .stApp {
+                background-color: #000000 !important;
+                color: #ffffff !important;
+                font-weight: bold !important;
+            }
+            .block-container {
+                background-color: #000000 !important;
+                border: 4px solid #FFC107 !important;
+                border-radius: 12px;
+                padding: 3rem !important;
+            }
+            h1, h2, h3, h4, h5, h6, p, span, label, div, button, input {
+                font-weight: bold !important;
+                text-shadow: 1px 1px 3px rgba(0,0,0,0.9);
+            }
+            </style>
+        """, unsafe_allow_html=True)
+
+        if not st.session_state.get("admin_logged", False):
+            st.title("🔒 FFKaraoke - Área Restrita (Administrador)")
+            
+            with st.form("form_admin_login"):
+                senha = st.text_input("Palavra-passe de Administrador", type="password")
+                submitted = st.form_submit_button("Entrar")
+                
+                if submitted:
+                    if senha == "ffkaraoke2026" or senha == "admin123":
+                        st.session_state["admin_logged"] = True
+                        st.success("Sessão iniciada com sucesso!")
+                        st.rerun()
+                    else:
+                        st.error("Palavra-passe incorreta.")
+
+        if st.session_state.get("admin_logged", False):
+            st.markdown("---")
+            st.subheader("⚡ Gestão de Reforços de Tempo Pendentes")
+            try:
+                res_all_ref = requests.get(f"{FIREBASE_URL}/reforcos_pendentes.json", timeout=10)
+                if res_all_ref.status_code == 200 and res_all_ref.json():
+                    all_refs = res_all_ref.json()
+                    tem_reforcos = False
+                    for tok, refs_dict in all_refs.items():
+                        if isinstance(refs_dict, dict):
+                            for r_id, r_data in refs_dict.items():
+                                if r_data.get("approved", 0) == 0:
+                                    tem_reforcos = True
+                                    st.markdown(f"""
+                                    <div style="background: rgba(0,0,0,0.95); border: 2px solid #FFC107; padding: 12px; border-radius: 6px; margin-bottom: 10px;">
+                                        <b>Prestador:</b> {r_data.get('nome_prestador')} (Token: {tok})<br>
+                                        <b>Referência / Comprovativo:</b> {r_data.get('referencia')}<br>
+                                        <b>Duração Solicitada:</b> {r_data.get('tempo_plano')}
+                                    </div>
+                                    """, unsafe_allow_html=True)
+                                    
+                                    col_s, col_n = st.columns(2)
+                                    with col_s:
+                                        if st.button("✅ Aprovar Reforço", key=f"aprov_ref_{tok}_{r_id}"):
+                                            r_data["approved"] = 1
+                                            requests.put(f"{FIREBASE_URL}/reforcos_aprovados/{tok}/{r_id}.json", json=r_data)
+                                            requests.delete(f"{FIREBASE_URL}/reforcos_pendentes/{tok}/{r_id}.json")
+                                            st.success("Reforço aprovado e acumulado com sucesso!")
+                                            st.rerun()
+                                    with col_n:
+                                        if st.button("❌ Recusar Reforço", key=f"rec_ref_{tok}_{r_id}"):
+                                            requests.delete(f"{FIREBASE_URL}/reforcos_pendentes/{tok}/{r_id}.json")
+                                            st.warning("Reforço recusado.")
+                                            st.rerun()
+                    if not tem_reforcos:
+                        st.info("Nenhum pedido de reforço pendente neste momento.")
+                else:
+                    st.info("Nenhum pedido de reforço pendente neste momento.")
+            except Exception as e:
+                st.warning(f"Não foi possível carregar os reforços pendentes: {e}")
+
+            show_admin_panel()
+                
+    except Exception as e:
+        st.error(f"Ocorreu um erro ao carregar a aplicação: {e}")
 
 if __name__ == "__main__":
     main()
