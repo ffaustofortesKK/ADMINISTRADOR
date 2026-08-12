@@ -88,7 +88,7 @@ def show_admin_panel():
         # ABA 1: Link e QR Code para o Registo de Prestadores
         # -------------------------------------------------------------
         with aba1:
-            st.subheader("🔗 Portal de Auto-Registo de Prestadores")
+            st.subheader("🔗 Portal do Prestadores")
             st.write("Partilhe este link ou o QR Code com os prestadores para que possam submeter os seus dados e comprovativo de pagamento.")
             
             base_url = "https://appadm.streamlit.app/?page=register"
@@ -108,10 +108,10 @@ def show_admin_panel():
                 st.image(qr_api_url, width=140, caption="QR Code de Registo")
 
         # -------------------------------------------------------------
-        # ABA 2: Pedidos e Aprovação dos Prestadores
+        # ABA 2: Pedidos dos Prestadores
         # -------------------------------------------------------------
         with aba2:
-            st.subheader("📋 Pedidos de Registo Pendentes")
+            st.subheader("📋 Pedidos dos Pendentes")
             st.write("Analise as informações enviadas por cada prestador e aprove o acesso conforme a confirmação do pagamento.")
             
             if df_all.empty:
