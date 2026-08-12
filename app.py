@@ -296,7 +296,7 @@ def custom_show_register_page():
             pass
 
     st.markdown("<h1>🎤 FFKaraoke - Registo de Prestador</h1>", unsafe_allow_html=True)
-    st.markdown("<p>Preencha os seus dados e escolha a duração pretendida para solicitar o seu acesso.</p>", unsafe_allow_html=True)
+    st.markdown("<p>Preencha os seus dados.</p>", unsafe_allow_html=True)
     
     with st.form("form_registo_prestador_custom"):
         col1, col2 = st.columns(2)
@@ -307,7 +307,7 @@ def custom_show_register_page():
             
         telefone = st.text_input("Número de Telefone")
         duracao = st.selectbox(
-            "Duração Pretendida", 
+            "Contrato Pretendido", 
             options=[
                 "2 Horas - 12 Mil Kwanzas", 
                 "3 Horas - 15 Mil Kwanzas", 
