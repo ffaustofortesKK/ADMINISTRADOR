@@ -188,22 +188,29 @@ def show_register_page():
             token_atual = st.session_state["token_gerado"]
             df = get_all_providers()
             
-            aprovado = False
+            estado_atual = 0  # 0 = pendente, 1 = aprovado, -1 = recusado
             if not df.empty and 'token' in df.columns:
                 prestador = df[df['token'] == token_atual]
                 if not prestador.empty:
-                    if int(prestador.iloc[0].get('approved', 0)) == 1:
-                        aprovado = True
+                    estado_atual = int(prestador.iloc[0].get('approved', 0))
 
             st.markdown("---")
             
-            if aprovado:
+            if estado_atual == 1:
                 st.success("🎉 O seu perfil foi aprovado pelo Administrador!")
                 
                 if st.button("🚀 Clique aqui para abrir o seu Painel de Prestador", type="primary"):
                     st.query_params["token"] = token_atual
                     if "page" in st.query_params:
                         del st.query_params["page"]
+                    st.rerun()
+                    
+            elif estado_atual == -1:
+                st.error("❌ O seu pedido de registo foi recusado pelo Administrador.")
+                st.warning("Se acha que isto é um engano, por favor contacte o suporte ou refaça o seu pedido com os dados corretos.")
+                
+                if st.button("🔄 Tentar Novamente / Novo Registo"):
+                    st.session_state["token_gerado"] = None
                     st.rerun()
             else:
                 # Ecrã de espera com o microfone e os círculos rotativos
