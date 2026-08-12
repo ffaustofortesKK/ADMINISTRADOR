@@ -929,7 +929,6 @@ def renderizar_ecra_tv(provider_token):
                 .speaker-tr { top: 15px; right: 15px; }
                 .speaker-bl { bottom: 50px; left: 15px; }
                 .speaker-br { bottom: 50px; right: 15px; }
-
                 .marquee-footer {
                     position: fixed;
                     bottom: 0;
@@ -983,7 +982,6 @@ def renderizar_ecra_tv(provider_token):
                 <div class="woofer"><div class="woofer-inner"></div></div>
                 <div class="woofer"><div class="woofer-inner"></div></div>
             </div>
-
             <div class="marquee-footer">
                 <div class="marquee-track">
                     <span class="marquee-item"><span class="icon-anim">🎵</span> FF KARAOKE CLOUD <span class="icon-anim">🎤</span> CANTE COMIGO <span class="icon-anim">🎶</span> A SUA MÚSICA FAVORITA <span class="icon-anim">🎙️</span> DIVIRTA-SE AO MÁXIMO</span>
@@ -992,36 +990,56 @@ def renderizar_ecra_tv(provider_token):
             </div>
         """
 
-        # Script global de escuta em tempo real (Poller do Firebase) para detetar se o prestador mudou o vídeo/estado
+        # Capturamos o estado inicial para comparação no script de sincronização global
+        url_atual_fundo = obter_video_fundo(provider_token) or ""
         id_atual_tocando = tocando_agora.get('id') if tocando_agora else "none"
+
+        # Script global melhorado para vigiar tanto o karaoke quanto o vídeo de fundo (Stop)
         script_sincronizacao_global = f"""
             <script>
                 const providerToken = "{provider_token}";
                 const firebaseBaseUrl = "{FIREBASE_URL}/pedidos/" + providerToken + ".json";
+                const firebaseVideoUrl = "{FIREBASE_URL}/video_fundo/" + providerToken + ".json";
+
                 let idAtualConhecido = "{id_atual_tocando}";
+                let urlFundoConhecida = "{url_atual_fundo}";
 
                 setInterval(async () => {{
                     try {{
-                        let response = await fetch(firebaseBaseUrl);
-                        let data = await response.json();
+                        // 1. Verifica alterações na fila de pedidos / karaoke
+                        let responsePedidos = await fetch(firebaseBaseUrl);
+                        let dataPedidos = await responsePedidos.json();
                         let novoIdTocando = "none";
                         
-                        if (data) {{
-                            for (let key in data) {{
-                                if (data[key].estado === "aprovado") {{
+                        if (dataPedidos) {{
+                            for (let key in dataPedidos) {{
+                                if (dataPedidos[key].estado === "aprovado") {{
                                     novoIdTocando = key;
                                     break;
                                 }}
                             }}
                         }}
                         
-                        if (novoIdTocando !== idAtualConhecido) {{
+                        // 2. Verifica alterações no vídeo de fundo (incluindo o Stop que limpa a URL)
+                        let responseVideo = await fetch(firebaseVideoUrl);
+                        let dataVideo = await responseVideo.json();
+                        let novaUrlFundo = "";
+                        if (dataVideo) {{
+                            if (typeof dataVideo === 'string') {{
+                                novaUrlFundo = dataVideo;
+                            }} else if (dataVideo.url) {{
+                                novaUrlFundo = dataVideo.url;
+                            }}
+                        }}
+                        
+                        // 3. Se houver mudança em qualquer um dos dois, recarrega imediatamente a tela
+                        if (novoIdTocando !== idAtualConhecido || novaUrlFundo !== urlFundoConhecida) {{
                             window.location.reload();
                         }}
                     }} catch (e) {{
                         console.log("Erro na sincronização:", e);
                     }}
-                }}, 3000); // Verifica a cada 3 segundos se o prestador alterou o comando
+                }}, 2000);
             </script>
         """
 
@@ -1068,7 +1086,6 @@ def renderizar_ecra_tv(provider_token):
                     animation: zoomInNumber 0.9s ease-in-out infinite;
                 }}
             </style>
-            
             <div id="countdown-screen" class="countdown-overlay">3</div>
 
             <div id="karaoke-container" style="display: none; width: 100vw; height: 100vh; background: black; position: fixed; top: 0; left: 0;">
@@ -1150,7 +1167,7 @@ def renderizar_ecra_tv(provider_token):
             proximo_cantor = pedidos_ativos[0] if pedidos_ativos else None
 
             st.markdown(frame_styles, unsafe_allow_html=True)
-            st.markdown(script_sincronizacao_global, unsafe_allow_html=True) # Garante que se a fila mudar, a tela de espera atualiza logo
+            st.markdown(script_sincronizacao_global, unsafe_allow_html=True)
 
             col_esq, col_dir = st.columns([1, 1])
             
