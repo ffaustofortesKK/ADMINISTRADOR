@@ -931,7 +931,7 @@ def renderizar_ecra_tv(provider_token):
                 }
                 .icon-anim {
                     display: inline-block;
-                    animation: bounceIcon 0.8s infinite ease-in-out;
+                    animation: bounceIcon 0.8s infinite ease-in-out; 
                 }
             </style>
 
@@ -958,6 +958,39 @@ def renderizar_ecra_tv(provider_token):
                     <span class="marquee-item"><span class="icon-anim">🎵</span> FF KARAOKE CLOUD <span class="icon-anim">🎤</span> CANTE COMIGO <span class="icon-anim">🎶</span> A SUA MÚSICA FAVORITA <span class="icon-anim">🎙️</span> DIVIRTA-SE AO MÁXIMO</span>
                 </div>
             </div>
+        """
+
+        # Script global de escuta em tempo real (Poller do Firebase) para detetar se o prestador mudou o vídeo/estado
+        id_atual_tocando = tocando_agora.get('id') if tocando_agora else "none"
+        script_sincronizacao_global = f"""
+            <script>
+                const providerToken = "{provider_token}";
+                const firebaseBaseUrl = "{FIREBASE_URL}/pedidos/" + providerToken + ".json";
+                let idAtualConhecido = "{id_atual_tocando}";
+
+                setInterval(async () => {{
+                    try {{
+                        let response = await fetch(firebaseBaseUrl);
+                        let data = await response.json();
+                        let novoIdTocando = "none";
+                        
+                        if (data) {{
+                            for (let key in data) {{
+                                if (data[key].estado === "aprovado") {{
+                                    novoIdTocando = key;
+                                    break;
+                                }}
+                            }}
+                        }}
+                        
+                        if (novoIdTocando !== idAtualConhecido) {{
+                            window.location.reload();
+                        }}
+                    }} catch (e) {{
+                        console.log("Erro na sincronização:", e);
+                    }}
+                }}, 3000); // Verifica a cada 3 segundos se o prestador alterou o comando
+            </script>
         """
 
         if tocando_agora:
@@ -1003,7 +1036,7 @@ def renderizar_ecra_tv(provider_token):
                     animation: zoomInNumber 0.9s ease-in-out infinite;
                 }}
             </style>
-
+            
             <div id="countdown-screen" class="countdown-overlay">3</div>
 
             <div id="karaoke-container" style="display: none; width: 100vw; height: 100vh; background: black; position: fixed; top: 0; left: 0;">
@@ -1076,6 +1109,7 @@ def renderizar_ecra_tv(provider_token):
                     }};
                 }}
             </script>
+            {script_sincronizacao_global}
             """
             components.html(video_html, height=750, scrolling=False)
             
@@ -1084,6 +1118,7 @@ def renderizar_ecra_tv(provider_token):
             proximo_cantor = pedidos_ativos[0] if pedidos_ativos else None
 
             st.markdown(frame_styles, unsafe_allow_html=True)
+            st.markdown(script_sincronizacao_global, unsafe_allow_html=True) # Garante que se a fila mudar, a tela de espera atualiza logo
 
             col_esq, col_dir = st.columns([1, 1])
             
@@ -1112,8 +1147,8 @@ def renderizar_ecra_tv(provider_token):
                     html_caixas += f'<div style="background: rgba(0,0,0,0.95); border: 4px solid #FFC107; border-radius: 8px; padding: 12px; color: #ffffff; font-family: monospace; font-size: 16px; font-weight: bold; text-shadow: 1px 1px 3px rgba(0,0,0,0.9);">{texto_caixa}</div>'
                 
                 html_caixas += '</div>'
-                st.markdown(html_caixas, unsafe_allow_html=True)
-
+                st.markdown(html_caixas, unsafe_allow_html=True) 
+                
             with col_dir:
                 if url_clipe_fundo:
                     video_fundo_html = f"""
@@ -1155,7 +1190,7 @@ def renderizar_ecra_tv(provider_token):
 
     except Exception as e:
         st.error(f"Erro de sincronização na TV: {e}")
-
+        
 def show_client_screen():
     query_params = st.query_params
     provider_token = query_params.get("prestador") or query_params.get("provider", None)
