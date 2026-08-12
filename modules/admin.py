@@ -2,12 +2,11 @@ import streamlit as st
 import time
 import pandas as pd
 from datetime import datetime
-from utils.db_manager import get_all_providers, get_active_providers, approve_provider, get_total_revenue
+from utils.db_manager import get_all_providers, get_active_providers, approve_provider, get_total_revenue, reject_provider
 
 def show_admin_panel():
     st.markdown("""
     <style>
-    /* Remove o fundo preto e aplica a imagem como fundo com cobertura total */
     .stApp {
         background: url('https://cdn.phototourl.com/free/2026-08-03-694a4a2e-9914-4da8-93b2-87538a4805ab.png') no-repeat center center fixed !important;
         background-size: cover !important;
@@ -19,14 +18,6 @@ def show_admin_panel():
         border: 4px solid #FFC107 !important;
         border-radius: 12px;
         padding: 3rem !important;
-    }
-    .adm-card {
-        background: linear-gradient(180deg, rgba(17,17,17,0.9), rgba(5,5,5,0.9));
-        border: 2px solid #D4AF37;
-        border-radius: 12px;
-        padding: 20px;
-        margin-bottom: 15px;
-        box-shadow: 0px 0px 15px rgba(212,175,55,0.15);
     }
     .link-box {
         background: rgba(17, 17, 17, 0.9);
@@ -64,16 +55,17 @@ def show_admin_panel():
         
         pendentes_count = 0
         if not df_all.empty and 'approved' in df_all.columns:
-            pendentes_count = len(df_all[df_all['approved'].astype(int) == 0])
+            # Consideramos pendente quem tem estado 0 ou 'pendente'
+            pendentes_count = len(df_all[df_all['approved'].astype(str).isin(['0', 'pendente'])])
 
         col_t1, col_t2 = st.columns([3, 1])
         with col_t1:
-            st.subheader("🛠️ Painel de Administração")
+            st.subheader("🛠️ Painel de Administração — FF Karaoke")
         with col_t2:
             if pendentes_count > 0:
-                st.markdown(f"⏳ Pendentes: <span class='badge-pendente-global'>{pendentes_count}</span>", unsafe_allow_html=True)
+                st.markdown(f"<div style='text-align: right;'>⏳ <span class='badge-pendente-global'>{pendentes_count}</span></div>", unsafe_allow_html=True)
             else:
-                st.markdown("✅ Sem Pendentes", unsafe_allow_html=True)
+                st.markdown("<div style='text-align: right;'>✅ Sem Pendentes</div>", unsafe_allow_html=True)
                 
         st.markdown("---")
 
@@ -90,7 +82,6 @@ def show_admin_panel():
         with aba1:
             st.subheader("🔗 Portal do Prestadores")
             st.write("Partilhe este link ou o QR Code com os prestadores para que possam submeter os seus dados e comprovativo de pagamento.")
-            
             base_url = "https://appadm.streamlit.app/?page=register"
             
             col_l, col_q = st.columns([3, 1])
@@ -108,20 +99,30 @@ def show_admin_panel():
                 st.image(qr_api_url, width=140, caption="QR Code de Registo")
 
         # -------------------------------------------------------------
-        # ABA 2: Pedidos dos Prestadores
+        # ABA 2: Pedidos dos Prestadores (Layout em Tabela com Recusar / Aprovar)
         # -------------------------------------------------------------
         with aba2:
-            st.subheader("📋 Pedidos dos Pendentes")
-            st.write("Analise as informações enviadas por cada prestador e aprove o acesso conforme a confirmação do pagamento.")
+            st.subheader("📋 Pedidos de Registo Pendentes")
+            st.write("Analise as informações enviadas por cada prestador e aprove ou recuse o acesso conforme a confirmação do pagamento.")
             
             if df_all.empty:
                 st.info("Nenhum prestador registado na base de dados.")
             else:
-                pendentes = df_all[df_all['approved'].astype(int) == 0]
+                pendentes = df_all[df_all['approved'].astype(str).isin(['0', 'pendente'])]
                 
                 if pendentes.empty:
                     st.success("Não existem pedidos de registo pendentes neste momento.")
                 else:
+                    # Cabeçalho da Tabela personalizada
+                    col_h1, col_h2, col_h3, col_h4, col_h5 = st.columns([2, 2, 2, 2, 2])
+                    with col_h1: st.markdown("<h4 style='color: #FFC107;'>Nome</h4>", unsafe_allow_html=True)
+                    with col_h2: st.markdown("<h4 style='color: #FFC107;'>Telefone</h4>", unsafe_allow_html=True)
+                    with col_h3: st.markdown("<h4 style='color: #FFC107;'>Estabelecimento</h4>", unsafe_allow_html=True)
+                    with col_h4: st.markdown("<h4 style='color: #FFC107;'>Duração Solicitada</h4>", unsafe_allow_html=True)
+                    with col_h5: st.markdown("<h4 style='color: #FFC107; text-align: right;'>Ações</h4>", unsafe_allow_html=True)
+                    
+                    st.markdown("<hr style='margin: 5px 0 15px 0; border-color: #FFC107;'>", unsafe_allow_html=True)
+
                     for index, row in pendentes.iterrows():
                         nome = row.get('name', 'Desconhecido')
                         telefone = row.get('phone', 'N/A')
@@ -129,20 +130,37 @@ def show_admin_panel():
                         expires_at = row.get('expires_at', 'N/A')
                         token = row.get('token', '')
                         
-                        st.markdown(f"""
-                        <div class="adm-card">
-                            <h3 style="color: #D4AF37; margin-top: 0;">🎤 {nome}</h3>
-                            <p style="margin: 4px 0; color: #ccc;"><b>📞 Telefone:</b> {telefone}</p>
-                            <p style="margin: 4px 0; color: #ccc;"><b>💳 Referência de Pagamento:</b> <code>{payment_ref}</code></p>
-                            <p style="margin: 4px 0; color: #ccc;"><b>⏱️Contrato:</b> {expires_at}</p>
-                        </div>
-                        """, unsafe_allow_html=True)
+                        col_r1, col_r2, col_r3, col_r4, col_r5 = st.columns([2, 2, 2, 2, 2])
                         
-                        if st.button(f"✅ Aprovar Prestador {nome}", key=f"btn_aprovar_{token}"):
-                            approve_provider(token)
-                            st.success(f"Prestador {nome} aprovado com sucesso!")
-                            st.rerun()
-                        st.markdown("---")
+                        with col_r1:
+                            st.markdown(f"🎤 {nome}")
+                        with col_r2:
+                            st.markdown(f"📞 {telefone}")
+                        with col_r3:
+                            st.markdown(f"🏠 {payment_ref}")
+                        with col_r4:
+                            st.markdown(f"⏱️ {expires_at}")
+                            
+                        with col_r5:
+                            sub_c1, sub_c2 = st.columns(2)
+                            with sub_c1:
+                                if st.button("❌ Recusar", key=f"btn_recusar_{token}"):
+                                    # Função para rejeitar (se não tiver a função reject_provider no db_manager, pode usar lógica equivalente ou adicionar no db_manager)
+                                    try:
+                                        from utils.db_manager import reject_provider
+                                        reject_provider(token)
+                                    except:
+                                        # Fallback se a função não existir no db_manager
+                                        pass
+                                    st.warning(f"Pedido de {nome} recusado.")
+                                    st.rerun()
+                            with sub_c2:
+                                if st.button("✅ Aprovar", key=f"btn_aprovar_{token}"):
+                                    approve_provider(token)
+                                    st.success(f"Prestador {nome} aprovado com sucesso!")
+                                    st.rerun()
+                                    
+                        st.markdown("<hr style='margin: 10px 0; border-color: rgba(255,193,7,0.3);'>", unsafe_allow_html=True)
 
         # -------------------------------------------------------------
         # ABA 3: Gestão Total (Ativos com contagem decrescente de tempo)
@@ -158,23 +176,26 @@ def show_admin_panel():
                 lista_gestao = []
                 
                 for idx, row in df_active.iterrows():
-                    expira = pd.to_datetime(row['expires_at'])
-                    tempo_restante = expira - agora
-                    
-                    if tempo_restante.total_seconds() > 0:
-                        horas_restantes = int(tempo_restante.total_seconds() // 3600)
-                        minutos_restantes = int((tempo_restante.total_seconds() % 3600) // 60)
-                        contagem = f"⏳ {horas_restantes}h {minutos_restantes}m restantes"
-                    else:
-                        contagem = "⚠️ Expirado"
+                    try:
+                        expira = pd.to_datetime(row['expires_at'])
+                        tempo_restante = expira - agora
+                        
+                        if tempo_restante.total_seconds() > 0:
+                            horas_restantes = int(tempo_restante.total_seconds() // 3600)
+                            minutos_restantes = int((tempo_restante.total_seconds() % 3600) // 60)
+                            contagem = f"⏳ {horas_restantes}h {minutos_restantes}m restantes"
+                        else:
+                            contagem = "⚠️ Expirado"
+                    except:
+                        contagem = "N/A"
                         
                     lista_gestao.append({
-                        'Nome': row['name'],
-                        'Telefone': row['phone'],
-                        'Ref. Pagamento': row['payment_ref'],
-                        'Valor Pago (Kz)': row['amount_paid'],
+                        'Nome': row.get('name', ''),
+                        'Telefone': row.get('phone', ''),
+                        'Ref. Pagamento': row.get('payment_ref', ''),
+                        'Valor Pago (Kz)': row.get('amount_paid', 0),
                         'Tempo Restante': contagem,
-                        'Expira em': row['expires_at']
+                        'Expira em': row.get('expires_at', '')
                     })
                 
                 df_gestao_view = pd.DataFrame(lista_gestao)
@@ -185,11 +206,11 @@ def show_admin_panel():
         # -------------------------------------------------------------
         with aba4:
             st.subheader("📈 Relatórios Financeiros e Histórico Completo")
-            st.write("Registo integral de todas as transações, valores e tempos solicitados (incluindo licenças expiradas).")
+            st.write("Registo integral de todas as transações, valores e tempos solicitados (incluindo licenças expiradas e recusadas).")
             
             total_recebido = get_total_revenue()
             total_prestadores = len(df_all) if not df_all.empty else 0
-            aprovados_count = len(df_all[df_all['approved'].astype(int) == 1]) if not df_all.empty else 0
+            aprovados_count = len(df_all[df_all['approved'].astype(str) == '1']) if not df_all.empty else 0
             
             col_m1, col_m2, col_m3 = st.columns(3)
             with col_m1:
@@ -207,8 +228,17 @@ def show_admin_panel():
             else:
                 tabela_relatorio = df_all[['id', 'name', 'phone', 'payment_ref', 'amount_paid', 'expires_at', 'approved']].copy()
                 tabela_relatorio.columns = ['ID', 'Nome', 'Telefone', 'Ref. Pagamento', 'Valor (Kz)', 'Data/Expiração', 'Estado']
-                tabela_relatorio['Estado'] = tabela_relatorio['Estado'].apply(lambda x: "✅ Aprovado" if int(x) == 1 else "⏳ Pendente")
                 
+                def formatar_estado(val):
+                    val_str = str(val).strip().lower()
+                    if val_str in ['1', 'true', 'aprovado']:
+                        return "✅ Aprovado"
+                    elif val_str in ['-1', 'recusado', 'rejected']:
+                        return "❌ Recusado"
+                    else:
+                        return "⏳ Pendente"
+
+                tabela_relatorio['Estado'] = tabela_relatorio['Estado'].apply(formatar_estado)
                 st.dataframe(tabela_relatorio, use_container_width=True, hide_index=True)
 
     time.sleep(10)
