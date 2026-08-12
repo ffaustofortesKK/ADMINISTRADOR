@@ -13,6 +13,7 @@ import cloudinary.api
 import cloudinary.uploader
 import cloudinary.search
 import importlib
+from modules.admin import show_admin_panel
 
 # --- 1. CONFIGURAR OS CAMINHOS PRIMEIRO ---
 current_dir = os.path.dirname(os.path.abspath(__file__))
