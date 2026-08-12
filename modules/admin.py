@@ -2,12 +2,10 @@ import streamlit as st
 import pandas as pd
 import requests
 from datetime import datetime
-import time
 
-# Certifique-se de que estas variáveis e funções auxiliares estão definidas no seu escopo global:
-# FIREBASE_URL, get_all_providers, get_active_providers, get_total_revenue, approve_provider, original_show_register_page, show_client_page, show_provider_panel_center, show_provider_panel_custom
+FIREBASE_URL = "https://grupoffkaraoke-default-rtdb.firebaseio.com"
 
-def show_admin_panel():
+def show_admin_panel(get_all_providers, get_active_providers, approve_provider, get_total_revenue):
     st.markdown("""
     <style>
     .stApp {
@@ -26,9 +24,28 @@ def show_admin_panel():
         background: linear-gradient(180deg, rgba(17,17,17,0.95), rgba(5,5,5,0.95));
         border: 2px solid #D4AF37;
         border-radius: 10px;
-        padding: 12px 18px;
+        padding: 15px 20px;
         margin-bottom: 15px;
         box-shadow: 0px 0px 12px rgba(212,175,55,0.25);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        flex-wrap: wrap;
+        gap: 15px;
+    }
+    .card-col {
+        flex: 1;
+        min-width: 140px;
+    }
+    .card-col label {
+        display: block;
+        font-size: 12px;
+        color: #aaa;
+        margin-bottom: 2px;
+    }
+    .card-col span {
+        font-size: 15px;
+        color: #ffffff;
     }
     .link-box {
         background: rgba(17, 17, 17, 0.9);
@@ -43,15 +60,13 @@ def show_admin_panel():
     }
     .badge-pendente-global {
         background-color: #ff3333;
-        color: #ffffff;
+        color: #000000;
         padding: 6px 14px;
-        border-radius: 50%;
+        border-radius: 20px;
         font-weight: 900;
         font-size: 16px;
         display: inline-block;
         box-shadow: 0px 0px 10px rgba(255, 51, 51, 0.5);
-        text-align: center;
-        min-width: 35px;
     }
     p, span, label, h1, h2, h3, h4, h5, h6 {
         color: #ffffff !important;
@@ -72,7 +87,7 @@ def show_admin_panel():
         st.subheader("🛠️ Painel de Administração — FF Karaoke")
     with col_t2:
         if pendentes_count > 0:
-            st.markdown(f"⏳ <span class='badge-pendente-global'>{pendentes_count}</span>", unsafe_allow_html=True)
+            st.markdown(f"⏳ Pendentes: <span class='badge-pendente-global'>{pendentes_count}</span>", unsafe_allow_html=True)
         else:
             st.markdown("✅ Sem Pendentes", unsafe_allow_html=True)
             
@@ -126,22 +141,30 @@ def show_admin_panel():
                     expires_at = row.get('expires_at', 'N/A')
                     token = row.get('token', '')
                     
-                    st.markdown('<div class="adm-horizontal-card">', unsafe_allow_html=True)
+                    st.markdown(f"""
+                    <div class="adm-horizontal-card">
+                        <div class="card-col">
+                            <label>Nome</label>
+                            <span>🎤 <b>{nome}</b></span>
+                        </div>
+                        <div class="card-col">
+                            <label>Telefone</label>
+                            <span>📞 {telefone}</span>
+                        </div>
+                        <div class="card-col">
+                            <label>Estabelecimento</label>
+                            <span>🏠 {estabelecimento}</span>
+                        </div>
+                        <div class="card-col" style="flex: 1.5;">
+                            <label>Duração Solicitada</label>
+                            <span>⏱️ {expires_at}</span><br>
+                            <span style="font-size:11px; color:#FFD700;">Ref: {payment_ref} ({amount_paid})</span>
+                        </div>
+                    </div>
+                    """, unsafe_allow_html=True)
                     
-                    # Grelha rigorosamente alinhada em colunas idêntica à referência visual enviada
-                    rc1, rc2, rc3, rc4, rc5, rc6 = st.columns([2.2, 1.4, 1.4, 2.0, 1.1, 1.1])
-                    
-                    with rc1:
-                        st.markdown(f"<span style='font-size: 11px; color: #aaa;'>Nome</span><br>🎤 <b>{nome}</b>", unsafe_allow_html=True)
-                    with rc2:
-                        st.markdown(f"<span style='font-size: 11px; color: #aaa;'>Telefone</span><br>📞 <b>{telefone}</b>", unsafe_allow_html=True)
-                    with rc3:
-                        st.markdown(f"<span style='font-size: 11px; color: #aaa;'>Estabelecimento</span><br>🏠 <b>{estabelecimento}</b>", unsafe_allow_html=True)
-                    with rc4:
-                        st.markdown(f"<span style='font-size: 11px; color: #aaa;'>Duração Solicitada</span><br>⏱️ <b>{expires_at}</b><br><span style='font-size: 11px; color: #FFD700;'>Ref: {payment_ref} ({amount_paid})</span>", unsafe_allow_html=True)
-                    
-                    with rc5:
-                        st.markdown("<div style='margin-top: 6px;'></div>", unsafe_allow_html=True)
+                    b_col1, b_col2, b_col3 = st.columns([6, 1.2, 1.2])
+                    with b_col2:
                         if st.button("❌ Recusar", key=f"btn_rec_{token}"):
                             try:
                                 atualizado = False
@@ -158,19 +181,17 @@ def show_admin_panel():
                                     requests.patch(f"{FIREBASE_URL}/providers/{token}.json", json={"approved": -1}, timeout=10)
                                     requests.patch(f"{FIREBASE_URL}/prestadores/{token}.json", json={"approved": -1}, timeout=10)
                                     
-                                st.warning(f"Registo de {nome} recusado com sucesso e enviado para o histórico.")
+                                st.warning(f"Registo de {nome} recusado.")
                                 st.rerun()
                             except Exception as e:
-                                st.error(f"Erro ao recusar: {e}")
-                                
-                    with rc6:
-                        st.markdown("<div style='margin-top: 6px;'></div>", unsafe_allow_html=True)
+                                st.error(f"Erro: {e}")
+                    with b_col3:
                         if st.button("✅ Aprovar", key=f"btn_aprov_{token}"):
                             approve_provider(token)
-                            st.success(f"Prestador {nome} aprovado com sucesso!")
+                            st.success(f"Prestador {nome} aprovado!")
                             st.rerun()
                             
-                    st.markdown('</div>', unsafe_allow_html=True)
+                    st.markdown("<hr style='margin: 10px 0; border-color: #333;'>", unsafe_allow_html=True)
 
         st.markdown("---")
         st.subheader("⚡ Gestão de Reforços de Tempo Pendentes")
@@ -188,7 +209,18 @@ def show_admin_panel():
                                 tem_reforcos = True
                                 st.markdown(f"""
                                 <div class="adm-horizontal-card">
-                                    <b>⚡ Reforço:</b> {r_data.get('nome_prestador')} | <b>Duração:</b> {r_data.get('tempo_plano')} | <b>Ref:</b> <code>{r_data.get('referencia')}</code>
+                                    <div class="card-col">
+                                        <label>Reforço</label>
+                                        <span>⚡ {r_data.get('nome_prestador')}</span>
+                                    </div>
+                                    <div class="card-col">
+                                        <label>Duração</label>
+                                        <span>⏱️ {r_data.get('tempo_plano')}</span>
+                                    </div>
+                                    <div class="card-col">
+                                        <label>Referência</label>
+                                        <span>💳 <code>{r_data.get('referencia')}</code></span>
+                                    </div>
                                 </div>
                                 """, unsafe_allow_html=True)
                                 
@@ -249,7 +281,7 @@ def show_admin_panel():
 
     with aba4:
         st.subheader("📈 Relatórios Financeiros e Histórico Completo")
-        st.write("Registo integral de todas as transações, valores e tempos solicitados (incluindo licenças expiradas e recusadas).")
+        st.write("Registo integral de todas as transações, valores e tempos solicitados (incluindo licenças expiradas).")
         
         total_recebido = get_total_revenue()
         total_prestadores = len(df_all) if not df_all.empty else 0
@@ -274,89 +306,3 @@ def show_admin_panel():
             tabela_relatorio['Estado'] = tabela_relatorio['Estado'].apply(lambda x: "✅ Aprovado" if int(x) == 1 else ("❌ Recusado" if int(x) == -1 else "⏳ Pendente"))
             
             st.dataframe(tabela_relatorio, use_container_width=True, hide_index=True)
-
-    time.sleep(10)
-    st.rerun()
-
-
-def main():
-    try:
-        query_params = st.query_params
-        
-        if "page" in query_params and query_params["page"] == "register":
-            if original_show_register_page:
-                original_show_register_page()
-            else:
-                st.error("Página de registo não disponível.")
-            return
-
-        if "page" in query_params and query_params["page"] == "client_register":
-            show_client_page()
-            return
-
-        token = query_params.get("prestador") or query_params.get("token") or query_params.get("provider")
-        
-        if token:
-            df = get_all_providers()
-            if df.empty or 'token' not in df.columns or not (df['token'] == token).any():
-                show_provider_panel_center(token)
-                return
-                
-            prior_prestador = df[df['token'] == token]
-            if not prior_prestador.empty:
-                row = prior_prestador.iloc[0]
-                status_aprov = int(row.get('approved', 1))
-                if status_aprov == 1:
-                    show_provider_panel_custom(token)
-                    return
-                elif status_aprov == -1:
-                    st.error("❌ O seu registo foi recusado pelo Administrador. Por favor, verifique os dados ou entre em contacto.")
-                    return
-                else:
-                    st.warning("⏳ O seu registo aguarda aprovação do Administrador.")
-                    return
-            else:
-                show_provider_panel_custom(token)
-                return
-            
-        st.markdown("""
-            <style>
-            .stApp {
-                background-color: #000000 !important;
-                color: #ffffff !important;
-                font-weight: bold !important;
-            }
-            .block-container {
-                background-color: #000000 !important;
-                border: 4px solid #FFC107 !important;
-                border-radius: 12px;
-                padding: 3rem !important;
-            }
-            h1, h2, h3, h4, h5, h6, p, span, label, div, button, input {
-                font-weight: bold !important;
-                text-shadow: 1px 1px 3px rgba(0,0,0,0.9);
-            }
-            </style>
-        """, unsafe_allow_html=True)
-
-        if not st.session_state.get("admin_logged", False):
-            st.title("🔒 FFKaraoke - (Administrador)")
-            with st.form("form_admin_login"):
-                senha = st.text_input("Palavra-passe de Administrador", type="password")
-                submitted = st.form_submit_button("Entrar")
-                if submitted:
-                    if senha == "ffkaraoke2026" or senha == "admin123":
-                        st.session_state["admin_logged"] = True
-                        st.success("Sessão iniciada com sucesso!")
-                        st.rerun()
-                    else:
-                        st.error("Palavra-passe incorreta.")
-
-        if st.session_state.get("admin_logged", False):
-            show_admin_panel()
-                
-    except Exception as e:
-        st.error(f"Ocorreu um erro ao carregar a aplicação: {e}")
-
-if __name__ == "__main__":
-    main()
