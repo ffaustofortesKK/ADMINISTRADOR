@@ -439,7 +439,8 @@ def listar_videos_pasta_clipes():
         except Exception as err:
             print(f"Erro crítico ao listar vídeos do Cloudinary: {err}")
             
-    # --- PROTEÇÃO DE SEGURANÇA CONTRA FALHAS DE REDE ---
+    # --- SISTEMA DE SEGURANÇA (CACHE LOCAL) ---
+    # Se a nuvem falhar momentaneamente, reutiliza a última lista válida guardada em sessão
     if not videos_encontrados and "cache_segura_clipes" in st.session_state:
         return st.session_state["cache_segura_clipes"]
     elif videos_encontrados:
