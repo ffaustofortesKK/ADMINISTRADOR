@@ -201,7 +201,7 @@ def show_register_page():
         with col2:
             sobrenome = st.text_input("Sobrenome")
             
-        telefone = st.text_input("Número de Telefone")
+        telefone = st.text_input("Telefone")
         estabelecimento = st.text_input("Estabelecimento / Restaurante")
         
         duracao_opcoes = {
