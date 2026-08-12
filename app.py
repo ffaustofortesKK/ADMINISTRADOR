@@ -205,7 +205,7 @@ def custom_show_register_page():
                 st.rerun()
             return
 
-        # Se foi aprovado
+        # Se foi aprovado — Redireciona diretamente para o painel de trabalho definindo o parâmetro na URL
         if aprovado:
             st.markdown(f"""
                 <div style="text-align: center; padding: 40px; font-family: monospace;">
@@ -213,14 +213,18 @@ def custom_show_register_page():
                     <p style="color: #ffffff; font-size: 20px; font-weight: bold; margin-bottom: 30px; text-shadow: 1px 1px 3px rgba(0,0,0,0.9);">O seu registo foi aprovado com sucesso!</p>
                 </div>
             """, unsafe_allow_html=True)
-            if st.button("🚀 Entrar no Painel", use_container_width=True):
-                st.query_params["prestador"] = token_atual
-                if "token_pendente_prestador" in st.session_state:
-                    del st.session_state["token_pendente_prestador"]
-                st.rerun()
+            
+            # Limpa o estado pendente e injeta o token do prestador na URL para abrir o painel correto
+            if "token_pendente_prestador" in st.session_state:
+                del st.session_state["token_pendente_prestador"]
+            if "nome_pendente_prestador" in st.session_state:
+                del st.session_state["nome_pendente_prestador"]
+                
+            st.query_params["prestador"] = token_atual
+            st.rerun()
             return
         
-        # Enquanto estiver pendente (Ecrã de espera isolado)
+        # Enquanto estiver pendente (Ecrã de espera com polling automático)
         st.markdown(f"""
             <style>
             @keyframes spinMic {{
@@ -295,7 +299,9 @@ def custom_show_register_page():
             </div>
         """, unsafe_allow_html=True)
         
-        # IMPORTANTE: O return garante que o código do formulário abaixo nunca é alcançado quando há token pendente
+        # Faz polling a cada 3 segundos para detetar automaticamente se o admin aprovou
+        time.sleep(3)
+        st.rerun()
         return
 
     if "original_show_register_page" in globals() and original_show_register_page:
