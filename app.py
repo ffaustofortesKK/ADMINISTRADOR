@@ -27,26 +27,7 @@ modules_path = os.path.join(current_dir, "modules")
 if modules_path not in sys.path:
     sys.path.insert(0, modules_path)
 
-# --- 2. DEPOIS IMPORTAR OS MÓDULOS ---
-from modules import prestador
-importlib.reload(prestador)
-
-importlib.reload(prestador)
-
-# Configuração estrita do caminho absoluto para evitar erros de importação
-current_dir = os.path.dirname(os.path.abspath(__file__))
-if current_dir not in sys.path:
-    sys.path.insert(0, current_dir)
-
-utils_path = os.path.join(current_dir, "utils")
-if utils_path not in sys.path:
-    sys.path.insert(0, utils_path)
-
-modules_path = os.path.join(current_dir, "modules")
-if modules_path not in sys.path:
-    sys.path.insert(0, modules_path)
-
-# Configuração do Cloudinary com as credenciais oficiais
+# --- 2. CONFIGURAÇÃO DO CLOUDINARY ---
 cloudinary.config(
     cloud_name="yhwgjh7g",
     api_key="852434629995691",
@@ -54,13 +35,17 @@ cloudinary.config(
     secure=True
 )
 
-# Importações seguras com fallbacks para garantir robustez da aplicação
+# --- 3. IMPORTAÇÕES SEGURAS COM FALLBACKS ---
+FIREBASE_URL = "https://grupoffkaraoke-default-rtdb.firebaseio.com"
+
 try:
-    from utils.db_manager import init_db, get_all_providers
+    from utils.db_manager import init_db, get_all_providers, get_active_providers, approve_provider, get_total_revenue
 except Exception:
     def init_db(): pass
-    def get_all_providers(): 
-        return pd.DataFrame(columns=['token', 'approved', 'data_registo', 'nome_prestador', 'tempo_plano'])
+    def get_all_providers(): return pd.DataFrame(columns=['token', 'approved', 'data_registo', 'nome_prestador', 'tempo_plano'])
+    def get_active_providers(): return pd.DataFrame(columns=['token', 'approved', 'data_registo', 'nome_prestador', 'tempo_plano'])
+    def approve_provider(token): pass
+    def get_total_revenue(): return 0.0
 
 try:
     from modules.admin import show_admin_panel
@@ -68,24 +53,33 @@ except Exception:
     def show_admin_panel(): st.error("Módulo 'modules.admin' não encontrado.")
 
 try:
-    from modules.client import show_client_page
+    from modules.client import show_client_page, show_client_screen
 except Exception:
-    def show_client_page(): st.error("Módulo 'modules.client' não encontrado.")
+    def show_client_page(): st.error("Módulo de cliente não encontrado.")
+    def show_client_screen(): st.error("Ecrã de cliente não encontrado.")
 
 try:
-    from modules.register import show_register_page as original_show_register_page
+    from modules.register import show_register_page as custom_show_register_page
 except Exception:
-    original_show_register_page = None
+    def custom_show_register_page(): st.error("Módulo de registo não encontrado.")
 
-FIREBASE_URL = "https://grupoffkaraoke-default-rtdb.firebaseio.com"
+try:
+    from modules import prestador
+    importlib.reload(prestador)
+    show_provider_panel_custom = getattr(prestador, "show_provider_panel_custom", lambda t: st.error("Função do prestador não encontrada."))
+    show_provider_panel_center = getattr(prestador, "show_provider_panel_center", lambda t: show_provider_panel_custom(t))
+except Exception:
+    def show_provider_panel_custom(t): st.error("Módulo 'prestador' não encontrado.")
+    def show_provider_panel_center(t): st.error("Módulo 'prestador' não encontrado.")
 
+# --- 4. CONFIGURAÇÃO DA PÁGINA ---
 st.set_page_config(
     page_title="FFKaraoke - Gestão de Acessos",
     page_icon="🎤",
     layout="wide"
 )
 
-# --- BLOQUEIO TOTAL E RADICAL DO BOTÃO GERENCIAR APLICATIVO E ELEMENTOS CLOUD ---
+# --- BLOQUEIO DO BOTÃO GERENCIAR APLICATIVO ---
 st.markdown("""
     <style>
     div[data-testid="stToolbar"], header, footer, 
@@ -98,45 +92,138 @@ st.markdown("""
         pointer-events: none !important;
     }
     </style>
-
-    <script>
-    function annihilateManageButton() {
-        const walkDOM = (node) => {
-            if (node.shadowRoot) {
-                walkDOM(node.shadowRoot);
-            }
-            let children = node.children || node.childNodes;
-            for (let i = 0; i < children.length; i++) {
-                let child = children[i];
-                if (child.nodeType === 1) {
-                    let text = child.innerText || child.textContent || "";
-                    let titleAttr = child.getAttribute ? (child.getAttribute('title') || '') : '';
-                    let ariaLabel = child.getAttribute ? (child.getAttribute('aria-label') || '') : '';
-                    
-                    if (
-                        text.includes("Gerenciar") || 
-                        text.includes("Manage app") || 
-                        text.includes("Hosted with") ||
-                        titleAttr.includes("Manage app") ||
-                        ariaLabel.includes("Manage app")
-                    ) {
-                        let target = child.closest('div[style*="position: fixed"]') || child.parentElement || child;
-                        target.remove();
-                    }
-                    walkDOM(child);
-                }
-            }
-        };
-        walkDOM(document.body);
-    }
-    setInterval(annihilateManageButton, 300);
-    </script>
 """, unsafe_allow_html=True)
 
 try:
     init_db()
 except Exception:
     pass
+
+def main():
+    try:
+        query_params = st.query_params
+        
+        if "page" in query_params and query_params["page"] == "register":
+            custom_show_register_page()
+            return
+
+        if "page" in query_params and query_params["page"] == "client_register":
+            show_client_page()
+            return
+
+        if "page" in query_params and query_params["page"] == "client_screen":
+            show_client_screen()
+            return
+
+        token = query_params.get("prestador") or query_params.get("token") or query_params.get("provider")
+        
+        if token:
+            df = get_all_providers()
+            if df.empty or 'token' not in df.columns or not (df['token'] == token).any():
+                show_provider_panel_center(token)
+                return
+                
+            prior_prestador = df[df['token'] == token]
+            if not prior_prestador.empty:
+                row = prior_prestador.iloc[0]
+                if row.get('approved', 1) == 1:
+                    show_provider_panel_custom(token)
+                    return
+                else:
+                    st.warning("⏳ O seu registo aguarda aprovação do Administrador.")
+                    return
+            else:
+                show_provider_panel_custom(token)
+                return
+            
+        st.markdown("""
+            <style>
+            .stApp {
+                background-color: #000000 !important;
+                color: #ffffff !important;
+                font-weight: bold !important;
+            }
+            .block-container {
+                background-color: #000000 !important;
+                border: 4px solid #FFC107 !important;
+                border-radius: 12px;
+                padding: 3rem !important;
+            }
+            h1, h2, h3, h4, h5, h6, p, span, label, div, button, input {
+                font-weight: bold !important;
+                text-shadow: 1px 1px 3px rgba(0,0,0,0.9);
+            }
+            </style>
+        """, unsafe_allow_html=True)
+
+        if not st.session_state.get("admin_logged", False):
+            st.title("🔒 FFKaraoke - Área Restrita (Administrador)")
+            
+            with st.form("form_admin_login"):
+                senha = st.text_input("Palavra-passe de Administrador", type="password")
+                submitted = st.form_submit_button("Entrar")
+                
+                if submitted:
+                    if senha == "ffkaraoke2026" or senha == "admin123":
+                        st.session_state["admin_logged"] = True
+                        st.success("Sessão iniciada com sucesso!")
+                        st.rerun()
+                    else:
+                        st.error("Palavra-passe incorreta.")
+
+        if st.session_state.get("admin_logged", False):
+            st.markdown("---")
+            st.subheader("⚡ Gestão de Reforços de Tempo Pendentes")
+            
+            try:
+                res_all_ref = requests.get(f"{FIREBASE_URL}/reforcos_pendentes.json", timeout=10)
+                if res_all_ref.status_code == 200 and res_all_ref.json():
+                    all_refs = res_all_ref.json()
+                    tem_reforcos = False
+                    
+                    for tok, refs_dict in all_refs.items():
+                        if isinstance(refs_dict, dict):
+                            for r_id, r_data in refs_dict.items():
+                                if r_data.get("approved", 0) == 0:
+                                    tem_reforcos = True
+                                    st.markdown(f"""
+                                    <div style="background: rgba(0,0,0,0.95); border: 2px solid #FFC107; padding: 12px; border-radius: 6px; margin-bottom: 10px;">
+                                        <b>Prestador:</b> {r_data.get('nome_prestador')} (Token: {tok})<br>
+                                        <b>Referência / Comprovativo:</b> {r_data.get('referencia')}<br>
+                                        <b>Duração Solicitada:</b> {r_data.get('tempo_plano')}
+                                    </div>
+                                    """, unsafe_allow_html=True)
+                                    
+                                    col_s, col_n = st.columns(2)
+                                    with col_s:
+                                        if st.button("✅ Aprovar Reforço", key=f"aprov_ref_{tok}_{r_id}"):
+                                            r_data["approved"] = 1
+                                            requests.put(f"{FIREBASE_URL}/reforcos_aprovados/{tok}/{r_id}.json", json=r_data)
+                                            requests.delete(f"{FIREBASE_URL}/reforcos_pendentes/{tok}/{r_id}.json")
+                                            st.success("Reforço aprovado e acumulado com sucesso!")
+                                            st.rerun()
+                                            
+                                    with col_n:
+                                        if st.button("❌ Recusar Reforço", key=f"rec_ref_{tok}_{r_id}"):
+                                            requests.delete(f"{FIREBASE_URL}/reforcos_pendentes/{tok}/{r_id}.json")
+                                            st.warning("Reforço recusado.")
+                                            st.rerun()
+                                            
+                    if not tem_reforcos:
+                        st.info("Nenhum pedido de reforço pendente neste momento.")
+                else:
+                    st.info("Nenhum pedido de reforço pendente neste momento.")
+                    
+            except Exception as e:
+                st.warning(f"Não foi possível carregar os reforços pendentes: {e}")
+
+            show_admin_panel()
+                
+    except Exception as e:
+        st.error(f"Ocorreu um erro crítico na aplicação: {e}")
+
+if __name__ == "__main__":
+    main()
 
 def custom_show_register_page():
     url_fundo_painel = "https://cdn.phototourl.com/free/2026-08-03-694a4a2e-9914-4da8-93b2-87538a4805ab.png"
@@ -292,7 +379,7 @@ def custom_show_register_page():
             pass
 
     st.markdown("<h1>🎤 FFKaraoke - Registo de Prestador</h1>", unsafe_allow_html=True)
-    st.markdown("<p>Preencha os seus dados e escolha a duração pretendida para solicitar o seu acesso.</p>", unsafe_allow_html=True)
+    st.markdown("<p>Preencha os seus dados, informe o estabelecimento e escolha a duração pretendida para solicitar o seu acesso.</p>", unsafe_allow_html=True)
     
     with st.form("form_registo_prestador_custom"):
         col1, col2 = st.columns(2)
@@ -302,6 +389,7 @@ def custom_show_register_page():
             sobrenome = st.text_input("Sobrenome")
             
         telefone = st.text_input("Número de Telefone")
+        estabelecimento = st.text_input("Nome do Estabelecimento / Restaurante")
         duracao = st.selectbox(
             "Duração Pretendida", 
             options=[
@@ -313,36 +401,30 @@ def custom_show_register_page():
         
         submitted = st.form_submit_button("Enviar Permissão")
         if submitted:
-            if not nome or not telefone:
-                st.error("Por favor, preencha todos os campos obrigatórios.")
+            if not nome or not telefone or not estabelecimento:
+                st.error("Por favor, preencha todos os campos obrigatórios (incluindo o Estabelecimento).")
             else:
                 referencia_fake = "Plano Selecionado Direto"
+                import uuid
+                token_gerado = str(uuid.uuid4())[:8]
+                nome_completo = f"{nome} {sobrenome}".strip()
+                dados_reg = {
+                    "nome_prestador": nome_completo,
+                    "telefone": telefone,
+                    "estabelecimento": estabelecimento,
+                    "referencia": referencia_fake,
+                    "tempo_plano": duracao,
+                    "approved": 0,
+                    "token": token_gerado,
+                    "data_registo": str(datetime.now())
+                }
                 try:
-                    from utils.db_manager import save_provider_request
-                    token_gerado = save_provider_request(nome, sobrenome, telefone, referencia_fake, duracao)
+                    requests.put(f"{FIREBASE_URL}/prestadores_pendentes/{token_gerado}.json", json=dados_reg, timeout=10)
                     st.session_state["token_pendente_prestador"] = token_gerado
-                    st.session_state["nome_pendente_prestador"] = f"{nome} {sobrenome}".strip()
+                    st.session_state["nome_pendente_prestador"] = nome_completo
                     st.rerun()
-                except Exception as e:
-                    import uuid
-                    token_gerado = str(uuid.uuid4())[:8]
-                    nome_completo = f"{nome} {sobrenome}".strip()
-                    dados_reg = {
-                        "nome_prestador": nome_completo,
-                        "telefone": telefone,
-                        "referencia": referencia_fake,
-                        "tempo_plano": duracao,
-                        "approved": 0,
-                        "token": token_gerado,
-                        "data_registo": str(datetime.now())
-                    }
-                    try:
-                        requests.put(f"{FIREBASE_URL}/prestadores_pendentes/{token_gerado}.json", json=dados_reg, timeout=10)
-                        st.session_state["token_pendente_prestador"] = token_gerado
-                        st.session_state["nome_pendente_prestador"] = nome_completo
-                        st.rerun()
-                    except Exception as err:
-                        st.error(f"Erro ao submeter registo: {err}")
+                except Exception as err:
+                    st.error(f"Erro ao submeter registo: {err}")
 
 def atualizar_estado_pedido(provider_token, pedido_id, novo_estado):
     try:
@@ -568,7 +650,8 @@ def show_provider_panel_custom(provider_token):
     url_fundo_painel = "https://cdn.phototourl.com/free/2026-08-03-694a4a2e-9914-4da8-93b2-87538a4805ab.png"
 
     df_prov = get_all_providers()
-    nome_prestador = "CARLOS MIGUEL"
+    nome_prestador = "PRESTADOR"
+    estabelecimento = "ESTABELECIMENTO"
     tempo_plano = "2 Horas - 12 Mil Kwanzas"
     data_registo_str = None
     
@@ -576,7 +659,8 @@ def show_provider_panel_custom(provider_token):
         match = df_prov[df_prov['token'] == provider_token]
         if not match.empty:
             row = match.iloc[0]
-            nome_prestador = row.get('nome_prestador', row.get('nome', 'CARLOS MIGUEL')).upper()
+            nome_prestador = row.get('nome_prestador', row.get('nome', 'PRESTADOR')).upper()
+            estabelecimento = row.get('estabelecimento', row.get('nome_estabelecimento', 'ESTABELECIMENTO')).upper()
             tempo_plano = row.get('tempo_plano', row.get('tempo', '2 Horas - 12 Mil Kwanzas'))
             data_registo_str = row.get('data_registo', None)
 
@@ -740,7 +824,7 @@ def show_provider_panel_custom(provider_token):
             <div style="display: flex; align-items: center; gap: 12px; padding-top: 5px;">
                 <span style="font-size: 28px;">🎤</span>
                 <div>
-                    <h1 style="margin: 0; color: #FFC107; font-family: monospace; font-size: 20px; text-transform: uppercase; font-weight: bold;">PAINEL DO PRESTADOR: <span style="color: #FFC107;">{nome_prestador}</span></h1>
+                    <h1 style="margin: 0; color: #FFC107; font-family: monospace; font-size: 20px; text-transform: uppercase; font-weight: bold;">PAINEL DO PRESTADOR: <span style="color: #FFC107;">{estabelecimento}</span></h1>
                 </div>
             </div>
         """, unsafe_allow_html=True)
@@ -808,6 +892,7 @@ def show_provider_panel_custom(provider_token):
                     dados_reforco = {
                         "token": provider_token,
                         "nome_prestador": nome_prestador,
+                        "estabelecimento": estabelecimento,
                         "referencia": referencia_comprovativo,
                         "tempo_plano": duracao_reforco,
                         "approved": 0,
@@ -827,10 +912,17 @@ def show_provider_panel_custom(provider_token):
 @st.fragment(run_every=1)
 def renderizar_ecra_tv(provider_token):
     try:
-        # Busca o vídeo de fundo definido pelo prestador em tempo real
         video_fundo_url = obter_video_fundo(provider_token)
         
-        # Busca a música ativa na fila para exibir na tela
+        # Obter nome do estabelecimento para o canto superior direito
+        df_prov = get_all_providers()
+        estabelecimento = "ESTABELECIMENTO"
+        if not df_prov.empty and 'token' in df_prov.columns:
+            match = df_prov[df_prov['token'] == provider_token]
+            if not match.empty:
+                row = match.iloc[0]
+                estabelecimento = row.get('estabelecimento', row.get('nome_estabelecimento', 'ESTABELECIMENTO')).upper()
+
         url_firebase = f"{FIREBASE_URL}/pedidos/{provider_token}.json?_t={time.time()}"
         response = requests.get(url_firebase, timeout=10)
         
@@ -842,7 +934,6 @@ def renderizar_ecra_tv(provider_token):
             pedidos_ativos.sort(key=lambda x: x.get("timestamp", 0))
             tocando_agora = next((p for p in pedidos_ativos if p.get("estado") == "aprovado"), None)
 
-        # Renderização do Ecrã/Tela de TV com o Vídeo Clipe de fundo comandado pelo Prestador
         st.markdown("""
             <style>
             .stApp {
@@ -856,6 +947,21 @@ def renderizar_ecra_tv(provider_token):
                 min-height: 100%;
                 z-index: 0;
                 object-fit: cover;
+            }
+            .header-estabelecimento {
+                position: fixed;
+                top: 20px;
+                right: 30px;
+                z-index: 9999;
+                background: rgba(0, 0, 0, 0.85);
+                border: 2px solid #FFC107;
+                padding: 10px 20px;
+                border-radius: 8px;
+                font-family: monospace;
+                color: #FFC107;
+                font-size: 16px;
+                font-weight: bold;
+                box-shadow: 0 0 15px rgba(255, 193, 7, 0.4);
             }
             .content-overlay {
                 position: relative;
@@ -876,6 +982,9 @@ def renderizar_ecra_tv(provider_token):
             }
             </style>
         """, unsafe_allow_html=True)
+
+        # Canto Superior Direito com o Nome do Estabelecimento
+        st.markdown(f'<div class="header-estabelecimento">📍 {estabelecimento}</div>', unsafe_allow_html=True)
 
         if video_fundo_url:
             st.markdown(f"""
@@ -915,7 +1024,7 @@ def renderizar_ecra_tv(provider_token):
 
 def show_client_screen_page(provider_token):
     renderizar_ecra_tv(provider_token)
-        
+    
 def show_client_screen():
 
     query_params = st.query_params
@@ -945,249 +1054,131 @@ def show_client_screen():
     renderizar_ecra_tv(provider_token)
 
 
-
 def show_provider_panel_center(token):
-
-    show_provider_panel_custom(token)
-
 
 
 def main():
-
     try:
-
         query_params = st.query_params
-
         
-
         if "page" in query_params and query_params["page"] == "register":
-
             custom_show_register_page()
-
             return
-
-
 
         if "page" in query_params and query_params["page"] == "client_register":
-
             show_client_page()
-
             return
-
-
 
         if "page" in query_params and query_params["page"] == "client_screen":
-
             show_client_screen()
-
             return
 
-
-
         token = query_params.get("prestador") or query_params.get("token") or query_params.get("provider")
-
         
-
         if token:
-
             df = get_all_providers()
-
             if df.empty or 'token' not in df.columns or not (df['token'] == token).any():
-
                 show_provider_panel_center(token)
-
                 return
-
                 
-
             prior_prestador = df[df['token'] == token]
-
             if not prior_prestador.empty:
-
                 row = prior_prestador.iloc[0]
-
                 if row.get('approved', 1) == 1:
-
                     show_provider_panel_custom(token)
-
                     return
-
                 else:
-
                     st.warning("⏳ O seu registo aguarda aprovação do Administrador.")
-
                     return
-
             else:
-
                 show_provider_panel_custom(token)
-
                 return
-
             
-
         st.markdown("""
-
             <style>
-
             .stApp {
-
                 background-color: #000000 !important;
-
                 color: #ffffff !important;
-
                 font-weight: bold !important;
-
             }
-
             .block-container {
-
                 background-color: #000000 !important;
-
                 border: 4px solid #FFC107 !important;
-
                 border-radius: 12px;
-
                 padding: 3rem !important;
-
             }
-
             h1, h2, h3, h4, h5, h6, p, span, label, div, button, input {
-
                 font-weight: bold !important;
-
                 text-shadow: 1px 1px 3px rgba(0,0,0,0.9);
-
             }
-
             </style>
-
         """, unsafe_allow_html=True)
 
-
-
         if not st.session_state.get("admin_logged", False):
-
             st.title("🔒 FFKaraoke - Área Restrita (Administrador)")
-
             
-
             with st.form("form_admin_login"):
-
                 senha = st.text_input("Palavra-passe de Administrador", type="password")
-
                 submitted = st.form_submit_button("Entrar")
-
                 
-
                 if submitted:
-
                     if senha == "ffkaraoke2026" or senha == "admin123":
-
                         st.session_state["admin_logged"] = True
-
                         st.success("Sessão iniciada com sucesso!")
-
                         st.rerun()
-
                     else:
-
                         st.error("Palavra-passe incorreta.")
 
-
-
         if st.session_state.get("admin_logged", False):
-
             st.markdown("---")
-
             st.subheader("⚡ Gestão de Reforços de Tempo Pendentes")
-
+            
             try:
-
                 res_all_ref = requests.get(f"{FIREBASE_URL}/reforcos_pendentes.json", timeout=10)
-
                 if res_all_ref.status_code == 200 and res_all_ref.json():
-
                     all_refs = res_all_ref.json()
-
                     tem_reforcos = False
-
+                    
                     for tok, refs_dict in all_refs.items():
-
                         if isinstance(refs_dict, dict):
-
                             for r_id, r_data in refs_dict.items():
-
                                 if r_data.get("approved", 0) == 0:
-
                                     tem_reforcos = True
-
                                     st.markdown(f"""
-
                                     <div style="background: rgba(0,0,0,0.95); border: 2px solid #FFC107; padding: 12px; border-radius: 6px; margin-bottom: 10px;">
-
                                         <b>Prestador:</b> {r_data.get('nome_prestador')} (Token: {tok})<br>
-
                                         <b>Referência / Comprovativo:</b> {r_data.get('referencia')}<br>
-
                                         <b>Duração Solicitada:</b> {r_data.get('tempo_plano')}
-
                                     </div>
-
                                     """, unsafe_allow_html=True)
-
                                     
-
                                     col_s, col_n = st.columns(2)
-
                                     with col_s:
-
                                         if st.button("✅ Aprovar Reforço", key=f"aprov_ref_{tok}_{r_id}"):
-
                                             r_data["approved"] = 1
-
                                             requests.put(f"{FIREBASE_URL}/reforcos_aprovados/{tok}/{r_id}.json", json=r_data)
-
                                             requests.delete(f"{FIREBASE_URL}/reforcos_pendentes/{tok}/{r_id}.json")
-
                                             st.success("Reforço aprovado e acumulado com sucesso!")
-
                                             st.rerun()
-
+                                            
                                     with col_n:
-
                                         if st.button("❌ Recusar Reforço", key=f"rec_ref_{tok}_{r_id}"):
-
                                             requests.delete(f"{FIREBASE_URL}/reforcos_pendentes/{tok}/{r_id}.json")
-
                                             st.warning("Reforço recusado.")
-
                                             st.rerun()
-
+                                            
                     if not tem_reforcos:
-
                         st.info("Nenhum pedido de reforço pendente neste momento.")
-
                 else:
-
                     st.info("Nenhum pedido de reforço pendente neste momento.")
-
+                    
             except Exception as e:
-
                 st.warning(f"Não foi possível carregar os reforços pendentes: {e}")
 
-
-
             show_admin_panel()
-
                 
-
     except Exception as e:
-
         st.error(f"Ocorreu um erro ao carregar a aplicação: {e}")
 
-
-
 if __name__ == "__main__":
-
     main()
