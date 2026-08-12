@@ -16,7 +16,7 @@ def get_all_providers():
         pass
     return pd.DataFrame()
 
-def custom_show_register_page():
+def show_register_page():
     url_fundo_painel = "https://cdn.phototourl.com/free/2026-08-03-694a4a2e-9914-4da8-93b2-87538a4805ab.png"
     url_logotipo = "https://cdn.phototourl.com/free/2026-08-03-8b13edf5-0257-491d-ab78-f0d5329ffc15.jpg"
     
@@ -55,8 +55,11 @@ def custom_show_register_page():
     </style>
     """, unsafe_allow_html=True)
 
-    if "token_pendente_prestador" in st.session_state and st.session_state["token_pendente_prestador"]:
-        token_atual = st.session_state["token_pendente_prestador"]
+    # 1. VERIFICAÇÃO IMEDIATA DO TOKEN (Se existir, mostra o ecrã de espera e FAZ RETURN para o formulário nunca aparecer)
+    token_sessao = st.session_state.get("token_pendente_prestador") or st.session_state.get("token_gerado")
+
+    if token_sessao:
+        token_atual = token_sessao
         nome_prestador_temp = st.session_state.get("nome_pendente_prestador", "Prestador")
         
         aprovado = False
@@ -75,7 +78,6 @@ def custom_show_register_page():
         except Exception:
             pass
 
-        # Se foi recusado pelo administrador
         if recusado:
             st.markdown(f"""
                 <div style="text-align: center; padding: 40px; font-family: monospace;">
@@ -85,14 +87,12 @@ def custom_show_register_page():
             """, unsafe_allow_html=True)
             
             if st.button("🔄 Submeter Novo Registo", use_container_width=True):
-                if "token_pendente_prestador" in st.session_state:
-                    del st.session_state["token_pendente_prestador"]
-                if "nome_pendente_prestador" in st.session_state:
-                    del st.session_state["nome_pendente_prestador"]
+                for k in ["token_pendente_prestador", "token_gerado", "nome_pendente_prestador"]:
+                    if k in st.session_state:
+                        del st.session_state[k]
                 st.rerun()
             return
 
-        # Se foi aprovado — Redireciona diretamente para o painel de trabalho definindo o parâmetro na URL
         if aprovado:
             st.markdown(f"""
                 <div style="text-align: center; padding: 40px; font-family: monospace;">
@@ -100,18 +100,16 @@ def custom_show_register_page():
                     <p style="color: #ffffff; font-size: 20px; font-weight: bold; margin-bottom: 30px; text-shadow: 1px 1px 3px rgba(0,0,0,0.9);">O seu registo foi aprovado com sucesso!</p>
                 </div>
             """, unsafe_allow_html=True)
-            
-            # Limpa o estado pendente e injeta o token do prestador na URL para abrir o painel correto
-            if "token_pendente_prestador" in st.session_state:
-                del st.session_state["token_pendente_prestador"]
-            if "nome_pendente_prestador" in st.session_state:
-                del st.session_state["nome_pendente_prestador"]
-                
-            st.query_params["prestador"] = token_atual
-            st.rerun()
+            if st.button("🚀 Entrar no Painel", use_container_width=True):
+                st.query_params["token"] = token_atual
+                if "page" in st.query_params:
+                    del st.query_params["page"]
+                if "token_pendente_prestador" in st.session_state:
+                    del st.session_state["token_pendente_prestador"]
+                st.rerun()
             return
         
-        # Enquanto estiver pendente (Ecrã de espera com polling automático)
+        # Ecrã de espera com animação
         st.markdown(f"""
             <style>
             @keyframes spinMic {{
@@ -186,23 +184,17 @@ def custom_show_register_page():
             </div>
         """, unsafe_allow_html=True)
         
-        # Faz polling a cada 3 segundos para detetar automaticamente se o admin aprovou
         time.sleep(3)
         st.rerun()
         return
 
-    if "original_show_register_page" in globals() and original_show_register_page:
-        try:
-            original_show_register_page()
-            return
-        except Exception:
-            pass
-
-    # Formulário de Registo (só executa se NÃO houver token pendente na sessão)
+    # 2. SÓ APARECE SE NÃO HOUVER TOKEN PENDENTE
     st.markdown("<h1>🎤 FFKaraoke - Registo de Prestador</h1>", unsafe_allow_html=True)
-    st.markdown("<p>Preencha os seus dados e escolha a duração pretendida para solicitar o seu acesso.</p>", unsafe_allow_html=True)
+    st.markdown("<p>Preencha os seus dados, indique o estabelecimento e escolha a duração pretendida para solicitar o seu acesso.</p>", unsafe_allow_html=True)
     
-    with st.form("form_registo_prestador_custom"):
+    form_key = f"form_registo_{st.session_state.get('form_counter', 0)}"
+    
+    with st.form(form_key, clear_on_submit=True):
         col1, col2 = st.columns(2)
         with col1:
             nome = st.text_input("Nome")
@@ -210,43 +202,53 @@ def custom_show_register_page():
             sobrenome = st.text_input("Sobrenome")
             
         telefone = st.text_input("Número de Telefone")
-        duracao = st.selectbox(
-            "Duração Pretendida", 
-            options=[
-                "2 Horas - 12 Mil Kwanzas", 
-                "3 Horas - 15 Mil Kwanzas", 
-                "4 Horas - 20 Mil Kwanzas"
-            ]
-        )
+        estabelecimento = st.text_input("Estabelecimento / Restaurante")
+        
+        duracao_opcoes = {
+            "2 Horas - 12 Mil Kwanzas": {"horas": 2, "valor": 12000.0},
+            "3 Horas - 15 Mil Kwanzas": {"horas": 3, "valor": 15000.0},
+            "4 Horas - 20 Mil Kwanzas": {"horas": 4, "valor": 20000.0}
+        }
+        
+        duracao_escolhida = st.selectbox("Contratos", list(duracao_opcoes.keys()))
         submitted = st.form_submit_button("Enviar Permissão")
+        
         if submitted:
-            if not nome or not telefone:
+            if not nome or not telefone or not estabelecimento:
                 st.error("Por favor, preencha todos os campos obrigatórios.")
             else:
-                referencia_fake = "Plano Selecionado Direto"
+                st.session_state['form_counter'] = st.session_state.get('form_counter', 0) + 1
+                
+                nome_completo = f"{nome} {sobrenome}".strip()
+                token_gerado = str(uuid.uuid4()).replace("-", "")[:32]
+                dados_escolha = duracao_opcoes[duracao_escolhida]
+                hours = dados_escolha["horas"]
+                valor_pago = dados_escolha["valor"]
+                
+                payment_ref = f"Estabelecimento: {estabelecimento}"
+                
                 try:
-                    from utils.db_manager import save_provider_request
-                    token_gerado = save_provider_request(nome, sobrenome, telefone, referencia_fake, duracao)
-                    st.session_state["token_pendente_prestador"] = token_gerado
-                    st.session_state["nome_pendente_prestador"] = f"{nome} {sobrenome}".strip()
-                    st.rerun()
-                except Exception as e:
-                    import uuid
-                    token_gerado = str(uuid.uuid4())[:8]
-                    nome_completo = f"{nome} {sobrenome}".strip()
+                    from utils.db_manager import add_provider
+                    add_provider(nome_completo, telefone, payment_ref, hours, token_gerado, amount_paid=valor_pago)
+                except Exception:
                     dados_reg = {
                         "nome_prestador": nome_completo,
+                        "name": nome_completo,
                         "telefone": telefone,
-                        "referencia": referencia_fake,
-                        "tempo_plano": duracao,
+                        "phone": telefone,
+                        "estabelecimento": estabelecimento,
+                        "payment_ref": payment_ref,
+                        "tempo_plano": duracao_escolhida,
+                        "hours": hours,
+                        "amount_paid": valor_pago,
                         "approved": 0,
                         "token": token_gerado,
                         "data_registo": str(datetime.now())
                     }
-                    try:
-                        requests.put(f"https://ffkaraoke-default-rtdb.firebaseio.com/prestadores_pendentes/{token_gerado}.json", json=dados_reg, timeout=10)
-                        st.session_state["token_pendente_prestador"] = token_gerado
-                        st.session_state["nome_pendente_prestador"] = nome_completo
-                        st.rerun()
-                    except Exception as err:
-                        st.error(f"Erro ao submeter registo: {err}")
+                    requests.put(f"{FIREBASE_URL}/prestadores_pendentes/{token_gerado}.json", json=dados_reg, timeout=10)
+                    requests.put(f"{FIREBASE_URL}/providers/{token_gerado}.json", json=dados_reg, timeout=10)
+                
+                st.session_state["token_pendente_prestador"] = token_gerado
+                st.session_state["token_gerado"] = token_gerado
+                st.session_state["nome_pendente_prestador"] = nome_completo
+                st.rerun()
