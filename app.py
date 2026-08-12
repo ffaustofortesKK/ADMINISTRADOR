@@ -17,6 +17,10 @@ import sys
 import os
 sys.path.append(os.path.abspath(os.path.dirname(__file__)))
 from modules.admin import show_admin_panel
+try:
+    from modules.prestador import show_prestador_page
+except Exception:
+    def show_prestador_page(token, url): st.error("Módulo 'modules.prestador' não encontrado.")
 
 # --- 1. CONFIGURAR OS CAMINHOS PRIMEIRO ---
 current_dir = os.path.dirname(os.path.abspath(__file__))
