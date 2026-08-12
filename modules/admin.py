@@ -68,7 +68,7 @@ def show_admin_panel():
 
         col_t1, col_t2 = st.columns([3, 1])
         with col_t1:
-            st.subheader("🛠️ Painel de Administração — FF Karaoke")
+            st.subheader("🛠️ Painel de Administração")
         with col_t2:
             if pendentes_count > 0:
                 st.markdown(f"⏳ Pendentes: <span class='badge-pendente-global'>{pendentes_count}</span>", unsafe_allow_html=True)
@@ -134,7 +134,7 @@ def show_admin_panel():
                             <h3 style="color: #D4AF37; margin-top: 0;">🎤 {nome}</h3>
                             <p style="margin: 4px 0; color: #ccc;"><b>📞 Telefone:</b> {telefone}</p>
                             <p style="margin: 4px 0; color: #ccc;"><b>💳 Referência de Pagamento:</b> <code>{payment_ref}</code></p>
-                            <p style="margin: 4px 0; color: #ccc;"><b>⏱️ Duração Solicitada / Expira:</b> {expires_at}</p>
+                            <p style="margin: 4px 0; color: #ccc;"><b>⏱️Contrato:</b> {expires_at}</p>
                         </div>
                         """, unsafe_allow_html=True)
                         
