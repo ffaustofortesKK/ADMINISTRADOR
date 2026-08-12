@@ -4,7 +4,7 @@ import uuid
 import time
 
 def show_register_page():
-    # Remove o fundo da caixa central, deixando apenas a imagem geral de fundo
+    # Remove o fundo da caixa central, deixando apenas a imagem geral de fundo e os estilos dos círculos rotativos
     st.markdown("""
         <style>
         .stApp {
@@ -23,13 +23,62 @@ def show_register_page():
             color: #ffffff !important;
             text-shadow: 1px 1px 3px rgba(0,0,0,0.9);
         }
+        
+        /* Animações para os círculos de espera do microfone */
+        @keyframes rotateLeft {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(-360deg); }
+        }
+        @keyframes rotateRight {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        @keyframes pulseMic {
+            0%, 100% { transform: scale(1); filter: drop-shadow(0 0 5px rgba(255,0,0,0.8)); }
+            50% { transform: scale(1.08); filter: drop-shadow(0 0 15px rgba(255,0,0,1)); }
+        }
+
+        .loader-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            margin-top: 30px;
+            margin-bottom: 20px;
+            position: relative;
+            height: 220px;
+        }
+        .mic-icon-center {
+            position: absolute;
+            font-size: 65px;
+            animation: pulseMic 1.5s infinite ease-in-out;
+            z-index: 10;
+        }
+        .circle-outer {
+            position: absolute;
+            width: 160px;
+            height: 160px;
+            border: 4px dashed #ff3333;
+            border-radius: 50%;
+            animation: rotateRight 8s linear infinite;
+            border-top-color: transparent;
+        }
+        .circle-inner {
+            position: absolute;
+            width: 110px;
+            height: 110px;
+            border: 4px dashed #ff4d4d;
+            border-radius: 50%;
+            animation: rotateLeft 6s linear infinite;
+            border-bottom-color: transparent;
+        }
         </style>
     """, unsafe_allow_html=True)
 
     _, col_centro, _ = st.columns([1, 6, 1])
     
     with col_centro:
-        st.title("Registo para Prestador")
+        st.title("Cadastramento do Prestador")
         st.write("Preencha os seus dados, indique o estabelecimento e escolha o tempo pretendido para solicitar o seu acesso.")
 
         if "token_gerado" not in st.session_state:
@@ -98,8 +147,17 @@ def show_register_page():
                         del st.query_params["page"]
                     st.rerun()
             else:
-                st.warning("⏳ O seu registo foi enviado com sucesso e está a aguardar a aprovação do Administrador.")
-                st.info("Assim que o Administrador aprovar, o botão de acesso aparecerá automaticamente aqui nesta mesma página.")
+                # Ecrã de espera com o microfone e os dois círculos tracejados vermelhos a rodar em sentidos opostos
+                st.markdown("""
+                    <div class="loader-container">
+                        <div class="circle-outer"></div>
+                        <div class="circle-inner"></div>
+                        <div class="mic-icon-center">🎤</div>
+                    </div>
+                """, unsafe_allow_html=True)
+                
+                st.markdown("<h3 style='text-align: center; color: #ff4d4d;'>A aguardar aprovação do Administrador...</h3>", unsafe_allow_html=True)
+                st.info("Assim que o Administrador aprovar o seu pagamento e acesso, esta página atualizará automaticamente para o painel.")
                 
                 time.sleep(3)
                 st.rerun()
