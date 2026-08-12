@@ -402,48 +402,34 @@ def obter_video_fundo(provider_token):
     return ""
 
 def listar_videos_pasta_clipes():
+    # Usa cache de segurança para nunca deixar o seletor vazio se a rede falhar
+    if "cache_segura_clipes" in st.session_state and st.session_state["cache_segura_clipes"]:
+        return st.session_state["cache_segura_clipes"]
+
     videos_encontrados = []
     try:
-        resultado = cloudinary.search.Search()\
-            .expression('resource_type:video AND asset_folder=clipes')\
-            .max_results(500)\
-            .execute()
-            
+        # Acede diretamente à pasta exata 'clipes'
+        resultado = cloudinary.api.resources(
+            resource_type="video",
+            type="upload",
+            prefix="clipes/", 
+            max_results=500
+        )
+        
         for recurso in resultado.get("resources", []):
             url_secure = recurso.get("secure_url", "")
             if url_secure:
                 if "/upload/" in url_secure and "f_auto,q_auto" not in url_secure:
                     url_secure = url_secure.replace("/upload/", "/upload/f_auto,q_auto/")
                 
-                filename = recurso.get("filename", "")
                 public_id = recurso.get("public_id", "")
-                nome_amigavel = filename if filename else public_id.split("/")[-1]
-                
+                nome_amigavel = public_id.split("/")[-1]
                 videos_encontrados.append({"nome": nome_amigavel, "url": url_secure})
-    except Exception as e:
-        try:
-            resultado_alt = cloudinary.api.resources(
-                resource_type="video",
-                type="upload",
-                max_results=500
-            )
-            for recurso in resultado_alt.get("resources", []):
-                public_id = recurso.get("public_id", "")
-                if "clipes" in public_id.lower():
-                    url_secure = recurso.get("secure_url", "")
-                    if url_secure:
-                        if "/upload/" in url_secure and "f_auto,q_auto" not in url_secure:
-                            url_secure = url_secure.replace("/upload/", "/upload/f_auto,q_auto/")
-                        nome_amigavel = public_id.split("/")[-1]
-                        videos_encontrados.append({"nome": nome_amigavel, "url": url_secure})
-        except Exception as err:
-            print(f"Erro crítico ao listar vídeos do Cloudinary: {err}")
-            
-    # --- SISTEMA DE SEGURANÇA (CACHE LOCAL) ---
-    # Se a nuvem falhar momentaneamente, reutiliza a última lista válida guardada em sessão
-    if not videos_encontrados and "cache_segura_clipes" in st.session_state:
-        return st.session_state["cache_segura_clipes"]
-    elif videos_encontrados:
+                
+    except Exception as err:
+        print(f"Erro ao listar pasta clipes: {err}")
+        
+    if videos_encontrados:
         st.session_state["cache_segura_clipes"] = videos_encontrados
         
     return videos_encontrados
