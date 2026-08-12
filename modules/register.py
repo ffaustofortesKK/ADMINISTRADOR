@@ -29,7 +29,7 @@ def show_register_page():
     _, col_centro, _ = st.columns([1, 6, 1])
     
     with col_centro:
-        st.title("🎤 FFKaraoke - Registo de Prestador")
+        st.title("Registo para Prestador")
         st.write("Preencha os seus dados, indique o estabelecimento e escolha o tempo pretendido para solicitar o seu acesso.")
 
         if "token_gerado" not in st.session_state:
@@ -52,7 +52,7 @@ def show_register_page():
                     "4 Horas - 20 Mil Kwanzas": {"horas": 4, "valor": 20000.0}
                 }
                 
-                duracao_escolhida = st.selectbox("Duração Pretendida", list(duracao_opcoes.keys()))
+                duracao_escolhida = st.selectbox("Contrato", list(duracao_opcoes.keys()))
                 
                 submitted = st.form_submit_button("Enviar Permissão")
                 
