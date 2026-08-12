@@ -2,7 +2,7 @@ import streamlit as st
 import time
 import pandas as pd
 from datetime import datetime
-from utils.db_manager import get_all_providers, get_active_providers, approve_provider, get_total_revenue, reject_provider
+from modules.register import get_all_providers, get_active_providers, approve_provider, get_total_revenue, reject_provider
 
 def show_admin_panel():
     st.markdown("""
