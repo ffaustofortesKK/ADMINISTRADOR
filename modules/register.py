@@ -1,7 +1,59 @@
 import streamlit as st
-from utils.db_manager import add_provider, get_all_providers
 import uuid
 import time
+import sqlite3
+import pandas as pd
+
+# Funções de Base de Dados integradas diretamente para evitar erros de caminhos em falta
+def get_connection():
+    return sqlite3.connect('database.db', check_same_thread=False)
+
+def get_all_providers():
+    conn = get_connection()
+    try:
+        df = pd.read_sql_query("SELECT * FROM providers", conn)
+        return df
+    except Exception:
+        # Se a tabela ainda não existir, retorna um DataFrame vazio com as colunas necessárias
+        return pd.DataFrame(columns=['id', 'name', 'phone', 'payment_ref', 'expires_at', 'token', 'approved', 'amount_paid'])
+    finally:
+        conn.close()
+
+def add_provider(name, phone, payment_ref, hours, token, amount_paid=0.0):
+    conn = get_connection()
+    cursor = conn.cursor()
+    # Cria a tabela caso ela não exista
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS providers (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT,
+            phone TEXT,
+            payment_ref TEXT,
+            expires_at TEXT,
+            token TEXT,
+            approved INTEGER DEFAULT 0,
+            amount_paid REAL DEFAULT 0.0
+        )
+    ''')
+    
+    # Calcula a data de expiração com base nas horas selecionadas
+    from datetime import datetime, timedelta
+    expires_at = (datetime.now() + timedelta(hours=hours)).strftime("%Y-%m-%d %H:%M:%S")
+    
+    cursor.execute('''
+        INSERT INTO providers (name, phone, payment_ref, expires_at, token, approved, amount_paid)
+        VALUES (?, ?, ?, ?, ?, 0, ?)
+    ''', (name, phone, payment_ref, expires_at, token, amount_paid))
+    
+    conn.commit()
+    conn.close()
+
+def reject_provider(token):
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("UPDATE providers SET approved = -1 WHERE token = ?", (token,))
+    conn.commit()
+    conn.close()
 
 def show_register_page():
     # Remove o fundo da caixa central, deixando apenas a imagem geral de fundo
@@ -108,7 +160,6 @@ def show_register_page():
                     "3 Horas - 15 Mil Kwanzas": {"horas": 3, "valor": 15000.0},
                     "4 Horas - 20 Mil Kwanzas": {"horas": 4, "valor": 20000.0}
                 }
-                
                 duracao_escolhida = st.selectbox("Contrato", list(duracao_opcoes.keys()))
                 
                 submitted = st.form_submit_button("Enviar Permissão")
