@@ -451,113 +451,6 @@ def obter_url_video_cloudinary(musica_obj, titulo_limpo):
     encoded_title = urllib.parse.quote(titulo_limpo + ".mp4")
     return f"https://res.cloudinary.com/{cloud_name}/video/upload/f_auto,q_auto/{encoded_title}"
 
-import streamlit as st
-import pandas as pd
-import requests
-from datetime import datetime, timedelta
-import time
-import urllib.parse
-import uuid
-
-# Defina a sua URL do Firebase aqui
-FIREBASE_URL = "https://SEU_FIREBASE_APP_ID.firebaseio.com"
-
-# --- FUNÇÕES AUXILIARES ---
-def get_all_providers():
-    try:
-        response = requests.get(f"{FIREBASE_URL}/providers.json", timeout=10)
-        if response.status_code == 200 and response.json():
-            data = response.json()
-            return pd.DataFrame([{"id": k, **v} for k, v in data.items()])
-    except Exception:
-        pass
-    return pd.DataFrame()
-
-def get_active_providers():
-    df = get_all_providers()
-    if not df.empty and 'approved' in df.columns:
-        return df[df['approved'].astype(int) == 1]
-    return pd.DataFrame()
-
-def get_total_revenue():
-    df = get_all_providers()
-    if not df.empty and 'amount_paid' in df.columns:
-        total = 0
-        for val in df['amount_paid']:
-            try:
-                num = ''.join(filter(str.isdigit, str(val)))
-                if num:
-                    total += float(num)
-            except Exception:
-                pass
-        return total
-    return 0.0
-
-def limpar_nome_musica(musica_obj):
-    if isinstance(musica_obj, dict):
-        return musica_obj.get("titulo", musica_obj.get("name", "Música Desconhecida"))
-    return str(musica_obj)
-
-def atualizar_estado_pedido(provider_token, pedido_id, novo_estado):
-    try:
-        requests.patch(f"{FIREBASE_URL}/pedidos/{provider_token}/{pedido_id}.json", json={"estado": novo_estado}, timeout=10)
-    except Exception:
-        pass
-
-def terminar_todas_musicas_ativas(provider_token, pedidos):
-    for p in pedidos:
-        if p.get("estado") == "aprovado":
-            atualizar_estado_pedido(provider_token, p.get("id"), "terminado")
-
-def obter_video_fundo(provider_token):
-    try:
-        resp = requests.get(f"{FIREBASE_URL}/config_video/{provider_token}.json", timeout=5)
-        if resp.status_code == 200:
-            return resp.json()
-    except Exception:
-        pass
-    return ""
-
-def definir_video_fundo(provider_token, url_video):
-    try:
-        requests.put(f"{FIREBASE_URL}/config_video/{provider_token}.json", json=url_video, timeout=5)
-    except Exception:
-        pass
-
-def listar_videos_pasta_clipes():
-    # Exemplo estático ou integração Cloudinary
-    return []
-
-# --- FUNÇÃO DE APROVAÇÃO ROBUSTA ---
-def approve_provider(token):
-    try:
-        encontrou = False
-        dados_prestador = None
-        
-        for node in ["providers", "prestadores", "prestadores_pendentes"]:
-            resp = requests.get(f"{FIREBASE_URL}/{node}.json", timeout=10)
-            if resp.status_code == 200 and resp.json():
-                dados = resp.json()
-                for key, val in dados.items():
-                    if isinstance(val, dict) and (val.get("token") == token or key == token):
-                        dados_prestador = val
-                        requests.patch(f"{FIREBASE_URL}/{node}/{key}.json", json={"approved": 1}, timeout=10)
-                        encontrou = True
-                        
-        if dados_prestador:
-            dados_prestador["approved"] = 1
-            requests.put(f"{FIREBASE_URL}/providers/{token}.json", json=dados_prestador, timeout=10)
-            requests.put(f"{FIREBASE_URL}/prestadores/{token}.json", json=dados_prestador, timeout=10)
-        else:
-            requests.patch(f"{FIREBASE_URL}/providers/{token}.json", json={"approved": 1}, timeout=10)
-            requests.patch(f"{FIREBASE_URL}/prestadores/{token}.json", json={"approved": 1}, timeout=10)
-            
-        return True
-    except Exception as e:
-        st.error(f"Erro ao aprovar prestador: {e}")
-        return False
-
-# --- GESTÃO DA FILA DO PRESTADOR ---
 @st.fragment(run_every=1)
 def renderizar_gestao_fila_prestador(provider_token):
     try:
@@ -683,7 +576,7 @@ def renderizar_gestao_fila_prestador(provider_token):
     except Exception as e:
         st.error(f"Erro ao carregar os pedidos do Firebase: {e}")
 
-# --- PAINEL PERSONALIZADO DO PRESTADOR ---
+
 def show_provider_panel_custom(provider_token):
     url_logotipo = "https://cdn.phototourl.com/free/2026-08-03-8b13edf5-0257-491d-ab78-f0d5329ffc15.jpg"
     url_fundo_painel = "https://cdn.phototourl.com/free/2026-08-03-694a4a2e-9914-4da8-93b2-87538a4805ab.png"
@@ -841,7 +734,8 @@ def show_provider_panel_custom(provider_token):
         color: #ffffff !important;
         font-weight: bold !important;
         text-shadow: 1px 1px 3px rgba(0,0,0,0.9) !important;
-    }}</style>
+    }}
+    </style>
     """, unsafe_allow_html=True)
 
     col_topo_1, col_topo_2, col_topo_3 = st.columns([1.2, 3, 0.8])
@@ -874,11 +768,7 @@ def show_provider_panel_custom(provider_token):
     link_cliente_rel = f"/?page=client_register&prestador={provider_token}"
     link_tv_rel = f"/?page=client_screen&prestador={provider_token}"
     
-    try:
-        host_dominio = st.context.headers.get('Host', 'grupoffkaraoke.streamlit.app')
-    except Exception:
-        host_dominio = 'grupoffkaraoke.streamlit.app'
-        
+    host_dominio = st.context.headers.get('Host', 'grupoffkaraoke.streamlit.app')
     link_cliente_absoluto = f"https://{host_dominio}{link_cliente_rel}"
     link_tv_absoluto = f"https://{host_dominio}{link_tv_rel}"
     
@@ -938,6 +828,7 @@ def show_provider_panel_custom(provider_token):
                         "data_registo": str(datetime.now())
                     }
                     try:
+                        import uuid
                         ref_id = str(uuid.uuid4())[:8]
                         requests.put(f"{FIREBASE_URL}/reforcos_pendentes/{provider_token}/{ref_id}.json", json=dados_reforco, timeout=10)
                         st.success("Aguarde a confirmação do Administrador.")
@@ -946,8 +837,138 @@ def show_provider_panel_custom(provider_token):
 
     st.markdown("<div style='height: 5px;'></div>", unsafe_allow_html=True)
     renderizar_gestao_fila_prestador(provider_token)
+    
+@st.fragment(run_every=1)
+def renderizar_ecra_tv(provider_token):
+    try:
+        # Busca o vídeo de fundo definido pelo prestador em tempo real
+        video_fundo_url = obter_video_fundo(provider_token)
+        
+        # Busca a música ativa na fila para exibir na tela
+        url_firebase = f"{FIREBASE_URL}/pedidos/{provider_token}.json?_t={time.time()}"
+        response = requests.get(url_firebase, timeout=10)
+        
+        tocando_agora = None
+        if response.status_code == 200 and response.json():
+            data = response.json()
+            pedidos = [{"id": k, **v} for k, v in data.items()]
+            pedidos_ativos = [p for p in pedidos if p.get("estado") in ["pendente", "aprovado"]]
+            pedidos_ativos.sort(key=lambda x: x.get("timestamp", 0))
+            tocando_agora = next((p for p in pedidos_ativos if p.get("estado") == "aprovado"), None)
 
-# --- PAINEL DE ADMINISTRAÇÃO ---
+        # Renderização do Ecrã/Tela de TV com o Vídeo Clipe de fundo comandado pelo Prestador
+        st.markdown("""
+            <style>
+            .stApp {
+                background: #000000 !important;
+            }
+            .video-background {
+                position: fixed;
+                right: 0;
+                bottom: 0;
+                min-width: 100%;
+                min-height: 100%;
+                z-index: 0;
+                object-fit: cover;
+            }
+            .content-overlay {
+                position: relative;
+                z-index: 1;
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                justify-content: center;
+                height: 80vh;
+                text-align: center;
+            }
+            .card-cantor {
+                background: rgba(0, 0, 0, 0.85);
+                border: 4px solid #FFC107;
+                border-radius: 12px;
+                padding: 30px 50px;
+                box-shadow: 0 0 30px rgba(255, 193, 7, 0.5);
+            }
+            </style>
+        """, unsafe_allow_html=True)
+
+        if video_fundo_url:
+            st.markdown(f"""
+                <video autoplay muted loop class="video-background">
+                    <source src="{video_fundo_url}" type="video/mp4">
+                    O seu navegador não suporta vídeos em HTML5.
+                </video>
+            """, unsafe_allow_html=True)
+
+        st.markdown('<div class="content-overlay">', unsafe_allow_html=True)
+        if tocando_agora:
+            cantor = tocando_agora.get("cliente", "CONVIDADO").upper()
+            musica = limpar_nome_musica(tocando_agora.get("musica", {}))
+            st.markdown(f"""
+                <div class="card-cantor">
+                    <div style="font-family: monospace; color: #FFC107; font-size: 14px; letter-spacing: 2px; margin-bottom: 10px;">A CANTAR AGORA</div>
+                    <div style="font-family: monospace; color: #FFC107; font-size: 48px; font-weight: bold; text-transform: uppercase; margin-bottom: 15px; text-shadow: 3px 3px 8px rgba(0,0,0,0.9);">
+                        🎤 {cantor}
+                    </div>
+                    <div style="font-family: monospace; color: #ffffff; font-size: 22px; font-weight: bold; text-shadow: 2px 2px 6px rgba(0,0,0,0.9);">
+                        🎵 {musica}
+                    </div>
+                </div>
+            """, unsafe_allow_html=True)
+        else:
+            st.markdown("""
+                <div class="card-cantor">
+                    <div style="font-family: monospace; color: #FFC107; font-size: 28px; font-weight: bold;">
+                        ⏳ AGUARDANDO PRÓXIMA MÚSICA...
+                    </div>
+                </div>
+            """, unsafe_allow_html=True)
+        st.markdown('</div>', unsafe_allow_html=True)
+
+    except Exception as e:
+        st.error(f"Erro ao carregar a tela de TV: {e}")
+
+def show_client_screen_page(provider_token):
+    renderizar_ecra_tv(provider_token)
+        
+def show_client_screen():
+
+    query_params = st.query_params
+
+    provider_token = query_params.get("prestador") or query_params.get("provider", None)
+
+
+
+    if not provider_token:
+
+        st.error("Tela inválida. Falta o parâmetro do prestador.")
+
+        return
+
+
+
+    st.markdown("""
+
+    <style>
+
+    .stApp { background-color: #000000; color: white; }
+
+    </style>""", unsafe_allow_html=True)
+
+
+
+    renderizar_ecra_tv(provider_token)
+
+
+
+def show_provider_panel_center(token):
+    show_provider_panel_custom(token)
+
+import streamlit as st
+import pandas as pd
+import requests
+from datetime import datetime
+import time
+
 def show_admin_panel():
     st.markdown("""
     <style>
@@ -994,6 +1015,7 @@ def show_admin_panel():
     """, unsafe_allow_html=True)
 
     df_all = get_all_providers()
+    df_active = get_active_providers()
     
     pendentes_count = 0
     if not df_all.empty and 'approved' in df_all.columns:
@@ -1019,7 +1041,10 @@ def show_admin_panel():
 
     with aba1:
         st.subheader("🔗 Portal de Auto-Registo de Prestadores")
+        st.write("Partilhe este link ou o QR Code com os prestadores para que possam submeter os seus dados e comprovativo de pagamento.")
+        
         base_url = "https://appadm.streamlit.app/?page=register"
+        
         col_l, col_q = st.columns([3, 1])
         with col_l:
             st.markdown(f"""
@@ -1028,93 +1053,263 @@ def show_admin_panel():
                 <a href="{base_url}" target="_blank" style="color: #FFD700; font-size: 16px;">{base_url}</a>
             </div>
             """, unsafe_allow_html=True)
+            st.info("Os prestadores que acederem a este link poderão preencher o nome, contacto, referência de pagamento e tempo pretendido.")
+            
         with col_q:
             qr_api_url = f"https://api.qrserver.com/v1/create-qr-code/?size=150x150&data={base_url}"
             st.image(qr_api_url, width=140, caption="QR Code de Registo")
 
     with aba2:
         st.subheader("📋 Pedidos de Registo Pendentes")
+        st.write("Analise as informações enviadas por cada prestador e aprove ou recuse o acesso conforme a confirmação do pagamento.")
+        
         if df_all.empty:
             st.info("Nenhum prestador registado na base de dados.")
         else:
             pendentes = df_all[df_all['approved'].astype(int) == 0]
+            
             if pendentes.empty:
                 st.success("Não existem novos pedidos de registo pendentes.")
             else:
+                # Cabeçalho da grelha
+                st.markdown("""
+                <div style="background: linear-gradient(180deg, rgba(30,30,30,0.95), rgba(15,15,15,0.95)); border: 2px solid #FFC107; border-radius: 6px 6px 0 0; padding: 8px 12px; margin-bottom: 0px; border-bottom: 1px solid #FFC107;">
+                """, unsafe_allow_html=True)
+                
+                hc1, hc2, hc3, hc4, hc5 = st.columns([2.0, 1.8, 1.8, 2.6, 1.8])
+                with hc1:
+                    st.markdown("<div style='text-align: center; font-weight: bold; color: #FFD700; font-size: 20px;'>Nome</div>", unsafe_allow_html=True)
+                with hc2:
+                    st.markdown("<div style='text-align: center; font-weight: bold; color: #FFD700; font-size: 20px;'>Telefone:</div>", unsafe_allow_html=True)
+                with hc3:
+                    st.markdown("<div style='text-align: center; font-weight: bold; color: #FFD700; font-size: 20px;'>Estabelecimento</div>", unsafe_allow_html=True)
+                with hc4:
+                    st.markdown("<div style='text-align: center; font-weight: bold; color: #FFD700; font-size: 20px;'>Duração Solicitada</div>", unsafe_allow_html=True)
+                with hc5:
+                    st.markdown("<div style='text-align: center; font-weight: bold; color: #FFD700; font-size: 20px;'>Ações</div>", unsafe_allow_html=True)
+                    
+                st.markdown('</div>', unsafe_allow_html=True)
+
                 for index, row in pendentes.iterrows():
-                    nome = row.get('name', row.get('nome', 'Desconhecido'))
+                    nome = row.get('name', 'Desconhecido')
                     telefone = row.get('phone', 'N/A')
                     estabelecimento = row.get('estabelecimento', row.get('venue', 'N/A'))
                     payment_ref = row.get('payment_ref', 'N/A')
                     amount_paid = row.get('amount_paid', 'N/A')
                     expires_at = row.get('expires_at', 'N/A')
-                    token = row.get('token', row.get('id', ''))
+                    token = row.get('token', '')
                     
-                    col_info1, col_info2, col_info3 = st.columns([3, 2, 2])
-                    with col_info1:
-                        st.markdown(f"🎤 **{nome}**<br>📞 {telefone} | 🏠 {estabelecimento}", unsafe_allow_html=True)
-                    with col_info2:
-                        st.markdown(f"Ref: {payment_ref} ({amount_paid})", unsafe_allow_html=True)
-                    with col_info3:
-                        if st.button("✅ Aprovar", key=f"btn_aprov_{token}"):
-                            if approve_provider(token):
-                                st.success(f"Prestador {nome} aprovado!")
-                                time.sleep(1)
+                    # Linhas compactas com texto dos dados (Nome, Telefone, Estabelecimento) aumentado em 80% (cerca de 24px)
+                    st.markdown("""
+                    <div style="background: linear-gradient(180deg, rgba(17,17,17,0.95), rgba(5,5,5,0.95)); border-left: 2px solid #FFC107; border-right: 2px solid #FFC107; border-bottom: 2px solid #FFC107; padding: 2px 8px; margin-bottom: 3px;">
+                    """, unsafe_allow_html=True)
+                    
+                    rc1, rc2, rc3, rc4, rc5 = st.columns([2.0, 1.8, 1.8, 2.6, 1.8])
+                    
+                    with rc1:
+                        st.markdown(f"""
+                        <div style="border-right: 2px solid #444; padding-right: 4px; line-height: 1.1; margin-top: 2px; font-size: 24px;">
+                            🎤 <b style="color: #ffffff;">{nome}</b>
+                        </div>
+                        """, unsafe_allow_html=True)
+                        
+                    with rc2:
+                        st.markdown(f"""
+                        <div style="border-right: 2px solid #444; padding-right: 4px; line-height: 1.1; margin-top: 2px; font-size: 24px;">
+                            📞 <b style="color: #FFD700;">{telefone}</b>
+                        </div>
+                        """, unsafe_allow_html=True)
+                        
+                    with rc3:
+                        st.markdown(f"""
+                        <div style="border-right: 2px solid #444; padding-right: 4px; line-height: 1.1; margin-top: 2px; font-size: 24px;">
+                            🏠 <b style="color: #FFD700;">{estabelecimento}</b>
+                        </div>
+                        """, unsafe_allow_html=True)
+                        
+                    with rc4:
+                        st.markdown(f"""
+                        <div style="border-right: 2px solid #444; padding-right: 4px; line-height: 1.0; margin-top: 1px; font-size: 15px;">
+                            <b style="color: #ffffff;">{expires_at}</b><br><span style='font-size: 12px; color: #FFD700;'>Ref: {payment_ref} ({amount_paid})</span>
+                        </div>
+                        """, unsafe_allow_html=True)
+                    
+                    with rc5:
+                        b_col1, b_col2 = st.columns(2)
+                        with b_col1:
+                            if st.button("❌ Recusar", key=f"btn_rec_{token}"):
+                                try:
+                                    atualizado = False
+                                    for node in ["providers", "prestadores", "prestadores_pendentes"]:
+                                        resp = requests.get(f"{FIREBASE_URL}/{node}.json", timeout=10)
+                                        if resp.status_code == 200 and resp.json():
+                                            dados = resp.json()
+                                            for key, val in dados.items():
+                                                if isinstance(val, dict) and val.get("token") == token:
+                                                    requests.patch(f"{FIREBASE_URL}/{node}/{key}.json", json={"approved": -1}, timeout=10)
+                                                    atualizado = True
+                                                    
+                                    if not atualizado:
+                                        requests.patch(f"{FIREBASE_URL}/providers/{token}.json", json={"approved": -1}, timeout=10)
+                                        requests.patch(f"{FIREBASE_URL}/prestadores/{token}.json", json={"approved": -1}, timeout=10)
+                                        
+                                    st.warning(f"Registo de {nome} recusado com sucesso e enviado para o histórico.")
+                                    st.rerun()
+                                except Exception as e:
+                                    st.error(f"Erro ao recusar: {e}")
+                        with b_col2:
+                            if st.button("✅ Aprovar", key=f"btn_aprov_{token}"):
+                                approve_provider(token)
+                                st.success(f"Prestador {nome} aprovado com sucesso!")
                                 st.rerun()
-                    st.markdown("<hr style='border-color: #333;'>", unsafe_allow_html=True)
+                            
+                    st.markdown('</div>', unsafe_allow_html=True)
+
+        st.markdown("---")
+        st.subheader("⚡ Gestão de Reforços de Tempo Pendentes")
+        
+        try:
+            res_all_ref = requests.get(f"{FIREBASE_URL}/reforcos_pendentes.json", timeout=10)
+            if res_all_ref.status_code == 200 and res_all_ref.json():
+                all_refs = res_all_ref.json()
+                tem_reforcos = False
+                
+                for tok, refs_dict in all_refs.items():
+                    if isinstance(refs_dict, dict):
+                        for r_id, r_data in refs_dict.items():
+                            if r_data.get("approved", 0) == 0:
+                                tem_reforcos = True
+                                st.markdown(f"""
+                                <div style="background: linear-gradient(180deg, rgba(17,17,17,0.95), rgba(5,5,5,0.95)); border: 2px solid #FFC107; border-radius: 6px; padding: 8px; margin-bottom: 8px;">
+                                    <b>⚡ Reforço:</b> {r_data.get('nome_prestador')} | <b>Duração:</b> {r_data.get('tempo_plano')} | <b>Ref:</b> <code>{r_data.get('referencia')}</code>
+                                </div>
+                                """, unsafe_allow_html=True)
+                                
+                                rc1, rc2, rc3 = st.columns([6, 1.2, 1.2])
+                                with rc2:
+                                    if st.button("❌ Recusar", key=f"rec_ref_{tok}_{r_id}"):
+                                        requests.delete(f"{FIREBASE_URL}/reforcos_pendentes/{tok}/{r_id}.json")
+                                        st.warning("Reforço recusado.")
+                                        st.rerun()
+                                with rc3:
+                                    if st.button("✅ Aprovar", key=f"aprov_ref_{tok}_{r_id}"):
+                                        r_data["approved"] = 1
+                                        requests.put(f"{FIREBASE_URL}/reforcos_aprovados/{tok}/{r_id}.json", json=r_data)
+                                        requests.delete(f"{FIREBASE_URL}/reforcos_pendentes/{tok}/{r_id}.json")
+                                        st.success("Reforço aprovado!")
+                                        st.rerun()
+                                st.markdown("<hr style='margin: 8px 0; border-color: #333;'>", unsafe_allow_html=True)
+                                
+                if not tem_reforcos:
+                    st.info("Nenhum pedido de reforço pendente neste momento.")
+            else:
+                st.info("Nenhum pedido de reforço pendente neste momento.")
+        except Exception as e:
+            st.warning(f"Não foi possível carregar os reforços pendentes: {e}")
 
     with aba3:
-        st.subheader("📑 Gestão Total de Prestadores Ativos")
-        df_active = get_active_providers()
+        st.subheader("📑 Gestão Total de Prestadores Ativos (Com Contagem Decrescente)")
+        st.write("Apenas prestadores com licença ativa. Assim que o tempo expirar, o prestador desaparece automaticamente daqui.")
+        
         if df_active.empty:
             st.info("Nenhum prestador com sessão ativa no momento.")
         else:
-            st.dataframe(df_active, use_container_width=True, hide_index=True)
+            agora = datetime.now()
+            lista_gestao = []
+            
+            for idx, row in df_active.iterrows():
+                expira = pd.to_datetime(row['expires_at'])
+                tempo_restante = expira - agora
+                
+                if tempo_restante.total_seconds() > 0:
+                    horas_restantes = int(tempo_restante.total_seconds() // 3600)
+                    minutos_restantes = int((tempo_restante.total_seconds() % 3600) // 60)
+                    contagem = f"⏳ {horas_restantes}h {minutos_restantes}m restantes"
+                else:
+                    contagem = "⚠️ Expirado"
+                    
+                lista_gestao.append({
+                    'Nome': row['name'],
+                    'Telefone': row['phone'],
+                    'Ref. Pagamento': row['payment_ref'],
+                    'Valor Pago (Kz)': row['amount_paid'],
+                    'Tempo Restante': contagem,
+                    'Expira em': row['expires_at']
+                })
+            
+            df_gestao_view = pd.DataFrame(lista_gestao)
+            st.dataframe(df_gestao_view, use_container_width=True, hide_index=True)
 
     with aba4:
-        st.subheader("📈 Relatórios Financeiros")
+        st.subheader("📈 Relatórios Financeiros e Histórico Completo")
+        st.write("Registo integral de todas as transações, valores e tempos solicitados (incluindo licenças expiradas e recusadas).")
+        
         total_recebido = get_total_revenue()
-        st.metric(label="💳 Total Geral Faturado", value=f"{total_recebido:,.2f} Kz")
+        total_prestadores = len(df_all) if not df_all.empty else 0
+        aprovados_count = len(df_all[df_all['approved'].astype(int) == 1]) if not df_all.empty else 0
+        
+        col_m1, col_m2, col_m3 = st.columns(3)
+        with col_m1:
+            st.metric(label="💳 Total Geral Faturado", value=f"{total_recebido:,.2f} Kz")
+        with col_m2:
+            st.metric(label="🎤 Total de Prestadores Registados", value=total_prestadores)
+        with col_m3:
+            st.metric(label="✅ Aprovados vs ⏳ Pendentes", value=f"{aprovados_count} / {pendentes_count}")
+            
+        st.markdown("---")
+        st.subheader("📜 Histórico Geral de Registos")
+        
+        if df_all.empty:
+            st.info("Sem dados estatísticos registados.")
+        else:
+            tabela_relatorio = df_all[['id', 'name', 'phone', 'payment_ref', 'amount_paid', 'expires_at', 'approved']].copy()
+            tabela_relatorio.columns = ['ID', 'Nome', 'Telefone', 'Ref. Pagamento', 'Valor (Kz)', 'Data/Expiração', 'Estado']
+            tabela_relatorio['Estado'] = tabela_relatorio['Estado'].apply(lambda x: "✅ Aprovado" if int(x) == 1 else ("❌ Recusado" if int(x) == -1 else "⏳ Pendente"))
+            
+            st.dataframe(tabela_relatorio, use_container_width=True, hide_index=True)
 
-# --- FUNÇÃO PRINCIPAL ---
+    time.sleep(10)
+    st.rerun()
+
+
 def main():
     try:
         query_params = st.query_params
         
+        if "page" in query_params and query_params["page"] == "register":
+            if original_show_register_page:
+                original_show_register_page()
+            else:
+                st.error("Página de registo não disponível.")
+            return
+
+        if "page" in query_params and query_params["page"] == "client_register":
+            show_client_page()
+            return
+
         token = query_params.get("prestador") or query_params.get("token") or query_params.get("provider")
         
         if token:
-            prestador_encontrado = None
-            
-            # Consulta direta ao Firebase para evitar atrasos de cache
-            for node in ["providers", "prestadores", "prestadores_pendentes"]:
-                resp = requests.get(f"{FIREBASE_URL}/{node}/{token}.json", timeout=5)
-                if resp.status_code == 200 and resp.json():
-                    prestador_encontrado = resp.json()
-                    break
-            
-            if not prestador_encontrado:
-                df = get_all_providers()
-                if not df.empty and 'token' in df.columns:
-                    match = df[df['token'] == token]
-                    if not match.empty:
-                        prestador_encontrado = match.iloc[0].to_dict()
-
-            if prestador_encontrado:
-                status_aprov = int(prestador_encontrado.get('approved', 0))
+            df = get_all_providers()
+            if df.empty or 'token' not in df.columns or not (df['token'] == token).any():
+                show_provider_panel_center(token)
+                return
+                
+            prior_prestador = df[df['token'] == token]
+            if not prior_prestador.empty:
+                row = prior_prestador.iloc[0]
+                status_aprov = int(row.get('approved', 1))
                 if status_aprov == 1:
                     show_provider_panel_custom(token)
                     return
                 elif status_aprov == -1:
-                    st.error("❌ O seu registo foi recusado pelo Administrador.")
+                    st.error("❌ O seu registo foi recusado pelo Administrador. Por favor, verifique os dados ou entre em contacto.")
                     return
                 else:
-                    st.warning("⏳ O seu registo aguarda aprovação do Administrador. Esta página atualizará automaticamente assim que for aprovado.")
-                    time.sleep(4)
-                    st.rerun()
+                    st.warning("⏳ O seu registo aguarda aprovação do Administrador.")
                     return
             else:
-                st.warning("Token de prestador não encontrado na base de dados.")
+                show_provider_panel_custom(token)
                 return
             
         st.markdown("""
@@ -1129,6 +1324,10 @@ def main():
                 border: 4px solid #FFC107 !important;
                 border-radius: 12px;
                 padding: 3rem !important;
+            }
+            h1, h2, h3, h4, h5, h6, p, span, label, div, button, input {
+                font-weight: bold !important;
+                text-shadow: 1px 1px 3px rgba(0,0,0,0.9);
             }
             </style>
         """, unsafe_allow_html=True)
