@@ -582,17 +582,39 @@ def show_provider_panel_custom(provider_token):
     url_fundo_painel = "https://cdn.phototourl.com/free/2026-08-03-694a4a2e-9914-4da8-93b2-87538a4805ab.png"
 
     df_prov = get_all_providers()
-    nome_prestador = "PRESTADOR"
+    
+    # Valores padrão caso não encontre (substituído o "Carlos Miguel" genérico por um aviso limpo)
+    nome_prestador = "PRESTADOR NÃO IDENTIFICADO"
     tempo_plano = "2 Horas - 12 Mil Kwanzas"
     data_registo_str = None
     
-    if not df_prov.empty and 'token' in df_prov.columns:
-        match = df_prov[df_prov['token'] == provider_token]
-        if not match.empty:
-            row = match.iloc[0]
-            nome_prestador = row.get('nome_prestador', row.get('nome', 'PRESTADOR')).upper()
-            tempo_plano = row.get('tempo_plano', row.get('tempo', '2 Horas - 12 Mil Kwanzas'))
-            data_registo_str = row.get('data_registo', None)
+    if not df_prov.empty:
+        # Tenta identificar qual coluna guarda o token
+        col_token_candidates = ['token', 'provider_token', 'id']
+        col_token_encontrada = next((c for c in col_token_candidates if c in df_prov.columns), None)
+        
+        if col_token_encontrada:
+            match = df_prov[df_prov[col_token_encontrada].astype(str) == str(provider_token)]
+            if not match.empty:
+                row = match.iloc[0]
+                
+                # Procura dinamicamente pelas colunas de nome
+                for col_n in ['nome_prestador', 'nome', 'prestador', 'user']:
+                    if col_n in df_prov.columns and pd.notna(row.get(col_n)):
+                        nome_prestador = str(row.get(col_n)).upper()
+                        break
+                
+                # Procura dinamicamente pelas colunas de plano/tempo
+                for col_p in ['tempo_plano', 'plano', 'duracao', 'tempo']:
+                    if col_p in df_prov.columns and pd.notna(row.get(col_p)):
+                        tempo_plano = str(row.get(col_p))
+                        break
+                        
+                # Procura dinamicamente pela data de registo
+                for col_d in ['data_registo', 'data', 'timestamp', 'created_at']:
+                    if col_d in df_prov.columns and pd.notna(row.get(col_d)):
+                        data_registo_str = str(row.get(col_d))
+                        break
 
     segundos_bónus = 0
     try:
@@ -611,6 +633,7 @@ def show_provider_panel_custom(provider_token):
     except Exception:
         pass
 
+    # Define os segundos base com base estrita no plano escolhido pelo prestador
     segundos_base = 7200
     if "3 Horas" in tempo_plano:
         segundos_base = 10800
