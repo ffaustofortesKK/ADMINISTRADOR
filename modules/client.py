@@ -134,8 +134,6 @@ def show_client_page():
         st.session_state.pesquisa_input = ""
     if 'musica_selecionada' not in st.session_state:
         st.session_state.musica_selecionada = None
-    if 'mostrar_input_personalizado' not in st.session_state:
-        st.session_state.mostrar_input_personalizado = False
 
     if not st.session_state.cliente_registado:
         st.markdown("## 🎤 Bem-vindo ao FF Karaoke")
@@ -232,49 +230,9 @@ def show_client_page():
                     with cols[1]:
                         if st.button("Selecionar", key=f"sel_{musica['id']}"):
                             st.session_state.musica_selecionada = musica
-                            st.session_state.mostrar_input_personalizado = False
                             st.rerun()
         else:
             st.warning("Nenhuma música encontrada com esse termo.")
-
-    # --- BOTÃO PARA MÚSICA NÃO ENCONTRADA ---
-    st.markdown("<div style='margin-top: 15px;'></div>", unsafe_allow_html=True)
-    if st.button("❓ Não achou a música? Carregue aqui", use_container_width=True):
-        st.session_state.mostrar_input_personalizado = not st.session_state.mostrar_input_personalizado
-        st.rerun()
-
-    if st.session_state.mostrar_input_personalizado:
-        st.markdown("""
-            <div style="background: #161a23; padding: 15px; border-radius: 10px; border: 1px dashed #FFC107; margin-top: 10px;">
-                <p style="color: #FFC107; font-weight: bold; margin-bottom: 5px;">Pedido Personalizado</p>
-                <p style="font-size: 13px; color: #ccc;">Escreva abaixo o título da música ou o nome do cantor que deseja:</p>
-            </div>
-        """, unsafe_allow_html=True)
-        
-        with st.form("form_musica_customizada"):
-            musica_custom_input = st.text_input("Título da música ou Cantor:", placeholder="Ex: Anselmo Ralph - Curtição")
-            btn_enviar_custom = st.form_submit_button("Enviar Pedido Personalizado", use_container_width=True)
-            
-            if btn_enviar_custom:
-                if not musica_custom_input.strip():
-                    st.warning("⚠️ Por favor, escreva o nome da música ou cantor.")
-                elif tem_pedido_ativo:
-                    st.error("❌ Não pode enviar outro pedido enquanto o pedido anterior não for cantado.")
-                else:
-                    musica_obj_custom = {
-                        "id": "custom_" + str(int(time.time())),
-                        "titulo": musica_custom_input.strip().upper(),
-                        "artista": "Personalizado",
-                        "url": ""
-                    }
-                    sucesso_custom = enviar_pedido_firebase(provider_token, cliente_nome, musica_obj_custom)
-                    if sucesso_custom:
-                        st.success("O seu pedido foi enviado, mas nem todas as músicas existem na versão de karaoke.")
-                        st.session_state.mostrar_input_personalizado = False
-                        time.sleep(2)
-                        st.rerun()
-                    else:
-                        st.error("Erro ao enviar o pedido para o DJ.")
 
     st.markdown("---")
 
