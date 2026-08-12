@@ -4,7 +4,7 @@ import uuid
 import time
 
 def show_register_page():
-    # Remove o fundo da caixa central, deixando apenas a imagem geral de fundo e os estilos dos círculos rotativos
+    # Remove o fundo da caixa central, deixando apenas a imagem geral de fundo
     st.markdown("""
         <style>
         .stApp {
@@ -24,53 +24,61 @@ def show_register_page():
             text-shadow: 1px 1px 3px rgba(0,0,0,0.9);
         }
         
-        /* Animações para os círculos de espera do microfone */
-        @keyframes rotateLeft {
+        /* Animações para os círculos de espera */
+        @keyframes spinLeft {
             0% { transform: rotate(0deg); }
             100% { transform: rotate(-360deg); }
         }
-        @keyframes rotateRight {
+        @keyframes spinRight {
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
         }
         @keyframes pulseMic {
-            0%, 100% { transform: scale(1); filter: drop-shadow(0 0 5px rgba(255,0,0,0.8)); }
-            50% { transform: scale(1.08); filter: drop-shadow(0 0 15px rgba(255,0,0,1)); }
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.1); }
         }
-
-        .loader-container {
+        
+        .waiting-container {
             display: flex;
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            margin-top: 30px;
-            margin-bottom: 20px;
+            padding: 30px;
+            text-align: center;
+        }
+        
+        .circles-wrapper {
             position: relative;
-            height: 220px;
+            width: 180px;
+            height: 180px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 25px;
         }
-        .mic-icon-center {
+        
+        .circle-red {
             position: absolute;
-            font-size: 65px;
-            animation: pulseMic 1.5s infinite ease-in-out;
-            z-index: 10;
-        }
-        .circle-outer {
-            position: absolute;
-            width: 160px;
-            height: 160px;
-            border: 4px dashed #ff3333;
-            border-radius: 50%;
-            animation: rotateRight 8s linear infinite;
-            border-top-color: transparent;
-        }
-        .circle-inner {
-            position: absolute;
-            width: 110px;
-            height: 110px;
+            width: 170px;
+            height: 170px;
             border: 4px dashed #ff4d4d;
             border-radius: 50%;
-            animation: rotateLeft 6s linear infinite;
-            border-bottom-color: transparent;
+            animation: spinLeft 8s linear infinite;
+        }
+        
+        .circle-yellow {
+            position: absolute;
+            width: 130px;
+            height: 130px;
+            border: 4px dashed #FFC107;
+            border-radius: 50%;
+            animation: spinRight 6s linear infinite;
+        }
+        
+        .mic-icon {
+            font-size: 60px;
+            z-index: 2;
+            animation: pulseMic 1.5s ease-in-out infinite;
         }
         </style>
     """, unsafe_allow_html=True)
@@ -147,17 +155,19 @@ def show_register_page():
                         del st.query_params["page"]
                     st.rerun()
             else:
-                # Ecrã de espera com o microfone e os dois círculos tracejados vermelhos a rodar em sentidos opostos
+                # Ecrã de espera com o microfone e os círculos rotativos
                 st.markdown("""
-                    <div class="loader-container">
-                        <div class="circle-outer"></div>
-                        <div class="circle-inner"></div>
-                        <div class="mic-icon-center">🎤</div>
+                    <div class="waiting-container">
+                        <div class="circles-wrapper">
+                            <div class="circle-red"></div>
+                            <div class="circle-yellow"></div>
+                            <div class="mic-icon">🎤</div>
+                        </div>
+                        <h3 style="color: #FFC107; margin-bottom: 10px;">Aguardando Aprovação</h3>
+                        <p style="color: #ffffff; font-size: 15px;">O seu registo foi enviado com sucesso e está a aguardar a validação do Administrador.</p>
+                        <p style="color: #aaa; font-size: 13px;">Assim que for aprovado, esta página atualizar-se-á automaticamente.</p>
                     </div>
                 """, unsafe_allow_html=True)
-                
-                st.markdown("<h3 style='text-align: center; color: #ff4d4d;'>A aguardar aprovação do Administrador...</h3>", unsafe_allow_html=True)
-                st.info("Assim que o Administrador aprovar o seu pagamento e acesso, esta página atualizará automaticamente para o painel.")
                 
                 time.sleep(3)
                 st.rerun()
