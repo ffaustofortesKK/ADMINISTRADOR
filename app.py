@@ -16,6 +16,7 @@ import importlib
 import sys
 import os
 sys.path.append(os.path.abspath(os.path.dirname(__file__)))
+from modules.admin import show_admin_panel
 
 # --- 1. CONFIGURAR OS CAMINHOS PRIMEIRO ---
 current_dir = os.path.dirname(os.path.abspath(__file__))
