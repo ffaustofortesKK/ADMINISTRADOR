@@ -12,8 +12,8 @@ def show_prestador_page(provider_token, FIREBASE_URL):
     # 1. Função para ir buscar os vídeos à Cloudinary de forma segura
     def obter_clipes_cloudinary():
         try:
-            # Pesquisa por recursos do tipo vídeo na Cloudinary
-            result = cloudinary.Search().expression("resource_type:video").execute()
+            # Utilização correta do método de pesquisa da Cloudinary Search API
+            result = cloudinary.search.Search().expression("resource_type:video").execute()
             return result.get("resources", [])
         except Exception as e:
             print(f"Erro ao comunicar com a Cloudinary: {e}")
@@ -25,7 +25,8 @@ def show_prestador_page(provider_token, FIREBASE_URL):
             url = f"{FIREBASE_URL}/video_fundo/{token}.json"
             response = requests.get(url, timeout=5)
             if response.status_code == 200:
-                return response.json()
+                res_json = response.json()
+                return res_json if isinstance(res_json, str) else ""
         except Exception:
             pass
         return ""
@@ -59,9 +60,10 @@ def show_prestador_page(provider_token, FIREBASE_URL):
             nome_clipe = clipe.get('public_id', 'Vídeo sem nome')
             url_clipe = clipe.get('secure_url', '')
             
-            label = f"📁 {nome_clipe}"
-            opcoes_labels.append(label)
-            mapa_url_por_label[label] = url_clipe
+            if url_clipe:
+                label = f"📁 {nome_clipe}"
+                opcoes_labels.append(label)
+                mapa_url_por_label[label] = url_clipe
             
     index_atual = 0
     for idx, label in enumerate(opcoes_labels):
