@@ -103,7 +103,7 @@ def show_client_page():
     .spinning-mic {
         animation: spin 3s linear infinite;
         display: inline-block;
-        font-size: 208px;
+        font-size: 80px;
     }
     .stButton button {
         padding: 4px 12px !important;
