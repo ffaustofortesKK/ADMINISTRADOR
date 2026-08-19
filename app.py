@@ -1093,7 +1093,7 @@ def show_client_page():
                     st.warning("Por favor, escreva o nome da música.")
 
     if st.session_state.get("pedido_enviado_sucesso", False):
-        st.info("Aguarde, o seu pedido esta a ser analisado!! O seu pedido foi enviado, mais nem todas as musicas existem em karaoke.")
+        st.info("Aguarde, o seu pedido está a ser analisado!! O seu pedido foi enviado, mas nem todas as músicas existem em karaoke.")
 
 
 def show_provider_panel_center(token):
