@@ -13,48 +13,27 @@ import cloudinary.api
 import cloudinary.uploader
 import cloudinary.search
 import importlib
-import sys
-import os
-sys.path.append(os.path.abspath(os.path.dirname(__file__)))
+
+# --- 1. CONFIGURAR OS CAMINHOS UMA ÚNICA VEZ ---
+current_dir = os.path.dirname(os.path.abspath(__file__))
+utils_path = os.path.join(current_dir, "utils")
+modules_path = os.path.join(current_dir, "modules")
+
+for path in [current_dir, utils_path, modules_path]:
+    if path not in sys.path:
+        sys.path.insert(0, path)
+
+# --- 2. IMPORTAR MÓDULOS DE FORMA SEGURA ---
 from modules.admin import show_admin_panel
 try:
     from modules.prestador import show_prestador_page
+    importlib.reload(prestador)
 except Exception:
-    def show_prestador_page(token, url): st.error("Módulo 'modules.prestador' não encontrado.")
+    def show_prestador_page(token, url): 
+        st.error("Módulo 'modules.prestador' não encontrado.")
 
-# --- 1. CONFIGURAR OS CAMINHOS PRIMEIRO ---
-current_dir = os.path.dirname(os.path.abspath(__file__))
-if current_dir not in sys.path:
-    sys.path.insert(0, current_dir)
-
-utils_path = os.path.join(current_dir, "utils")
-if utils_path not in sys.path:
-    sys.path.insert(0, utils_path)
-
-modules_path = os.path.join(current_dir, "modules")
-if modules_path not in sys.path:
-    sys.path.insert(0, modules_path)
-
-# --- 2. DEPOIS IMPORTAR OS MÓDULOS ---
-from modules import prestador
-importlib.reload(prestador)
-
-importlib.reload(prestador)
-
-# Configuração estrita do caminho absoluto para evitar erros de importação
-current_dir = os.path.dirname(os.path.abspath(__file__))
-if current_dir not in sys.path:
-    sys.path.insert(0, current_dir)
-
-utils_path = os.path.join(current_dir, "utils")
-if utils_path not in sys.path:
-    sys.path.insert(0, utils_path)
-
-modules_path = os.path.join(current_dir, "modules")
-if modules_path not in sys.path:
-    sys.path.insert(0, modules_path)
-
-# Configuração do Cloudinary com as credenciais oficiais
+# --- 3. CONFIGURAÇÃO DO CLOUDINARY ---
+# (Dica: O ideal no futuro é usar st.secrets para esconder a api_secret)
 cloudinary.config(
     cloud_name="yhwgjh7g",
     api_key="852434629995691",
