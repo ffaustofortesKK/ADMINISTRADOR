@@ -1065,7 +1065,7 @@ def show_client_page():
 
     st.title("🎤 FFKaraoke - Pedido de Músicas")
 
-    # --- AQUI ENTRA A LÓGICA DO PEDIDO EXTRA NA VISTA DO CLIENTE ---
+    # --- LÓGICA DO PEDIDO EXTRA NA VISTA DO CLIENTE ---
     st.markdown("---")
     if "mostrar_pedido_extra" not in st.session_state:
         st.session_state["mostrar_pedido_extra"] = False
@@ -1087,13 +1087,11 @@ def show_client_page():
                         "timestamp": time.time(),
                         "link": ""
                     }
-                    # Envia para o Firebase do prestador atual
                     requests.post(f"{FIREBASE_URL}/pedidos_extras/{provider_token}.json", json=novo_pedido)
                     st.session_state["pedido_enviado_sucesso"] = True
                 else:
                     st.warning("Por favor, escreva o nome da música.")
 
-    # Mensagem persistente que substitui a posição por "Aguarde..."
     if st.session_state.get("pedido_enviado_sucesso", False):
         st.info("Aguarde, o seu pedido está a ser analisado!! O seu pedido foi enviado, mas nem todas as músicas existem em karaoke.")
 
