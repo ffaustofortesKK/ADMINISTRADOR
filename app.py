@@ -914,12 +914,15 @@ def renderizar_ecra_tv(provider_token):
             data = response.json()
             pedidos = [{"id": k, **v} for k, v in data.items()]
             
+            # Filtra de forma segura aceitando variações de maiúsculas/minúsculas
             pedidos_ativos = [
                 p for p in pedidos 
                 if str(p.get("estado", "pendente")).lower() in ["pendente", "aprovado", "novo", "aguardando"]
             ]
             
             pedidos_ativos.sort(key=lambda x: x.get("timestamp", 0))
+            
+            # Identifica de forma segura qual está a tocar (estado aprovado)
             tocando_agora = next((p for p in pedidos_ativos if str(p.get("estado", "")).lower() == "aprovado"), None)
         
         frame_styles = """
@@ -1012,22 +1015,10 @@ def renderizar_ecra_tv(provider_token):
                     animation: bounceIcon 0.8s infinite ease-in-out; 
                 }
             </style>
-            <div class="speaker-box speaker-tl">
-                <div class="woofer"><div class="woofer-inner"></div></div>
-                <div class="woofer"><div class="woofer-inner"></div></div>
-            </div>
-            <div class="speaker-box speaker-tr">
-                <div class="woofer"><div class="woofer-inner"></div></div>
-                <div class="woofer"><div class="woofer-inner"></div></div>
-            </div>
-            <div class="speaker-box speaker-bl">
-                <div class="woofer"><div class="woofer-inner"></div></div>
-                <div class="woofer"><div class="woofer-inner"></div></div>
-            </div>
-            <div class="speaker-box speaker-br">
-                <div class="woofer"><div class="woofer-inner"></div></div>
-                <div class="woofer"><div class="woofer-inner"></div></div>
-            </div>
+            <div class="speaker-box speaker-tl"><div class="woofer"><div class="woofer-inner"></div></div><div class="woofer"><div class="woofer-inner"></div></div></div>
+            <div class="speaker-box speaker-tr"><div class="woofer"><div class="woofer-inner"></div></div><div class="woofer"><div class="woofer-inner"></div></div></div>
+            <div class="speaker-box speaker-bl"><div class="woofer"><div class="woofer-inner"></div></div><div class="woofer"><div class="woofer-inner"></div></div></div>
+            <div class="speaker-box speaker-br"><div class="woofer"><div class="woofer-inner"></div></div><div class="woofer"><div class="woofer-inner"></div></div></div>
             <div class="marquee-footer">
                 <div class="marquee-track">
                     <span class="marquee-item"><span class="icon-anim">🎵</span> FF KARAOKE CLOUD <span class="icon-anim">🎤</span> CANTE COMIGO <span class="icon-anim">🎶</span> A SUA MÚSICA FAVORITA <span class="icon-anim">🎙️</span> DIVIRTA-SE AO MÁXIMO</span>
@@ -1085,14 +1076,13 @@ def renderizar_ecra_tv(provider_token):
             </script>
         """
 
+        # SE HOUVER UM VÍDEO APROVADO, ABRE O LEITOR DE KARAOKE EM FULLSCREEN
         if tocando_agora:
             musica = tocando_agora.get("musica", {})
             if isinstance(musica, dict):
                 titulo = musica.get("titulo", musica.get("nome", "Karaoke"))
-                url_video = musica.get("url_cloudinary", "") or musica.get("url", "")
             else:
                 titulo = str(musica)
-                url_video = ""
             
             titulo_limpo = limpar_nome_musica(titulo)
             url_video = obter_url_video_cloudinary(musica, titulo_limpo)
@@ -1100,9 +1090,7 @@ def renderizar_ecra_tv(provider_token):
 
             video_html = f"""
             <style>
-                body, html {{
-                    margin: 0; padding: 0; background: #000; overflow: hidden; width: 100vw; height: 100vh;
-                }}
+                body, html {{ margin: 0; padding: 0; background: #000; overflow: hidden; width: 100vw; height: 100vh; }}
                 @keyframes zoomInNumber {{
                     0% {{ transform: scale(0.2); opacity: 0; }}
                     50% {{ transform: scale(1.2); opacity: 1; }}
@@ -1193,14 +1181,12 @@ def renderizar_ecra_tv(provider_token):
             """
             components.html(video_html, height=750, scrolling=False)
             
+        # CASO CONTRÁRIO, MOSTRA O VÍDEO CLIPE DE FUNDO COM A FILA FLUTUANDO POR CIMA
         else:
             url_clipe_fundo = obter_video_fundo(provider_token)
 
             st.markdown(frame_styles, unsafe_allow_html=True)
             st.markdown(script_sincronizacao_global, unsafe_allow_html=True)
-
-            # CONSTRUÇÃO DO LAYOUT DE SOBREPOSIÇÃO (OVERLAY)
-            # O vídeo clipe fica fixo a cobrir a tela toda (100vw x 100vh), e a Fila de Pedidos flutua por cima no centro.
             
             html_elementos_sobreposicao = ""
             
@@ -1238,7 +1224,7 @@ def renderizar_ecra_tv(provider_token):
                 <div style="position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: #000; z-index: 99975;"></div>
                 """
 
-            # Renderiza o container flutuante da Fila de Pedidos por cima do vídeo
+            # Caixa flutuante com a Fila de Pedidos por cima do vídeo clipe
             html_elementos_sobreposicao += """
             <div style="position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 550px; max-width: 90vw; max-height: 75vh; background: rgba(0, 0, 0, 0.88); border: 4px solid #FFC107; border-radius: 12px; padding: 20px; z-index: 99985; overflow-y: auto; box-shadow: 0 0 30px rgba(255,193,7,0.5); backdrop-filter: blur(5px);">
                 <div style="display: flex; align-items: center; justify-content: center; gap: 10px; border-bottom: 2px solid #FFC107; padding-bottom: 10px; margin-bottom: 15px;">
