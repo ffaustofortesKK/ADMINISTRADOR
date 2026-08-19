@@ -1050,13 +1050,12 @@ def show_client_screen():
     renderizar_ecra_tv(provider_token)
 
 
-def show_client_page():
-    """Página onde o cliente interage, pesquisa músicas e faz os pedidos."""
+def show_client_screen():
     query_params = st.query_params
     provider_token = query_params.get("prestador") or query_params.get("token") or query_params.get("provider")
 
     if not provider_token:
-        st.error("Link inválido. Falta o identificador do prestador.")
+        st.error("Tela inválida. Falta o parâmetro do prestador.")
         return
 
     st.markdown("""
@@ -1064,38 +1063,19 @@ def show_client_page():
     .stApp { background-color: #000000; color: white; }
     </style>""", unsafe_allow_html=True)
 
-    st.title("🎤 FFKaraoke - Pedido de Músicas")
+    # Opcional: Se quiser carregar o nome do prestador para exibir na tela da TV
+    try:
+        df = get_all_providers()
+        if not df.empty and 'token' in df.columns:
+            prestador_info = df[df['token'] == provider_token]
+            if not prestador_info.empty:
+                nome_prestador = prestador_info.iloc[0].get('nome', 'Karaoke')
+                st.markdown(f"<h2 style='text-align: center; color: #FFC107;'>🎵 {nome_prestador} - Ecrã da TV</h2>", unsafe_allow_html=True)
+    except Exception:
+        pass # Se falhar ao buscar o nome, continua a execução normal da TV
 
-    # --- LÓGICA DO PEDIDO EXTRA NA VISTA DO CLIENTE ---
-    st.markdown("---")
-    if "mostrar_pedido_extra" not in st.session_state:
-        st.session_state["mostrar_pedido_extra"] = False
-
-    if st.button("❓ Não achou, clica aqui"):
-        st.session_state["mostrar_pedido_extra"] = True
-
-    if st.session_state["mostrar_pedido_extra"]:
-        with st.form("form_pedido_extra_cliente"):
-            st.subheader("📝 Pedido Manual de Música")
-            musica_manual = st.text_input("Escreva o nome do artista e da música:")
-            enviar_pedido = st.form_submit_button("Enviar pedido")
-            
-            if enviar_pedido:
-                if musica_manual.strip():
-                    novo_pedido = {
-                        "musica": musica_manual,
-                        "estado": "pendente",
-                        "timestamp": time.time(),
-                        "link": ""
-                    }
-                    requests.post(f"{FIREBASE_URL}/pedidos_extras/{provider_token}.json", json=novo_pedido)
-                    st.session_state["pedido_enviado_sucesso"] = True
-                else:
-                    st.warning("Por favor, escreva o nome da música.")
-
-    if st.session_state.get("pedido_enviado_sucesso", False):
-        st.info("Aguarde, o seu pedido esta a ser analisado!! O seu pedido foi enviado, mais nem todas as musicas existem em karaoke.")
-
+    # Chama a função original da TV passando o token
+    renderizar_ecra_tv(provider_token)
 
 def show_provider_panel_center(token):
     show_provider_panel_custom(token)
@@ -1136,7 +1116,7 @@ def main():
             else:
                 show_provider_panel_custom(token)
                 return
-
+            
         st.markdown("""
             <style>
             .stApp {
@@ -1171,7 +1151,6 @@ def main():
                         st.rerun()
                     else:
                         st.error("Palavra-passe incorreta.")
-            return
 
         if st.session_state.get("admin_logged", False):
             st.markdown("---")
@@ -1215,43 +1194,6 @@ def main():
                 st.warning(f"Não foi possível carregar os reforços pendentes: {e}")
 
             show_admin_panel()
-
-            # --- ABA DE PEDIDOS EXTRAS PARA O ADMINISTRADOR ---
-            st.markdown("---")
-            st.header("🎵 Gestão Global de Pedidos Extras")
-            try:
-                res_all_extras = requests.get(f"{FIREBASE_URL}/pedidos_extras.json", timeout=10)
-                if res_all_extras.status_code == 200 and res_all_extras.json():
-                    all_extras = res_all_extras.json()
-                    for tok, p_extras in all_extras.items():
-                        if isinstance(p_extras, dict):
-                            st.subheader(f"Prestador Token: {tok}")
-                            for k, v in p_extras.items():
-                                with st.expander(f"Pedido: {v.get('musica')} (Estado: {v.get('estado', 'pendente')})"):
-                                    st.write(f"Enviado em: {time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(v.get('timestamp', time.time())))}")
-                                    link_informado = st.text_input(f"Link do YouTube para: {v.get('musica')}", value=v.get('link', ''), key=f"admin_link_extra_{tok}_{k}")
-                                    
-                                    col_save, col_del = st.columns(2)
-                                    with col_save:
-                                        if st.button("💾 Salvar Link", key=f"admin_save_extra_{tok}_{k}"):
-                                            requests.patch(f"{FIREBASE_URL}/pedidos_extras/{tok}/{k}.json", json={
-                                                "link": link_informado,
-                                                "estado": "disponivel"
-                                            })
-                                            st.success("Atualizado!")
-                                            st.rerun()
-                                    with col_del:
-                                        if st.button("🗑️ Remover", key=f"admin_del_extra_{tok}_{k}"):
-                                            requests.delete(f"{FIREBASE_URL}/pedidos_extras/{tok}/{k}.json")
-                                            st.warning("Removido.")
-                                            st.rerun()
-                                    if v.get('link'):
-                                        st.success(f"Link: {v.get('link')}")
-                                        st.link_button("▶️ Abrir / Ver no YouTube", v.get('link'))
-                else:
-                    st.info("Nenhum pedido extra registado no sistema.")
-            except Exception as e:
-                st.error(f"Erro ao carregar pedidos extras globais: {e}")
                 
     except Exception as e:
         st.error(f"Ocorreu um erro ao carregar a aplicação: {e}")
