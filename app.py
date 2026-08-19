@@ -372,13 +372,35 @@ def definir_video_fundo(provider_token, url_clipe):
 
 def obter_video_fundo(provider_token):
     try:
-        url = f"{FIREBASE_URL}/config/{provider_token}/video_fundo.json"
-        res = requests.get(url, timeout=5)
-        if res.status_code == 200:
-            return res.json() or ""
-    except Exception:
-        pass
-    return ""
+        # 1. Tenta buscar primeiro se o prestador definiu um clipe específico no Firebase
+        res_firebase = requests.get(f"{FIREBASE_URL}/video_fundo/{provider_token}.json", timeout=5)
+        if res_firebase.status_code == 200 and res_firebase.json():
+            dados = res_firebase.json()
+            if isinstance(dados, str) and dados.startswith("http"):
+                return dados
+            elif isinstance(dados, dict) and dados.get("url"):
+                return dados.get("url")
+
+        # 2. Se não houver URL fixa no Firebase, busca automaticamente um vídeo na pasta 'clipe' do Cloudinary
+        # Utiliza a API de recursos do Cloudinary filtrando pela pasta
+        resultado_cloudinary = cloudinary.api.resources(
+            type="upload",
+            prefix="clipe/",  # Pasta definida no Cloudinary
+            resource_type="video",
+            max_results=50
+        )
+        
+        recursos = resultado_cloudinary.get("resources", [])
+        if recursos:
+            # Retorna a URL segura (secure_url) do primeiro clipe encontrado na pasta (ou você pode escolher aleatoriamente)
+            import random
+            clipe_escolhido = random.choice(recursos)
+            return clipe_escolhido.get("secure_url")
+
+    except Exception as e:
+        print(f"Erro ao obter vídeo clipe de fundo do Cloudinary: {e}")
+    
+    return None
 
 def listar_videos_pasta_clipes():
     # Usa cache de segurança para nunca deixar o seletor vazio se a rede falhar
