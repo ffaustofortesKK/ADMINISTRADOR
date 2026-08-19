@@ -887,9 +887,15 @@ def renderizar_ecra_tv(provider_token):
         if response.status_code == 200 and response.json():
             data = response.json()
             pedidos = [{"id": k, **v} for k, v in data.items()]
-            pedidos_ativos = [p for p in pedidos if p.get("estado") in ["pendente", "aprovado"]]
+            
+            # ALTERAÇÃO AQUI: Torna o filtro flexível para aceitar diferentes variações de estado criadas no cliente
+            pedidos_ativos = [
+                p for p in pedidos 
+                if str(p.get("estado", "pendente")).lower() in ["pendente", "aprovado", "novo", "aguardando"]
+            ]
+            
             pedidos_ativos.sort(key=lambda x: x.get("timestamp", 0))
-            tocando_agora = next((p for p in pedidos_ativos if p.get("estado") == "aprovado"), None)
+            tocando_agora = next((p for p in pedidos_ativos if str(p.get("estado", "")).lower() == "aprovado"), None)
         
         frame_styles = """
             <style>
@@ -981,7 +987,6 @@ def renderizar_ecra_tv(provider_token):
                     animation: bounceIcon 0.8s infinite ease-in-out; 
                 }
             </style>
-
             <div class="speaker-box speaker-tl">
                 <div class="woofer"><div class="woofer-inner"></div></div>
                 <div class="woofer"><div class="woofer-inner"></div></div>
@@ -1006,11 +1011,9 @@ def renderizar_ecra_tv(provider_token):
             </div>
         """
 
-        # Capturamos o estado inicial para comparação no script de sincronização global
         url_atual_fundo = obter_video_fundo(provider_token) or ""
         id_atual_tocando = tocando_agora.get('id') if tocando_agora else "none"
 
-        # Script global melhorado para vigiar tanto o karaoke quanto o vídeo de fundo (Stop)
         script_sincronizacao_global = f"""
             <script>
                 const providerToken = "{provider_token}";
@@ -1022,21 +1025,20 @@ def renderizar_ecra_tv(provider_token):
 
                 setInterval(async () => {{
                     try {{
-                        // 1. Verifica alterações na fila de pedidos / karaoke
                         let responsePedidos = await fetch(firebaseBaseUrl);
                         let dataPedidos = await responsePedidos.json();
                         let novoIdTocando = "none";
                         
                         if (dataPedidos) {{
                             for (let key in dataPedidos) {{
-                                if (dataPedidos[key].estado === "aprovado") {{
+                                let est = dataPedidos[key].estado ? dataPedidos[key].estado.toLowerCase() : "";
+                                if (est === "aprovado") {{
                                     novoIdTocando = key;
                                     break;
                                 }}
                             }}
                         }}
                         
-                        // 2. Verifica alterações no vídeo de fundo (incluindo o Stop que limpa a URL)
                         let responseVideo = await fetch(firebaseVideoUrl);
                         let dataVideo = await responseVideo.json();
                         let novaUrlFundo = "";
@@ -1048,7 +1050,6 @@ def renderizar_ecra_tv(provider_token):
                             }}
                         }}
                         
-                        // 3. Se houver mudança em qualquer um dos dois, recarrega imediatamente a tela
                         if (novoIdTocando !== idAtualConhecido || novaUrlFundo !== urlFundoConhecida) {{
                             window.location.reload();
                         }}
@@ -1074,12 +1075,7 @@ def renderizar_ecra_tv(provider_token):
             video_html = f"""
             <style>
                 body, html {{
-                    margin: 0;
-                    padding: 0;
-                    background: #000;
-                    overflow: hidden;
-                    width: 100vw;
-                    height: 100vh;
+                    margin: 0; padding: 0; background: #000; overflow: hidden; width: 100vw; height: 100vh;
                 }}
                 @keyframes zoomInNumber {{
                     0% {{ transform: scale(0.2); opacity: 0; }}
@@ -1087,23 +1083,13 @@ def renderizar_ecra_tv(provider_token):
                     100% {{ transform: scale(1); opacity: 1; }}
                 }}
                 .countdown-overlay {{
-                    position: fixed;
-                    top: 0; left: 0; width: 100vw; height: 100vh;
-                    background: rgba(0,0,0,0.95);
-                    display: flex;
-                    justify-content: center;
-                    align-items: center;
-                    z-index: 99999;
-                    color: #ffffff;
-                    font-family: monospace;
-                    font-size: 15vw;
-                    font-weight: bold;
-                    text-shadow: 2px 2px 5px rgba(0,0,0,0.9);
-                    animation: zoomInNumber 0.9s ease-in-out infinite;
+                    position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+                    background: rgba(0,0,0,0.95); display: flex; justify-content: center; align-items: center;
+                    z-index: 99999; color: #ffffff; font-family: monospace; font-size: 15vw; font-weight: bold;
+                    text-shadow: 2px 2px 5px rgba(0,0,0,0.9); animation: zoomInNumber 0.9s ease-in-out infinite;
                 }}
             </style>
             <div id="countdown-screen" class="countdown-overlay">3</div>
-
             <div id="karaoke-container" style="display: none; width: 100vw; height: 100vh; background: black; position: fixed; top: 0; left: 0;">
                 <video id="karaoke-player" width="100%" height="100%" autoplay playsinline style="object-fit: contain; background: black; width: 100%; height: 100%;">
                     <source src="{url_video}" type="video/mp4">
@@ -1114,11 +1100,9 @@ def renderizar_ecra_tv(provider_token):
                     <button onclick="unmuteVideo()" style="background-color: #4CAF50; color: white; border: none; padding: 8px 16px; font-size: 15px; border-radius: 4px; cursor: pointer; font-weight: bold;">🔊 CLIQUE AQUI PARA ATIVAR O SOM</button>
                 </div>
             </div>
-
             <script>
                 var count = 3;
                 var cdScreen = document.getElementById('countdown-screen');
-                
                 var timer = setInterval(function() {{
                     count--;
                     if (count > 0) {{
@@ -1129,11 +1113,9 @@ def renderizar_ecra_tv(provider_token):
                         clearInterval(timer);
                         cdScreen.style.display = 'none';
                         document.getElementById('karaoke-container').style.display = 'block';
-                        
                         var video = document.getElementById('karaoke-player');
                         video.muted = false; 
                         var playPromise = video.play();
-                        
                         if (playPromise !== undefined) {{
                             playPromise.then(_ => {{}}).catch(error => {{
                                 video.muted = true;
@@ -1155,7 +1137,6 @@ def renderizar_ecra_tv(provider_token):
                     var pedidoId = "{tocando_agora.get('id')}";
                     var token = "{provider_token}";
                     var firebaseURL = "{FIREBASE_URL}/pedidos/" + token + "/" + pedidoId + "/estado.json";
-                    
                     fetch(firebaseURL, {{
                         method: 'PUT',
                         body: JSON.stringify('terminado'),
@@ -1190,16 +1171,21 @@ def renderizar_ecra_tv(provider_token):
             with col_esq:
                 if proximo_cantor:
                     c_prox = proximo_cantor.get("cliente", "Convidado")
+                    m_prox = proximo_cantor.get("musica", "Música")
+                    if isinstance(m_prox, dict):
+                        m_prox = m_prox.get("titulo", m_prox.get("nome", ""))
+                    
                     st.markdown(f"""
-                        <div style="border: 4px solid #FFC107; border-radius: 10px; padding: 15px; background: rgba(0,0,0,0.95); margin-bottom: 15px; display: flex; align-items: center; gap: 15px;">
-                            <span style="color: #ffffff; font-size: 20px; font-weight: bold; font-family: monospace; text-shadow: 1px 1px 3px rgba(0,0,0,0.9);">Á SEGUIR</span>
-                            <span style="color: #ffffff; font-size: 20px; font-weight: bold; font-family: monospace; text-transform: uppercase; text-shadow: 1px 1px 3px rgba(0,0,0,0.9);">{c_prox}</span>
+                        <div style="border: 4px solid #FFC107; border-radius: 10px; padding: 15px; background: rgba(0,0,0,0.95); margin-bottom: 15px;">
+                            <div style="color: #FFC107; font-size: 16px; font-weight: bold; font-family: monospace;">🎤 A SEGUIR:</div>
+                            <div style="color: #ffffff; font-size: 20px; font-weight: bold; font-family: monospace; text-transform: uppercase;">{c_prox}</div>
+                            <div style="color: #aaa; font-size: 14px; font-family: monospace;">🎵 {m_prox}</div>
                         </div>
                     """, unsafe_allow_html=True)
                 else:
                     st.markdown("""
                         <div style="border: 4px solid #FFC107; border-radius: 10px; padding: 15px; text-align: center; background: rgba(0,0,0,0.95); margin-bottom: 15px;">
-                            <h2 style="color: #ffffff; margin: 0; font-family: monospace; font-weight: bold; text-shadow: 1px 1px 3px rgba(0,0,0,0.9);">🎤 FILA DE ESPERA</h2>
+                            <h2 style="color: #ffffff; margin: 0; font-family: monospace; font-weight: bold;">🎤 FILA DOS CANTORES</h2>
                         </div>
                     """, unsafe_allow_html=True)
                 
@@ -1208,12 +1194,16 @@ def renderizar_ecra_tv(provider_token):
                 
                 for idx, p_item in enumerate(demais_pedidos, start=2):
                     c_item = p_item.get("cliente", "Convidado")
-                    texto_caixa = f"<b>{idx}.</b> {c_item}"
-                    html_caixas += f'<div style="background: rgba(0,0,0,0.95); border: 4px solid #FFC107; border-radius: 8px; padding: 12px; color: #ffffff; font-family: monospace; font-size: 16px; font-weight: bold; text-shadow: 1px 1px 3px rgba(0,0,0,0.9);">{texto_caixa}</div>'
+                    m_item = p_item.get("musica", "")
+                    if isinstance(m_item, dict):
+                        m_item = m_item.get("titulo", m_item.get("nome", ""))
+                    
+                    texto_caixa = f"<b>{idx}.</b> {c_item} {('- ' + m_item) if m_item else ''}"
+                    html_caixas += f'<div style="background: rgba(0,0,0,0.95); border: 4px solid #FFC107; border-radius: 8px; padding: 12px; color: #ffffff; font-family: monospace; font-size: 16px; font-weight: bold;">{texto_caixa}</div>'
                 
                 html_caixas += '</div>'
                 st.markdown(html_caixas, unsafe_allow_html=True) 
-                
+
             with col_dir:
                 if url_clipe_fundo:
                     video_fundo_html = f"""
@@ -1247,9 +1237,9 @@ def renderizar_ecra_tv(provider_token):
                     components.html(video_fundo_html, height=480)
                 else:
                     st.markdown("""
-                        <div style="border: 4px solid #FFC107; border-radius: 10px; padding: 100px 20px; text-align: center; background: rgba(0,0,0,0.95); color: #ffffff; font-family: monospace; margin-top: 5px; margin-bottom: 40px; font-weight: bold; text-shadow: 1px 1px 3px rgba(0,0,0,0.9);">
+                        <div style="border: 4px solid #FFC107; border-radius: 10px; padding: 100px 20px; text-align: center; background: rgba(0,0,0,0.95); color: #ffffff; font-family: monospace; margin-top: 5px; margin-bottom: 40px; font-weight: bold;">
                             <div style="font-size: 40px; margin-bottom: 10px;">📺</div>
-                            <p style="color: #ffffff; font-size: 16px; margin: 0; font-weight: bold; text-shadow: 1px 1px 3px rgba(0,0,0,0.9);">Vídeo clipe ...</p>
+                            <p style="color: #ffffff; font-size: 16px; margin: 0; font-weight: bold;">Vídeo clipe ...</p>
                         </div>
                     """, unsafe_allow_html=True)
 
