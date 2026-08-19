@@ -642,16 +642,19 @@ def show_provider_panel_custom(provider_token):
             if not match.empty:
                 row = match.iloc[0]
                 
+                # Garantir que puxa o nome exato registado
                 for col_n in ['nome_prestador', 'nome', 'prestador', 'user']:
                     if col_n in df_prov.columns and pd.notna(row.get(col_n)):
-                        nome_prestador = str(row.get(col_n)).upper()
+                        nome_prestador = str(row.get(col_n))
                         break
                 
+                # Puxar o plano exato escolhido no registo
                 for col_p in ['tempo_plano', 'plano', 'duracao', 'tempo']:
                     if col_p in df_prov.columns and pd.notna(row.get(col_p)):
                         tempo_plano = str(row.get(col_p))
                         break
                         
+                # Puxar a data exata de registo para validação correta do temporizador
                 for col_d in ['data_registo', 'data', 'timestamp', 'created_at']:
                     if col_d in df_prov.columns and pd.notna(row.get(col_d)):
                         data_registo_str = str(row.get(col_d))
@@ -710,7 +713,7 @@ def show_provider_panel_custom(provider_token):
         aviso_reforço_html = """
         <div style="background: rgba(255,0,0,0.85); border: 3px solid #ffeb3b; padding: 10px; border-radius: 6px; margin-bottom: 15px; text-align: center; animation: pulseAviso 1s infinite;">
             <span style="color: #ffffff; font-size: 14px; font-weight: bold; text-shadow: 1px 1px 3px rgba(0,0,0,0.9);">
-                O SEU TEMPO ESTA TERMINANDO. PARA QUE NÃO PERCAS OS SEUS REGISTOS PEÇA REFORÇO DE TEMPO.
+                O SEU TEMPO ESTÁ TERMINANDO. PARA QUE NÃO PERCAS OS SEUS REGISTOS PEÇA REFORÇO DE TEMPO.
             </span>
             <div style="margin-top: 8px;">
                 <a href="#reforco_seccao" style="background: #FFC107; color: #000; padding: 6px 12px; border-radius: 4px; text-decoration: none; font-weight: bold; font-size: 13px;">⚡ PEDIR REFORÇO AGORA</a>
@@ -827,22 +830,36 @@ def show_provider_panel_custom(provider_token):
 
     st.markdown("<hr style='border-color: #FFC107; margin: 15px 0;'>", unsafe_allow_html=True)
 
-    # --- ABAS DE NAVEGAÇÃO DO PAINEL ---
+    # --- ABAS DE NAVEGAÇÃO DO PAINEL COM AUTOMAÇÃO DE PEDIDOS EXTRAS ---
     aba_principal, aba_extras = st.tabs(["Painel de Controlo", "🎵 Pedidos Extras"])
 
     with aba_extras:
-        st.header("🎵 Gestão de Pedidos Extras")
-        st.info("Aqui pode ver os pedidos manuais enviados pelos clientes.")
+        st.header("🎵 Gestão Automática de Pedidos Extras")
+        st.info("Aqui pode ver os pedidos manuais enviados pelos clientes e aceder diretamente às sugestões geradas no YouTube.")
         
         try:
             res_extras = requests.get(f"{FIREBASE_URL}/pedidos_extras/{provider_token}.json", timeout=10)
             if res_extras.status_code == 200 and res_extras.json():
                 extras_data = res_extras.json()
                 for k, v in extras_data.items():
-                    with st.expander(f"Pedido: {v.get('musica')} | Estado: {v.get('estado', 'pendente')}"):
-                        st.write(f"Enviado em: {time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(v.get('timestamp', time.time())))}")
+                    nome_musica = v.get('musica', '')
+                    # Automação de link de pesquisa no YouTube com base no nome inserido pelo cliente
+                    query_encoded = urllib.parse.quote(f"{nome_musica} karaoke")
+                    url_sugestao_yt = f"https://www.youtube.com/results?search_query={query_encoded}"
+                    
+                    with st.expander(f"🎵 {nome_musica} (Cliente: {v.get('cliente', 'Anónimo')})"):
+                        st.write(f"**Estado:** {v.get('estado', 'pendente')}")
+                        st.write(f"**Enviado em:** {time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(v.get('timestamp', time.time()) / 1000 if v.get('timestamp', 0) > 10000000000 else v.get('timestamp', time.time())))}")
                         
-                        link_informado = st.text_input(f"Link do YouTube para: {v.get('musica')}", value=v.get('link', ''), key=f"link_extra_{k}")
+                        # Exibição automatizada dos links de sugestão/pesquisa abaixo do título
+                        st.markdown(f"""
+                        <div style="background: #111; border: 2px solid #FFC107; padding: 12px; border-radius: 6px; margin: 10px 0;">
+                            <p style="margin: 0 0 8px 0; color: #FFC107; font-weight: bold;">🔍 Pesquisa Automatizada no YouTube:</p>
+                            <a href="{url_sugestao_yt}" target="_blank" style="color: #4CAF50; font-size: 14px; text-decoration: underline;">▶️ Procurar por "{nome_musica}" no YouTube</a>
+                        </div>
+                        """, unsafe_allow_html=True)
+                        
+                        link_informado = st.text_input(f"Link oficial do YouTube para reprodução:", value=v.get('link', ''), key=f"link_extra_{k}")
                         
                         col_save, col_del = st.columns(2)
                         with col_save:
@@ -860,8 +877,8 @@ def show_provider_panel_custom(provider_token):
                                 st.rerun()
                                 
                         if v.get('link'):
-                            st.success(f"Link associado: {v.get('link')}")
-                            st.link_button("▶️ Abrir no YouTube", v.get('link'))
+                            st.success(f"Link associado guardado: {v.get('link')}")
+                            st.link_button("▶️ Abrir Link Guardado", v.get('link'))
             else:
                 st.info("Nenhum pedido extra pendente no momento.")
         except Exception as e:
@@ -869,7 +886,6 @@ def show_provider_panel_custom(provider_token):
 
     with aba_principal:
         st.markdown(aviso_reforço_html, unsafe_allow_html=True)
-        
         link_cliente_rel = f"/?page=client_register&prestador={provider_token}"
         link_tv_rel = f"/?page=client_screen&prestador={provider_token}"
         
