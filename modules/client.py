@@ -134,6 +134,10 @@ def show_client_page():
         st.session_state.pesquisa_input = ""
     if 'musica_selecionada' not in st.session_state:
         st.session_state.musica_selecionada = None
+    if 'mostrar_pedido_extra' not in st.session_state:
+        st.session_state.mostrar_pedido_extra = False
+    if 'pedido_extra_enviado' not in st.session_state:
+        st.session_state.pedido_extra_enviado = False
 
     if not st.session_state.cliente_registado:
         st.markdown("## 🎤 Bem-vindo ao FF Karaoke")
@@ -153,28 +157,48 @@ def show_client_page():
     st.markdown(f"<h1 style='color: #4CAF50; font-size: 28px; margin-bottom: 0;'>Benvindo {cliente_nome}</h1>", unsafe_allow_html=True)
     st.markdown("<hr style='margin-top: 10px; margin-bottom: 20px;'>", unsafe_allow_html=True)
 
-    pedidos = obter_pedidos_cliente(provider_token)
-    pedidos_cliente = [p for p in pedidos if p.get("cliente", "").lower() == cliente_nome.lower() and p.get("estado") in ["pendente", "aprovado"]]
-    
-    tem_pedido_ativo = len(pedidos_cliente) > 0
-    posicao_fila = None
-    if tem_pedido_ativo:
-        pedidos_ativos = [p for p in pedidos if p.get("estado") in ["pendente", "aprovado"]]
-        pedidos_ativos.sort(key=lambda x: x.get("timestamp", 0))
-        for idx, p in enumerate(pedidos_ativos, start=1):
-            if p.get("cliente", "").lower() == cliente_nome.lower():
-                posicao_fila = idx
-                break
+    # --- VERIFICAÇÃO DE PEDIDO EXTRA ATIVO ---
+    try:
+        res_extras = requests.get(f"{FIREBASE_URL}/pedidos_extras/{provider_token}.json", timeout=10)
+        tem_pedido_extra_ativo = False
+        if res_extras.status_code == 200 and res_extras.json():
+            for k, v in res_extras.json().items():
+                if v.get("cliente", "").lower() == cliente_nome.lower() and v.get("estado", "pendente") == "pendente":
+                    tem_pedido_extra_ativo = True
+                    break
+    except Exception:
+        tem_pedido_extra_ativo = False
 
-    if tem_pedido_ativo:
-        st.markdown(f"""
-            <div style="text-align: center; padding: 20px 10px; margin: 10px auto; max-width: 700px;">
-                """ + (f'<div style="color: white; font-weight: bold; font-size: 20px; margin-bottom: 12px;">Encontra-se na <b style="color: #FFC107;">{posicao_fila}º</b> posição</div>' if posicao_fila else '') + """
-                <div class="spinning-mic">🎤</div>
+    if tem_pedido_extra_ativo or st.session_state.get('pedido_extra_enviado', False):
+        st.markdown("""
+            <div style="background: rgba(255, 193, 7, 0.1); border: 2px solid #FFC107; padding: 15px; border-radius: 10px; text-align: center; margin-bottom: 20px;">
+                <p style="color: #FFC107; font-size: 18px; font-weight: bold; margin: 0;">Aguarde, o seu pedido está a ser analisado!!</p>
+                <p style="color: white; font-size: 14px; margin-top: 5px;">O seu pedido foi enviado, mas nem todas as músicas existem em karaoke.</p>
             </div>
         """, unsafe_allow_html=True)
     else:
-        st.success("✅ Já poderá enviar o seu pedido!")
+        pedidos = obter_pedidos_cliente(provider_token)
+        pedidos_cliente = [p for p in pedidos if p.get("cliente", "").lower() == cliente_nome.lower() and p.get("estado") in ["pendente", "aprovado"]]
+        
+        tem_pedido_ativo = len(pedidos_cliente) > 0
+        posicao_fila = None
+        if tem_pedido_ativo:
+            pedidos_ativos = [p for p in pedidos if p.get("estado") in ["pendente", "aprovado"]]
+            pedidos_ativos.sort(key=lambda x: x.get("timestamp", 0))
+            for idx, p in enumerate(pedidos_ativos, start=1):
+                if p.get("cliente", "").lower() == cliente_nome.lower():
+                    posicao_fila = idx
+                    break
+
+        if tem_pedido_ativo:
+            st.markdown(f"""
+                <div style="text-align: center; padding: 20px 10px; margin: 10px auto; max-width: 700px;">
+                    """ + (f'<div style="color: white; font-weight: bold; font-size: 20px; margin-bottom: 12px;">Encontra-se na <b style="color: #FFC107;">{posicao_fila}º</b> posição</div>' if posicao_fila else '') + """
+                    <div class="spinning-mic">🎤</div>
+                </div>
+            """, unsafe_allow_html=True)
+        else:
+            st.success("✅ Já poderá enviar o seu pedido!")
 
     if st.session_state.musica_selecionada:
         musica_atual = st.session_state.musica_selecionada
@@ -184,7 +208,6 @@ def show_client_page():
                 <p style="font-size: 18px; font-weight: bold; margin-bottom: 15px;">Quer tocar <b>{musica_atual['titulo']}</b>?</p>
             </div>
         """, unsafe_allow_html=True)
-        
         col_espaco1, col_c1, col_c2, col_espaco2 = st.columns([2, 2, 2, 2])
         with col_c1:
             if st.button("✅ Sim", use_container_width=True, key="btn_sim_enviar"):
@@ -234,8 +257,38 @@ def show_client_page():
         else:
             st.warning("Nenhuma música encontrada com esse termo.")
 
+    # --- BOTÃO "NÃO ACHOU, CLICA AQUI" ---
     st.markdown("---")
+    if st.button("❓ Não achou, clica aqui"):
+        st.session_state.mostrar_pedido_extra = not st.session_state.mostrar_pedido_extra
 
+    if st.session_state.mostrar_pedido_extra:
+        with st.form("form_pedido_extra_cliente"):
+            st.subheader("📝 Pedido Manual de Música")
+            musica_manual = st.text_input("Escreva o nome do artista e da música:")
+            enviar_pedido_extra = st.form_submit_button("Enviar pedido")
+            
+            if enviar_pedido_extra:
+                if musica_manual.strip():
+                    novo_pedido = {
+                        "cliente": cliente_nome,
+                        "musica": musica_manual,
+                        "estado": "pendente",
+                        "timestamp": int(time.time() * 1000),
+                        "link": ""
+                    }
+                    try:
+                        requests.post(f"{FIREBASE_URL}/pedidos_extras/{provider_token}.json", json=novo_pedido, timeout=10)
+                        st.session_state.pedido_extra_enviado = True
+                        st.success("O seu pedido foi enviado, mas nem todas as músicas existem em karaoke.")
+                        time.sleep(1)
+                        st.rerun()
+                    except Exception:
+                        st.error("Erro ao enviar o pedido manual.")
+                else:
+                    st.warning("Por favor, escreva o nome da música.")
+
+    st.markdown("---")
     st.markdown("""
         <div style="background: linear-gradient(135deg, #1f1c2c, #928dab); padding: 25px; border-radius: 12px; text-align: center; color: white; margin-top: 30px;">
             <p style="font-size: 16px; margin: 8px 0;">📸 <b>Instagram:</b> <a href="https://instagram.com/ff.karaoke" target="_blank" style="color: #00d2ff; text-decoration: none;">ff.karaoke</a></p>
