@@ -1048,6 +1048,38 @@ def show_client_screen():
 
     renderizar_ecra_tv(provider_token)
 
+    # --- LÓGICA DE PEDIDO EXTRA NA VISTA DO CLIENTE ---
+    st.markdown("---")
+    if "mostrar_pedido_extra" not in st.session_state:
+        st.session_state["mostrar_pedido_extra"] = False
+
+    if st.button("❓ Não achou, clica aqui"):
+        st.session_state["mostrar_pedido_extra"] = True
+
+    if st.session_state["mostrar_pedido_extra"]:
+        with st.form("form_pedido_extra_cliente"):
+            st.subheader("📝 Pedido Manual de Música")
+            musica_manual = st.text_input("Escreva o nome do artista e da música:")
+            enviar_pedido = st.form_submit_button("Enviar pedido")
+            
+            if enviar_pedido:
+                if musica_manual.strip():
+                    novo_pedido = {
+                        "musica": musica_manual,
+                        "estado": "pendente",
+                        "timestamp": time.time(),
+                        "link": ""
+                    }
+                    # Envia para o Firebase do prestador atual
+                    requests.post(f"{FIREBASE_URL}/pedidos_extras/{provider_token}.json", json=novo_pedido)
+                    st.session_state["pedido_enviado_sucesso"] = True
+                else:
+                    st.warning("Por favor, escreva o nome da música.")
+
+    # Mensagem persistente que substitui a posição por "Aguarde..."
+    if st.session_state.get("pedido_enviado_sucesso", False):
+        st.info("Aguarde, o seu pedido está a ser analisado!! O seu pedido foi enviado, mas nem todas as músicas existem em karaoke.")
+
 def show_provider_panel_center(token):
     show_provider_panel_custom(token)
 
