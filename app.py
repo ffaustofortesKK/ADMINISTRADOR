@@ -916,7 +916,8 @@ def renderizar_ecra_tv(provider_token):
         
         if response.status_code == 200 and response.json():
             data = response.json()
-            pedidos = [{"id": k, **v} for k, v in data.items()]
+            # Garante que cada item tem o ID e trata possíveis nós nulos
+            pedidos = [{"id": k, **(v if isinstance(v, dict) else {})} for k, v in data.items() if isinstance(v, dict)]
             
             pedidos_ativos = [
                 p for p in pedidos 
@@ -1055,7 +1056,6 @@ def renderizar_ecra_tv(provider_token):
                                 }}
                             }}
                         }}
-                        
                         let responseVideo = await fetch(firebaseVideoUrl);
                         let dataVideo = await responseVideo.json();
                         let novaUrlFundo = "";
@@ -1077,17 +1077,16 @@ def renderizar_ecra_tv(provider_token):
             </script>
         """
 
-        # SE HOUVER UM VÍDEO APROVADO, ABRE O LEITOR DE KARAOKE EM FULLSCREEN IMEDIATAMENTE (SEM CONTAGEM)
         if tocando_agora:
             musica = tocando_agora.get("musica", {})
             if isinstance(musica, dict):
-                titulo = musica.get("titulo", musica.get("nome", "Karaoke"))
+                titulo = musica.get("titulo", musica.get("nome", musica.get("song", "Karaoke")))
             else:
                 titulo = str(musica)
             
             titulo_limpo = limpar_nome_musica(titulo)
             url_video = obter_url_video_cloudinary(musica, titulo_limpo)
-            c_nome = tocando_agora.get("cliente", "Convidado")
+            c_nome = tocando_agora.get("cliente", tocando_agora.get("nome_cliente", "Convidado"))
 
             video_html = f"""
             <style>
@@ -1121,7 +1120,6 @@ def renderizar_ecra_tv(provider_token):
                         document.getElementById('audio-warning').style.display = 'block';
                     }});
                 }}
-
                 function unmuteVideo() {{
                     var video = document.getElementById('karaoke-player');
                     video.muted = false;
@@ -1154,8 +1152,6 @@ def renderizar_ecra_tv(provider_token):
             {script_sincronizacao_global}
             """
             components.html(video_html, height=750, scrolling=False)
-            
-        # CASO CONTRÁRIO, MOSTRA O VÍDEO CLIPE DE FUNDO COM A FILA FLUTUANDO POR CIMA
         else:
             url_clipe_fundo = obter_video_fundo(provider_token)
 
@@ -1197,8 +1193,7 @@ def renderizar_ecra_tv(provider_token):
                 html_elementos_sobreposicao += """
                 <div style="position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: #000; z-index: 99975;"></div>
                 """
-
-            # Caixa flutuante com a Fila de Pedidos por cima do vídeo clipe
+                
             html_elementos_sobreposicao += """
             <div style="position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 550px; max-width: 90vw; max-height: 75vh; background: rgba(0, 0, 0, 0.88); border: 4px solid #FFC107; border-radius: 12px; padding: 20px; z-index: 99985; overflow-y: auto; box-shadow: 0 0 30px rgba(255,193,7,0.5); backdrop-filter: blur(5px);">
                 <div style="display: flex; align-items: center; justify-content: center; gap: 10px; border-bottom: 2px solid #FFC107; padding-bottom: 10px; margin-bottom: 15px;">
@@ -1209,10 +1204,10 @@ def renderizar_ecra_tv(provider_token):
 
             if pedidos_ativos:
                 for i, p in enumerate(pedidos_ativos, 1):
-                    cliente_nome = p.get("cliente", "Convidado")
+                    cliente_nome = p.get("cliente", p.get("nome_cliente", "Convidado"))
                     musica_obj = p.get("musica", {})
                     if isinstance(musica_obj, dict):
-                        titulo_musica = musica_obj.get("titulo", musica_obj.get("nome", "Música"))
+                        titulo_musica = musica_obj.get("titulo", musica_obj.get("nome", musica_obj.get("song", "Música")))
                     else:
                         titulo_musica = str(musica_obj)
                     
@@ -1238,7 +1233,6 @@ def renderizar_ecra_tv(provider_token):
                 """
 
             html_elementos_sobreposicao += "</div>"
-
             components.html(html_elementos_sobreposicao, height=800, scrolling=False)
 
     except Exception as e:
