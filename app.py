@@ -1023,13 +1023,12 @@ def renderizar_ecra_tv(provider_token):
     except Exception as e:
         st.error(f"Erro ao carregar a tela de TV: {e}")
         
-def show_client_page():
-    """Página onde o cliente interage, pesquisa músicas e faz os pedidos."""
+def show_client_screen():
     query_params = st.query_params
     provider_token = query_params.get("prestador") or query_params.get("token") or query_params.get("provider")
 
     if not provider_token:
-        st.error("Link inválido. Falta o identificador do prestador.")
+        st.error("Tela inválida. Falta o parâmetro do prestador.")
         return
 
     st.markdown("""
@@ -1037,9 +1036,19 @@ def show_client_page():
     .stApp { background-color: #000000; color: white; }
     </style>""", unsafe_allow_html=True)
 
-    st.title("🎤 FFKaraoke - Pedido de Músicas")
+    try:
+        df = get_all_providers()
+        if not df.empty and 'token' in df.columns:
+            prestador_info = df[df['token'] == provider_token]
+            if not prestador_info.empty:
+                nome_prestador = prestador_info.iloc[0].get('nome', 'Karaoke')
+                st.markdown(f"<h2 style='text-align: center; color: #FFC107;'>🎵 {nome_prestador} - Ecrã da TV</h2>", unsafe_allow_html=True)
+    except Exception:
+        pass 
 
-    # --- LÓGICA DO PEDIDO EXTRA NA VISTA DO CLIENTE ---
+    renderizar_ecra_tv(provider_token)
+
+    # --- LÓGICA DE PEDIDO EXTRA NA VISTA DO CLIENTE ---
     st.markdown("---")
     if "mostrar_pedido_extra" not in st.session_state:
         st.session_state["mostrar_pedido_extra"] = False
@@ -1061,14 +1070,15 @@ def show_client_page():
                         "timestamp": time.time(),
                         "link": ""
                     }
+                    # Envia para o Firebase do prestador atual
                     requests.post(f"{FIREBASE_URL}/pedidos_extras/{provider_token}.json", json=novo_pedido)
                     st.session_state["pedido_enviado_sucesso"] = True
                 else:
                     st.warning("Por favor, escreva o nome da música.")
 
+    # Mensagem persistente que substitui a posição por "Aguarde..."
     if st.session_state.get("pedido_enviado_sucesso", False):
         st.info("Aguarde, o seu pedido está a ser analisado!! O seu pedido foi enviado, mas nem todas as músicas existem em karaoke.")
-
 
 def show_provider_panel_center(token):
     show_provider_panel_custom(token)
