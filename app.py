@@ -1048,6 +1048,7 @@ def show_client_screen():
 
     renderizar_ecra_tv(provider_token)
 
+
 def show_client_screen():
 
     query_params = st.query_params
