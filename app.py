@@ -1024,32 +1024,6 @@ def renderizar_ecra_tv(provider_token):
         st.error(f"Erro ao carregar a tela de TV: {e}")
         
 def show_client_screen():
-    query_params = st.query_params
-    provider_token = query_params.get("prestador") or query_params.get("token") or query_params.get("provider")
-
-    if not provider_token:
-        st.error("Tela inválida. Falta o parâmetro do prestador.")
-        return
-
-    st.markdown("""
-    <style>
-    .stApp { background-color: #000000; color: white; }
-    </style>""", unsafe_allow_html=True)
-
-    try:
-        df = get_all_providers()
-        if not df.empty and 'token' in df.columns:
-            prestador_info = df[df['token'] == provider_token]
-            if not prestador_info.empty:
-                nome_prestador = prestador_info.iloc[0].get('nome', 'Karaoke')
-                st.markdown(f"<h2 style='text-align: center; color: #FFC107;'>🎵 {nome_prestador} - Ecrã da TV</h2>", unsafe_allow_html=True)
-    except Exception:
-        pass 
-
-    renderizar_ecra_tv(provider_token)
-
-
-def show_client_screen():
 
     query_params = st.query_params
 
