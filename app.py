@@ -422,37 +422,38 @@ def obter_video_fundo(provider_token):
     return None
 
 def listar_videos_pasta_clipes():
-    # Usa cache de segurança para nunca deixar o seletor vazio se a rede falhar
-    if "cache_segura_clipes" in st.session_state and st.session_state["cache_segura_clipes"]:
-        return st.session_state["cache_segura_clipes"]
-
-    videos_encontrados = []
+    """
+    Vai buscar todos os vídeos dentro da pasta 'clipes' no Cloudinary 
+    para preencher a lista de seleção no painel de controlo.
+    """
+    lista_videos = []
     try:
-        # Acede diretamente à pasta exata 'clipes'
+        # Faz a chamada à API do Cloudinary filtrando pela pasta 'clipes'
         resultado = cloudinary.api.resources(
-            resource_type="video",
             type="upload",
-            prefix="clipes/", 
-            max_results=500
+            prefix="clipes/",  # Pasta exata no Cloudinary
+            resource_type="video",
+            max_results=100
         )
         
-        for recurso in resultado.get("resources", []):
-            url_secure = recurso.get("secure_url", "")
-            if url_secure:
-                if "/upload/" in url_secure and "f_auto,q_auto" not in url_secure:
-                    url_secure = url_secure.replace("/upload/", "/upload/f_auto,q_auto/")
+        recursos = resultado.get("resources", [])
+        for recurso in recursos:
+            public_id = recurso.get("public_id", "")
+            secure_url = recurso.get("secure_url", "")
+            
+            # Extrai apenas o nome do ficheiro para ficar limpo no selectbox
+            nome_arquivo = public_id.split("/")[-1] if "/" in public_id else public_id
+            
+            if secure_url:
+                lista_videos.append({
+                    "nome": nome_arquivo,
+                    "url": secure_url
+                })
                 
-                public_id = recurso.get("public_id", "")
-                nome_amigavel = public_id.split("/")[-1]
-                videos_encontrados.append({"nome": nome_amigavel, "url": url_secure})
-                
-    except Exception as err:
-        print(f"Erro ao listar pasta clipes: {err}")
+    except Exception as e:
+        print(f"Erro ao listar vídeos da pasta clipes do Cloudinary: {e}")
         
-    if videos_encontrados:
-        st.session_state["cache_segura_clipes"] = videos_encontrados
-        
-    return videos_encontrados
+    return lista_videos
 
 def limpar_nome_musica(musica_raw):
     if isinstance(musica_raw, dict):
