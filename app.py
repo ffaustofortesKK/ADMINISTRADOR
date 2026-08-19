@@ -1093,7 +1093,7 @@ def show_client_page():
                 else:
                     st.warning("Por favor, escreva o nome da música.")
 
-    # Mensagem persistente que confirma o envio
+    # Mensagem persistente que substitui a posição por "Aguarde..."
     if st.session_state.get("pedido_enviado_sucesso", False):
         st.info("Aguarde, o seu pedido está a ser analisado!! O seu pedido foi enviado, mas nem todas as músicas existem em karaoke.")
 
@@ -1108,7 +1108,7 @@ def main():
         if "page" in query_params and query_params["page"] == "register":
             custom_show_register_page()
             return
-
+            
         if "page" in query_params and query_params["page"] == "client_register":
             show_client_page()
             return
