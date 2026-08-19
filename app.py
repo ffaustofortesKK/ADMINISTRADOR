@@ -1128,6 +1128,14 @@ def renderizar_ecra_tv(provider_token):
                 }}
 
                 function stopKaraoke() {{
+                    // Para o vídeo imediatamente na tela para evitar execução em segundo plano ou loops
+                    var videoElement = document.getElementById('karaoke-player');
+                    if (videoElement) {{
+                        videoElement.pause();
+                        videoElement.currentTime = 0;
+                        videoElement.onended = null;
+                    }}
+
                     var pedidoId = "{tocando_agora.get('id')}";
                     var token = "{provider_token}";
                     var firebaseURL = "{FIREBASE_URL}/pedidos/" + token + "/" + pedidoId + "/estado.json";
@@ -1137,9 +1145,9 @@ def renderizar_ecra_tv(provider_token):
                         body: JSON.stringify('terminado'),
                         headers: {{ 'Content-Type': 'application/json' }}
                     }}).then(response => {{
-                        setTimeout(function() {{ window.location.reload(); }}, 200);
+                        setTimeout(function() {{ window.location.reload(); }}, 1000);
                     }}).catch(err => {{
-                        window.location.reload();
+                        setTimeout(function() {{ window.location.reload(); }}, 1000);
                     }});
                 }}
 
