@@ -75,21 +75,40 @@ st.set_page_config(
 # --- FUNÇÃO SEGURA PARA OBTER VÍDEO DE FUNDO ---
 def obter_video_fundo(provider_token):
     """
-    Vai buscar o vídeo de fundo ao Firebase de forma segura.
-    Se houver falha de rede ou timeout, apanha o erro e evita que o programa vá abaixo.
+    Vai buscar o vídeo de fundo primeiro ao Firebase. 
+    Se não houver nenhum configurado, vai buscar automaticamente 
+    um vídeo aleatório à pasta 'clipes' do Cloudinary.
     """
     try:
-        url = f"{FIREBASE_URL}/video_fundo/{provider_token}.json"
-        response = requests.get(url, timeout=5)
+        # 1. Tenta verificar se o prestador definiu um vídeo específico no Firebase
+        url_fb = f"{FIREBASE_URL}/video_fundo/{provider_token}.json"
+        response = requests.get(url_fb, timeout=5)
         
-        if response.status_code == 200:
+        if response.status_code == 200 and response.json():
             dados = response.json()
-            return dados
-        return None
+            if isinstance(dados, str) and dados.startswith("http"):
+                return dados
+            elif isinstance(dados, dict) and dados.get("url"):
+                return dados.get("url")
+
+        # 2. Se o Firebase estiver vazio, vai buscar à pasta 'clipes' do Cloudinary (conforme a sua imagem)
+        resultado_cloudinary = cloudinary.api.resources(
+            type="upload",
+            prefix="clipes/",  # Nome exato da pasta no Cloudinary
+            resource_type="video",
+            max_results=50
+        )
         
+        recursos = resultado_cloudinary.get("resources", [])
+        if recursos:
+            # Escolhe um clipe aleatório da pasta 'clipes' para servir de fundo
+            clipe_escolhido = random.choice(recursos)
+            return clipe_escolhido.get("secure_url")
+
     except Exception as e:
-        print(f"Aviso: Não foi possível carregar o vídeo de fundo devido a um erro de rede: {e}")
-        return None
+        print(f"Aviso: Não foi possível carregar o vídeo de fundo: {e}")
+    
+    return None
         
 # --- BLOQUEIO TOTAL E RADICAL DO BOTÃO GERENCIAR APLICATIVO E ELEMENTOS CLOUD ---
 st.markdown("""
