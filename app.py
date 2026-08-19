@@ -1048,214 +1048,436 @@ def show_client_screen():
 
     renderizar_ecra_tv(provider_token)
 
+def show_client_screen():
 
-def show_client_page():
-    """Página onde o cliente interage, pesquisa músicas e faz os pedidos."""
     query_params = st.query_params
+
     provider_token = query_params.get("prestador") or query_params.get("token") or query_params.get("provider")
 
+
+
     if not provider_token:
-        st.error("Link inválido. Falta o identificador do prestador.")
+
+        st.error("Tela inválida. Falta o parâmetro do prestador.")
+
         return
 
+
+
     st.markdown("""
+
     <style>
+
     .stApp { background-color: #000000; color: white; }
+
     </style>""", unsafe_allow_html=True)
 
-    st.title("🎤 FFKaraoke - Pedido de Músicas")
 
-    # --- AQUI ESTÁ O CÓDIGO DO PEDIDO EXTRA ADICIONADO NA PÁGINA DO CLIENTE ---
+
+    try:
+
+        df = get_all_providers()
+
+        if not df.empty and 'token' in df.columns:
+
+            prestador_info = df[df['token'] == provider_token]
+
+            if not prestador_info.empty:
+
+                nome_prestador = prestador_info.iloc[0].get('nome', 'Karaoke')
+
+                st.markdown(f"<h2 style='text-align: center; color: #FFC107;'>🎵 {nome_prestador} - Ecrã da TV</h2>", unsafe_allow_html=True)
+
+    except Exception:
+
+        pass 
+
+
+
+    renderizar_ecra_tv(provider_token)
+
+
+
+    # --- LÓGICA DE PEDIDO EXTRA NA VISTA DO CLIENTE ---
+
     st.markdown("---")
+
     if "mostrar_pedido_extra" not in st.session_state:
+
         st.session_state["mostrar_pedido_extra"] = False
 
+
+
     if st.button("❓ Não achou, clica aqui"):
+
         st.session_state["mostrar_pedido_extra"] = True
 
+
+
     if st.session_state["mostrar_pedido_extra"]:
+
         with st.form("form_pedido_extra_cliente"):
+
             st.subheader("📝 Pedido Manual de Música")
+
             musica_manual = st.text_input("Escreva o nome do artista e da música:")
+
             enviar_pedido = st.form_submit_button("Enviar pedido")
+
             
+
             if enviar_pedido:
+
                 if musica_manual.strip():
+
                     novo_pedido = {
+
                         "musica": musica_manual,
+
                         "estado": "pendente",
+
                         "timestamp": time.time(),
+
                         "link": ""
+
                     }
+
                     # Envia para o Firebase do prestador atual
+
                     requests.post(f"{FIREBASE_URL}/pedidos_extras/{provider_token}.json", json=novo_pedido)
+
                     st.session_state["pedido_enviado_sucesso"] = True
+
                 else:
+
                     st.warning("Por favor, escreva o nome da música.")
 
+
+
     # Mensagem persistente que substitui a posição por "Aguarde..."
+
     if st.session_state.get("pedido_enviado_sucesso", False):
+
         st.info("Aguarde, o seu pedido está a ser analisado!! O seu pedido foi enviado, mas nem todas as músicas existem em karaoke.")
 
 
+
 def show_provider_panel_center(token):
+
     show_provider_panel_custom(token)
 
+
+
 def main():
+
     try:
+
         query_params = st.query_params
+
         
+
         if "page" in query_params and query_params["page"] == "register":
+
             custom_show_register_page()
+
             return
+
+
 
         if "page" in query_params and query_params["page"] == "client_register":
+
             show_client_page()
+
             return
+
+
 
         if "page" in query_params and query_params["page"] == "client_screen":
+
             show_client_screen()
+
             return
+
+
 
         token = query_params.get("prestador") or query_params.get("token") or query_params.get("provider")
+
         
+
         if token:
+
             df = get_all_providers()
+
             if df.empty or 'token' not in df.columns or not (df['token'] == token).any():
+
                 show_provider_panel_center(token)
+
                 return
+
                 
+
             prior_prestador = df[df['token'] == token]
+
             if not prior_prestador.empty:
+
                 row = prior_prestador.iloc[0]
+
                 if row.get('approved', 1) == 1:
+
                     show_provider_panel_custom(token)
+
                     return
+
                 else:
-                    st.warning("⏳ O seu registo aguarda aprovação do Administrador.")
-                    return
+
+                    st.warning("⏳ O seu registo aguarda aprovação do Administrador.")  return
+
             else:
+
                 show_provider_panel_custom(token)
+
                 return
+
+
 
         st.markdown("""
+
             <style>
+
             .stApp {
+
                 background-color: #000000 !important;
+
                 color: #ffffff !important;
+
                 font-weight: bold !important;
+
             }
+
             .block-container {
+
                 background-color: #000000 !important;
+
                 border: 4px solid #FFC107 !important;
+
                 border-radius: 12px;
+
                 padding: 3rem !important;
+
             }
+
             h1, h2, h3, h4, h5, h6, p, span, label, div, button, input {
+
                 font-weight: bold !important;
+
                 text-shadow: 1px 1px 3px rgba(0,0,0,0.9);
+
             }
+
             </style>
+
         """, unsafe_allow_html=True)
 
+
+
         if not st.session_state.get("admin_logged", False):
+
             st.title("🔒 FFKaraoke - Área Restrita (Administrador)")
+
             
+
             with st.form("form_admin_login"):
+
                 senha = st.text_input("Palavra-passe de Administrador", type="password")
+
                 submitted = st.form_submit_button("Entrar")
+
                 
+
                 if submitted:
+
                     if senha == "ffkaraoke2026" or senha == "admin123":
+
                         st.session_state["admin_logged"] = True
+
                         st.success("Sessão iniciada com sucesso!")
+
                         st.rerun()
+
                     else:
+
                         st.error("Palavra-passe incorreta.")
+
             return
 
+
+
         if st.session_state.get("admin_logged", False):
+
             st.markdown("---")
+
             st.subheader("⚡ Gestão de Reforços de Tempo Pendentes")
+
             try:
+
                 res_all_ref = requests.get(f"{FIREBASE_URL}/reforcos_pendentes.json", timeout=10)
+
                 if res_all_ref.status_code == 200 and res_all_ref.json():
+
                     all_refs = res_all_ref.json()
+
                     tem_reforcos = False
+
                     for tok, refs_dict in all_refs.items():
+
                         if isinstance(refs_dict, dict):
+
                             for r_id, r_data in refs_dict.items():
+
                                 if r_data.get("approved", 0) == 0:
+
                                     tem_reforcos = True
+
                                     st.markdown(f"""
+
                                     <div style="background: rgba(0,0,0,0.95); border: 2px solid #FFC107; padding: 12px; border-radius: 6px; margin-bottom: 10px;">
+
                                         <b>Prestador:</b> {r_data.get('nome_prestador')} (Token: {tok})<br>
+
                                         <b>Referência / Comprovativo:</b> {r_data.get('referencia')}<br>
+
                                         <b>Duração Solicitada:</b> {r_data.get('tempo_plano')}
+
                                     </div>
+
                                     """, unsafe_allow_html=True)
+
                                     
+
                                     col_s, col_n = st.columns(2)
+
                                     with col_s:
+
                                         if st.button("✅ Aprovar Reforço", key=f"aprov_ref_{tok}_{r_id}"):
+
                                             r_data["approved"] = 1
+
                                             requests.put(f"{FIREBASE_URL}/reforcos_aprovados/{tok}/{r_id}.json", json=r_data)
+
                                             requests.delete(f"{FIREBASE_URL}/reforcos_pendentes/{tok}/{r_id}.json")
+
                                             st.success("Reforço aprovado e acumulado com sucesso!")
+
                                             st.rerun()
+
                                     with col_n:
+
                                         if st.button("❌ Recusar Reforço", key=f"rec_ref_{tok}_{r_id}"):
+
                                             requests.delete(f"{FIREBASE_URL}/reforcos_pendentes/{tok}/{r_id}.json")
+
                                             st.warning("Reforço recusado.")
+
                                             st.rerun()
-                    if not tem_reforcos:
+
+ if not tem_reforcos:
+
                         st.info("Nenhum pedido de reforço pendente neste momento.")
+
                 else:
+
                     st.info("Nenhum pedido de reforço pendente neste momento.")
+
             except Exception as e:
+
                 st.warning(f"Não foi possível carregar os reforços pendentes: {e}")
+
+
 
             show_admin_panel()
 
+
+
             # --- ABA DE PEDIDOS EXTRAS PARA O ADMINISTRADOR ---
+
             st.markdown("---")
+
             st.header("🎵 Gestão Global de Pedidos Extras")
+
             try:
+
                 res_all_extras = requests.get(f"{FIREBASE_URL}/pedidos_extras.json", timeout=10)
+
                 if res_all_extras.status_code == 200 and res_all_extras.json():
+
                     all_extras = res_all_extras.json()
+
                     for tok, p_extras in all_extras.items():
+
                         if isinstance(p_extras, dict):
+
                             st.subheader(f"Prestador Token: {tok}")
+
                             for k, v in p_extras.items():
+
                                 with st.expander(f"Pedido: {v.get('musica')} (Estado: {v.get('estado', 'pendente')})"):
+
                                     st.write(f"Enviado em: {time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(v.get('timestamp', time.time())))}")
+
                                     link_informado = st.text_input(f"Link do YouTube para: {v.get('musica')}", value=v.get('link', ''), key=f"admin_link_extra_{tok}_{k}")
+
                                     
+
                                     col_save, col_del = st.columns(2)
+
                                     with col_save:
+
                                         if st.button("💾 Salvar Link", key=f"admin_save_extra_{tok}_{k}"):
+
                                             requests.patch(f"{FIREBASE_URL}/pedidos_extras/{tok}/{k}.json", json={
+
                                                 "link": link_informado,
+
                                                 "estado": "disponivel"
+
                                             })
+
                                             st.success("Atualizado!")
+
                                             st.rerun()
+
                                     with col_del:
+
                                         if st.button("🗑️ Remover", key=f"admin_del_extra_{tok}_{k}"):
+
                                             requests.delete(f"{FIREBASE_URL}/pedidos_extras/{tok}/{k}.json")
+
                                             st.warning("Removido.")
+
                                             st.rerun()
+
                                     if v.get('link'):
+
                                         st.success(f"Link: {v.get('link')}")
+
                                         st.link_button("▶️ Abrir / Ver no YouTube", v.get('link'))
+
                 else:
+
                     st.info("Nenhum pedido extra registado no sistema.")
+
             except Exception as e:
+
                 st.error(f"Erro ao carregar pedidos extras globais: {e}")
+
                 
+
     except Exception as e:
+
         st.error(f"Ocorreu um erro ao carregar a aplicação: {e}")
 
+
+
 if __name__ == "__main__":
+
     main()
