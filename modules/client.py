@@ -289,10 +289,3 @@ def show_client_page():
                     st.warning("Por favor, escreva o nome da música.")
 
     st.markdown("---")
-    st.markdown("""
-        <div style="background: linear-gradient(135deg, #1f1c2c, #928dab); padding: 25px; border-radius: 12px; text-align: center; color: white; margin-top: 30px;">
-            <p style="font-size: 16px; margin: 8px 0;">📸 <b>Instagram:</b> <a href="https://instagram.com/ff.karaoke" target="_blank" style="color: #00d2ff; text-decoration: none;">ff.karaoke</a></p>
-            <p style="font-size: 16px; margin: 8px 0;">📞 <b>Contacto para Eventos Privados:</b> 955099159</p>
-            <p style="font-size: 16px; margin: 8px 0;">💬 <b>WhatsApp:</b> <a href="https://wa.me/244955099159" target="_blank" style="color: #25D366; text-decoration: none;">955099159</a></p>
-        </div>
-    """, unsafe_allow_html=True)
