@@ -914,15 +914,12 @@ def renderizar_ecra_tv(provider_token):
             data = response.json()
             pedidos = [{"id": k, **v} for k, v in data.items()]
             
-            # Filtra de forma segura aceitando variações de maiúsculas/minúsculas
             pedidos_ativos = [
                 p for p in pedidos 
                 if str(p.get("estado", "pendente")).lower() in ["pendente", "aprovado", "novo", "aguardando"]
             ]
             
             pedidos_ativos.sort(key=lambda x: x.get("timestamp", 0))
-            
-            # Identifica de forma segura qual está a tocar (estado aprovado)
             tocando_agora = next((p for p in pedidos_ativos if str(p.get("estado", "")).lower() == "aprovado"), None)
         
         frame_styles = """
@@ -1076,7 +1073,7 @@ def renderizar_ecra_tv(provider_token):
             </script>
         """
 
-        # SE HOUVER UM VÍDEO APROVADO, ABRE O LEITOR DE KARAOKE EM FULLSCREEN
+        # SE HOUVER UM VÍDEO APROVADO, ABRE O LEITOR DE KARAOKE EM FULLSCREEN IMEDIATAMENTE (SEM CONTAGEM)
         if tocando_agora:
             musica = tocando_agora.get("musica", {})
             if isinstance(musica, dict):
@@ -1091,20 +1088,8 @@ def renderizar_ecra_tv(provider_token):
             video_html = f"""
             <style>
                 body, html {{ margin: 0; padding: 0; background: #000; overflow: hidden; width: 100vw; height: 100vh; }}
-                @keyframes zoomInNumber {{
-                    0% {{ transform: scale(0.2); opacity: 0; }}
-                    50% {{ transform: scale(1.2); opacity: 1; }}
-                    100% {{ transform: scale(1); opacity: 1; }}
-                }}
-                .countdown-overlay {{
-                    position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
-                    background: rgba(0,0,0,0.95); display: flex; justify-content: center; align-items: center;
-                    z-index: 99999; color: #ffffff; font-family: monospace; font-size: 15vw; font-weight: bold;
-                    text-shadow: 2px 2px 5px rgba(0,0,0,0.9); animation: zoomInNumber 0.9s ease-in-out infinite;
-                }}
             </style>
-            <div id="countdown-screen" class="countdown-overlay">3</div>
-            <div id="karaoke-container" style="display: none; width: 100vw; height: 100vh; background: black; position: fixed; top: 0; left: 0; z-index: 99988;">
+            <div id="karaoke-container" style="display: block; width: 100vw; height: 100vh; background: black; position: fixed; top: 0; left: 0; z-index: 99988;">
                 <div style="position: absolute; top: 15px; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,0.85); border: 2px solid #FFC107; padding: 10px 25px; border-radius: 8px; z-index: 10000; display: flex; align-items: center; gap: 20px;">
                     <div style="color: #FFC107; font-family: monospace; font-size: 20px; text-transform: uppercase; font-weight: bold;">
                         🎤 A CANTAR: <span style="color: #ffffff;">{c_nome}</span> — <span style="color: #aaaaaa; font-size: 16px;">{titulo_limpo}</span>
@@ -1122,30 +1107,16 @@ def renderizar_ecra_tv(provider_token):
                 </div>
             </div>
             <script>
-                var count = 3;
-                var cdScreen = document.getElementById('countdown-screen');
-                var timer = setInterval(function() {{
-                    count--;
-                    if (count > 0) {{
-                        cdScreen.innerText = count;
-                    }} else if (count === 0) {{
-                        cdScreen.innerText = "🎤 CANTE!";
-                    }} else {{
-                        clearInterval(timer);
-                        cdScreen.style.display = 'none';
-                        document.getElementById('karaoke-container').style.display = 'block';
-                        var video = document.getElementById('karaoke-player');
-                        video.muted = false; 
-                        var playPromise = video.play();
-                        if (playPromise !== undefined) {{
-                            playPromise.then(_ => {{}}).catch(error => {{
-                                video.muted = true;
-                                video.play();
-                                document.getElementById('audio-warning').style.display = 'block';
-                            }});
-                        }}
-                    }}
-                }}, 1000);
+                var video = document.getElementById('karaoke-player');
+                video.muted = false; 
+                var playPromise = video.play();
+                if (playPromise !== undefined) {{
+                    playPromise.then(_ => {{}}).catch(error => {{
+                        video.muted = true;
+                        video.play();
+                        document.getElementById('audio-warning').style.display = 'block';
+                    }});
+                }}
 
                 function unmuteVideo() {{
                     var video = document.getElementById('karaoke-player');
@@ -1170,7 +1141,6 @@ def renderizar_ecra_tv(provider_token):
                     }});
                 }}
 
-                var video = document.getElementById('karaoke-player');
                 if (video) {{
                     video.onended = function() {{
                         stopKaraoke();
