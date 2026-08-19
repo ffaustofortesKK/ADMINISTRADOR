@@ -867,7 +867,6 @@ def renderizar_ecra_tv(provider_token):
             data = response.json()
             pedidos = [{"id": k, **v} for k, v in data.items()]
             
-            # ALTERAÇÃO AQUI: Torna o filtro flexível para aceitar diferentes variações de estado criadas no cliente
             pedidos_ativos = [
                 p for p in pedidos 
                 if str(p.get("estado", "pendente")).lower() in ["pendente", "aprovado", "novo", "aguardando"]
@@ -930,6 +929,7 @@ def renderizar_ecra_tv(provider_token):
                 .speaker-tr { top: 15px; right: 15px; }
                 .speaker-bl { bottom: 50px; left: 15px; }
                 .speaker-br { bottom: 50px; right: 15px; }
+                
                 .marquee-footer {
                     position: fixed;
                     bottom: 0;
@@ -989,7 +989,7 @@ def renderizar_ecra_tv(provider_token):
                 </div>
             </div>
         """
-
+        
         url_atual_fundo = obter_video_fundo(provider_token) or ""
         id_atual_tocando = tocando_agora.get('id') if tocando_agora else "none"
 
@@ -1050,6 +1050,7 @@ def renderizar_ecra_tv(provider_token):
             
             titulo_limpo = limpar_nome_musica(titulo)
             url_video = obter_url_video_cloudinary(musica, titulo_limpo)
+            c_nome = tocando_agora.get("cliente", "Convidado")
 
             video_html = f"""
             <style>
@@ -1069,13 +1070,21 @@ def renderizar_ecra_tv(provider_token):
                 }}
             </style>
             <div id="countdown-screen" class="countdown-overlay">3</div>
-            <div id="karaoke-container" style="display: none; width: 100vw; height: 100vh; background: black; position: fixed; top: 0; left: 0;">
-                <video id="karaoke-player" width="100%" height="100%" autoplay playsinline style="object-fit: contain; background: black; width: 100%; height: 100%;">
+            <div id="karaoke-container" style="display: none; width: 100vw; height: 100vh; background: black; position: fixed; top: 0; left: 0; z-index: 99988;">
+                <!-- BARRA SUPERIOR COM O NOME DO CLIENTE -->
+                <div style="position: absolute; top: 15px; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,0.85); border: 2px solid #FFC107; padding: 10px 25px; border-radius: 8px; z-index: 10000; display: flex; align-items: center; gap: 20px;">
+                    <div style="color: #FFC107; font-family: monospace; font-size: 20px; text-transform: uppercase; font-weight: bold;">
+                        🎤 A CANTAR: <span style="color: #ffffff;">{c_nome}</span> — <span style="color: #aaaaaa; font-size: 16px;">{titulo_limpo}</span>
+                    </div>
+                    <button onclick="stopKaraoke()" style="background: #d9534f; color: white; border: none; padding: 6px 14px; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 14px;">⏹️ Terminar</button>
+                </div>
+
+                <video id="karaoke-player" width="100vw" height="100vh" autoplay playsinline style="object-fit: contain; background: black; width: 100vw; height: 100vh;">
                     <source src="{url_video}" type="video/mp4">
                     O seu navegador não suporta a reprodução deste vídeo.
                 </video>
                 <div id="audio-warning" style="display: none; position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); text-align: center; background: #222; border: 4px solid #FFC107; padding: 10px 20px; border-radius: 5px; z-index: 99999;">
-                    <p style="color: #ffffff; margin: 0 0 8px 0; font-family: monospace; font-size: 14px; font-weight: bold; text-shadow: 1px 1px 3px rgba(0,0,0,0.9);">⚠️ O navegador bloqueou o áudio automático.</p>
+                    <p style="color: #ffffff; margin: 0 0 8px 0; font-family: monospace; font-size: 14px; font-weight: bold;">⚠️ O navegador bloqueou o áudio automático.</p>
                     <button onclick="unmuteVideo()" style="background-color: #4CAF50; color: white; border: none; padding: 8px 16px; font-size: 15px; border-radius: 4px; cursor: pointer; font-weight: bold;">🔊 CLIQUE AQUI PARA ATIVAR O SOM</button>
                 </div>
             </div>
@@ -1140,87 +1149,49 @@ def renderizar_ecra_tv(provider_token):
             
         else:
             url_clipe_fundo = obter_video_fundo(provider_token)
-            proximo_cantor = pedidos_ativos[0] if pedidos_ativos else None
 
             st.markdown(frame_styles, unsafe_allow_html=True)
             st.markdown(script_sincronizacao_global, unsafe_allow_html=True)
 
-            col_esq, col_dir = st.columns([1, 1])
-            
-            with col_esq:
-                if proximo_cantor:
-                    c_prox = proximo_cantor.get("cliente", "Convidado")
-                    m_prox = proximo_cantor.get("musica", "Música")
-                    if isinstance(m_prox, dict):
-                        m_prox = m_prox.get("titulo", m_prox.get("nome", ""))
-                    
-                    st.markdown(f"""
-                        <div style="border: 4px solid #FFC107; border-radius: 10px; padding: 15px; background: rgba(0,0,0,0.95); margin-bottom: 15px;">
-                            <div style="color: #FFC107; font-size: 16px; font-weight: bold; font-family: monospace;">🎤 A SEGUIR:</div>
-                            <div style="color: #ffffff; font-size: 20px; font-weight: bold; font-family: monospace; text-transform: uppercase;">{c_prox}</div>
-                            <div style="color: #aaa; font-size: 14px; font-family: monospace;">🎵 {m_prox}</div>
-                        </div>
-                    """, unsafe_allow_html=True)
-                else:
-                    st.markdown("""
-                        <div style="border: 4px solid #FFC107; border-radius: 10px; padding: 15px; text-align: center; background: rgba(0,0,0,0.95); margin-bottom: 15px;">
-                            <h2 style="color: #ffffff; margin: 0; font-family: monospace; font-weight: bold;">🎤 FILA DOS CANTORES</h2>
-                        </div>
-                    """, unsafe_allow_html=True)
-                
-                html_caixas = '<div style="display: flex; flex-direction: column; gap: 8px; margin-bottom: 40px;">'
-                demais_pedidos = pedidos_ativos[1:] if len(pedidos_ativos) > 1 else []
-                
-                for idx, p_item in enumerate(demais_pedidos, start=2):
-                    c_item = p_item.get("cliente", "Convidado")
-                    m_item = p_item.get("musica", "")
-                    if isinstance(m_item, dict):
-                        m_item = m_item.get("titulo", m_item.get("nome", ""))
-                    
-                    texto_caixa = f"<b>{idx}.</b> {c_item} {('- ' + m_item) if m_item else ''}"
-                    html_caixas += f'<div style="background: rgba(0,0,0,0.95); border: 4px solid #FFC107; border-radius: 8px; padding: 12px; color: #ffffff; font-family: monospace; font-size: 16px; font-weight: bold;">{texto_caixa}</div>'
-                
-                html_caixas += '</div>'
-                st.markdown(html_caixas, unsafe_allow_html=True) 
-
-            with col_dir:
-                if url_clipe_fundo:
-                    video_fundo_html = f"""
-                    <div style="display: flex; justify-content: center; background: rgba(0,0,0,0.95); border: 4px solid #FFC107; border-radius: 10px; padding: 5px; width: 100%; position: relative; margin-top: 5px; margin-bottom: 40px;">
-                        <video id="fundo-player" width="100%" height="450px" autoplay loop playsinline controlslist="nodownload noremoteplayback" disablepictureinpicture style="object-fit: contain; background: black; border-radius: 8px;">
-                            <source src="{url_clipe_fundo}" type="video/mp4">
-                            O seu navegador não suporta vídeo.
-                        </video>
-                        <div id="fundo-audio-warning" style="display: none; position: absolute; bottom: 15px; right: 15px; background: rgba(0,0,0,0.8); border: 2px solid #FFC107; padding: 6px 10px; border-radius: 5px; cursor: pointer;" onclick="unmuteFundo()">
-                            <span style="font-size: 18px;" title="Ativar Som">🔊</span>
-                        </div>
+            if url_clipe_fundo:
+                # VÍDEO CLIPE DE FUNDO EM TELA CHEIA (FULLSCREEN)
+                video_fundo_html = f"""
+                <div style="position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: black; z-index: 99980; overflow: hidden;">
+                    <video id="fundo-player" width="100vw" height="100vh" autoplay loop muted playsinline controlslist="nodownload noremoteplayback" disablepictureinpicture style="width: 100vw; height: 100vh; object-fit: cover; background: black;">
+                        <source src="{url_clipe_fundo}" type="video/mp4">
+                        O seu navegador não suporta vídeo.
+                    </video>
+                    <div id="fundo-audio-warning" style="display: none; position: absolute; bottom: 50px; right: 20px; background: rgba(0,0,0,0.85); border: 2px solid #FFC107; padding: 10px 15px; border-radius: 8px; cursor: pointer; z-index: 99985;" onclick="unmuteFundo()">
+                        <span style="color: white; font-family: monospace; font-size: 14px; font-weight: bold;">🔊 Ativar Som</span>
                     </div>
-                    <script>
-                        var fundoVideo = document.getElementById('fundo-player');
-                        fundoVideo.muted = false;
-                        var fundoPromise = fundoVideo.play();
-                        if (fundoPromise !== undefined) {{
-                            fundoPromise.then(_ => {{}}).catch(error => {{
-                                fundoVideo.muted = true;
-                                fundoVideo.play();
-                                document.getElementById('fundo-audio-warning').style.display = 'block';
-                            }});
-                        }}
-                        function unmuteFundo() {{
-                            fundoVideo.muted = false;
+                </div>
+                <script>
+                    var fundoVideo = document.getElementById('fundo-player');
+                    fundoVideo.muted = false;
+                    var fundoPromise = fundoVideo.play();
+                    if (fundoPromise !== undefined) {{
+                        fundoPromise.then(_ => {{}}).catch(error => {{
+                            fundoVideo.muted = true;
                             fundoVideo.play();
-                            document.getElementById('fundo-audio-warning').style.display = 'none';
-                        }}
-                    </script>
-                    """
-                    components.html(video_fundo_html, height=480)
-                else:
-                    st.markdown("""
-                        <div style="border: 4px solid #FFC107; border-radius: 10px; padding: 100px 20px; text-align: center; background: rgba(0,0,0,0.95); color: #ffffff; font-family: monospace; margin-top: 5px; margin-bottom: 40px; font-weight: bold;">
-                            <div style="font-size: 40px; margin-bottom: 10px;">📺</div>
-                            <p style="color: #ffffff; font-size: 16px; margin: 0; font-weight: bold;">Vídeo clipe ...</p>
-                        </div>
-                    """, unsafe_allow_html=True)
+                            document.getElementById('fundo-audio-warning').style.display = 'block';
+                        }});
+                    }}
+                    function unmuteFundo() {{
+                        fundoVideo.muted = false;
+                        fundoVideo.play();
+                        document.getElementById('fundo-audio-warning').style.display = 'none';
+                    }}
+                </script>
+                """
+                components.html(video_fundo_html, height=800, scrolling=False)
+            else:
+                st.markdown("""
+                    <div style="position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: black; display: flex; flex-direction: column; justify-content: center; align-items: center; color: #ffffff; font-family: monospace; z-index: 99980;">
+                        <div style="font-size: 60px; margin-bottom: 15px;">📺</div>
+                        <h1 style="color: #FFC107; font-family: monospace;">FF KARAOKE CLOUD</h1>
+                        <p style="color: #aaa; font-size: 18px;">Aguardando Seleção de Vídeo Clipe de Fundo...</p>
+                    </div>
+                """, unsafe_allow_html=True)
 
     except Exception as e:
         st.error(f"Erro de sincronização na TV: {e}")
