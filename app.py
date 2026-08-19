@@ -466,6 +466,8 @@ def limpar_nome_musica(musica_raw):
         titulo = titulo[:-4]
     return titulo.strip()
 
+import urllib.parse
+
 def obter_url_video_cloudinary(musica_obj, titulo_limpo):
     if isinstance(musica_obj, dict):
         url_direta = musica_obj.get("url_cloudinary", "") or musica_obj.get("url", "")
@@ -475,7 +477,10 @@ def obter_url_video_cloudinary(musica_obj, titulo_limpo):
             return url_direta
 
     cloud_name = "yhwgjh7g"
-    encoded_title = urllib.parse.quote(titulo_limpo + ".mp4")
+    # Aponta diretamente para a pasta de músicas de karaoke dentro de 'Casa'
+    caminho_pasta = "Casa/MÚSICAS DE KARAOKÊ"
+    encoded_title = urllib.parse.quote(f"{caminho_pasta}/{titulo_limpo}.mp4")
+    
     return f"https://res.cloudinary.com/{cloud_name}/video/upload/f_auto,q_auto/{encoded_title}"
 
 @st.fragment(run_every=1)
