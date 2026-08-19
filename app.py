@@ -388,55 +388,6 @@ def definir_video_fundo(provider_token, url_clipe):
         requests.put(url, json=url_clipe, timeout=10)
     except Exception:
         pass
-        
-@st.cache_data(ttl=300) # Faz cache da lista por 5 minutos para evitar chamadas constantes
-def carregar_lista_musicas(provider_token):
-    """
-    Carrega a lista de músicas do Firebase com retentativa 
-    e tratamento de falhas de conexão/nulos.
-    """
-    url = f"{FIREBASE_URL}/musicas/{provider_token}.json"
-    
-    # Tentativa de busca com retry
-    for i in range(3): # Tenta 3 vezes antes de desistir
-        try:
-            response = requests.get(url, timeout=8)
-            if response.status_code == 200:
-                dados = response.json()
-                
-                # Verifica se o Firebase retornou algo válido
-                if dados is not None:
-                    # Se vier um dicionário, transforma em lista; se for None, devolve lista vazia
-                    return list(dados.values()) if isinstance(dados, dict) else dados
-                
-            # Se a resposta for None ou erro, espera um pouco e tenta de novo
-            time.sleep(1)
-            
-        except Exception:
-            time.sleep(1.5)
-            
-    return [] # Retorna lista vazia se falhar após 3 tentativas
-
-def show_client_page(provider_token):
-    st.subheader("🎵 Pesquisar Músicas")
-    
-    # Chama a função otimizada
-    lista_musicas = carregar_lista_musicas(provider_token)
-    
-    if not lista_musicas:
-        st.warning("Não foi possível carregar a lista de músicas agora. A tentar reconexão...")
-        # Força o cache a limpar se a lista vier vazia
-        st.cache_data.clear()
-        if st.button("Tentar novamente"):
-            st.rerun()
-        return
-
-    # Interface de pesquisa
-    busca = st.text_input("Escreva o nome da música ou artista...")
-    
-    if busca:
-        resultados = [m for m in lista_musicas if busca.lower() in str(m).lower()]
-        # ... resto da lógica de exibir resultados
 
 def obter_video_fundo(provider_token):
     try:
