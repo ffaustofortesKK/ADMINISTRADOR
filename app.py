@@ -1053,7 +1053,7 @@ def show_client_screen():
 
 
 def show_client_page():
-    """Página onde o cliente pesquisa as músicas e faz os pedidos."""
+    """Página onde o cliente interage, pesquisa músicas e faz os pedidos."""
     query_params = st.query_params
     provider_token = query_params.get("prestador") or query_params.get("token") or query_params.get("provider")
 
@@ -1068,7 +1068,7 @@ def show_client_page():
 
     st.title("🎤 FFKaraoke - Pedido de Músicas")
 
-    # --- [ADICIONADO] LÓGICA DO PEDIDO EXTRA NA VISTA DO CLIENTE ---
+    # --- LÓGICA DE PEDIDO EXTRA NA VISTA DO CLIENTE ---
     st.markdown("---")
     if "mostrar_pedido_extra" not in st.session_state:
         st.session_state["mostrar_pedido_extra"] = False
@@ -1090,7 +1090,6 @@ def show_client_page():
                         "timestamp": time.time(),
                         "link": ""
                     }
-                    # Envia para o Firebase do prestador atual
                     requests.post(f"{FIREBASE_URL}/pedidos_extras/{provider_token}.json", json=novo_pedido)
                     st.session_state["pedido_enviado_sucesso"] = True
                 else:
@@ -1103,7 +1102,6 @@ def show_client_page():
 
 def show_provider_panel_center(token):
     show_provider_panel_custom(token)
-
 
 def main():
     try:
@@ -1134,29 +1132,6 @@ def main():
                 row = prior_prestador.iloc[0]
                 if row.get('approved', 1) == 1:
                     show_provider_panel_custom(token)
-                    
-                    # --- [ADICIONADO] ABA DE PEDIDOS EXTRAS PARA O PRESTADOR NO SEU PAINEL ---
-                    st.markdown("---")
-                    st.header("🎵 Pedidos Extras (Clientes)")
-                    try:
-                        res_extras_prestador = requests.get(f"{FIREBASE_URL}/pedidos_extras/{token}.json", timeout=10)
-                        if res_extras_prestador.status_code == 200 and res_extras_prestador.json():
-                            p_extras = res_extras_prestador.json()
-                            if isinstance(p_extras, dict):
-                                for k, v in p_extras.items():
-                                    with st.expander(f"Música: {v.get('musica')} | Estado: {v.get('estado', 'pendente')}"):
-                                        st.write(f"Enviado em: {time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(v.get('timestamp', time.time())))}")
-                                        if v.get('link'):
-                                            st.success(f"Link YouTube: {v.get('link')}")
-                                            st.link_button("▶️ Abrir / Ver no YouTube", v.get('link'))
-                                        else:
-                                            st.info("Aguardando o Administrador associar o link do YouTube.")
-                        else:
-                            st.info("Nenhum pedido extra registado para este evento/prestador.")
-                    except Exception as e:
-                        st.warning(f"Erro ao carregar pedidos extras: {e}")
-                    # -----------------------------------------------------------------------
-                    
                     return
                 else:
                     st.warning("⏳ O seu registo aguarda aprovação do Administrador.")
@@ -1242,7 +1217,7 @@ def main():
 
             show_admin_panel()
 
-            # --- [ADICIONADO] ABA DE GESTÃO GLOBAL DE PEDIDOS EXTRAS PARA O ADMINISTRADOR ---
+            # --- ABA DE PEDIDOS EXTRAS PARA O ADMINISTRADOR ---
             st.markdown("---")
             st.header("🎵 Gestão Global de Pedidos Extras")
             try:
@@ -1278,7 +1253,6 @@ def main():
                     st.info("Nenhum pedido extra registado no sistema.")
             except Exception as e:
                 st.error(f"Erro ao carregar pedidos extras globais: {e}")
-            # ------------------------------------------------------------------------------
                 
     except Exception as e:
         st.error(f"Ocorreu um erro ao carregar a aplicação: {e}")
