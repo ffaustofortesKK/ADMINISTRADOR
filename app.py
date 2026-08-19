@@ -1242,7 +1242,7 @@ def renderizar_ecra_tv(provider_token):
         
 def show_client_screen():
     query_params = st.query_params
-    provider_token = query_params.get("prestador") or query_params.get("provider", None)
+    provider_token = query_params.get("prestador") or query_params.get("token") or query_params.get("provider")
 
     if not provider_token:
         st.error("Tela inválida. Falta o parâmetro do prestador.")
@@ -1253,6 +1253,18 @@ def show_client_screen():
     .stApp { background-color: #000000; color: white; }
     </style>""", unsafe_allow_html=True)
 
+    # Opcional: Se quiser carregar o nome do prestador para exibir na tela da TV
+    try:
+        df = get_all_providers()
+        if not df.empty and 'token' in df.columns:
+            prestador_info = df[df['token'] == provider_token]
+            if not prestador_info.empty:
+                nome_prestador = prestador_info.iloc[0].get('nome', 'Karaoke')
+                st.markdown(f"<h2 style='text-align: center; color: #FFC107;'>🎵 {nome_prestador} - Ecrã da TV</h2>", unsafe_allow_html=True)
+    except Exception:
+        pass # Se falhar ao buscar o nome, continua a execução normal da TV
+
+    # Chama a função original da TV passando o token
     renderizar_ecra_tv(provider_token)
 
 def show_provider_panel_center(token):
