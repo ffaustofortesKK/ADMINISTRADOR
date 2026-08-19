@@ -889,7 +889,6 @@ def renderizar_ecra_tv(provider_token):
             data = response.json()
             pedidos = [{"id": k, **v} for k, v in data.items()]
             
-            # Filtramos apenas pedidos pendentes ou aprovados (excluindo os terminados)
             pedidos_ativos = [
                 p for p in pedidos 
                 if str(p.get("estado", "pendente")).lower() in ["pendente", "aprovado", "novo", "aguardando"]
@@ -1100,7 +1099,6 @@ def renderizar_ecra_tv(provider_token):
                     <button onclick="stopKaraoke()" style="background: #d9534f; color: white; border: none; padding: 6px 14px; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 14px;">⏹️ Terminar</button>
                 </div>
 
-                <!-- ATENÇÃO: 'loop' removido para evitar que o vídeo se repita sozinho -->
                 <video id="karaoke-player" width="100vw" height="100vh" autoplay playsinline style="object-fit: contain; background: black; width: 100vw; height: 100vh;">
                     <source src="{url_video}" type="video/mp4">
                     O seu navegador não suporta a reprodução deste vídeo.
@@ -1148,7 +1146,6 @@ def renderizar_ecra_tv(provider_token):
                     var token = "{provider_token}";
                     var firebaseURL = "{FIREBASE_URL}/pedidos/" + token + "/" + pedidoId + "/estado.json";
                     
-                    // Altera o estado no Firebase para 'terminado' e recarrega a página imediatamente
                     fetch(firebaseURL, {{
                         method: 'PUT',
                         body: JSON.stringify('terminado'),
@@ -1162,7 +1159,6 @@ def renderizar_ecra_tv(provider_token):
 
                 var video = document.getElementById('karaoke-player');
                 if (video) {{
-                    // Dispara automaticamente quando o vídeo chega ao fim
                     video.onended = function() {{
                         stopKaraoke();
                     }};
@@ -1178,88 +1174,87 @@ def renderizar_ecra_tv(provider_token):
             st.markdown(frame_styles, unsafe_allow_html=True)
             st.markdown(script_sincronizacao_global, unsafe_allow_html=True)
 
-            col_fundo_tv, col_fila_tv = st.columns([1.6, 1], gap="medium")
-
-            with col_fundo_tv:
-                if url_clipe_fundo:
-                    video_fundo_html = f"""
-                    <div style="position: relative; width: 100%; height: 550px; background: black; border: 3px solid #FFC107; border-radius: 10px; overflow: hidden; box-shadow: 0 0 20px rgba(255,193,7,0.3);">
-                        <video id="fundo-player" width="100%" height="100%" autoplay loop muted playsinline controlslist="nodownload noremoteplayback" disablepictureinpicture style="width: 100%; height: 100%; object-fit: cover; background: black;">
-                            <source src="{url_clipe_fundo}" type="video/mp4">
-                            O seu navegador não suporta vídeo.
-                        </video>
-                        <div style="position: absolute; top: 15px; left: 15px; background: rgba(0,0,0,0.85); border: 2px solid #FFC107; padding: 6px 12px; border-radius: 6px;">
-                            <span style="color: #FFC107; font-family: monospace; font-size: 13px; font-weight: bold;">🎬 AMBIENTE AO VIVO</span>
-                        </div>
-                        <div id="fundo-audio-warning" style="display: none; position: absolute; bottom: 15px; right: 15px; background: rgba(0,0,0,0.85); border: 2px solid #FFC107; padding: 8px 12px; border-radius: 6px; cursor: pointer;" onclick="unmuteFundo()">
-                            <span style="color: white; font-family: monospace; font-size: 12px; font-weight: bold;">🔊 Ativar Som</span>
-                        </div>
+            # CONSTRUÇÃO DO LAYOUT DE SOBREPOSIÇÃO (OVERLAY)
+            # O vídeo clipe fica fixo a cobrir a tela toda (100vw x 100vh), e a Fila de Pedidos flutua por cima no centro.
+            
+            html_elementos_sobreposicao = ""
+            
+            if url_clipe_fundo:
+                html_elementos_sobreposicao += f"""
+                <div style="position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: black; z-index: 99975; overflow: hidden;">
+                    <video id="fundo-player" autoplay loop muted playsinline controlslist="nodownload noremoteplayback" disablepictureinpicture style="width: 100vw; height: 100vh; object-fit: cover; background: black;">
+                        <source src="{url_clipe_fundo}" type="video/mp4">
+                        O seu navegador não suporta vídeo.
+                    </video>
+                    <div id="fundo-audio-warning" style="display: none; position: absolute; bottom: 60px; right: 20px; background: rgba(0,0,0,0.85); border: 2px solid #FFC107; padding: 8px 14px; border-radius: 6px; cursor: pointer; z-index: 99980;" onclick="unmuteFundo()">
+                        <span style="color: white; font-family: monospace; font-size: 13px; font-weight: bold;">🔊 Ativar Som</span>
                     </div>
-                    <script>
-                        var fundoVideo = document.getElementById('fundo-player');
-                        fundoVideo.muted = false;
-                        var fundoPromise = fundoVideo.play();
-                        if (fundoPromise !== undefined) {{
-                            fundoPromise.then(_ => {{}}).catch(error => {{
-                                fundoVideo.muted = true;
-                                fundoVideo.play();
-                                document.getElementById('fundo-audio-warning').style.display = 'block';
-                            }});
-                        }}
-                        function unmuteFundo() {{
-                            fundoVideo.muted = false;
+                </div>
+                <script>
+                    var fundoVideo = document.getElementById('fundo-player');
+                    fundoVideo.muted = false;
+                    var fundoPromise = fundoVideo.play();
+                    if (fundoPromise !== undefined) {{
+                        fundoPromise.then(_ => {{}}).catch(error => {{
+                            fundoVideo.muted = true;
                             fundoVideo.play();
-                            document.getElementById('fundo-audio-warning').style.display = 'none';
-                        }}
-                    </script>
-                    """
-                    components.html(video_fundo_html, height=570, scrolling=False)
-                else:
-                    st.markdown("""
-                        <div style="width: 100%; height: 550px; background: black; border: 3px solid #FFC107; border-radius: 10px; display: flex; flex-direction: column; justify-content: center; align-items: center; color: #ffffff; font-family: monospace;">
-                            <div style="font-size: 50px; margin-bottom: 10px;">📺</div>
-                            <h3 style="color: #FFC107; font-family: monospace; margin: 0;">FF KARAOKE CLOUD</h3>
-                            <p style="color: #aaa; font-size: 14px;">Aguardando Seleção de Vídeo Clipe de Fundo...</p>
-                        </div>
-                    """, unsafe_allow_html=True)
+                            document.getElementById('fundo-audio-warning').style.display = 'block';
+                        }});
+                    }}
+                    function unmuteFundo() {{
+                        fundoVideo.muted = false;
+                        fundoVideo.play();
+                        document.getElementById('fundo-audio-warning').style.display = 'none';
+                    }}
+                </script>
+                """
+            else:
+                html_elementos_sobreposicao += """
+                <div style="position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: #000; z-index: 99975;"></div>
+                """
 
-            with col_fila_tv:
-                st.markdown("""
-                    <div style="background: #000; border: 3px solid #FFC107; border-radius: 10px; padding: 15px; height: 550px; overflow-y: auto; box-shadow: 0 0 20px rgba(255,193,7,0.3);">
-                        <h3 style="color: #FFC107; font-family: monospace; font-size: 18px; margin-top: 0; text-align: center; border-bottom: 2px solid #FFC107; padding-bottom: 8px;">📋 FILA DE PEDIDOS</h3>
-                """, unsafe_allow_html=True)
-                
-                if pedidos_ativos:
-                    for i, p in enumerate(pedidos_ativos, 1):
-                        cliente_nome = p.get("cliente", "Convidado")
-                        musica_obj = p.get("musica", {})
-                        if isinstance(musica_obj, dict):
-                            titulo_musica = musica_obj.get("titulo", musica_obj.get("nome", "Música"))
-                        else:
-                            titulo_musica = str(musica_obj)
-                        
-                        estado_atual = str(p.get("estado", "pendente")).upper()
-                        cor_estado = "#FFC107" if estado_atual == "APROVADO" else "#aaaaaa"
-                        
-                        st.markdown(f"""
-                            <div style="background: #111; border: 2px solid #333; border-radius: 6px; padding: 10px; margin-bottom: 10px;">
-                                <div style="display: flex; justify-content: space-between; align-items: center; font-family: monospace;">
-                                    <span style="color: #FFC107; font-weight: bold; font-size: 14px;">#{i} — {cliente_nome}</span>
-                                    <span style="color: {cor_estado}; font-size: 11px; background: #222; padding: 2px 6px; border-radius: 4px;">{estado_atual}</span>
-                                </div>
-                                <div style="color: #ffffff; font-family: monospace; font-size: 13px; margin-top: 5px;">🎵 {titulo_musica}</div>
+            # Renderiza o container flutuante da Fila de Pedidos por cima do vídeo
+            html_elementos_sobreposicao += """
+            <div style="position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 550px; max-width: 90vw; max-height: 75vh; background: rgba(0, 0, 0, 0.88); border: 4px solid #FFC107; border-radius: 12px; padding: 20px; z-index: 99985; overflow-y: auto; box-shadow: 0 0 30px rgba(255,193,7,0.5); backdrop-filter: blur(5px);">
+                <div style="display: flex; align-items: center; justify-content: center; gap: 10px; border-bottom: 2px solid #FFC107; padding-bottom: 10px; margin-bottom: 15px;">
+                    <span style="font-size: 22px;">📋</span>
+                    <h2 style="color: #FFC107; font-family: monospace; font-size: 20px; margin: 0; text-transform: uppercase;">FILA DE PEDIDOS DE MÚSICA</h2>
+                </div>
+            """
+
+            if pedidos_ativos:
+                for i, p in enumerate(pedidos_ativos, 1):
+                    cliente_nome = p.get("cliente", "Convidado")
+                    musica_obj = p.get("musica", {})
+                    if isinstance(musica_obj, dict):
+                        titulo_musica = musica_obj.get("titulo", musica_obj.get("nome", "Música"))
+                    else:
+                        titulo_musica = str(musica_obj)
+                    
+                    estado_atual = str(p.get("estado", "pendente")).upper()
+                    cor_estado = "#FFC107" if estado_atual == "APROVADO" else "#aaaaaa"
+                    
+                    html_elementos_sobreposicao += f"""
+                        <div style="background: rgba(20, 20, 20, 0.95); border: 2px solid #333; border-radius: 8px; padding: 12px; margin-bottom: 10px;">
+                            <div style="display: flex; justify-content: space-between; align-items: center; font-family: monospace;">
+                                <span style="color: #FFC107; font-weight: bold; font-size: 15px;">#{i} — {cliente_nome}</span>
+                                <span style="color: {cor_estado}; font-size: 11px; background: rgba(0,0,0,0.8); padding: 3px 8px; border-radius: 4px; border: 1px solid {cor_estado};">{estado_atual}</span>
                             </div>
-                        """, unsafe_allow_html=True)
-                else:
-                    st.markdown("""
-                        <div style="text-align: center; padding: 60px 20px; font-family: monospace; color: #888;">
-                            <p style="font-size: 30px; margin: 0 0 10px 0;">📭</p>
-                            <p style="font-size: 15px; color: #ccc;">A fila de pedidos está vazia.</p>
-                            <p style="font-size: 12px; color: #777;">Escaneie o QR Code para enviar a sua música!</p>
+                            <div style="color: #ffffff; font-family: monospace; font-size: 14px; margin-top: 6px;">🎵 {titulo_musica}</div>
                         </div>
-                    """, unsafe_allow_html=True)
-                
-                st.markdown("</div>", unsafe_allow_html=True)
+                    """
+            else:
+                html_elementos_sobreposicao += """
+                    <div style="text-align: center; padding: 40px 10px; font-family: monospace; color: #888;">
+                        <p style="font-size: 35px; margin: 0 0 10px 0;">📭</p>
+                        <p style="font-size: 16px; color: #ddd; font-weight: bold;">A fila de pedidos está vazia.</p>
+                        <p style="font-size: 13px; color: #aaa;">Escaneie o QR Code para enviar a sua música!</p>
+                    </div>
+                """
+
+            html_elementos_sobreposicao += "</div>"
+
+            components.html(html_elementos_sobreposicao, height=800, scrolling=False)
 
     except Exception as e:
         st.error(f"Erro de sincronização na TV: {e}")
