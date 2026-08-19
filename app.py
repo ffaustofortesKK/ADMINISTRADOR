@@ -906,108 +906,86 @@ def show_provider_panel_custom(provider_token):
     st.markdown("<div style='height: 5px;'></div>", unsafe_allow_html=True)
     renderizar_gestao_fila_prestador(provider_token)
     
+@st.fragment(run_every=1)
 def renderizar_ecra_tv(provider_token):
     try:
-        # Busca inicial de dados
+        # Busca o vídeo de fundo definido pelo prestador
+        video_fundo_url = obter_video_fundo(provider_token)
+        
+        # Busca a música ativa na fila
+        # Adicionamos _t={time.time()} para forçar o navegador a não usar cache do navegador
         url_firebase = f"{FIREBASE_URL}/pedidos/{provider_token}.json?_t={time.time()}"
         response = requests.get(url_firebase, timeout=10)
         
-        pedidos_ativos = []
         tocando_agora = None
-        
         if response.status_code == 200 and response.json():
             data = response.json()
+            # Tratamento para garantir que o formato está correto
             pedidos = [{"id": k, **(v if isinstance(v, dict) else {})} for k, v in data.items() if isinstance(v, dict)]
-            
-            pedidos_ativos = [
-                p for p in pedidos 
-                if str(p.get("estado", "pendente")).lower() in ["pendente", "aprovado", "novo", "aguardando"]
-            ]
+            pedidos_ativos = [p for p in pedidos if str(p.get("estado", "")).lower() in ["pendente", "aprovado"]]
             pedidos_ativos.sort(key=lambda x: x.get("timestamp", 0))
             tocando_agora = next((p for p in pedidos_ativos if str(p.get("estado", "")).lower() == "aprovado"), None)
 
-        # CSS e Estilos
-        frame_styles = """
+        # Renderização do Ecrã/Tela de TV
+        st.markdown("""
             <style>
-                body, html { margin: 0; padding: 0; background: #000; overflow: hidden; }
-                .speaker-box { position: fixed; z-index: 99998; width: 90px; height: 140px; background: #111; border: 4px solid #FFC107; border-radius: 10px; display: flex; flex-direction: column; align-items: center; justify-content: space-around; padding: 8px 0; box-shadow: 0 0 15px rgba(255, 193, 7, 0.4); }
-                .woofer { width: 55px; height: 55px; border: 3px solid #FFC107; border-radius: 50%; background: radial-gradient(circle, #333 30%, #000 90%); display: flex; align-items: center; justify-content: center; }
-                .woofer-inner { width: 22px; height: 22px; background: #FFC107; border-radius: 50%; }
-                .speaker-tl { top: 15px; left: 15px; } .speaker-tr { top: 15px; right: 15px; }
+            .stApp { background: #000000 !important; }
+            .video-background {
+                position: fixed; right: 0; bottom: 0; min-width: 100%; min-height: 100%;
+                z-index: 0; object-fit: cover;
+            }
+            .content-overlay {
+                position: relative; z-index: 1; display: flex; flex-direction: column;
+                align-items: center; justify-content: center; height: 80vh; text-align: center;
+            }
+            .card-cantor {
+                background: rgba(0, 0, 0, 0.85); border: 4px solid #FFC107;
+                border-radius: 12px; padding: 30px 50px; box-shadow: 0 0 30px rgba(255, 193, 7, 0.5);
+            }
             </style>
-        """
+        """, unsafe_allow_html=True)
 
-        # Script de Sincronização Estável
-        script_sincronizacao = f"""
-            <script>
-                const providerToken = "{provider_token}";
-                const firebaseBaseUrl = "{FIREBASE_URL}/pedidos/" + providerToken + ".json";
-                
-                // Impede loop de recarregamento
-                let lastProcessedId = sessionStorage.getItem('lastProcessedId') || "";
-
-                setInterval(async () => {{
-                    try {{
-                        let response = await fetch(firebaseBaseUrl + "?cache=" + new Date().getTime());
-                        let data = await response.json();
-                        let temAprovado = false;
-                        
-                        if (data) {{
-                            for (let key in data) {{
-                                if (data[key].estado && data[key].estado.toLowerCase() === "aprovado" && key !== lastProcessedId) {{
-                                    temAprovado = true;
-                                    break;
-                                }}
-                            }}
-                        }}
-                        
-                        if (temAprovado && "{tocando_agora.get('id') if tocando_agora else 'none'}" === "none") {{
-                            window.location.reload();
-                        }}
-                    }} catch (e) {{ console.log("Sincronização estável..."); }}
-                }}, 4000);
-            </script>
-        """
-
-        # Exibição do Karaoke
-        if tocando_agora:
-            musica = tocando_agora.get("musica", {})
-            titulo = musica.get("titulo", "Karaoke")
-            url_video = obter_url_video_cloudinary(musica, titulo)
-            
-            video_html = f"""
-            <div id="karaoke-container" style="width: 100vw; height: 100vh; background: black;">
-                <video id="karaoke-player" width="100%" height="100%" autoplay playsinline style="object-fit: contain;">
-                    <source src="{url_video}" type="video/mp4">
+        if video_fundo_url:
+            st.markdown(f"""
+                <video autoplay muted loop class="video-background">
+                    <source src="{video_fundo_url}" type="video/mp4">
                 </video>
-                <button onclick="stopKaraoke()" style="position:fixed; top:20px; right:20px; z-index:9999; padding:15px; background:red; color:white; border:none; cursor:pointer;">TERMINAR MÚSICA</button>
-            </div>
-            <script>
-                function stopKaraoke() {{
-                    var pedidoId = "{tocando_agora.get('id')}";
-                    sessionStorage.setItem('lastProcessedId', pedidoId);
-                    
-                    fetch("{FIREBASE_URL}/pedidos/{provider_token}/" + pedidoId + "/estado.json", {{
-                        method: 'PUT',
-                        body: JSON.stringify('terminado'),
-                        headers: {{ 'Content-Type': 'application/json' }}
-                    }}).then(() => {{ window.location.reload(); }});
-                }}
-                document.getElementById('karaoke-player').onended = stopKaraoke;
-            </script>
-            {script_sincronizacao}
-            """
-            components.html(video_html, height=1000)
+            """, unsafe_allow_html=True)
+
+        st.markdown('<div class="content-overlay">', unsafe_allow_html=True)
         
+        if tocando_agora:
+            cantor = str(tocando_agora.get("cliente", "CONVIDADO")).upper()
+            musica_data = tocando_agora.get("musica", {})
+            # Tratamento de segurança para o nome da música
+            if isinstance(musica_data, dict):
+                musica = limpar_nome_musica(musica_data.get("titulo", "Karaoke"))
+            else:
+                musica = limpar_nome_musica(str(musica_data))
+                
+            st.markdown(f"""
+                <div class="card-cantor">
+                    <div style="font-family: monospace; color: #FFC107; font-size: 14px; letter-spacing: 2px; margin-bottom: 10px;">A CANTAR AGORA</div>
+                    <div style="font-family: monospace; color: #FFC107; font-size: 48px; font-weight: bold; text-transform: uppercase; margin-bottom: 15px; text-shadow: 3px 3px 8px rgba(0,0,0,0.9);">
+                        🎤 {cantor}
+                    </div>
+                    <div style="font-family: monospace; color: #ffffff; font-size: 22px; font-weight: bold; text-shadow: 2px 2px 6px rgba(0,0,0,0.9);">
+                        🎵 {musica}
+                    </div>
+                </div>
+            """, unsafe_allow_html=True)
         else:
-            # Exibir Fila (Página de espera)
-            st.markdown(frame_styles, unsafe_allow_html=True)
-            st.markdown(script_sincronizacao, unsafe_allow_html=True)
-            # ... (código anterior de exibição da lista de pedidos)
-            st.write("Aguardando novo pedido...")
+            st.markdown("""
+                <div class="card-cantor">
+                    <div style="font-family: monospace; color: #FFC107; font-size: 28px; font-weight: bold;">
+                        ⏳ AGUARDANDO PRÓXIMA MÚSICA...
+                    </div>
+                </div>
+            """, unsafe_allow_html=True)
+        st.markdown('</div>', unsafe_allow_html=True)
 
     except Exception as e:
-        st.error(f"Erro: {e}")
+        st.error(f"Erro ao carregar a tela de TV: {e}")
         
 def show_client_screen():
     query_params = st.query_params
