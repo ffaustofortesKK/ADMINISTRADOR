@@ -1289,10 +1289,7 @@ def renderizar_ecra_tv(provider_token):
     except Exception as e:
         st.error(f"Erro de sincronização na TV: {e}")
         
-def show_client_screen():
-    query_params = st.query_params
-    provider_token = query_params.get("prestador") or query_params.get("provider", None)
-
+def show_client_screen(provider_token):
     if not provider_token:
         st.error("Tela inválida. Falta o parâmetro do prestador.")
         return
@@ -1311,22 +1308,22 @@ def main():
     # 1. Configuração básica de página
     st.set_page_config(page_title="FF Karaoke Cloud", layout="centered")
     
-    # 2. CSS de segurança (para garantir que não ficas com fundo branco/invisível)
+    # 2. CSS de segurança (para garantir fundo preto e visibilidade)
     st.markdown("""
         <style>
-        .stApp { background-color: #000000 !important; }
-        h1, h2, h3, p, div { color: #ffffff !important; }
+        .stApp { background-color: #000000 !important; color: #ffffff !important; }
+        .block-container { background-color: #000000 !important; border: 4px solid #FFC107 !important; border-radius: 12px; padding: 3rem !important; }
+        h1, h2, h3, h4, h5, h6, p, span, label, div, button, input { font-weight: bold !important; text-shadow: 1px 1px 3px rgba(0,0,0,0.9); }
         </style>
     """, unsafe_allow_html=True)
 
     try:
         query_params = st.query_params
         token = query_params.get("prestador") or query_params.get("token") or query_params.get("provider")
-        
-        # --- ROTEAMENTO ---
-        # Verificamos se há uma página específica, se não, tentamos o fluxo normal
         page = query_params.get("page")
-
+        
+        # --- ROTEAMENTO DE PÁGINAS ESPECÍFICAS ---
+        
         if page == "register":
             custom_show_register_page()
             return
@@ -1335,25 +1332,95 @@ def main():
             if token:
                 show_client_page(token)
             else:
-                st.error("Link de cliente inválido.")
+                st.error("❌ Link de cliente inválido: Falta o identificador do prestador.")
             return
 
         if page == "client_screen":
             if token:
                 show_client_screen(token)
             else:
-                st.error("Tela inválida.")
+                st.error("❌ Tela inválida: Token não encontrado.")
             return
 
-        # --- FLUXO PRINCIPAL (Admin ou Painel) ---
-        if not token:
-            # Se não há token e não há página, mostrar login de admin
-            render_admin_login_logic() # Cria esta função pequena ou coloca o código aqui
-            return
-        
-        # Se tem token, segue para o painel
-        df = get_all_providers()
-        # ... resto do teu código do painel ...
+        # --- LÓGICA DE PAINEL DO PRESTADOR ---
+        if token:
+            df = get_all_providers()
+            if df.empty or 'token' not in df.columns or not (df['token'] == token).any():
+                show_provider_panel_center(token)
+                return
+                
+            prior_prestador = df[df['token'] == token]
+            if not prior_prestador.empty:
+                row = prior_prestador.iloc[0]
+                if row.get('approved', 1) == 1:
+                    show_provider_panel_custom(token)
+                    return
+                else:
+                    st.warning("⏳ O seu registo aguarda aprovação do Administrador.")
+                    return
+            else:
+                show_provider_panel_custom(token)
+                return
 
+        # --- ÁREA RESTRITA (ADMIN) ---
+        if not st.session_state.get("admin_logged", False):
+            st.title("🔒 FFKaraoke - Área Restrita (Administrador)")
+            with st.form("form_admin_login"):
+                senha = st.text_input("Palavra-passe de Administrador", type="password")
+                submitted = st.form_submit_button("Entrar")
+                if submitted:
+                    if senha in ["ffkaraoke2026", "admin123"]:
+                        st.session_state["admin_logged"] = True
+                        st.success("Sessão iniciada com sucesso!")
+                        st.rerun()
+                    else:
+                        st.error("Palavra-passe incorreta.")
+            return
+
+        # Painel do Administrador Logado
+        if st.session_state.get("admin_logged", False):
+            st.markdown("---")
+            st.subheader("⚡ Gestão de Reforços de Tempo Pendentes")
+            try:
+                res_all_ref = requests.get(f"{FIREBASE_URL}/reforcos_pendentes.json", timeout=10)
+                if res_all_ref.status_code == 200 and res_all_ref.json():
+                    all_refs = res_all_ref.json()
+                    tem_reforcos = False
+                    for tok, refs_dict in all_refs.items():
+                        if isinstance(refs_dict, dict):
+                            for r_id, r_data in refs_dict.items():
+                                if r_data.get("approved", 0) == 0:
+                                    tem_reforcos = True
+                                    st.markdown(f"""
+                                    <div style="background: rgba(0,0,0,0.95); border: 2px solid #FFC107; padding: 12px; border-radius: 6px; margin-bottom: 10px;">
+                                        <b>Prestador:</b> {r_data.get('nome_prestador')} (Token: {tok})<br>
+                                        <b>Referência:</b> {r_data.get('referencia')}<br>
+                                        <b>Duração:</b> {r_data.get('tempo_plano')}
+                                    </div>
+                                    """, unsafe_allow_html=True)
+                                    
+                                    col_s, col_n = st.columns(2)
+                                    with col_s:
+                                        if st.button("✅ Aprovar", key=f"aprov_{tok}_{r_id}"):
+                                            r_data["approved"] = 1
+                                            requests.put(f"{FIREBASE_URL}/reforcos_aprovados/{tok}/{r_id}.json", json=r_data)
+                                            requests.delete(f"{FIREBASE_URL}/reforcos_pendentes/{tok}/{r_id}.json")
+                                            st.rerun()
+                                    with col_n:
+                                        if st.button("❌ Recusar", key=f"rec_{tok}_{r_id}"):
+                                            requests.delete(f"{FIREBASE_URL}/reforcos_pendentes/{tok}/{r_id}.json")
+                                            st.rerun()
+                    if not tem_reforcos:
+                        st.info("Nenhum pedido de reforço pendente.")
+                else:
+                    st.info("Nenhum pedido de reforço pendente.")
+            except Exception as e:
+                st.warning(f"Erro ao carregar reforços: {e}")
+
+            show_admin_panel()
+                
     except Exception as e:
-        st.error(f"Erro crítico: {e}")
+        st.error(f"Ocorreu um erro ao carregar a aplicação: {e}")
+
+if __name__ == "__main__":
+    main()
