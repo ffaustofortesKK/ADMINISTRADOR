@@ -483,7 +483,7 @@ def obter_url_video_cloudinary(musica_obj, titulo_limpo):
     
     return f"https://res.cloudinary.com/{cloud_name}/video/upload/f_auto,q_auto/{encoded_title}"
 
-@st.fragment(run_every=1)
+@st.fragment(run_every=2) # Aumentado para 2 segundos para dar estabilidade à interface
 def renderizar_gestao_fila_prestador(provider_token):
     try:
         url_firebase = f"{FIREBASE_URL}/pedidos/{provider_token}.json?_t={time.time()}"
@@ -498,11 +498,16 @@ def renderizar_gestao_fila_prestador(provider_token):
         pedidos_ativos.sort(key=lambda x: x.get("timestamp", 0))
         
         tocando_agora = next((p for p in pedidos_ativos if p.get("estado") == "aprovado"), None)
+        
+        # Só define o primeiro como aprovado automaticamente se não houver nenhum a tocar
         if not tocando_agora and pedidos_ativos:
             primeiro_id = pedidos_ativos[0].get('id')
-            atualizar_estado_pedido(provider_token, primeiro_id, 'aprovado')
-            pedidos_ativos[0]["estado"] = "aprovado"
-            tocando_agora = pedidos_ativos[0]
+            # Evita reescrever o Firebase a cada segundo se já estiver definido na sessão
+            if st.session_state.get("ultimo_aprovado") != primeiro_id:
+                atualizar_estado_pedido(provider_token, primeiro_id, 'aprovado')
+                st.session_state["ultimo_aprovado"] = primeiro_id
+                pedidos_ativos[0]["estado"] = "aprovado"
+                tocando_agora = pedidos_ativos[0]
 
         col_esq, col_dir = st.columns([1.5, 1], gap="medium")
         
@@ -593,31 +598,30 @@ def renderizar_gestao_fila_prestador(provider_token):
                         index_atual = idx
                         break
 
-            with st.form(key="form_video_fundo_pos"):
-                st.markdown("<div style='font-family: monospace; color: #ffffff; font-size: 13px; font-weight: bold; margin-bottom: 5px;'>Pesquisar Vídeo Clipe</div>", unsafe_allow_html=True)
-                escolha_video = st.selectbox("Pesquisar Vídeo Clipe", options=opcoes_labels, index=index_atual, label_visibility="collapsed")
-                st.markdown("<div style='height: 10px;'></div>", unsafe_allow_html=True)
-                
-                col_btn_play, col_btn_stop = st.columns(2)
-                with col_btn_play:
-                    btn_play_fundo = st.form_submit_button("▶️ Play", use_container_width=True)
-                with col_btn_stop:
-                    btn_stop_fundo = st.form_submit_button("⏹️ Stop", use_container_width=True)
+            # Removido o st.form aqui dentro do fragmento para evitar conflitos de submissão com o run_every
+            st.markdown("<div style='font-family: monospace; color: #ffffff; font-size: 13px; font-weight: bold; margin-bottom: 5px;'>Pesquisar Vídeo Clipe</div>", unsafe_allow_html=True)
+            escolha_video = st.selectbox("Pesquisar Vídeo Clipe", options=opcoes_labels, index=index_atual, label_visibility="collapsed", key="selectbox_video_fundo")
+            st.markdown("<div style='height: 10px;'></div>", unsafe_allow_html=True)
+            
+            col_btn_play, col_btn_stop = st.columns(2)
+            with col_btn_play:
+                btn_play_fundo = st.button("▶️ Play Clipe", use_container_width=True, key="play_clipe_fundo")
+            with col_btn_stop:
+                btn_stop_fundo = st.button("⏹️ Stop Clipe", use_container_width=True, key="stop_clipe_fundo")
 
-                if btn_play_fundo:
-                    valor_a_guardar = "" if escolha_video == "Nenhum (Ecrã Preto)" else mapa_url_por_label.get(escolha_video, "")
-                    definir_video_fundo(provider_token, valor_a_guardar)
-                    st.success("Vídeo clipe de fundo colocado em reprodução na tela!")
-                    st.rerun()
-                
-                if btn_stop_fundo:
-                    definir_video_fundo(provider_token, "")
-                    st.success("Vídeo clipe parado (Ecrã Preto ativado)!")
-                    st.rerun()
-          
+            if btn_play_fundo:
+                valor_a_guardar = "" if escolha_video == "Nenhum (Ecrã Preto)" else mapa_url_por_label.get(escolha_video, "")
+                definir_video_fundo(provider_token, valor_a_guardar)
+                st.success("Vídeo clipe de fundo colocado em reprodução na tela!")
+                st.rerun()
+            
+            if btn_stop_fundo:
+                definir_video_fundo(provider_token, "")
+                st.success("Vídeo clipe parado (Ecrã Preto ativado)!")
+                st.rerun()
+
     except Exception as e:
         st.error(f"Erro ao carregar os pedidos do Firebase: {e}")
-
 
 def show_provider_panel_custom(provider_token):
     url_logotipo = "https://cdn.phototourl.com/free/2026-08-03-8b13edf5-0257-491d-ab78-f0d5329ffc15.jpg"
