@@ -1065,7 +1065,7 @@ def show_client_page():
 
     st.title("🎤 FFKaraoke - Pedido de Músicas")
 
-    # --- LÓGICA DO PEDIDO EXTRA NA VISTA DO CLIENTE ---
+    # --- ADIÇÃO EXATA DO BOTÃO DE PEDIDO EXTRA NA VISTA DO CLIENTE ---
     st.markdown("---")
     if "mostrar_pedido_extra" not in st.session_state:
         st.session_state["mostrar_pedido_extra"] = False
