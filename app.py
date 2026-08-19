@@ -867,6 +867,7 @@ def renderizar_ecra_tv(provider_token):
             data = response.json()
             pedidos = [{"id": k, **v} for k, v in data.items()]
             
+            # Filtramos apenas pedidos pendentes ou aprovados (excluindo os terminados)
             pedidos_ativos = [
                 p for p in pedidos 
                 if str(p.get("estado", "pendente")).lower() in ["pendente", "aprovado", "novo", "aguardando"]
@@ -1077,6 +1078,7 @@ def renderizar_ecra_tv(provider_token):
                     <button onclick="stopKaraoke()" style="background: #d9534f; color: white; border: none; padding: 6px 14px; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 14px;">⏹️ Terminar</button>
                 </div>
 
+                <!-- ATENÇÃO: 'loop' removido para evitar que o vídeo se repita sozinho -->
                 <video id="karaoke-player" width="100vw" height="100vh" autoplay playsinline style="object-fit: contain; background: black; width: 100vw; height: 100vh;">
                     <source src="{url_video}" type="video/mp4">
                     O seu navegador não suporta a reprodução deste vídeo.
@@ -1123,12 +1125,14 @@ def renderizar_ecra_tv(provider_token):
                     var pedidoId = "{tocando_agora.get('id')}";
                     var token = "{provider_token}";
                     var firebaseURL = "{FIREBASE_URL}/pedidos/" + token + "/" + pedidoId + "/estado.json";
+                    
+                    // Altera o estado no Firebase para 'terminado' e recarrega a página imediatamente
                     fetch(firebaseURL, {{
                         method: 'PUT',
                         body: JSON.stringify('terminado'),
                         headers: {{ 'Content-Type': 'application/json' }}
                     }}).then(response => {{
-                        setTimeout(function() {{ window.location.reload(); }}, 300);
+                        setTimeout(function() {{ window.location.reload(); }}, 200);
                     }}).catch(err => {{
                         window.location.reload();
                     }});
@@ -1136,6 +1140,7 @@ def renderizar_ecra_tv(provider_token):
 
                 var video = document.getElementById('karaoke-player');
                 if (video) {{
+                    // Dispara automaticamente quando o vídeo chega ao fim
                     video.onended = function() {{
                         stopKaraoke();
                     }};
@@ -1151,7 +1156,6 @@ def renderizar_ecra_tv(provider_token):
             st.markdown(frame_styles, unsafe_allow_html=True)
             st.markdown(script_sincronizacao_global, unsafe_allow_html=True)
 
-            # Layout Principal Dividido: Esquerda (Vídeo/Fundo) e Direita (Fila de Pedidos dos Clientes)
             col_fundo_tv, col_fila_tv = st.columns([1.6, 1], gap="medium")
 
             with col_fundo_tv:
