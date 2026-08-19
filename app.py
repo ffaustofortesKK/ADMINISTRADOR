@@ -1037,6 +1037,7 @@ def show_client_screen():
     .stApp { background-color: #000000; color: white; }
     </style>""", unsafe_allow_html=True)
 
+    # Opcional: Se quiser carregar o nome do prestador para exibir na tela da TV
     try:
         df = get_all_providers()
         if not df.empty and 'token' in df.columns:
@@ -1045,13 +1046,14 @@ def show_client_screen():
                 nome_prestador = prestador_info.iloc[0].get('nome', 'Karaoke')
                 st.markdown(f"<h2 style='text-align: center; color: #FFC107;'>🎵 {nome_prestador} - Ecrã da TV</h2>", unsafe_allow_html=True)
     except Exception:
-        pass 
+        pass # Se falhar ao buscar o nome, continua a execução normal da TV
 
+    # Chama a função original da TV passando o token
     renderizar_ecra_tv(provider_token)
 
 
 def show_client_page():
-    """Página/Perfil onde o cliente pesquisa músicas e faz os pedidos."""
+    """Página onde o cliente pesquisa as músicas e faz os pedidos."""
     query_params = st.query_params
     provider_token = query_params.get("prestador") or query_params.get("token") or query_params.get("provider")
 
@@ -1066,11 +1068,7 @@ def show_client_page():
 
     st.title("🎤 FFKaraoke - Pedido de Músicas")
 
-    # --- ZONA DE PESQUISA / CONTEÚDO DO CLIENTE (Inserir aqui o teu componente de pesquisa normal) ---
-    # (Exemplo de espaço reservado para a tua pesquisa habitual)
-    # pesquisa = st.text_input("🔍 Pesquisar música ou artista...")
-
-    # --- BOTÃO E LÓGICA DE PEDIDO EXTRA NO PERFIL DO CLIENTE ---
+    # --- [ADICIONADO] LÓGICA DO PEDIDO EXTRA NA VISTA DO CLIENTE ---
     st.markdown("---")
     if "mostrar_pedido_extra" not in st.session_state:
         st.session_state["mostrar_pedido_extra"] = False
@@ -1098,7 +1096,7 @@ def show_client_page():
                 else:
                     st.warning("Por favor, escreva o nome da música.")
 
-    # Mensagem persistente que substitui a posição e não desaparece
+    # Mensagem persistente que substitui a posição por "Aguarde..."
     if st.session_state.get("pedido_enviado_sucesso", False):
         st.info("Aguarde, o seu pedido está a ser analisado!! O seu pedido foi enviado, mas nem todas as músicas existem em karaoke.")
 
@@ -1135,28 +1133,30 @@ def main():
             if not prior_prestador.empty:
                 row = prior_prestador.iloc[0]
                 if row.get('approved', 1) == 1:
-                    # Se for o painel do prestador, podes integrar também a aba de Pedidos Extras dentro do painel customizado dele
                     show_provider_panel_custom(token)
                     
-                    # --- ABA DE PEDIDOS EXTRAS NO PAINEL DO PRESTADOR ---
+                    # --- [ADICIONADO] ABA DE PEDIDOS EXTRAS PARA O PRESTADOR NO SEU PAINEL ---
                     st.markdown("---")
-                    st.subheader("🎵 Pedidos Extras dos Clientes")
+                    st.header("🎵 Pedidos Extras (Clientes)")
                     try:
-                        res_p_extras = requests.get(f"{FIREBASE_URL}/pedidos_extras/{token}.json", timeout=10)
-                        if res_p_extras.status_code == 200 and res_p_extras.json():
-                            p_extras_dict = res_p_extras.json()
-                            for k, v in p_extras_dict.items():
-                                with st.expander(f"Música: {v.get('musica')} (Estado: {v.get('estado', 'pendente')})"):
-                                    st.write(f"Enviado em: {time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(v.get('timestamp', time.time())))}")
-                                    if v.get('link'):
-                                        st.success(f"Link YouTube: {v.get('link')}")
-                                        st.link_button("▶️ Abrir / Ver no YouTube", v.get('link'))
-                                    else:
-                                        st.info("Aguardando link do Administrador.")
+                        res_extras_prestador = requests.get(f"{FIREBASE_URL}/pedidos_extras/{token}.json", timeout=10)
+                        if res_extras_prestador.status_code == 200 and res_extras_prestador.json():
+                            p_extras = res_extras_prestador.json()
+                            if isinstance(p_extras, dict):
+                                for k, v in p_extras.items():
+                                    with st.expander(f"Música: {v.get('musica')} | Estado: {v.get('estado', 'pendente')}"):
+                                        st.write(f"Enviado em: {time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(v.get('timestamp', time.time())))}")
+                                        if v.get('link'):
+                                            st.success(f"Link YouTube: {v.get('link')}")
+                                            st.link_button("▶️ Abrir / Ver no YouTube", v.get('link'))
+                                        else:
+                                            st.info("Aguardando o Administrador associar o link do YouTube.")
                         else:
-                            st.info("Nenhum pedido extra recebido ainda.")
+                            st.info("Nenhum pedido extra registado para este evento/prestador.")
                     except Exception as e:
                         st.warning(f"Erro ao carregar pedidos extras: {e}")
+                    # -----------------------------------------------------------------------
+                    
                     return
                 else:
                     st.warning("⏳ O seu registo aguarda aprovação do Administrador.")
@@ -1164,7 +1164,7 @@ def main():
             else:
                 show_provider_panel_custom(token)
                 return
-
+            
         st.markdown("""
             <style>
             .stApp {
@@ -1181,8 +1181,7 @@ def main():
             h1, h2, h3, h4, h5, h6, p, span, label, div, button, input {
                 font-weight: bold !important;
                 text-shadow: 1px 1px 3px rgba(0,0,0,0.9);
-            }
-            </style>
+            }  </style>
         """, unsafe_allow_html=True)
 
         if not st.session_state.get("admin_logged", False):
@@ -1199,7 +1198,6 @@ def main():
                         st.rerun()
                     else:
                         st.error("Palavra-passe incorreta.")
-            return
 
         if st.session_state.get("admin_logged", False):
             st.markdown("---")
@@ -1244,7 +1242,7 @@ def main():
 
             show_admin_panel()
 
-            # --- ABA DE PEDIDOS EXTRAS PARA O ADMINISTRADOR ---
+            # --- [ADICIONADO] ABA DE GESTÃO GLOBAL DE PEDIDOS EXTRAS PARA O ADMINISTRADOR ---
             st.markdown("---")
             st.header("🎵 Gestão Global de Pedidos Extras")
             try:
@@ -1280,6 +1278,7 @@ def main():
                     st.info("Nenhum pedido extra registado no sistema.")
             except Exception as e:
                 st.error(f"Erro ao carregar pedidos extras globais: {e}")
+            # ------------------------------------------------------------------------------
                 
     except Exception as e:
         st.error(f"Ocorreu um erro ao carregar a aplicação: {e}")
