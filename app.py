@@ -875,9 +875,10 @@ def show_provider_panel_custom(provider_token):
             </div>
         """, unsafe_allow_html=True)
 
+        # BLOCO "Á Seguir -" ATUALIZADO PARA MOSTRAR O PRÓXIMO CANTOR DA FILA
         st.markdown("""
             <div style="border: 3px solid #FFC107; border-radius: 8px; padding: 15px; background-color: #000000; margin-bottom: 15px;">
-                <div style="font-family: monospace; color: #FFC107; font-size: 20px; font-weight: bold; margin-bottom: 15px;">Á Seguir -</div>
+                <div style="font-family: monospace; color: #FFC107; font-size: 20px; font-weight: bold; margin-bottom: 10px;">Á Seguir -</div>
         """, unsafe_allow_html=True)
         
         try:
@@ -899,41 +900,45 @@ def show_provider_panel_custom(provider_token):
                 pedidos_ativos[0]["estado"] = "aprovado"
                 tocando_agora = pedidos_ativos[0]
 
-            if tocando_agora:
-                cantor_atual = tocando_agora.get("cliente", "CONVIDADO").upper()
-                musica_atual = limpar_nome_musica(tocando_agora.get("musica", {}))
+            indice_atual = pedidos_ativos.index(tocando_agora) if tocando_agora in pedidos_ativos else -1
+            proximo_da_fila = pedidos_ativos[indice_atual + 1] if (indice_atual != -1 and len(pedidos_ativos) > indice_atual + 1) else (pedidos_ativos[0] if (not tocando_agora and pedidos_ativos) else None)
+
+            if proximo_da_fila:
+                cantor_proximo = proximo_da_fila.get("cliente", "CONVIDADO").upper()
+                musica_proxima = limpar_nome_musica(proximo_da_fila.get("musica", {}))
                 st.markdown(f"""
-                    <div style="margin-bottom: 15px; text-align: center;">
-                        <span style="color: #FFC107; font-size: 24px; font-family: monospace; font-weight: bold;">{cantor_atual}</span><br>
-                        <span style="color: #ffffff; font-size: 14px; font-family: monospace;">{musica_atual}</span>
+                    <div style="text-align: left;">
+                        <span style="color: #FFC107; font-size: 18px; font-family: monospace; font-weight: bold;">{cantor_proximo}</span><br>
+                        <span style="color: #ffffff; font-size: 14px; font-family: monospace;">{musica_proxima}</span>
                     </div>
                 """, unsafe_allow_html=True)
             else:
-                st.markdown("<div style='color: #FFC107; font-family: monospace; margin-bottom: 15px; text-align: center;'>NENHUMA MÚSICA EM REPRODUÇÃO</div>", unsafe_allow_html=True)
-
-            c_t1, c_t2, c_t3 = st.columns(3)
-            with c_t1:
-                if st.button("▶️ Tocar o Karaoke", key="btn_tocar_topo", use_container_width=True):
-                    if tocando_agora:
-                        terminar_todas_musicas_ativas(provider_token, pedidos)
-                        atualizar_estado_pedido(provider_token, tocando_agora.get('id'), 'aprovado')
-                        st.rerun()
-            with c_t2:
-                if st.button("⏹️ Parar o Karaoke", key="btn_parar_topo", use_container_width=True):
-                    terminar_todas_musicas_ativas(provider_token, pedidos)
-                    st.rerun()
-            with c_t3:
-                if st.button("⏭️ Avançar Karaoke", key="btn_prox_topo", use_container_width=True):
-                    if tocando_agora:
-                        atualizar_estado_pedido(provider_token, tocando_agora.get('id'), 'terminado')
-                        restantes = [x for x in pedidos_ativos if x.get('id') != tocando_agora.get('id')]
-                        if restantes:
-                            atualizar_estado_pedido(provider_token, restantes[0].get('id'), 'aprovado')
-                        st.rerun()
+                st.markdown("<div style='color: #FFC107; font-family: monospace;'>Nenhum cantor na fila para seguir.</div>", unsafe_allow_html=True)
+                
         except Exception:
-            pass
+            st.markdown("<div style='color: #FFC107; font-family: monospace;'>Aguardando pedidos...</div>", unsafe_allow_html=True)
 
         st.markdown("</div>", unsafe_allow_html=True)
+
+        c_t1, c_t2, c_t3 = st.columns(3)
+        with c_t1:
+            if st.button("▶️ Tocar o Karaoke", key="btn_tocar_topo", use_container_width=True):
+                if tocando_agora:
+                    terminar_todas_musicas_ativas(provider_token, pedidos)
+                    atualizar_estado_pedido(provider_token, tocando_agora.get('id'), 'aprovado')
+                    st.rerun()
+        with c_t2:
+            if st.button("⏹️ Parar o Karaoke", key="btn_parar_topo", use_container_width=True):
+                terminar_todas_musicas_ativas(provider_token, pedidos)
+                st.rerun()
+        with c_t3:
+            if st.button("⏭️ Avançar Karaoke", key="btn_prox_topo", use_container_width=True):
+                if tocando_agora:
+                    atualizar_estado_pedido(provider_token, tocando_agora.get('id'), 'terminado')
+                    restantes = [x for x in pedidos_ativos if x.get('id') != tocando_agora.get('id')]
+                    if restantes:
+                        atualizar_estado_pedido(provider_token, restantes[0].get('id'), 'aprovado')
+                    st.rerun()
 
     with col_dir:
         st.markdown("<div style='font-family: monospace; color: #ffffff; font-size: 11px; font-weight: bold; margin-bottom: 3px; text-align: center;'>QR CODE CLIENTE</div>", unsafe_allow_html=True)
