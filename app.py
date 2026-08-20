@@ -1306,6 +1306,24 @@ def show_client_screen():
     .stApp { background-color: #000000; color: white; }
     </style>""", unsafe_allow_html=True)
 
+def obter_url_video_cloudinary(url_ou_nome):
+    if not url_ou_nome:
+        return ""
+    # Se já for um link completo do Cloudinary, retorna diretamente
+    if url_ou_nome.startswith("http"):
+        return url_ou_nome
+    
+    # Caso contrário, tenta procurar na lista de clipes disponíveis
+    try:
+        lista = listar_videos_pasta_clipes()
+        for clipe in lista:
+            if clipe['nome'] == url_ou_nome or clipe['url'] == url_ou_nome:
+                return clipe['url']
+    except Exception:
+        pass
+        
+    return url_ou_nome    
+
     renderizar_ecra_tv(provider_token)
 
 def show_provider_panel_center(token):
