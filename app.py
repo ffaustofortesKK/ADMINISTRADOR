@@ -857,30 +857,36 @@ def show_provider_panel_custom(provider_token):
     
     qr_url_cliente = f"https://api.qrserver.com/v1/create-qr-code/?size=150x150&data={urllib.parse.quote(link_cliente_absoluto)}"
 
-    # TRATAMENTO DE AÇÕES DE ORDENAÇÃO / ELIMINAÇÃO VIA QUERY PARAMS OU SESSION STATE SE NECESSÁRIO
-    # (Exemplo de tratamento de ações rápidas na tabela se disparadas)
+    # TRATAMENTO DE AÇÕES DE ORDENAÇÃO / ELIMINAÇÃO VIA QUERY PARAMS
     query_params = st.query_params
     if "acao_fila" in query_params:
         acao = query_params.get("acao_fila")
         pid = query_params.get("pid")
         try:
             url_p_item = f"{FIREBASE_URL}/pedidos/{provider_token}/{pid}.json"
-            if acao == "apagar":
-                requests.delete(url_p_item, timeout=5)
-            elif acao == "subir":
-                # Lógica para subir o pedido na prioridade ajustando timestamps
-                res_all = requests.get(f"{FIREBASE_URL}/pedidos/{provider_token}.json", timeout=5)
-                if res_all.status_code == 200 and res_all.json():
-                    items = sorted(res_all.json().items(), key=lambda x: x[1].get("timestamp", 0))
-                    idx_alvo = next((i for i, (k, v) in enumerate(items) if k == pid), -1)
-                    if idx_alvo > 0:
-                        # Trocar timestamp com o anterior
-                        t_atual = items[idx_alvo][1].get("timestamp", time.time())
-                        t_ant = items[idx_alvo-1][1].get("timestamp", time.time() - 1)
-                        k_ant = items[idx_alvo-1][0]
-                        
-                        requests.patch(f"{FIREBASE_URL}/pedidos/{provider_token}/{pid}.json", json={"timestamp": t_ant}, timeout=5)
-                        requests.patch(f"{FIREBASE_URL}/pedidos/{provider_token}/{k_ant}.json", json={"timestamp": t_atual}, timeout=5)
+            res_all = requests.get(f"{FIREBASE_URL}/pedidos/{provider_token}.json", timeout=5)
+            
+            if res_all.status_code == 200 and res_all.json():
+                items = sorted(res_all.json().items(), key=lambda x: x[1].get("timestamp", 0))
+                idx_alvo = next((i for i, (k, v) in enumerate(items) if k == pid), -1)
+                
+                if acao == "apagar":
+                    requests.delete(url_p_item, timeout=5)
+                elif acao == "subir" and idx_alvo > 0:
+                    t_atual = items[idx_alvo][1].get("timestamp", time.time())
+                    t_ant = items[idx_alvo-1][1].get("timestamp", time.time() - 1)
+                    k_ant = items[idx_alvo-1][0]
+                    
+                    requests.patch(f"{FIREBASE_URL}/pedidos/{provider_token}/{pid}.json", json={"timestamp": t_ant}, timeout=5)
+                    requests.patch(f"{FIREBASE_URL}/pedidos/{provider_token}/{k_ant}.json", json={"timestamp": t_atual}, timeout=5)
+                elif acao == "descer" and idx_alvo != -1 and idx_alvo < len(items) - 1:
+                    t_atual = items[idx_alvo][1].get("timestamp", time.time())
+                    t_prox = items[idx_alvo+1][1].get("timestamp", time.time() + 1)
+                    k_prox = items[idx_alvo+1][0]
+                    
+                    requests.patch(f"{FIREBASE_URL}/pedidos/{provider_token}/{pid}.json", json={"timestamp": t_prox}, timeout=5)
+                    requests.patch(f"{FIREBASE_URL}/pedidos/{provider_token}/{k_prox}.json", json={"timestamp": t_atual}, timeout=5)
+            
             st.query_params.clear()
             st.rerun()
         except Exception:
@@ -961,7 +967,7 @@ def show_provider_panel_custom(provider_token):
                         atualizar_estado_pedido(provider_token, restantes[0].get('id'), 'aprovado')
                     st.rerun()
 
-        # SECÇÃO DA TABELA PERSONALIZADA (Fundo Preto, Linhas Amarelas, Cabeçalho Azul + Ações Subir/Apagar)
+        # SECÇÃO DA TABELA PERSONALIZADA
         st.markdown("<div style='height: 10px;'></div>", unsafe_allow_html=True)
         st.markdown("""
             <div style="font-family: monospace; color: #ffffff; font-size: 16px; font-weight: bold; margin-bottom: 8px;">
@@ -971,16 +977,16 @@ def show_provider_panel_custom(provider_token):
 
         pedidos_ativos = [p for p in pedidos if p.get("estado") in ["pendente", "aprovado"]]
         
-        # HTML customizado para imitar a tabela perfeita com fundo preto e linhas amarelas
+        # Tabela limpa com fundo preto, linhas amarelas e cabeçalho azul
         tabela_html = """
         <div style="border: 3px solid #FFC107; border-radius: 8px; overflow: hidden; background: #000000; margin-bottom: 20px;">
             <table style="width: 100%; border-collapse: collapse; font-family: monospace; text-align: left;">
                 <thead>
                     <tr style="background-color: #03a9f4; color: #ffffff; font-size: 15px; font-weight: bold;">
                         <th style="padding: 12px 10px; border-bottom: 3px solid #FFC107; width: 8%;">Nº</th>
-                        <th style="padding: 12px 10px; border-bottom: 3px solid #FFC107; width: 30%;">CANTOR</th>
-                        <th style="padding: 12px 10px; border-bottom: 3px solid #FFC107; width: 42%;">TÍTULO</th>
-                        <th style="padding: 12px 10px; border-bottom: 3px solid #FFC107; width: 20%; text-align: center;">AÇÕES</th>
+                        <th style="padding: 12px 10px; border-bottom: 3px solid #FFC107; width: 28%;">CANTOR</th>
+                        <th style="padding: 12px 10px; border-bottom: 3px solid #FFC107; width: 38%;">TÍTULO</th>
+                        <th style="padding: 12px 10px; border-bottom: 3px solid #FFC107; width: 26%; text-align: center;">AÇÕES</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -997,9 +1003,10 @@ def show_provider_panel_custom(provider_token):
                         <td style="padding: 10px; border-right: 2px solid #FFC107;">{idx}</td>
                         <td style="padding: 10px; border-right: 2px solid #FFC107; font-weight: bold;">{cantor}</td>
                         <td style="padding: 10px; border-right: 2px solid #FFC107;">{musica}</td>
-                        <td style="padding: 10px; text-align: center;">
-                            <a href="?page=provider_panel&provider_token={provider_token}&acao_fila=subir&pid={pid}" style="background: #FFC107; color: #000; padding: 4px 8px; border-radius: 4px; text-decoration: none; font-size: 11px; font-weight: bold; margin-right: 4px;">⬆️ Subir</a>
-                            <a href="?page=provider_panel&provider_token={provider_token}&acao_fila=apagar&pid={pid}" style="background: #f44336; color: #fff; padding: 4px 8px; border-radius: 4px; text-decoration: none; font-size: 11px; font-weight: bold;">❌ Apagar</a>
+                        <td style="padding: 10px; text-align: center; white-space: nowrap;">
+                            <a href="?page=provider_panel&provider_token={provider_token}&acao_fila=subir&pid={pid}" style="background: #FFC107; color: #000; padding: 4px 6px; border-radius: 4px; text-decoration: none; font-size: 11px; font-weight: bold; margin-right: 2px;">⬆️ Subir</a>
+                            <a href="?page=provider_panel&provider_token={provider_token}&acao_fila=descer&pid={pid}" style="background: #ff9800; color: #000; padding: 4px 6px; border-radius: 4px; text-decoration: none; font-size: 11px; font-weight: bold; margin-right: 2px;">⬇️ Descer</a>
+                            <a href="?page=provider_panel&provider_token={provider_token}&acao_fila=apagar&pid={pid}" style="background: #f44336; color: #fff; padding: 4px 6px; border-radius: 4px; text-decoration: none; font-size: 11px; font-weight: bold;">❌ Apagar</a>
                         </td>
                     </tr>
                 """
