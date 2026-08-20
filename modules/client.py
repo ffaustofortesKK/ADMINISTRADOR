@@ -39,8 +39,13 @@ def obter_catalogo_cloudinary():
 
 def enviar_pedido_firebase(provider_token, cliente_nome, musica_escolhida):
     try:
-        # Garante que extraímos o título da música quer venha num dicionário ou string
+        # Extrai o título limpo e remove extensões indesejadas se existirem
         titulo_musica = musica_escolhida.get('titulo', str(musica_escolhida)) if isinstance(musica_escolhida, dict) else str(musica_escolhida)
+        titulo_musica = titulo_musica.strip('"\'')
+        for ext in ['.wmv', '.mp4', '.avi', '.cdg', '.mpg']:
+            if titulo_musica.lower().endswith(ext):
+                titulo_musica = titulo_musica[:-len(ext)]
+        titulo_musica = titulo_musica.strip()
         
         novo_pedido = {
             "cliente": cliente_nome,
@@ -50,7 +55,13 @@ def enviar_pedido_firebase(provider_token, cliente_nome, musica_escolhida):
         }
         url = f"{FIREBASE_URL}/pedidos/{provider_token}.json"
         response = requests.post(url, json=novo_pedido, timeout=10)
-        return response.status_code == 200
+        
+        # O Firebase Realtime Database retorna sucesso com status 200 e um JSON contendo a chave "name"
+        if response.status_code == 200:
+            resposta_json = response.json()
+            if resposta_json and isinstance(resposta_json, dict) and "name" in resposta_json:
+                return True
+        return False
     except Exception as e:
         print(f"Erro detalhado no envio: {e}")
         return False
