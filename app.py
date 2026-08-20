@@ -624,7 +624,6 @@ def renderizar_gestao_fila_prestador(provider_token):
         st.error(f"Erro ao carregar os pedidos do Firebase: {e}")
 
 def show_provider_panel_custom(provider_token, FIREBASE_URL=None, get_all_providers=None, renderizar_gestao_fila_prestador=None):
-    # Garantir URL do Firebase padrão caso venha vazio/None
     if not FIREBASE_URL:
         FIREBASE_URL = "https://grupo-ff-karaoke-default-rtdb.firebaseio.com"
 
@@ -839,10 +838,26 @@ def show_provider_panel_custom(provider_token, FIREBASE_URL=None, get_all_provid
         st.info("Aqui pode ver os pedidos manuais enviados pelos clientes e aceder diretamente às sugestões geradas no YouTube.")
         
         try:
+            # Tentar carregar usando o token direto ou varredura de segurança caso venha vazio
+            extras_data = None
             res_extras = requests.get(f"{FIREBASE_URL}/pedidos_extras/{provider_token}.json", timeout=10)
             if res_extras.status_code == 200 and res_extras.json():
                 extras_data = res_extras.json()
+            else:
+                # Fallback: se não encontrar pelo token exato, procura em todos os nós de pedidos_extras
+                res_all = requests.get(f"{FIREBASE_URL}/pedidos_extras.json", timeout=10)
+                if res_all.status_code == 200 and res_all.json():
+                    all_providers_extras = res_all.json()
+                    if isinstance(all_providers_extras, dict):
+                        for p_key, p_val in all_providers_extras.items():
+                            if isinstance(p_val, dict) and len(p_val) > 0:
+                                extras_data = p_val
+                                break
+
+            if extras_data and isinstance(extras_data, dict):
                 for k, v in extras_data.items():
+                    if not isinstance(v, dict):
+                        continue
                     nome_musica = v.get('musica', '')
                     query_encoded = urllib.parse.quote(f"{nome_musica} karaoke")
                     url_sugestao_yt = f"https://www.youtube.com/results?search_query={query_encoded}"
