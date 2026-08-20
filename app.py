@@ -857,6 +857,35 @@ def show_provider_panel_custom(provider_token):
     
     qr_url_cliente = f"https://api.qrserver.com/v1/create-qr-code/?size=150x150&data={urllib.parse.quote(link_cliente_absoluto)}"
 
+    # TRATAMENTO DE AÇÕES DE ORDENAÇÃO / ELIMINAÇÃO VIA QUERY PARAMS OU SESSION STATE SE NECESSÁRIO
+    # (Exemplo de tratamento de ações rápidas na tabela se disparadas)
+    query_params = st.query_params
+    if "acao_fila" in query_params:
+        acao = query_params.get("acao_fila")
+        pid = query_params.get("pid")
+        try:
+            url_p_item = f"{FIREBASE_URL}/pedidos/{provider_token}/{pid}.json"
+            if acao == "apagar":
+                requests.delete(url_p_item, timeout=5)
+            elif acao == "subir":
+                # Lógica para subir o pedido na prioridade ajustando timestamps
+                res_all = requests.get(f"{FIREBASE_URL}/pedidos/{provider_token}.json", timeout=5)
+                if res_all.status_code == 200 and res_all.json():
+                    items = sorted(res_all.json().items(), key=lambda x: x[1].get("timestamp", 0))
+                    idx_alvo = next((i for i, (k, v) in enumerate(items) if k == pid), -1)
+                    if idx_alvo > 0:
+                        # Trocar timestamp com o anterior
+                        t_atual = items[idx_alvo][1].get("timestamp", time.time())
+                        t_ant = items[idx_alvo-1][1].get("timestamp", time.time() - 1)
+                        k_ant = items[idx_alvo-1][0]
+                        
+                        requests.patch(f"{FIREBASE_URL}/pedidos/{provider_token}/{pid}.json", json={"timestamp": t_ant}, timeout=5)
+                        requests.patch(f"{FIREBASE_URL}/pedidos/{provider_token}/{k_ant}.json", json={"timestamp": t_atual}, timeout=5)
+            st.query_params.clear()
+            st.rerun()
+        except Exception:
+            pass
+
     # BUSCAR PEDIDOS DO FIREBASE
     try:
         url_firebase = f"{FIREBASE_URL}/pedidos/{provider_token}.json?_t={time.time()}"
@@ -905,10 +934,10 @@ def show_provider_panel_custom(provider_token):
             </div>
         """, unsafe_allow_html=True)
 
-        # BLOCO "Á Seguir -" COM O NOME À FRENTE
+        # BLOCO "Á Seguir -" AUMENTADO EM 40% E COR AMARELA
         st.markdown(f"""
-            <div style="border: 3px solid #FFC107; border-radius: 8px; padding: 15px; background-color: #000000; margin-bottom: 15px;">
-                <div style="font-family: monospace; color: #FFC107; font-size: 20px; font-weight: bold;">{conteudo_a_seguir}</div>
+            <div style="border: 3px solid #FFC107; border-radius: 8px; padding: 18px; background-color: #000000; margin-bottom: 15px;">
+                <div style="font-family: monospace; color: #FFC107; font-size: 28px; font-weight: bold;">{conteudo_a_seguir}</div>
             </div>
         """, unsafe_allow_html=True)
 
@@ -927,12 +956,12 @@ def show_provider_panel_custom(provider_token):
             if st.button("⏭️ Avançar Karaoke", key="btn_prox_topo", use_container_width=True):
                 if tocando_agora:
                     atualizar_estado_pedido(provider_token, tocando_agora.get('id'), 'terminado')
-                    restantes = [x for x in pedidos if x.get('id') != tocando_agora.get('id')]
+                    restantes = [x for x in pedidos if x.get('estado') in ['pendente', 'aprovado'] and x.get('id') != tocando_agora.get('id')]
                     if restantes:
                         atualizar_estado_pedido(provider_token, restantes[0].get('id'), 'aprovado')
                     st.rerun()
 
-        # SECÇÃO DA TABELA DE FILA (Nº, CANTOR, TÍTULO)
+        # SECÇÃO DA TABELA PERSONALIZADA (Fundo Preto, Linhas Amarelas, Cabeçalho Azul + Ações Subir/Apagar)
         st.markdown("<div style='height: 10px;'></div>", unsafe_allow_html=True)
         st.markdown("""
             <div style="font-family: monospace; color: #ffffff; font-size: 16px; font-weight: bold; margin-bottom: 8px;">
@@ -940,33 +969,55 @@ def show_provider_panel_custom(provider_token):
             </div>
         """, unsafe_allow_html=True)
 
-        dados_tabela = []
         pedidos_ativos = [p for p in pedidos if p.get("estado") in ["pendente", "aprovado"]]
+        
+        # HTML customizado para imitar a tabela perfeita com fundo preto e linhas amarelas
+        tabela_html = """
+        <div style="border: 3px solid #FFC107; border-radius: 8px; overflow: hidden; background: #000000; margin-bottom: 20px;">
+            <table style="width: 100%; border-collapse: collapse; font-family: monospace; text-align: left;">
+                <thead>
+                    <tr style="background-color: #03a9f4; color: #ffffff; font-size: 15px; font-weight: bold;">
+                        <th style="padding: 12px 10px; border-bottom: 3px solid #FFC107; width: 8%;">Nº</th>
+                        <th style="padding: 12px 10px; border-bottom: 3px solid #FFC107; width: 30%;">CANTOR</th>
+                        <th style="padding: 12px 10px; border-bottom: 3px solid #FFC107; width: 42%;">TÍTULO</th>
+                        <th style="padding: 12px 10px; border-bottom: 3px solid #FFC107; width: 20%; text-align: center;">AÇÕES</th>
+                    </tr>
+                </thead>
+                <tbody>
+        """
         
         if pedidos_ativos:
             for idx, p in enumerate(pedidos_ativos, 1):
                 cantor = str(p.get("cliente", "")).upper()
                 musica = limpar_nome_musica(p.get("musica", {}))
-                dados_tabela.append({"Nº": idx, "CANTOR": cantor, "TÍTULO": musica})
-        
-        if dados_tabela:
-            df_exibicao = pd.DataFrame(dados_tabela)
-            st.dataframe(
-                df_exibicao,
-                use_container_width=True,
-                hide_index=True,
-                column_config={
-                    "Nº": st.column_config.NumberColumn("Nº", width="small"),
-                    "CANTOR": st.column_config.TextColumn("CANTOR", width="medium"),
-                    "TÍTULO": st.column_config.TextColumn("TÍTULO", width="large"),
-                }
-            )
+                pid = p.get("id")
+                
+                tabela_html += f"""
+                    <tr style="border-bottom: 2px solid #FFC107; color: #ffffff; font-size: 14px;">
+                        <td style="padding: 10px; border-right: 2px solid #FFC107;">{idx}</td>
+                        <td style="padding: 10px; border-right: 2px solid #FFC107; font-weight: bold;">{cantor}</td>
+                        <td style="padding: 10px; border-right: 2px solid #FFC107;">{musica}</td>
+                        <td style="padding: 10px; text-align: center;">
+                            <a href="?page=provider_panel&provider_token={provider_token}&acao_fila=subir&pid={pid}" style="background: #FFC107; color: #000; padding: 4px 8px; border-radius: 4px; text-decoration: none; font-size: 11px; font-weight: bold; margin-right: 4px;">⬆️ Subir</a>
+                            <a href="?page=provider_panel&provider_token={provider_token}&acao_fila=apagar&pid={pid}" style="background: #f44336; color: #fff; padding: 4px 8px; border-radius: 4px; text-decoration: none; font-size: 11px; font-weight: bold;">❌ Apagar</a>
+                        </td>
+                    </tr>
+                """
         else:
-            st.markdown("""
-                <div style="border: 3px solid #FFC107; border-radius: 8px; padding: 20px; text-align: center; background: #000000; color: #FFC107; font-family: monospace; font-size: 15px;">
-                    Nenhum pedido na lista neste momento.
-                </div>
-            """, unsafe_allow_html=True)
+            tabela_html += """
+                <tr>
+                    <td colspan="4" style="padding: 20px; text-align: center; color: #FFC107; font-size: 15px;">
+                        Nenhum pedido na lista neste momento.
+                    </td>
+                </tr>
+            """
+            
+        tabela_html += """
+                </tbody>
+            </table>
+        </div>
+        """
+        st.markdown(tabela_html, unsafe_allow_html=True)
 
     with col_dir:
         st.markdown("<div style='font-family: monospace; color: #ffffff; font-size: 11px; font-weight: bold; margin-bottom: 3px; text-align: center;'>QR CODE CLIENTE</div>", unsafe_allow_html=True)
