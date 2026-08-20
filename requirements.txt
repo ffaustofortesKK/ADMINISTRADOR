@@ -4,3 +4,4 @@ requests
 cloudinary
 qrcode
 pillow
+yt-dlp
