@@ -857,6 +857,41 @@ def show_provider_panel_custom(provider_token):
     
     qr_url_cliente = f"https://api.qrserver.com/v1/create-qr-code/?size=150x150&data={urllib.parse.quote(link_cliente_absoluto)}"
 
+    # TRATAMENTO DE AÇÕES DE ORDENAÇÃO / ELIMINAÇÃO VIA QUERY PARAMS
+    query_params = st.query_params
+    if "acao_fila" in query_params:
+        acao = query_params.get("acao_fila")
+        pid = query_params.get("pid")
+        try:
+            url_p_item = f"{FIREBASE_URL}/pedidos/{provider_token}/{pid}.json"
+            res_all = requests.get(f"{FIREBASE_URL}/pedidos/{provider_token}.json", timeout=5)
+            
+            if res_all.status_code == 200 and res_all.json():
+                items = sorted(res_all.json().items(), key=lambda x: x[1].get("timestamp", 0))
+                idx_alvo = next((i for i, (k, v) in enumerate(items) if k == pid), -1)
+                
+                if acao == "apagar":
+                    requests.delete(url_p_item, timeout=5)
+                elif acao == "subir" and idx_alvo > 0:
+                    t_atual = items[idx_alvo][1].get("timestamp", time.time())
+                    t_ant = items[idx_alvo-1][1].get("timestamp", time.time() - 1)
+                    k_ant = items[idx_alvo-1][0]
+                    
+                    requests.patch(f"{FIREBASE_URL}/pedidos/{provider_token}/{pid}.json", json={"timestamp": t_ant}, timeout=5)
+                    requests.patch(f"{FIREBASE_URL}/pedidos/{provider_token}/{k_ant}.json", json={"timestamp": t_atual}, timeout=5)
+                elif acao == "descer" and idx_alvo != -1 and idx_alvo < len(items) - 1:
+                    t_atual = items[idx_alvo][1].get("timestamp", time.time())
+                    t_prox = items[idx_alvo+1][1].get("timestamp", time.time() + 1)
+                    k_prox = items[idx_alvo+1][0]
+                    
+                    requests.patch(f"{FIREBASE_URL}/pedidos/{provider_token}/{pid}.json", json={"timestamp": t_prox}, timeout=5)
+                    requests.patch(f"{FIREBASE_URL}/pedidos/{provider_token}/{k_prox}.json", json={"timestamp": t_atual}, timeout=5)
+            
+            st.query_params.clear()
+            st.rerun()
+        except Exception:
+            pass
+
     # BUSCAR PEDIDOS DO FIREBASE
     try:
         url_firebase = f"{FIREBASE_URL}/pedidos/{provider_token}.json?_t={time.time()}"
@@ -932,7 +967,7 @@ def show_provider_panel_custom(provider_token):
                         atualizar_estado_pedido(provider_token, restantes[0].get('id'), 'aprovado')
                     st.rerun()
 
-        # SECÇÃO DA TABELA COM COMPONENTES NATIVOS DO STREAMLIT
+        # SECÇÃO DA TABELA ESTILIZADA COM OS 3 BOTÕES NA COLUNA AÇÕES
         st.markdown("<div style='height: 10px;'></div>", unsafe_allow_html=True)
         st.markdown("""
             <div style="font-family: monospace; color: #ffffff; font-size: 16px; font-weight: bold; margin-bottom: 8px;">
@@ -941,80 +976,54 @@ def show_provider_panel_custom(provider_token):
         """, unsafe_allow_html=True)
 
         pedidos_ativos = [p for p in pedidos if p.get("estado") in ["pendente", "aprovado"]]
-
-        # Cabeçalho Estilizado da Tabela
-        st.markdown("""
-            <div style="background-color: #03a9f4; border: 3px solid #FFC107; border-bottom: none; border-radius: 8px 8px 0 0; padding: 10px 12px; display: flex; font-family: monospace; font-weight: bold; font-size: 15px; color: #ffffff;">
-                <div style="width: 10%;">Nº</div>
-                <div style="width: 30%;">CANTOR</div>
-                <div style="width: 38%;">TÍTULO</div>
-                <div style="width: 22%; text-align: center;">AÇÕES</div>
-            </div>
-        """, unsafe_allow_html=True)
-
+        
+        tabela_html = f"""
+        <div style="border: 3px solid #FFC107; border-radius: 8px; overflow: hidden; background: #000000; margin-bottom: 20px;">
+            <table style="width: 100%; border-collapse: collapse; font-family: monospace; text-align: left;">
+                <thead>
+                    <tr style="background-color: #03a9f4; color: #ffffff; font-size: 15px; font-weight: bold;">
+                        <th style="padding: 12px 10px; border-bottom: 3px solid #FFC107; width: 8%;">Nº</th>
+                        <th style="padding: 12px 10px; border-bottom: 3px solid #FFC107; width: 26%;">CANTOR</th>
+                        <th style="padding: 12px 10px; border-bottom: 3px solid #FFC107; width: 34%;">TÍTULO</th>
+                        <th style="padding: 12px 10px; border-bottom: 3px solid #FFC107; width: 32%; text-align: center;">AÇÕES</th>
+                    </tr>
+                </thead>
+                <tbody>
+        """
+        
         if pedidos_ativos:
             for idx, p in enumerate(pedidos_ativos, 1):
                 cantor = str(p.get("cliente", "")).upper()
                 musica = limpar_nome_musica(p.get("musica", {}))
                 pid = p.get("id")
                 
-                # Linha individual estilizada com fundo preto e bordas amarelas
-                st.markdown(f"""
-                    <div style="background-color: #000000; border-left: 3px solid #FFC107; border-right: 3px solid #FFC107; border-bottom: 2px solid #FFC107; padding: 8px 12px; display: flex; align-items: center; font-family: monospace; font-size: 14px; color: #ffffff;">
-                        <div style="width: 10%; font-weight: bold;">{idx}</div>
-                        <div style="width: 30%; font-weight: bold; color: #FFC107;">{cantor}</div>
-                        <div style="width: 38%;">{musica}</div>
-                        <div style="width: 22%; text-align: center;"></div>
-                    </div>
-                """, unsafe_allow_html=True)
-                
-                # Botões de ação funcionais alinhados abaixo/ao lado da respetiva linha
-                col_b1, col_b2, col_b3 = st.columns([1, 1, 1])
-                with col_b1:
-                    if st.button("⬆️ Subir", key=f"subir_{pid}", use_container_width=True):
-                        try:
-                            res_all = requests.get(f"{FIREBASE_URL}/pedidos/{provider_token}.json", timeout=5)
-                            if res_all.status_code == 200 and res_all.json():
-                                items = sorted(res_all.json().items(), key=lambda x: x[1].get("timestamp", 0))
-                                idx_alvo = next((i for i, (k, v) in enumerate(items) if k == pid), -1)
-                                if idx_alvo > 0:
-                                    t_atual = items[idx_alvo][1].get("timestamp", time.time())
-                                    t_ant = items[idx_alvo-1][1].get("timestamp", time.time() - 1)
-                                    k_ant = items[idx_alvo-1][0]
-                                    requests.patch(f"{FIREBASE_URL}/pedidos/{provider_token}/{pid}.json", json={"timestamp": t_ant}, timeout=5)
-                                    requests.patch(f"{FIREBASE_URL}/pedidos/{provider_token}/{k_ant}.json", json={"timestamp": t_atual}, timeout=5)
-                                    st.rerun()
-                        except Exception:
-                            pass
-                with col_b2:
-                    if st.button("⬇️ Descer", key=f"descer_{pid}", use_container_width=True):
-                        try:
-                            res_all = requests.get(f"{FIREBASE_URL}/pedidos/{provider_token}.json", timeout=5)
-                            if res_all.status_code == 200 and res_all.json():
-                                items = sorted(res_all.json().items(), key=lambda x: x[1].get("timestamp", 0))
-                                idx_alvo = next((i for i, (k, v) in enumerate(items) if k == pid), -1)
-                                if idx_alvo != -1 and idx_alvo < len(items) - 1:
-                                    t_atual = items[idx_alvo][1].get("timestamp", time.time())
-                                    t_prox = items[idx_alvo+1][1].get("timestamp", time.time() + 1)
-                                    k_prox = items[idx_alvo+1][0]
-                                    requests.patch(f"{FIREBASE_URL}/pedidos/{provider_token}/{pid}.json", json={"timestamp": t_prox}, timeout=5)
-                                    requests.patch(f"{FIREBASE_URL}/pedidos/{provider_token}/{k_prox}.json", json={"timestamp": t_atual}, timeout=5)
-                                    st.rerun()
-                        except Exception:
-                            pass
-                with col_b3:
-                    if st.button("❌ Apagar", key=f"apagar_{pid}", use_container_width=True):
-                        try:
-                            requests.delete(f"{FIREBASE_URL}/pedidos/{provider_token}/{pid}.json", timeout=5)
-                            st.rerun()
-                        except Exception:
-                            pass
+                tabela_html += f"""
+                    <tr style="border-bottom: 2px solid #FFC107; color: #ffffff; font-size: 14px;">
+                        <td style="padding: 10px; border-right: 2px solid #FFC107;">{idx}</td>
+                        <td style="padding: 10px; border-right: 2px solid #FFC107; font-weight: bold; color: #FFC107;">{cantor}</td>
+                        <td style="padding: 10px; border-right: 2px solid #FFC107;">{musica}</td>
+                        <td style="padding: 8px; text-align: center; white-space: nowrap;">
+                            <a href="?page=provider_panel&provider_token={provider_token}&acao_fila=subir&pid={pid}" style="background: #FFC107; color: #000; padding: 5px 8px; border-radius: 4px; text-decoration: none; font-size: 11px; font-weight: bold; margin-right: 3px; display: inline-block;">⬆️ Subir</a>
+                            <a href="?page=provider_panel&provider_token={provider_token}&acao_fila=descer&pid={pid}" style="background: #ff9800; color: #000; padding: 5px 8px; border-radius: 4px; text-decoration: none; font-size: 11px; font-weight: bold; margin-right: 3px; display: inline-block;">⬇️ Descer</a>
+                            <a href="?page=provider_panel&provider_token={provider_token}&acao_fila=apagar&pid={pid}" style="background: #f44336; color: #fff; padding: 5px 8px; border-radius: 4px; text-decoration: none; font-size: 11px; font-weight: bold; display: inline-block;">❌ Apagar</a>
+                        </td>
+                    </tr>
+                """
         else:
-            st.markdown("""
-                <div style="background-color: #000000; border: 3px solid #FFC107; border-top: none; border-radius: 0 0 8px 8px; padding: 20px; text-align: center; color: #FFC107; font-family: monospace; font-size: 15px;">
-                    Nenhum pedido na lista neste momento.
-                </div>
-            """, unsafe_allow_html=True)
+            tabela_html += """
+                <tr>
+                    <td colspan="4" style="padding: 20px; text-align: center; color: #FFC107; font-size: 15px;">
+                        Nenhum pedido na lista neste momento.
+                    </td>
+                </tr>
+            """
+            
+        tabela_html += """
+                </tbody>
+            </table>
+        </div>
+        """
+        st.markdown(tabela_html, unsafe_allow_html=True)
 
     with col_dir:
         st.markdown("<div style='font-family: monospace; color: #ffffff; font-size: 11px; font-weight: bold; margin-bottom: 3px; text-align: center;'>QR CODE CLIENTE</div>", unsafe_allow_html=True)
