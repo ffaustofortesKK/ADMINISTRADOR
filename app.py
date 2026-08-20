@@ -875,7 +875,7 @@ def show_provider_panel_custom(provider_token):
             </div>
         """, unsafe_allow_html=True)
 
-        # BLOCO "Á Seguir -" ATUALIZADO PARA MOSTRAR O PRÓXIMO CANTOR DA FILA
+        # BLOCO "Á Seguir -" COM BUSCA DIRETA AO PRIMEIRO DA FILA DISPONÍVEL
         st.markdown("""
             <div style="border: 3px solid #FFC107; border-radius: 8px; padding: 15px; background-color: #000000; margin-bottom: 15px;">
                 <div style="font-family: monospace; color: #FFC107; font-size: 20px; font-weight: bold; margin-bottom: 10px;">Á Seguir -</div>
@@ -889,19 +889,19 @@ def show_provider_panel_custom(provider_token):
                 data = response.json()
                 pedidos = [{"id": k, **v} for k, v in data.items()]
             
-            pedidos_ativos = [p for p in pedidos if p.get("estado") in ["pendente", "aprovado"]]
-            pedidos_ativos.sort(key=lambda x: x.get("timestamp", 0))
+            # Ordena todos os pedidos existentes por timestamp
+            pedidos.sort(key=lambda x: x.get("timestamp", 0))
             
-            tocando_agora = next((p for p in pedidos_ativos if p.get("estado") == "aprovado"), None)
+            tocando_agora = next((p for p in pedidos if p.get("estado") == "aprovado"), None)
             
-            if not tocando_agora and pedidos_ativos:
-                primeiro_id = pedidos_ativos[0].get('id')
+            if not tocando_agora and pedidos:
+                primeiro_id = pedidos[0].get('id')
                 atualizar_estado_pedido(provider_token, primeiro_id, 'aprovado')
-                pedidos_ativos[0]["estado"] = "aprovado"
-                tocando_agora = pedidos_ativos[0]
+                pedidos[0]["estado"] = "aprovado"
+                tocando_agora = pedidos[0]
 
-            indice_atual = pedidos_ativos.index(tocando_agora) if tocando_agora in pedidos_ativos else -1
-            proximo_da_fila = pedidos_ativos[indice_atual + 1] if (indice_atual != -1 and len(pedidos_ativos) > indice_atual + 1) else (pedidos_ativos[0] if (not tocando_agora and pedidos_ativos) else None)
+            indice_atual = pedidos.index(tocando_agora) if tocando_agora in pedidos else -1
+            proximo_da_fila = pedidos[indice_atual + 1] if (indice_atual != -1 and len(pedidos) > indice_atual + 1) else (pedidos[0] if (not tocando_agora and pedidos) else None)
 
             if proximo_da_fila:
                 cantor_proximo = proximo_da_fila.get("cliente", "CONVIDADO").upper()
@@ -935,7 +935,7 @@ def show_provider_panel_custom(provider_token):
             if st.button("⏭️ Avançar Karaoke", key="btn_prox_topo", use_container_width=True):
                 if tocando_agora:
                     atualizar_estado_pedido(provider_token, tocando_agora.get('id'), 'terminado')
-                    restantes = [x for x in pedidos_ativos if x.get('id') != tocando_agora.get('id')]
+                    restantes = [x for x in pedidos if x.get('id') != tocando_agora.get('id')]
                     if restantes:
                         atualizar_estado_pedido(provider_token, restantes[0].get('id'), 'aprovado')
                     st.rerun()
