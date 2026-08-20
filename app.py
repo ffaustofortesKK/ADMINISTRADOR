@@ -927,7 +927,7 @@ def show_provider_panel_custom(provider_token):
             if st.button("⏭️ Avançar Karaoke", key="btn_prox_topo", use_container_width=True):
                 if tocando_agora:
                     atualizar_estado_pedido(provider_token, tocando_agora.get('id'), 'terminado')
-                    restantes = [x for x in pedidos if x.get('id'] != tocando_agora.get('id')]
+                    restantes = [x for x in pedidos if x.get('id') != tocando_agora.get('id')]
                     if restantes:
                         atualizar_estado_pedido(provider_token, restantes[0].get('id'), 'aprovado')
                     st.rerun()
@@ -940,7 +940,6 @@ def show_provider_panel_custom(provider_token):
             </div>
         """, unsafe_allow_html=True)
 
-        # Renderização da Tabela com Cabeçalho Azul
         tabela_html = """
         <div style="border: 3px solid #FFC107; border-radius: 8px; overflow: hidden; background: #000000; margin-bottom: 15px;">
             <table style="width: 100%; border-collapse: collapse; font-family: monospace; text-align: left;">
