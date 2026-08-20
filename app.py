@@ -13,6 +13,7 @@ import cloudinary.api
 import cloudinary.uploader
 import cloudinary.search
 import importlib
+import yt_dlp
 
 # --- 1. CONFIGURAR OS CAMINHOS UMA ÚNICA VEZ ---
 current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -29,7 +30,7 @@ try:
     from modules.prestador import show_prestador_page
     importlib.reload(prestador)
 except Exception:
-    def show_prestador_page(token, url): 
+def show_prestador_page(token, url): 
         st.error("Módulo 'modules.prestador' não encontrado.")
 
 # --- 3. CONFIGURAÇÃO DO CLOUDINARY ---
@@ -388,6 +389,17 @@ def definir_video_fundo(provider_token, url_clipe):
         requests.put(url, json=url_clipe, timeout=10)
     except Exception:
         pass
+        
+def buscar_link_youtube(termo):
+    """Esta função corre no backend do prestador quando ele clica num botão"""
+    ydl_opts = {'default_search': 'ytsearch1', 'format': 'best'}
+    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+        try:
+            info = ydl.extract_info(termo, download=False)
+            link = f"https://www.youtube.com/watch?v={info['entries'][0]['id']}"
+            return link
+        except:
+            return None        
 
 def obter_video_fundo(provider_token):
     try:
