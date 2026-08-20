@@ -483,7 +483,7 @@ def obter_url_video_cloudinary(musica_obj, titulo_limpo):
     
     return f"https://res.cloudinary.com/{cloud_name}/video/upload/f_auto,q_auto/{encoded_title}"
 
-@st.fragment(run_every=2) # Aumentado para 2 segundos para dar estabilidade à interface
+@st.fragment(run_every=2)
 def renderizar_gestao_fila_prestador(provider_token):
     try:
         url_firebase = f"{FIREBASE_URL}/pedidos/{provider_token}.json?_t={time.time()}"
@@ -499,15 +499,13 @@ def renderizar_gestao_fila_prestador(provider_token):
         
         tocando_agora = next((p for p in pedidos_ativos if p.get("estado") == "aprovado"), None)
         
-        # Só define o primeiro como aprovado automaticamente se não houver nenhum a tocar
+        # Lógica de aprovação automática
         if not tocando_agora and pedidos_ativos:
             primeiro_id = pedidos_ativos[0].get('id')
-            # Evita reescrever o Firebase a cada segundo se já estiver definido na sessão
             if st.session_state.get("ultimo_aprovado") != primeiro_id:
                 atualizar_estado_pedido(provider_token, primeiro_id, 'aprovado')
                 st.session_state["ultimo_aprovado"] = primeiro_id
-                pedidos_ativos[0]["estado"] = "aprovado"
-                tocando_agora = pedidos_ativos[0]
+                st.rerun()
 
         col_esq, col_dir = st.columns([1.5, 1], gap="medium")
         
@@ -517,7 +515,7 @@ def renderizar_gestao_fila_prestador(provider_token):
             if pedidos_ativos:
                 for idx, p in enumerate(pedidos_ativos, start=1):
                     titulo_musica = limpar_nome_musica(p.get("musica", {}))
-                    cliente_nome = p.get("cliente", "Convidado").upper()
+                    cliente_nome = p.get("cliente", "CONVIDADO").upper()
                     
                     c_num, c_cli, c_tit, c_btn = st.columns([0.5, 2, 4, 0.8])
                     with c_num:
@@ -527,101 +525,72 @@ def renderizar_gestao_fila_prestador(provider_token):
                     with c_tit:
                         st.markdown(f"<div style='background:#000; color:#FFC107; border:1px solid #FFC107; padding:6px; font-family:monospace; font-weight:bold; border-radius:4px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;'>{titulo_musica}</div>", unsafe_allow_html=True)
                     with c_btn:
-                        if st.button("✕", key=f"del_fila_{p.get('id')}", use_container_width=True):
+                        if st.button("✕", key=f"del_fila_{p.get('id')}"):
                             atualizar_estado_pedido(provider_token, p.get('id'), 'terminado')
                             st.rerun()
-                st.markdown("<div style='height: 10px;'></div>", unsafe_allow_html=True)
             else:
                 st.markdown("""
-                    <div style="background-color: #000000; border: 2px solid #FFC107; border-radius: 6px; padding: 12px; color: #FFC107; font-family: monospace; font-size: 13px; margin-bottom: 15px; text-align: center; font-weight: bold;">
-                        NENHUM PEDIDO NA LISTA NESTE MOMENTO.<br>À ESPERA DE NOVOS PEDIDOS...</div>
+                    <div style="background-color: #000000; border: 2px solid #FFC107; border-radius: 6px; padding: 12px; color: #FFC107; font-family: monospace; font-size: 13px; text-align: center; font-weight: bold;">
+                        NENHUM PEDIDO NA LISTA.<br>À ESPERA DE NOVOS PEDIDOS...</div>
                 """, unsafe_allow_html=True)
 
             st.markdown("### LEITOR KARAOKE")
-            
             if tocando_agora:
                 cantor_atual = tocando_agora.get("cliente", "CONVIDADO").upper()
                 musica_atual = limpar_nome_musica(tocando_agora.get("musica", {}))
                 
                 st.markdown(f"""
-                    <div style="background: #000000; border: 3px solid #FFC107; border-radius: 6px; padding: 20px; margin-bottom: 15px; text-align: center;">
-                        <div style="color: #FFC107; font-family: monospace; font-size: 32px; font-weight: bold; text-transform: uppercase; margin-bottom: 8px; text-shadow: 2px 2px 6px rgba(0,0,0,0.9);">
-                            {cantor_atual}
-                        </div>
-                        <div style="color: #ffffff; font-family: monospace; font-size: 15px; font-weight: bold;">
-                            {musica_atual}
-                        </div>
+                    <div style="background: #000000; border: 3px solid #FFC107; border-radius: 6px; padding: 20px; text-align: center;">
+                        <div style="color: #FFC107; font-family: monospace; font-size: 24px; font-weight: bold; text-transform: uppercase;">{cantor_atual}</div>
+                        <div style="color: #ffffff; font-family: monospace; font-size: 14px; font-weight: bold;">{musica_atual}</div>
                     </div>
                 """, unsafe_allow_html=True)
                 
                 c_t1, c_t2, c_t3 = st.columns(3)
                 with c_t1:
-                    if st.button("▶️ Tocar o Karaoke", key=f"btn_tocar_{tocando_agora.get('id')}", use_container_width=True):
+                    if st.button("▶️ Tocar"):
                         terminar_todas_musicas_ativas(provider_token, pedidos)
                         atualizar_estado_pedido(provider_token, tocando_agora.get('id'), 'aprovado')
                         st.rerun()
                 with c_t2:
-                    if st.button("⏹️ Parar o Karaoke", key=f"btn_parar_{tocando_agora.get('id')}", use_container_width=True):
+                    if st.button("⏹️ Parar"):
                         terminar_todas_musicas_ativas(provider_token, pedidos)
                         st.rerun()
                 with c_t3:
-                    if st.button("⏭️ Avançar Karaoke", key=f"btn_prox_{tocando_agora.get('id')}", use_container_width=True):
+                    if st.button("⏭️ Avançar"):
                         atualizar_estado_pedido(provider_token, tocando_agora.get('id'), 'terminado')
-                        restantes = [x for x in pedidos_ativos if x.get('id') != tocando_agora.get('id')]
-                        if restantes:
-                            atualizar_estado_pedido(provider_token, restantes[0].get('id'), 'aprovado')
                         st.rerun()
             else:
-                st.markdown("""
-                    <div style="background: #000000; border: 3px solid #FFC107; border-radius: 6px; padding: 20px; text-align: center; font-family: monospace; color: #FFC107; font-weight: bold;">
-                        NENHUMA MÚSICA EM REPRODUÇÃO - À ESPERA DA FILA DE ESPERA
-                    </div>
-                """, unsafe_allow_html=True)
+                st.markdown("<div style='background:#000; border:3px solid #FFC107; padding:20px; text-align:center; color:#FFC107;'>SEM MÚSICA</div>", unsafe_allow_html=True)
 
         with col_dir:
-            st.markdown("<div style='height: 5px;'></div>", unsafe_allow_html=True)
             video_fundo_atual = obter_video_fundo(provider_token)
             lista_clipes_cloudinary = listar_videos_pasta_clipes()
             
             opcoes_labels = ["Nenhum (Ecrã Preto)"]
-            mapa_url_por_label = {}
+            mapa_url_por_label = {op: "" for op in opcoes_labels}
             for clipe in lista_clipes_cloudinary:
                 label = f"📁 {clipe['nome']}"
                 opcoes_labels.append(label)
                 mapa_url_por_label[label] = clipe['url']
-                
-            index_atual = 0
-            for idx, label in enumerate(opcoes_labels):
-                if label != "Nenhum (Ecrã Preto)":
-                    url_mapeada = mapa_url_por_label.get(label, "")
-                    if video_fundo_atual and (video_fundo_atual in url_mapeada or url_mapeada in video_fundo_atual):
-                        index_atual = idx
+            
+            # Ajuste de index do selectbox
+            idx_selecionado = 0
+            if video_fundo_atual:
+                for i, url in enumerate(mapa_url_por_label.values()):
+                    if video_fundo_atual == url:
+                        idx_selecionado = i
                         break
 
-            # Removido o st.form aqui dentro do fragmento para evitar conflitos de submissão com o run_every
-            st.markdown("<div style='font-family: monospace; color: #ffffff; font-size: 13px; font-weight: bold; margin-bottom: 5px;'>Pesquisar Vídeo Clipe</div>", unsafe_allow_html=True)
-            escolha_video = st.selectbox("Pesquisar Vídeo Clipe", options=opcoes_labels, index=index_atual, label_visibility="collapsed", key="selectbox_video_fundo")
-            st.markdown("<div style='height: 10px;'></div>", unsafe_allow_html=True)
+            escolha_video = st.selectbox("Vídeo de Fundo", options=opcoes_labels, index=idx_selecionado)
             
-            col_btn_play, col_btn_stop = st.columns(2)
-            with col_btn_play:
-                btn_play_fundo = st.button("▶️ Play Clipe", use_container_width=True, key="play_clipe_fundo")
-            with col_btn_stop:
-                btn_stop_fundo = st.button("⏹️ Stop Clipe", use_container_width=True, key="stop_clipe_fundo")
-
-            if btn_play_fundo:
-                valor_a_guardar = "" if escolha_video == "Nenhum (Ecrã Preto)" else mapa_url_por_label.get(escolha_video, "")
-                definir_video_fundo(provider_token, valor_a_guardar)
-                st.success("Vídeo clipe de fundo colocado em reprodução na tela!")
-                st.rerun()
-            
-            if btn_stop_fundo:
-                definir_video_fundo(provider_token, "")
-                st.success("Vídeo clipe parado (Ecrã Preto ativado)!")
+            if st.button("Aplicar Fundo"):
+                url_a_guardar = mapa_url_por_label.get(escolha_video, "")
+                definir_video_fundo(provider_token, url_a_guardar)
                 st.rerun()
 
     except Exception as e:
-        st.error(f"Erro ao carregar os pedidos do Firebase: {e}")
+        st.error(f"Erro: {e}")
 
 def show_provider_panel_custom(provider_token, FIREBASE_URL=None, get_all_providers=None, renderizar_gestao_fila_prestador=None):
     if not FIREBASE_URL:
