@@ -37,12 +37,15 @@ def obter_catalogo_cloudinary():
         print(f"Erro ao ligar ao Cloudinary SDK: {e}")
     return catalogo
 
-def enviar_pedido_firebase(provider_token, cliente_nome, musica_escolhida):
+def enviar_pedido_firebase(provider_token, cliente_nome, musica_escolhida, estado="pendente"):
     try:
+        # Se for um dicionário (música do catálogo), extraímos o título ou passamos diretamente se for texto
+        titulo = musica_escolhida['titulo'] if isinstance(musica_escolhida, dict) else musica_escolhida
+        
         novo_pedido = {
             "cliente": cliente_nome,
-            "musica": musica_escolhida,
-            "estado": "pendente",
+            "musica": titulo,
+            "estado": estado,
             "timestamp": int(time.time() * 1000)
         }
         url = f"{FIREBASE_URL}/pedidos/{provider_token}.json"
@@ -134,6 +137,8 @@ def show_client_page():
         st.session_state.pesquisa_input = ""
     if 'musica_selecionada' not in st.session_state:
         st.session_state.musica_selecionada = None
+    if 'mostrar_form_externo' not in st.session_state:
+        st.session_state.mostrar_form_externo = False
 
     if not st.session_state.cliente_registado:
         st.markdown("## 🎤 Bem-vindo ao FF Karaoke")
@@ -154,7 +159,7 @@ def show_client_page():
     st.markdown("<hr style='margin-top: 10px; margin-bottom: 20px;'>", unsafe_allow_html=True)
 
     pedidos = obter_pedidos_cliente(provider_token)
-    pedidos_cliente = [p for p in pedidos if p.get("cliente", "").lower() == cliente_nome.lower() and p.get("estado") in ["pendente", "aprovado"]]
+    pedidos_cliente = [p for p in pedidos if p.get("cliente", "").lower() == cliente_nome.lower() and p.get("estado") in ["pendente", "aprovado", "pendente_ext"]]
     
     tem_pedido_ativo = len(pedidos_cliente) > 0
     posicao_fila = None
@@ -169,7 +174,7 @@ def show_client_page():
     if tem_pedido_ativo:
         st.markdown(f"""
             <div style="text-align: center; padding: 20px 10px; margin: 10px auto; max-width: 700px;">
-                """ + (f'<div style="color: white; font-weight: bold; font-size: 20px; margin-bottom: 12px;">Encontra-se na <b style="color: #FFC107;">{posicao_fila}º</b> posição</div>' if posicao_fila else '') + """
+                """ + (f'<div style="color: white; font-weight: bold; font-size: 20px; margin-bottom: 12px;">Encontra-se na <b style="color: #FFC107;">{posicao_fila}º</b> posição</div>' if posicao_fila else '<div style="color: white; font-weight: bold; font-size: 20px; margin-bottom: 12px;">O seu pedido externo foi enviado!</div>') + """
                 <div class="spinning-mic">🎤</div>
             </div>
         """, unsafe_allow_html=True)
@@ -189,9 +194,9 @@ def show_client_page():
         with col_c1:
             if st.button("✅ Sim", use_container_width=True, key="btn_sim_enviar"):
                 if tem_pedido_ativo:
-                    st.error("❌ Não pode enviar outro pedido enquanto o pedido anterior não for cantado.")
+                    st.error("❌ Não pode enviar outro pedido enquanto o pedido anterior não for concluído.")
                 else:
-                    sucesso = enviar_pedido_firebase(provider_token, cliente_nome, musica_atual)
+                    sucesso = enviar_pedido_firebase(provider_token, cliente_nome, musica_atual, estado="pendente")
                     if sucesso:
                         st.success(f"Pedido de '{musica_atual['titulo']}' enviado com sucesso!")
                         st.session_state.pesquisa_input = ""
@@ -233,6 +238,36 @@ def show_client_page():
                             st.rerun()
         else:
             st.warning("Nenhuma música encontrada com esse termo.")
+
+    # --- BOTÃO: Não achou a sua música, Peça aqui!! ---
+    st.markdown("---")
+    col_nao_achou1, col_nao_achou2 = st.columns([3, 1])
+    with col_nao_achou1:
+        st.markdown("#### Não achou a sua música?")
+        st.markdown("Se a música não estiver no catálogo, faça o seu pedido personalizado aqui.")
+    with col_nao_achou2:
+        if st.button("🔍 Peça aqui!", use_container_width=True):
+            st.session_state.mostrar_form_externo = not st.session_state.mostrar_form_externo
+
+    if st.session_state.mostrar_form_externo:
+        with st.form("form_pedido_externo"):
+            musica_externa_input = st.text_input("Nome da Música e Artista desejado:", placeholder="Ex: Anna Joyce - Me Odiava")
+            submitted_ext = st.form_submit_button("Enviar Pedido Externo")
+            if submitted_ext:
+                if musica_externa_input.strip():
+                    if tem_pedido_ativo:
+                        st.error("❌ Não pode enviar outro pedido enquanto o pedido anterior não for concluído.")
+                    else:
+                        sucesso_ext = enviar_pedido_firebase(provider_token, cliente_nome, musica_externa_input.strip(), estado="pendente_ext")
+                        if sucesso_ext:
+                            st.success("Pedido externo enviado com sucesso! O DJ irá analisá-lo.")
+                            st.session_state.mostrar_form_externo = False
+                            time.sleep(1)
+                            st.rerun()
+                        else:
+                            st.error("Erro ao enviar o pedido externo.")
+                else:
+                    st.warning("⚠️ Por favor, insira o nome da música.")
 
     st.markdown("---")
 
