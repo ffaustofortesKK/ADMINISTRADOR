@@ -216,7 +216,7 @@ def custom_show_register_page():
                         aprovado = True
         except Exception:
             pass
-
+            
         if aprovado:
             st.markdown(f"""
                 <div style="text-align: center; padding: 40px; font-family: monospace;">
@@ -288,8 +288,8 @@ def custom_show_register_page():
                 font-family: monospace;
                 text-shadow: 1px 1px 3px rgba(0,0,0,0.9);
             }}
-            </style>
-
+            </style> 
+            
             <div class="waiting-container">
                 <img src="{url_logotipo}" class="logo-wait" />
                 <h2 style="color: #FFC107; margin-bottom: 10px; font-weight: bold; text-shadow: 1px 1px 3px rgba(0,0,0,0.9);">REGISTO SUBMETIDO COM SUCESSO!</h2>
@@ -359,7 +359,7 @@ def custom_show_register_page():
                         "tempo_plano": duracao,
                         "approved": 0,
                         "token": token_gerado,
-                        "data_registo": str(datetime.now())
+                        "data_registo": str(datetime.datetime.now()) 
                     }
                     try:
                         requests.put(f"{FIREBASE_URL}/prestadores_pendentes/{token_gerado}.json", json=dados_reg, timeout=10)
@@ -390,9 +390,14 @@ def definir_video_fundo(provider_token, url_clipe):
         pass
 
 def obter_video_fundo(provider_token):
+    """
+    Vai buscar o vídeo de fundo primeiro ao Firebase. 
+    Se não houver nenhum configurado, busca automaticamente 
+    um vídeo aleatório à pasta 'clipes' do Cloudinary.
+    """
     try:
-        # 1. Tenta buscar primeiro se o prestador definiu um clipe específico no Firebase
-        res_firebase = requests.get(f"{FIREBASE_URL}/video_fundo/{provider_token}.json", timeout=5)
+        # 1. Tenta verificar se o prestador definiu um vídeo específico no Firebase
+        res_firebase = requests.get(f"{FIREBASE_URL}/config/{provider_token}/video_fundo.json", timeout=5)
         if res_firebase.status_code == 200 and res_firebase.json():
             dados = res_firebase.json()
             if isinstance(dados, str) and dados.startswith("http"):
@@ -400,24 +405,21 @@ def obter_video_fundo(provider_token):
             elif isinstance(dados, dict) and dados.get("url"):
                 return dados.get("url")
 
-        # 2. Se não houver URL fixa no Firebase, busca automaticamente um vídeo na pasta 'clipe' do Cloudinary
-        # Utiliza a API de recursos do Cloudinary filtrando pela pasta
+        # 2. Se o Firebase estiver vazio, busca automaticamente um vídeo na pasta 'clipes' do Cloudinary
         resultado_cloudinary = cloudinary.api.resources(
             type="upload",
-            prefix="clipe/",  # Pasta definida no Cloudinary
+            prefix="clipes/",  # Pasta exata no Cloudinary
             resource_type="video",
             max_results=50
         )
         
         recursos = resultado_cloudinary.get("resources", [])
         if recursos:
-            # Retorna a URL segura (secure_url) do primeiro clipe encontrado na pasta (ou você pode escolher aleatoriamente)
-            import random
             clipe_escolhido = random.choice(recursos)
             return clipe_escolhido.get("secure_url")
 
     except Exception as e:
-        print(f"Erro ao obter vídeo clipe de fundo do Cloudinary: {e}")
+        print(f"Aviso: Não foi possível carregar o vídeo de fundo: {e}")
     
     return None
 
@@ -428,7 +430,6 @@ def listar_videos_pasta_clipes():
     """
     lista_videos = []
     try:
-        # Faz a chamada à API do Cloudinary filtrando pela pasta 'clipes'
         resultado = cloudinary.api.resources(
             type="upload",
             prefix="clipes/",  # Pasta exata no Cloudinary
@@ -441,7 +442,6 @@ def listar_videos_pasta_clipes():
             public_id = recurso.get("public_id", "")
             secure_url = recurso.get("secure_url", "")
             
-            # Extrai apenas o nome do ficheiro para ficar limpo no selectbox
             nome_arquivo = public_id.split("/")[-1] if "/" in public_id else public_id
             
             if secure_url:
@@ -466,8 +466,6 @@ def limpar_nome_musica(musica_raw):
         titulo = titulo[:-4]
     return titulo.strip()
 
-import urllib.parse
-
 def obter_url_video_cloudinary(musica_obj, titulo_limpo):
     if isinstance(musica_obj, dict):
         url_direta = musica_obj.get("url_cloudinary", "") or musica_obj.get("url", "")
@@ -477,12 +475,11 @@ def obter_url_video_cloudinary(musica_obj, titulo_limpo):
             return url_direta
 
     cloud_name = "yhwgjh7g"
-    # Aponta diretamente para a pasta de músicas de karaoke dentro de 'Casa'
     caminho_pasta = "Casa/MÚSICAS DE KARAOKÊ"
     encoded_title = urllib.parse.quote(f"{caminho_pasta}/{titulo_limpo}.mp4")
     
     return f"https://res.cloudinary.com/{cloud_name}/video/upload/f_auto,q_auto/{encoded_title}"
-
+    
 @st.fragment(run_every=1)
 def renderizar_gestao_fila_prestador(provider_token):
     try:
