@@ -370,130 +370,67 @@ def custom_show_register_page():
                     except Exception as err:
                         st.error(f"Erro ao submeter registo: {err}")
 
-def atualizar_estado_pedido(provider_token, pedido_id, novo_estado):
-    try:
-        url = f"{FIREBASE_URL}/pedidos/{provider_token}/{pedido_id}/estado.json"
-        response = requests.put(url, json=novo_estado, timeout=10)
-        return response.status_code == 200
-    except Exception:
-        return False
-
-def terminar_todas_musicas_ativas(provider_token, pedidos):
-    for p in pedidos:
-        if p.get("estado") in ["aprovado", "pendente"]:
-            atualizar_estado_pedido(provider_token, p.get("id"), "terminado")
-
-def definir_video_fundo(provider_token, url_clipe):
-    try:
-        url = f"{FIREBASE_URL}/config/{provider_token}/video_fundo.json"
-        requests.put(url, json=url_clipe, timeout=10)
-    except Exception:
-        pass
-        
 def buscar_link_youtube(termo):
-    """Esta função corre no backend do prestador quando ele clica num botão"""
     ydl_opts = {'default_search': 'ytsearch1', 'format': 'best'}
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
         try:
             info = ydl.extract_info(termo, download=False)
-            link = f"https://www.youtube.com/watch?v={info['entries'][0]['id']}"
-            return link
-        except:
-            return None        
+            entries = info.get('entries', [])
+            if entries:
+                return f"https://www.youtube.com/watch?v={entries[0]['id']}"
+        except Exception:
+            pass
+    return None
+
+def limpar_nome_musica(musica_obj):
+    if isinstance(musica_obj, dict):
+        return musica_obj.get("titulo", "Música Desconhecida")
+    return str(musica_obj)
+
+def atualizar_estado_pedido(provider_token, pedido_id, novo_estado):
+    try:
+        url = f"{FIREBASE_URL}/pedidos/{provider_token}/{pedido_id}.json"
+        requests.patch(url, json={"estado": novo_estado}, timeout=5)
+    except Exception:
+        pass
+
+def terminar_todas_musicas_ativas(provider_token, pedidos):
+    for p in pedidos:
+        if p.get("estado") == "aprovado":
+            atualizar_estado_pedido(provider_token, p.get("id"), "terminado")
 
 def obter_video_fundo(provider_token):
     try:
-        # 1. Tenta buscar primeiro se o prestador definiu um clipe específico no Firebase
-        res_firebase = requests.get(f"{FIREBASE_URL}/video_fundo/{provider_token}.json", timeout=5)
-        if res_firebase.status_code == 200 and res_firebase.json():
-            dados = res_firebase.json()
-            if isinstance(dados, str) and dados.startswith("http"):
-                return dados
-            elif isinstance(dados, dict) and dados.get("url"):
-                return dados.get("url")
+        url = f"{FIREBASE_URL}/video_fundo/{provider_token}.json"
+        res = requests.get(url, timeout=5)
+        if res.status_code == 200 and res.json():
+            return res.json().get("url", "")
+    except Exception:
+        pass
+    return ""
 
-        # 2. Se não houver URL fixa no Firebase, busca automaticamente um vídeo na pasta 'clipe' do Cloudinary
-        # Utiliza a API de recursos do Cloudinary filtrando pela pasta
-        resultado_cloudinary = cloudinary.api.resources(
-            type="upload",
-            prefix="clipe/",  # Pasta definida no Cloudinary
-            resource_type="video",
-            max_results=50
-        )
-        
-        recursos = resultado_cloudinary.get("resources", [])
-        if recursos:
-            # Retorna a URL segura (secure_url) do primeiro clipe encontrado na pasta (ou você pode escolher aleatoriamente)
-            import random
-            clipe_escolhido = random.choice(recursos)
-            return clipe_escolhido.get("secure_url")
-
-    except Exception as e:
-        print(f"Erro ao obter vídeo clipe de fundo do Cloudinary: {e}")
-    
-    return None
+def definir_video_fundo(provider_token, url_video):
+    try:
+        url = f"{FIREBASE_URL}/video_fundo/{provider_token}.json"
+        requests.put(url, json={"url": url_video}, timeout=5)
+    except Exception:
+        pass
 
 def listar_videos_pasta_clipes():
-    """
-    Vai buscar todos os vídeos dentro da pasta 'clipes' no Cloudinary 
-    para preencher a lista de seleção no painel de controlo.
-    """
-    lista_videos = []
+    # Retorna lista vazia ou mock se não usar cloudinary direto aqui
+    return []
+
+def get_all_providers():
     try:
-        # Faz a chamada à API do Cloudinary filtrando pela pasta 'clipes'
-        resultado = cloudinary.api.resources(
-            type="upload",
-            prefix="clipes/",  # Pasta exata no Cloudinary
-            resource_type="video",
-            max_results=100
-        )
-        
-        recursos = resultado.get("resources", [])
-        for recurso in recursos:
-            public_id = recurso.get("public_id", "")
-            secure_url = recurso.get("secure_url", "")
-            
-            # Extrai apenas o nome do ficheiro para ficar limpo no selectbox
-            nome_arquivo = public_id.split("/")[-1] if "/" in public_id else public_id
-            
-            if secure_url:
-                lista_videos.append({
-                    "nome": nome_arquivo,
-                    "url": secure_url
-                })
-                
-    except Exception as e:
-        print(f"Erro ao listar vídeos da pasta clipes do Cloudinary: {e}")
-        
-    return lista_videos
+        url = f"{FIREBASE_URL}/providers.json"
+        res = requests.get(url, timeout=5)
+        if res.status_code == 200 and res.json():
+            data = res.json()
+            return pd.DataFrame([{"token": k, **v} for k, v in data.items()])
+    except Exception:
+        pass
+    return pd.DataFrame(columns=['token', 'approved', 'data_registo', 'nome_prestador', 'tempo_plano'])
 
-def limpar_nome_musica(musica_raw):
-    if isinstance(musica_raw, dict):
-        titulo = musica_raw.get("titulo", musica_raw.get("nome", "Karaoke"))
-    else:
-        titulo = str(musica_raw)
-    
-    titulo = titulo.strip('"\'')
-    if titulo.lower().endswith('.cdg'):
-        titulo = titulo[:-4]
-    return titulo.strip()
-
-import urllib.parse
-
-def obter_url_video_cloudinary(musica_obj, titulo_limpo):
-    if isinstance(musica_obj, dict):
-        url_direta = musica_obj.get("url_cloudinary", "") or musica_obj.get("url", "")
-        if url_direta and "http" in url_direta:
-            if "res.cloudinary.com" in url_direta and "/upload/" in url_direta and "f_auto,q_auto" not in url_direta:
-                return url_direta.replace("/upload/", "/upload/f_auto,q_auto/")
-            return url_direta
-
-    cloud_name = "yhwgjh7g"
-    # Aponta diretamente para a pasta de músicas de karaoke dentro de 'Casa'
-    caminho_pasta = "Casa/MÚSICAS DE KARAOKÊ"
-    encoded_title = urllib.parse.quote(f"{caminho_pasta}/{titulo_limpo}.mp4")
-    
-    return f"https://res.cloudinary.com/{cloud_name}/video/upload/f_auto,q_auto/{encoded_title}"
 
 @st.fragment(run_every=1)
 def renderizar_gestao_fila_prestador(provider_token):
@@ -506,9 +443,12 @@ def renderizar_gestao_fila_prestador(provider_token):
             data = response.json()
             pedidos = [{"id": k, **v} for k, v in data.items()]
             
+        # Separar pedidos normais/ativos dos pedidos extras
         pedidos_ativos = [p for p in pedidos if p.get("estado") in ["pendente", "aprovado"]]
         pedidos_ativos.sort(key=lambda x: x.get("timestamp", 0))
         
+        pedidos_extras = [p for p in pedidos if p.get("estado") == "pendente_ext"]
+
         tocando_agora = next((p for p in pedidos_ativos if p.get("estado") == "aprovado"), None)
         if not tocando_agora and pedidos_ativos:
             primeiro_id = pedidos_ativos[0].get('id')
@@ -516,117 +456,164 @@ def renderizar_gestao_fila_prestador(provider_token):
             pedidos_ativos[0]["estado"] = "aprovado"
             tocando_agora = pedidos_ativos[0]
 
-        col_esq, col_dir = st.columns([1.5, 1], gap="medium")
-        
-        with col_esq:
-            st.markdown("### 📋 Estado da Fila e Controlo de Reprodução")
+        # Criar Abas no Painel de Gestão (Fila Oficial vs Pedidos Extras)
+        aba_fila, aba_extras = st.tabs([f"📋 Fila de Reprodução ({len(pedidos_ativos)})", f"🎵 Pedidos Extras ({len(pedidos_extras)})"])
 
-            if pedidos_ativos:
-                for idx, p in enumerate(pedidos_ativos, start=1):
-                    titulo_musica = limpar_nome_musica(p.get("musica", {}))
-                    cliente_nome = p.get("cliente", "Convidado").upper()
+        with aba_fila:
+            col_esq, col_dir = st.columns([1.5, 1], gap="medium")
+            
+            with col_esq:
+                st.markdown("### 📋 Estado da Fila e Controlo de Reprodução")
+
+                if pedidos_ativos:
+                    for idx, p in enumerate(pedidos_ativos, start=1):
+                        titulo_musica = limpar_nome_musica(p.get("musica", {}))
+                        cliente_nome = p.get("cliente", "Convidado").upper()
+                        
+                        c_num, c_cli, c_tit, c_btn = st.columns([0.5, 2, 4, 0.8])
+                        with c_num:
+                            st.markdown(f"<div style='background:#000; color:#FFC107; border:1px solid #FFC107; padding:6px; text-align:center; font-family:monospace; font-weight:bold; border-radius:4px;'>{idx}</div>", unsafe_allow_html=True)
+                        with c_cli:
+                            st.markdown(f"<div style='background:#000; color:#FFC107; border:1px solid #FFC107; padding:6px; font-family:monospace; font-weight:bold; border-radius:4px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;'>{cliente_nome}</div>", unsafe_allow_html=True)
+                        with c_tit:
+                            st.markdown(f"<div style='background:#000; color:#FFC107; border:1px solid #FFC107; padding:6px; font-family:monospace; font-weight:bold; border-radius:4px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;'>{titulo_musica}</div>", unsafe_allow_html=True)
+                        with c_btn:
+                            if st.button("✕", key=f"del_fila_{p.get('id')}", use_container_width=True):
+                                atualizar_estado_pedido(provider_token, p.get('id'), 'terminado')
+                                st.rerun()
+                    st.markdown("<div style='height: 10px;'></div>", unsafe_allow_html=True)
+                else:
+                    st.markdown("""
+                        <div style="background-color: #000000; border: 2px solid #FFC107; border-radius: 6px; padding: 12px; color: #FFC107; font-family: monospace; font-size: 13px; margin-bottom: 15px; text-align: center; font-weight: bold;">
+                            NENHUM PEDIDO NA LISTA NESTE MOMENTO.<br>À ESPERA DE NOVOS PEDIDOS...</div>
+                    """, unsafe_allow_html=True)
+
+                st.markdown("### LEITOR KARAOKE")
+                
+                if tocando_agora:
+                    cantor_atual = tocando_agora.get("cliente", "CONVIDADO").upper()
+                    musica_atual = limpar_nome_musica(tocando_agora.get("musica", {}))
                     
-                    c_num, c_cli, c_tit, c_btn = st.columns([0.5, 2, 4, 0.8])
-                    with c_num:
-                        st.markdown(f"<div style='background:#000; color:#FFC107; border:1px solid #FFC107; padding:6px; text-align:center; font-family:monospace; font-weight:bold; border-radius:4px;'>{idx}</div>", unsafe_allow_html=True)
-                    with c_cli:
-                        st.markdown(f"<div style='background:#000; color:#FFC107; border:1px solid #FFC107; padding:6px; font-family:monospace; font-weight:bold; border-radius:4px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;'>{cliente_nome}</div>", unsafe_allow_html=True)
-                    with c_tit:
-                        st.markdown(f"<div style='background:#000; color:#FFC107; border:1px solid #FFC107; padding:6px; font-family:monospace; font-weight:bold; border-radius:4px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;'>{titulo_musica}</div>", unsafe_allow_html=True)
-                    with c_btn:
-                        if st.button("✕", key=f"del_fila_{p.get('id')}", use_container_width=True):
-                            atualizar_estado_pedido(provider_token, p.get('id'), 'terminado')
+                    st.markdown(f"""
+                        <div style="background: #000000; border: 3px solid #FFC107; border-radius: 6px; padding: 20px; margin-bottom: 15px; text-align: center;">
+                            <div style="color: #FFC107; font-family: monospace; font-size: 32px; font-weight: bold; text-transform: uppercase; margin-bottom: 8px; text-shadow: 2px 2px 6px rgba(0,0,0,0.9);">
+                                {cantor_atual}
+                            </div>
+                            <div style="color: #ffffff; font-family: monospace; font-size: 15px; font-weight: bold;">
+                                {musica_atual}
+                            </div>
+                        </div>
+                    """, unsafe_allow_html=True)
+                    
+                    c_t1, c_t2, c_t3 = st.columns(3)
+                    with c_t1:
+                        if st.button("▶️ Tocar o Karaoke", key=f"btn_tocar_{tocando_agora.get('id')}", use_container_width=True):
+                            terminar_todas_musicas_ativas(provider_token, pedidos)
+                            atualizar_estado_pedido(provider_token, tocando_agora.get('id'), 'aprovado')
                             st.rerun()
-                st.markdown("<div style='height: 10px;'></div>", unsafe_allow_html=True)
-            else:
-                st.markdown("""
-                    <div style="background-color: #000000; border: 2px solid #FFC107; border-radius: 6px; padding: 12px; color: #FFC107; font-family: monospace; font-size: 13px; margin-bottom: 15px; text-align: center; font-weight: bold;">
-                        NENHUM PEDIDO NA LISTA NESTE MOMENTO.<br>À ESPERA DE NOVOS PEDIDOS...</div>
-                """, unsafe_allow_html=True)
-
-            st.markdown("### LEITOR KARAOKE")
-            
-            if tocando_agora:
-                cantor_atual = tocando_agora.get("cliente", "CONVIDADO").upper()
-                musica_atual = limpar_nome_musica(tocando_agora.get("musica", {}))
-                
-                st.markdown(f"""
-                    <div style="background: #000000; border: 3px solid #FFC107; border-radius: 6px; padding: 20px; margin-bottom: 15px; text-align: center;">
-                        <div style="color: #FFC107; font-family: monospace; font-size: 32px; font-weight: bold; text-transform: uppercase; margin-bottom: 8px; text-shadow: 2px 2px 6px rgba(0,0,0,0.9);">
-                            {cantor_atual}
+                    with c_t2:
+                        if st.button("⏹️ Parar o Karaoke", key=f"btn_parar_{tocando_agora.get('id')}", use_container_width=True):
+                            terminar_todas_musicas_ativas(provider_token, pedidos)
+                            st.rerun()
+                    with c_t3:
+                        if st.button("⏭️ Avançar Karaoke", key=f"btn_prox_{tocando_agora.get('id')}", use_container_width=True):
+                            atualizar_estado_pedido(provider_token, tocando_agora.get('id'), 'terminado')
+                            restantes = [x for x in pedidos_ativos if x.get('id') != tocando_agora.get('id')]
+                            if restantes:
+                                atualizar_estado_pedido(provider_token, restantes[0].get('id'), 'aprovado')
+                            st.rerun()
+                else:
+                    st.markdown("""
+                        <div style="background: #000000; border: 3px solid #FFC107; border-radius: 6px; padding: 20px; text-align: center; font-family: monospace; color: #FFC107; font-weight: bold;">
+                            NENHUMA MÚSICA EM REPRODUÇÃO - À ESPERA DA FILA DE ESPERA
                         </div>
-                        <div style="color: #ffffff; font-family: monospace; font-size: 15px; font-weight: bold;">
-                            {musica_atual}
-                        </div>
-                    </div>
-                """, unsafe_allow_html=True)
+                    """, unsafe_allow_html=True)
+
+            with col_dir:
+                st.markdown("<div style='height: 5px;'></div>", unsafe_allow_html=True)
+                video_fundo_atual = obter_video_fundo(provider_token)
+                lista_clipes_cloudinary = listar_videos_pasta_clipes()
                 
-                c_t1, c_t2, c_t3 = st.columns(3)
-                with c_t1:
-                    if st.button("▶️ Tocar o Karaoke", key=f"btn_tocar_{tocando_agora.get('id')}", use_container_width=True):
-                        terminar_todas_musicas_ativas(provider_token, pedidos)
-                        atualizar_estado_pedido(provider_token, tocando_agora.get('id'), 'aprovado')
+                opcoes_labels = ["Nenhum (Ecrã Preto)"]
+                mapa_url_por_label = {}
+                for clipe in lista_clipes_cloudinary:
+                    label = f"📁 {clipe['nome']}"
+                    opcoes_labels.append(label)
+                    mapa_url_por_label[label] = clipe['url']
+                    
+                index_atual = 0
+                for idx, label in enumerate(opcoes_labels):
+                    if label != "Nenhum (Ecrã Preto)":
+                        url_mapeada = mapa_url_por_label.get(label, "")
+                        if video_fundo_atual and (video_fundo_atual in url_mapeada or url_mapeada in video_fundo_atual):
+                            index_atual = idx
+                            break
+
+                with st.form(key="form_video_fundo_pos"):
+                    st.markdown("<div style='font-family: monospace; color: #ffffff; font-size: 13px; font-weight: bold; margin-bottom: 5px;'>Pesquisar Vídeo Clipe</div>", unsafe_allow_html=True)
+                    escolha_video = st.selectbox("Pesquisar Vídeo Clipe", options=opcoes_labels, index=index_atual, label_visibility="collapsed")
+                    st.markdown("<div style='height: 10px;'></div>", unsafe_allow_html=True)
+                    
+                    col_btn_play, col_btn_stop = st.columns(2)
+                    with col_btn_play:
+                        btn_play_fundo = st.form_submit_button("▶️ Play", use_container_width=True)
+                    with col_btn_stop:
+                        btn_stop_fundo = st.form_submit_button("⏹️ Stop", use_container_width=True)
+
+                    if btn_play_fundo:
+                        valor_a_guardar = "" if escolha_video == "Nenhum (Ecrã Preto)" else mapa_url_por_label.get(escolha_video, "")
+                        definir_video_fundo(provider_token, valor_a_guardar)
+                        st.success("Vídeo clipe de fundo colocado em reprodução na tela!")
                         st.rerun()
-                with c_t2:
-                    if st.button("⏹️ Parar o Karaoke", key=f"btn_parar_{tocando_agora.get('id')}", use_container_width=True):
-                        terminar_todas_musicas_ativas(provider_token, pedidos)
+                    
+                    if btn_stop_fundo:
+                        definir_video_fundo(provider_token, "")
+                        st.success("Vídeo clipe parado (Ecrã Preto ativado)!")
                         st.rerun()
-                with c_t3:
-                    if st.button("⏭️ Avançar Karaoke", key=f"btn_prox_{tocando_agora.get('id')}", use_container_width=True):
-                        atualizar_estado_pedido(provider_token, tocando_agora.get('id'), 'terminado')
-                        restantes = [x for x in pedidos_ativos if x.get('id') != tocando_agora.get('id')]
-                        if restantes:
-                            atualizar_estado_pedido(provider_token, restantes[0].get('id'), 'aprovado')
-                        st.rerun()
+
+        # --- ABA DE PEDIDOS EXTRAS ---
+        with aba_extras:
+            st.markdown("### 📥 Caixa de Pedidos Não Achados (Externos)")
+            if pedidos_extras:
+                for p in pedidos_extras:
+                    pedido_id = p.get("id")
+                    cliente = p.get("cliente", "Desconhecido")
+                    musica_nome = p.get("musica", "")
+                    link_existente = p.get("link_yt", "")
+                    
+                    with st.container(border=True):
+                        st.markdown(f"🎵 **{musica_nome}**")
+                        st.caption(f"Pedido enviado por: {cliente}")
+                        
+                        if link_existente:
+                            st.markdown(f"🔗 [Abrir vídeo encontrado no YouTube]({link_existente})")
+                        
+                        col_b1, col_b2, col_b3 = st.columns(3)
+                        with col_b1:
+                            if st.button("🔍 Procurar no YouTube", key=f"procurar_ext_{pedido_id}"):
+                                termo_busca = f"{musica_nome} karaoke"
+                                novo_link = buscar_link_youtube(termo_busca)
+                                if novo_link:
+                                    requests.patch(f"{FIREBASE_URL}/pedidos/{provider_token}/{pedido_id}.json", json={"link_yt": novo_link})
+                                    st.success("Link encontrado com sucesso!")
+                                    time.sleep(0.5)
+                                    st.rerun()
+                                else:
+                                    st.error("Nenhum vídeo correspondente encontrado.")
+                        with col_b2:
+                            if link_existente:
+                                if st.button("▶️ Enviar para a Fila Oficial", key=f"enviar_fila_ext_{pedido_id}"):
+                                    requests.patch(f"{FIREBASE_URL}/pedidos/{provider_token}/{pedido_id}.json", json={"estado": "pendente", "musica": f"{musica_nome} (Externo)"})
+                                    st.success("Movido para a fila principal!")
+                                    time.sleep(0.5)
+                                    st.rerun()
+                        with col_b3:
+                            if st.button("Apagar", key=f"apagar_ext_{pedido_id}", type="primary"):
+                                requests.delete(f"{FIREBASE_URL}/pedidos/{provider_token}/{pedido_id}.json")
+                                st.rerun()
             else:
-                st.markdown("""
-                    <div style="background: #000000; border: 3px solid #FFC107; border-radius: 6px; padding: 20px; text-align: center; font-family: monospace; color: #FFC107; font-weight: bold;">
-                        NENHUMA MÚSICA EM REPRODUÇÃO - À ESPERA DA FILA DE ESPERA
-                    </div>
-                """, unsafe_allow_html=True)
+                st.markdown("<div style='border: 2px solid #FFC107; padding: 15px; color: #FFC107; text-align: center; font-weight: bold;'>NENHUM PEDIDO EXTRA PENDENTE NO MOMENTO.</div>", unsafe_allow_html=True)
 
-        with col_dir:
-            st.markdown("<div style='height: 5px;'></div>", unsafe_allow_html=True)
-            video_fundo_atual = obter_video_fundo(provider_token)
-            lista_clipes_cloudinary = listar_videos_pasta_clipes()
-            
-            opcoes_labels = ["Nenhum (Ecrã Preto)"]
-            mapa_url_por_label = {}
-            for clipe in lista_clipes_cloudinary:
-                label = f"📁 {clipe['nome']}"
-                opcoes_labels.append(label)
-                mapa_url_por_label[label] = clipe['url']
-                
-            index_atual = 0
-            for idx, label in enumerate(opcoes_labels):
-                if label != "Nenhum (Ecrã Preto)":
-                    url_mapeada = mapa_url_por_label.get(label, "")
-                    if video_fundo_atual and (video_fundo_atual in url_mapeada or url_mapeada in video_fundo_atual):
-                        index_atual = idx
-                        break
-
-            with st.form(key="form_video_fundo_pos"):
-                st.markdown("<div style='font-family: monospace; color: #ffffff; font-size: 13px; font-weight: bold; margin-bottom: 5px;'>Pesquisar Vídeo Clipe</div>", unsafe_allow_html=True)
-                escolha_video = st.selectbox("Pesquisar Vídeo Clipe", options=opcoes_labels, index=index_atual, label_visibility="collapsed")
-                st.markdown("<div style='height: 10px;'></div>", unsafe_allow_html=True)
-                
-                col_btn_play, col_btn_stop = st.columns(2)
-                with col_btn_play:
-                    btn_play_fundo = st.form_submit_button("▶️ Play", use_container_width=True)
-                with col_btn_stop:
-                    btn_stop_fundo = st.form_submit_button("⏹️ Stop", use_container_width=True)
-
-                if btn_play_fundo:
-                    valor_a_guardar = "" if escolha_video == "Nenhum (Ecrã Preto)" else mapa_url_por_label.get(escolha_video, "")
-                    definir_video_fundo(provider_token, valor_a_guardar)
-                    st.success("Vídeo clipe de fundo colocado em reprodução na tela!")
-                    st.rerun()
-                
-                if btn_stop_fundo:
-                    definir_video_fundo(provider_token, "")
-                    st.success("Vídeo clipe parado (Ecrã Preto ativado)!")
-                    st.rerun()
-          
     except Exception as e:
         st.error(f"Erro ao carregar os pedidos do Firebase: {e}")
 
@@ -637,13 +624,11 @@ def show_provider_panel_custom(provider_token):
 
     df_prov = get_all_providers()
     
-    # Valores padrão caso não encontre (substituído o "Carlos Miguel" genérico por um aviso limpo)
     nome_prestador = "PRESTADOR NÃO IDENTIFICADO"
     tempo_plano = "2 Horas - 12 Mil Kwanzas"
     data_registo_str = None
     
     if not df_prov.empty:
-        # Tenta identificar qual coluna guarda o token
         col_token_candidates = ['token', 'provider_token', 'id']
         col_token_encontrada = next((c for c in col_token_candidates if c in df_prov.columns), None)
         
@@ -652,19 +637,16 @@ def show_provider_panel_custom(provider_token):
             if not match.empty:
                 row = match.iloc[0]
                 
-                # Procura dinamicamente pelas colunas de nome
                 for col_n in ['nome_prestador', 'nome', 'prestador', 'user']:
                     if col_n in df_prov.columns and pd.notna(row.get(col_n)):
                         nome_prestador = str(row.get(col_n)).upper()
                         break
                 
-                # Procura dinamicamente pelas colunas de plano/tempo
                 for col_p in ['tempo_plano', 'plano', 'duracao', 'tempo']:
                     if col_p in df_prov.columns and pd.notna(row.get(col_p)):
                         tempo_plano = str(row.get(col_p))
                         break
                         
-                # Procura dinamicamente pela data de registo
                 for col_d in ['data_registo', 'data', 'timestamp', 'created_at']:
                     if col_d in df_prov.columns and pd.notna(row.get(col_d)):
                         data_registo_str = str(row.get(col_d))
@@ -687,7 +669,6 @@ def show_provider_panel_custom(provider_token):
     except Exception:
         pass
 
-    # Define os segundos base com base estrita no plano escolhido pelo prestador
     segundos_base = 7200
     if "3 Horas" in tempo_plano:
         segundos_base = 10800
@@ -850,7 +831,7 @@ def show_provider_panel_custom(provider_token):
     link_tv_absoluto = f"https://{host_dominio}{link_tv_rel}"
     
     qr_url_cliente = f"https://api.qrserver.com/v1/create-qr-code/?size=150x150&data={urllib.parse.quote(link_cliente_absoluto)}"
-
+    
     col_links, col_qr = st.columns([2.5, 1], gap="medium")
     with col_links:
         st.markdown(f"""
@@ -913,6 +894,10 @@ def show_provider_panel_custom(provider_token):
 
     st.markdown("<div style='height: 5px;'></div>", unsafe_allow_html=True)
     renderizar_gestao_fila_prestador(provider_token)
+
+
+def show_prestador_page(token, url):
+    show_provider_panel_custom(token)
     
 def renderizar_ecra_tv(provider_token):
     try:
