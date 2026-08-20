@@ -3,8 +3,12 @@ import requests
 import time
 import urllib.parse
 from datetime import datetime
+import pandas as pd
 
 def show_provider_panel_custom(provider_token, FIREBASE_URL=None, get_all_providers=None, renderizar_gestao_fila_prestador=None):
+    if not FIREBASE_URL:
+        FIREBASE_URL = "https://grupo-ff-karaoke-default-rtdb.firebaseio.com"
+
     url_logotipo = "https://cdn.phototourl.com/free/2026-08-03-8b13edf5-0257-491d-ab78-f0d5329ffc15.jpg"
     url_fundo_painel = "https://cdn.phototourl.com/free/2026-08-03-694a4a2e-9914-4da8-93b2-87538a4805ab.png"
 
@@ -216,10 +220,26 @@ def show_provider_panel_custom(provider_token, FIREBASE_URL=None, get_all_provid
         st.info("Aqui pode ver os pedidos manuais enviados pelos clientes e aceder diretamente às sugestões geradas no YouTube.")
         
         try:
+            # Tentar carregar usando o token direto ou varredura de segurança caso venha vazio
+            extras_data = None
             res_extras = requests.get(f"{FIREBASE_URL}/pedidos_extras/{provider_token}.json", timeout=10)
             if res_extras.status_code == 200 and res_extras.json():
                 extras_data = res_extras.json()
+            else:
+                # Fallback: se não encontrar pelo token exato, procura em todos os nós de pedidos_extras
+                res_all = requests.get(f"{FIREBASE_URL}/pedidos_extras.json", timeout=10)
+                if res_all.status_code == 200 and res_all.json():
+                    all_providers_extras = res_all.json()
+                    if isinstance(all_providers_extras, dict):
+                        for p_key, p_val in all_providers_extras.items():
+                            if isinstance(p_val, dict) and len(p_val) > 0:
+                                extras_data = p_val
+                                break
+
+            if extras_data and isinstance(extras_data, dict):
                 for k, v in extras_data.items():
+                    if not isinstance(v, dict):
+                        continue
                     nome_musica = v.get('musica', '')
                     query_encoded = urllib.parse.quote(f"{nome_musica} karaoke")
                     url_sugestao_yt = f"https://www.youtube.com/results?search_query={query_encoded}"
@@ -231,7 +251,6 @@ def show_provider_panel_custom(provider_token, FIREBASE_URL=None, get_all_provid
                             timestamp_val = timestamp_val / 1000
                         st.write(f"**Enviado em:** {time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(timestamp_val))}")
                         
-                        # Bloco limpo apenas com a Pesquisa Automatizada no YouTube (sem campos extra)
                         st.markdown(f"""
                         <div style="background: #111; border: 2px solid #FFC107; padding: 12px; border-radius: 6px; margin: 10px 0;">
                             <p style="margin: 0 0 8px 0; color: #FFC107; font-weight: bold;">🔍 Pesquisa Automatizada no YouTube:</p>
