@@ -370,17 +370,26 @@ def custom_show_register_page():
                     except Exception as err:
                         st.error(f"Erro ao submeter registo: {err}")
 
-def buscar_link_youtube(termo):
-    ydl_opts = {'default_search': 'ytsearch1', 'format': 'best'}
+def buscar_multiplos_links_youtube(termo, max_resultados=6):
+    ydl_opts = {'default_search': f'ytsearch{max_resultados}', 'format': 'best', 'extract_flat': False}
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
         try:
             info = ydl.extract_info(termo, download=False)
             entries = info.get('entries', [])
-            if entries:
-                return f"https://www.youtube.com/watch?v={entries[0]['id']}"
+            resultados = []
+            for entry in entries:
+                if entry:
+                    titulo = entry.get('title', 'Vídeo do YouTube')
+                    vid_id = entry.get('id', '')
+                    if vid_id:
+                        resultados.append({
+                            "titulo": titulo,
+                            "url": f"https://www.youtube.com/watch?v={vid_id}"
+                        })
+            return resultados
         except Exception:
             pass
-    return None
+    return []
 
 def limpar_nome_musica(musica_obj):
     if isinstance(musica_obj, dict):
@@ -417,7 +426,6 @@ def definir_video_fundo(provider_token, url_video):
         pass
 
 def listar_videos_pasta_clipes():
-    # Retorna lista vazia ou mock se não usar cloudinary direto aqui
     return []
 
 def get_all_providers():
@@ -443,7 +451,6 @@ def renderizar_gestao_fila_prestador(provider_token):
             data = response.json()
             pedidos = [{"id": k, **v} for k, v in data.items()]
             
-        # Separar pedidos normais/ativos dos pedidos extras
         pedidos_ativos = [p for p in pedidos if p.get("estado") in ["pendente", "aprovado"]]
         pedidos_ativos.sort(key=lambda x: x.get("timestamp", 0))
         
@@ -456,7 +463,6 @@ def renderizar_gestao_fila_prestador(provider_token):
             pedidos_ativos[0]["estado"] = "aprovado"
             tocando_agora = pedidos_ativos[0]
 
-        # Criar Abas no Painel de Gestão (Fila Oficial vs Pedidos Extras)
         aba_fila, aba_extras = st.tabs([f"📋 Fila de Reprodução ({len(pedidos_ativos)})", f"🎵 Pedidos Extras ({len(pedidos_extras)})"])
 
         with aba_fila:
@@ -573,42 +579,57 @@ def renderizar_gestao_fila_prestador(provider_token):
 
         # --- ABA DE PEDIDOS EXTRAS ---
         with aba_extras:
-            st.markdown("### 📥 Caixa de Pedidos Não Achados (Externos)")
+            st.markdown("### 🕹️ CAIXA DE PEDIDOS NÃO ACHADOS (EXTERNOS)")
             if pedidos_extras:
                 for p in pedidos_extras:
                     pedido_id = p.get("id")
                     cliente = p.get("cliente", "Desconhecido")
                     musica_nome = p.get("musica", "")
-                    link_existente = p.get("link_yt", "")
+                    timestamp_pedido = p.get("timestamp_str", "Data não registada")
+                    
+                    # Recuperar lista de opções encontradas guardadas no firebase (se houver)
+                    opcoes_encontradas = p.get("opcoes_yt", [])
+                    link_selecionado = p.get("link_yt", "")
                     
                     with st.container(border=True):
                         st.markdown(f"🎵 **{musica_nome}**")
-                        st.caption(f"Pedido enviado por: {cliente}")
+                        st.caption(f"Pedido de cliente - {cliente} - {timestamp_pedido}")
                         
-                        if link_existente:
-                            st.markdown(f"🔗 [Abrir vídeo encontrado no YouTube]({link_existente})")
+                        if link_selecionado:
+                            st.markdown(f"🔗 [{link_selecionado}]({link_selecionado})")
                         
-                        col_b1, col_b2, col_b3 = st.columns(3)
+                        # Mostrar as opções de links encontrados no estilo da imagem 1
+                        if opcoes_encontradas:
+                            for opt in opcoes_encontradas:
+                                st.markdown(f"▶️ [{opt['titulo']}]({opt['url']})")
+                        
+                        st.markdown("<div style='height: 5px;'></div>", unsafe_allow_html=True)
+                        
+                        col_b1, col_b2, col_b3 = st.columns([1.5, 1, 0.8])
                         with col_b1:
-                            if st.button("🔍 Procurar no YouTube", key=f"procurar_ext_{pedido_id}"):
+                            if st.button("🔍 Procurar karaoke no YouTube", key=f"procurar_ext_{pedido_id}"):
                                 termo_busca = f"{musica_nome} karaoke"
-                                novo_link = buscar_link_youtube(termo_busca)
-                                if novo_link:
-                                    requests.patch(f"{FIREBASE_URL}/pedidos/{provider_token}/{pedido_id}.json", json={"link_yt": novo_link})
-                                    st.success("Link encontrado com sucesso!")
+                                resultados_busca = buscar_multiplos_links_youtube(termo_busca, max_resultados=6)
+                                if resultados_busca:
+                                    primeiro_link = resultados_busca[0]['url']
+                                    # Atualiza no Firebase com os resultados e o primeiro link por defeito
+                                    requests.patch(f"{FIREBASE_URL}/pedidos/{provider_token}/{pedido_id}.json", json={
+                                        "opcoes_yt": resultados_busca,
+                                        "link_yt": primeiro_link
+                                    })
+                                    st.success(f"{len(resultados_busca)} opções encontradas!")
                                     time.sleep(0.5)
                                     st.rerun()
                                 else:
                                     st.error("Nenhum vídeo correspondente encontrado.")
                         with col_b2:
-                            if link_existente:
-                                if st.button("▶️ Enviar para a Fila Oficial", key=f"enviar_fila_ext_{pedido_id}"):
-                                    requests.patch(f"{FIREBASE_URL}/pedidos/{provider_token}/{pedido_id}.json", json={"estado": "pendente", "musica": f"{musica_nome} (Externo)"})
-                                    st.success("Movido para a fila principal!")
-                                    time.sleep(0.5)
-                                    st.rerun()
+                            if link_selecionado:
+                                if st.button("Abrir no YouTube", key=f"abrir_yt_ext_{pedido_id}", use_container_width=True):
+                                    st.markdown(f'<meta http-equiv="refresh" content="0;url={link_selecionado}">', unsafe_allow_html=True)
+                            else:
+                                st.button("Abrir no YouTube", key=f"abrir_yt_disabled_{pedido_id}", disabled=True, use_container_width=True)
                         with col_b3:
-                            if st.button("Apagar", key=f"apagar_ext_{pedido_id}", type="primary"):
+                            if st.button("Apagar", key=f"apagar_ext_{pedido_id}", type="primary", use_container_width=True):
                                 requests.delete(f"{FIREBASE_URL}/pedidos/{provider_token}/{pedido_id}.json")
                                 st.rerun()
             else:
@@ -898,6 +919,7 @@ def show_provider_panel_custom(provider_token):
 
 def show_prestador_page(token, url):
     show_provider_panel_custom(token)
+
     
 def renderizar_ecra_tv(provider_token):
     try:
