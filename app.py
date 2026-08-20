@@ -370,6 +370,7 @@ def custom_show_register_page():
                     except Exception as err:
                         st.error(f"Erro ao submeter registo: {err}")
 
+# --- FUNÇÃO AUXILIAR: BUSCAR MÚLTIPLOS LINKS NO YOUTUBE ---
 def buscar_multiplos_links_youtube(termo, max_resultados=6):
     ydl_opts = {'default_search': f'ytsearch{max_resultados}', 'format': 'best', 'extract_flat': False}
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
@@ -594,40 +595,49 @@ def renderizar_gestao_fila_prestador(provider_token):
                         st.markdown(f"🎵 **{musica_nome}**")
                         st.caption(f"Pedido de cliente - {cliente} - {timestamp_pedido}")
                         
+                        # Link principal em cima, estilizado em amarelo com sublinhado
                         if link_selecionado:
-                            st.markdown(f"🔗 [{link_selecionado}]({link_selecionado})")
+                            st.markdown(f"<a href='{link_selecionado}' target='_blank' style='color: #FFC107; font-family: monospace; font-weight: bold; font-size: 13px; text-decoration: underline;'>{link_selecionado}</a>", unsafe_allow_html=True)
                         
-                        # Se já existirem opções guardadas, mostra os links diretamente
+                        # Lista completa dos resultados do YouTube recolhidos (idêntico à segunda imagem)
                         if opcoes_encontradas:
                             for opt in opcoes_encontradas:
-                                st.markdown(f"▶️ [{opt['titulo']}]({opt['url']})")
+                                t_opt = opt.get('titulo', 'Vídeo')
+                                u_opt = opt.get('url', '#')
+                                st.markdown(f"<div style='margin: 4px 0;'><a href='{u_opt}' target='_blank' style='color: #FFC107; font-family: monospace; font-size: 13px; text-decoration: none; font-weight: bold;'>▶️ {t_opt}</a></div>", unsafe_allow_html=True)
                         
                         st.markdown("<div style='height: 5px;'></div>", unsafe_allow_html=True)
                         
                         col_b1, col_b2, col_b3 = st.columns([1.5, 1, 0.8])
                         with col_b1:
-                            if st.button("🔍 Procurar karaoke no YouTube", key=f"procurar_ext_{pedido_id}"):
+                            if st.button("🔍 Procurar karaoke no YouTube", key=f"procurar_ext_{pedido_id}", type="secondary", use_container_width=True):
                                 termo_busca = f"{musica_nome} karaoke"
                                 resultados_busca = buscar_multiplos_links_youtube(termo_busca, max_resultados=6)
                                 if resultados_busca:
                                     primeiro_link = resultados_busca[0]['url']
-                                    # Grava de imediato no Firebase para atualizar o estado da página
                                     payload_atualizacao = {
                                         "opcoes_yt": resultados_busca,
                                         "link_yt": primeiro_link
                                     }
                                     requests.patch(f"{FIREBASE_URL}/pedidos/{provider_token}/{pedido_id}.json", json=payload_atualizacao)
-                                    st.success(f"{len(resultados_busca)} opções encontradas!")
+                                    st.success("Opções encontradas com sucesso!")
                                     time.sleep(0.3)
                                     st.rerun()
                                 else:
                                     st.error("Nenhum vídeo correspondente encontrado.")
                         with col_b2:
                             if link_selecionado:
-                                if st.button("Abrir no YouTube", key=f"abrir_yt_ext_{pedido_id}", use_container_width=True):
-                                    st.markdown(f'<meta http-equiv="refresh" content="0;url={link_selecionado}">', unsafe_allow_html=True)
+                                st.markdown(f"""
+                                    <a href="{link_selecionado}" target="_blank" style="display: block; background-color: #000000; color: #ffffff; border: 1px solid #333; text-align: center; padding: 6px 12px; border-radius: 4px; text-decoration: none; font-family: monospace; font-weight: bold; font-size: 14px;">
+                                        Abrir no YouTube
+                                    </a>
+                                """, unsafe_allow_html=True)
                             else:
-                                st.button("Abrir no YouTube", key=f"abrir_yt_disabled_{pedido_id}", disabled=True, use_container_width=True)
+                                st.markdown("""
+                                    <div style="background-color: #111; color: #666; border: 1px solid #222; text-align: center; padding: 6px 12px; border-radius: 4px; font-family: monospace; font-weight: bold; font-size: 14px; cursor: not-allowed;">
+                                        Abrir no YouTube
+                                    </div>
+                                """, unsafe_allow_html=True)
                         with col_b3:
                             if st.button("Apagar", key=f"apagar_ext_{pedido_id}", type="primary", use_container_width=True):
                                 requests.delete(f"{FIREBASE_URL}/pedidos/{provider_token}/{pedido_id}.json")
@@ -915,10 +925,6 @@ def show_provider_panel_custom(provider_token):
 
     st.markdown("<div style='height: 5px;'></div>", unsafe_allow_html=True)
     renderizar_gestao_fila_prestador(provider_token)
-
-
-def show_prestador_page(token, url):
-    show_provider_panel_custom(token)
 
     
 def renderizar_ecra_tv(provider_token):
