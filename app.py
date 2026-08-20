@@ -932,7 +932,7 @@ def show_provider_panel_custom(provider_token):
                         atualizar_estado_pedido(provider_token, restantes[0].get('id'), 'aprovado')
                     st.rerun()
 
-        # SECÇÃO DA TABELA NATIVA DO STREAMLIT (SEM TEXTO BRUTO)
+        # SECÇÃO DA TABELA COM CONTROLO UNIFICADO NA COLUNA AÇÕES
         st.markdown("<div style='height: 10px;'></div>", unsafe_allow_html=True)
         st.markdown("""
             <div style="font-family: monospace; color: #ffffff; font-size: 16px; font-weight: bold; margin-bottom: 8px;">
@@ -942,13 +942,13 @@ def show_provider_panel_custom(provider_token):
 
         pedidos_ativos = [p for p in pedidos if p.get("estado") in ["pendente", "aprovado"]]
 
-        # Cabeçalho da Tabela
+        # Cabeçalho da Tabela Estilizado
         st.markdown("""
             <div style="background-color: #03a9f4; border: 3px solid #FFC107; border-bottom: none; border-radius: 8px 8px 0 0; padding: 10px 12px; display: flex; font-family: monospace; font-weight: bold; font-size: 15px; color: #ffffff;">
-                <div style="width: 8%;">Nº</div>
-                <div style="width: 27%;">CANTOR</div>
-                <div style="width: 35%;">TÍTULO</div>
-                <div style="width: 30%; text-align: center;">AÇÕES</div>
+                <div style="width: 10%;">Nº</div>
+                <div style="width: 30%;">CANTOR</div>
+                <div style="width: 38%;">TÍTULO</div>
+                <div style="width: 22%; text-align: center;">AÇÕES</div>
             </div>
         """, unsafe_allow_html=True)
 
@@ -958,57 +958,52 @@ def show_provider_panel_custom(provider_token):
                 musica = limpar_nome_musica(p.get("musica", {}))
                 pid = p.get("id")
                 
-                # Linha da Tabela
+                # Linha individual estilizada
                 st.markdown(f"""
-                    <div style="background-color: #000000; border-left: 3px solid #FFC107; border-right: 3px solid #FFC107; border-bottom: 2px solid #FFC107; padding: 6px 12px; display: flex; align-items: center; font-family: monospace; font-size: 14px; color: #ffffff;">
-                        <div style="width: 8%; font-weight: bold;">{idx}</div>
-                        <div style="width: 27%; font-weight: bold; color: #FFC107;">{cantor}</div>
-                        <div style="width: 35%;">{musica}</div>
-                        <div style="width: 30%;"></div>
+                    <div style="background-color: #000000; border-left: 3px solid #FFC107; border-right: 3px solid #FFC107; border-bottom: 2px solid #FFC107; padding: 8px 12px; display: flex; align-items: center; font-family: monospace; font-size: 14px; color: #ffffff;">
+                        <div style="width: 10%; font-weight: bold;">{idx}</div>
+                        <div style="width: 30%; font-weight: bold; color: #FFC107;">{cantor}</div>
+                        <div style="width: 38%;">{musica}</div>
+                        <div style="width: 22%; text-align: center;"></div>
                     </div>
                 """, unsafe_allow_html=True)
                 
-                # Três botões funcionais perfeitamente alinhados na coluna Ações
-                b_col1, b_col2, b_col3 = st.columns(3)
-                with b_col1:
-                    if st.button("⬆️ Subir", key=f"subir_{pid}", use_container_width=True):
-                        try:
-                            res_all = requests.get(f"{FIREBASE_URL}/pedidos/{provider_token}.json", timeout=5)
-                            if res_all.status_code == 200 and res_all.json():
-                                items = sorted(res_all.json().items(), key=lambda x: x[1].get("timestamp", 0))
-                                idx_alvo = next((i for i, (k, v) in enumerate(items) if k == pid), -1)
-                                if idx_alvo > 0:
-                                    t_atual = items[idx_alvo][1].get("timestamp", time.time())
-                                    t_ant = items[idx_alvo-1][1].get("timestamp", time.time() - 1)
-                                    k_ant = items[idx_alvo-1][0]
-                                    requests.patch(f"{FIREBASE_URL}/pedidos/{provider_token}/{pid}.json", json={"timestamp": t_ant}, timeout=5)
-                                    requests.patch(f"{FIREBASE_URL}/pedidos/{provider_token}/{k_ant}.json", json={"timestamp": t_atual}, timeout=5)
+                # Coluna de ações unificada com seletor de opções e botão de confirmação
+                col_acao_sel, col_acao_btn = st.columns([1.5, 1])
+                with col_acao_sel:
+                    acao_escolhida = st.selectbox(
+                        "Ação", 
+                        options=["Selecione...", "⬆️ Subir", "⬇️ Descer", "❌ Apagar"], 
+                        key=f"sel_acao_{pid}", 
+                        label_visibility="collapsed"
+                    )
+                with col_acao_btn:
+                    if st.button("Executar", key=f"btn_exec_{pid}", use_container_width=True):
+                        if acao_escolhida != "Selecione...":
+                            try:
+                                res_all = requests.get(f"{FIREBASE_URL}/pedidos/{provider_token}.json", timeout=5)
+                                if res_all.status_code == 200 and res_all.json():
+                                    items = sorted(res_all.json().items(), key=lambda x: x[1].get("timestamp", 0))
+                                    idx_alvo = next((i for i, (k, v) in enumerate(items) if k == pid), -1)
+                                    
+                                    if acao_escolhida == "❌ Apagar":
+                                        requests.delete(f"{FIREBASE_URL}/pedidos/{provider_token}/{pid}.json", timeout=5)
+                                    elif acao_escolhida == "⬆️ Subir" and idx_alvo > 0:
+                                        t_atual = items[idx_alvo][1].get("timestamp", time.time())
+                                        t_ant = items[idx_alvo-1][1].get("timestamp", time.time() - 1)
+                                        k_ant = items[idx_alvo-1][0]
+                                        requests.patch(f"{FIREBASE_URL}/pedidos/{provider_token}/{pid}.json", json={"timestamp": t_ant}, timeout=5)
+                                        requests.patch(f"{FIREBASE_URL}/pedidos/{provider_token}/{k_ant}.json", json={"timestamp": t_atual}, timeout=5)
+                                    elif acao_escolhida == "⬇️ Descer" and idx_alvo != -1 and idx_alvo < len(items) - 1:
+                                        t_atual = items[idx_alvo][1].get("timestamp", time.time())
+                                        t_prox = items[idx_alvo+1][1].get("timestamp", time.time() + 1)
+                                        k_prox = items[idx_alvo+1][0]
+                                        requests.patch(f"{FIREBASE_URL}/pedidos/{provider_token}/{pid}.json", json={"timestamp": t_prox}, timeout=5)
+                                        requests.patch(f"{FIREBASE_URL}/pedidos/{provider_token}/{k_prox}.json", json={"timestamp": t_atual}, timeout=5)
+                                        
                                     st.rerun()
-                        except Exception:
-                            pass
-                with b_col2:
-                    if st.button("⬇️ Descer", key=f"descer_{pid}", use_container_width=True):
-                        try:
-                            res_all = requests.get(f"{FIREBASE_URL}/pedidos/{provider_token}.json", timeout=5)
-                            if res_all.status_code == 200 and res_all.json():
-                                items = sorted(res_all.json().items(), key=lambda x: x[1].get("timestamp", 0))
-                                idx_alvo = next((i for i, (k, v) in enumerate(items) if k == pid), -1)
-                                if idx_alvo != -1 and idx_alvo < len(items) - 1:
-                                    t_atual = items[idx_alvo][1].get("timestamp", time.time())
-                                    t_prox = items[idx_alvo+1][1].get("timestamp", time.time() + 1)
-                                    k_prox = items[idx_alvo+1][0]
-                                    requests.patch(f"{FIREBASE_URL}/pedidos/{provider_token}/{pid}.json", json={"timestamp": t_prox}, timeout=5)
-                                    requests.patch(f"{FIREBASE_URL}/pedidos/{provider_token}/{k_prox}.json", json={"timestamp": t_atual}, timeout=5)
-                                    st.rerun()
-                        except Exception:
-                            pass
-                with b_col3:
-                    if st.button("❌ Apagar", key=f"apagar_{pid}", use_container_width=True):
-                        try:
-                            requests.delete(f"{FIREBASE_URL}/pedidos/{provider_token}/{pid}.json", timeout=5)
-                            st.rerun()
-                        except Exception:
-                            pass
+                            except Exception:
+                                pass
         else:
             st.markdown("""
                 <div style="background-color: #000000; border: 3px solid #FFC107; border-top: none; border-radius: 0 0 8px 8px; padding: 20px; text-align: center; color: #FFC107; font-family: monospace; font-size: 15px;">
