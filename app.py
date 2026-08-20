@@ -825,8 +825,8 @@ def show_provider_panel_custom(provider_token):
     </style>
     """, unsafe_allow_html=True)
 
+    # CABEÇALHO DO PAINEL
     col_topo_1, col_topo_2, col_topo_3 = st.columns([1.2, 3, 0.8])
-    
     with col_topo_1:
         st.markdown(f"""
             <div style="background: #000000; border: 2px solid #FFC107; border-radius: 6px; padding: 8px; text-align: center;">
@@ -835,7 +835,6 @@ def show_provider_panel_custom(provider_token):
                 <div style="font-family: monospace; color: #fff; font-size: 10px;">({tempo_plano})</div>
             </div>
         """, unsafe_allow_html=True)
-        
     with col_topo_2:
         st.markdown(f"""
             <div style="display: flex; align-items: center; gap: 12px; padding-top: 5px;">
@@ -845,7 +844,6 @@ def show_provider_panel_custom(provider_token):
                 </div>
             </div>
         """, unsafe_allow_html=True)
-        
     with col_topo_3:
         st.markdown(f'<div style="text-align: right;"><img src="{url_logotipo}" class="top-logo" /></div>', unsafe_allow_html=True)
 
@@ -860,9 +858,11 @@ def show_provider_panel_custom(provider_token):
     link_tv_absoluto = f"https://{host_dominio}{link_tv_rel}"
     
     qr_url_cliente = f"https://api.qrserver.com/v1/create-qr-code/?size=150x150&data={urllib.parse.quote(link_cliente_absoluto)}"
+
+    # ESTRUTURA PRINCIPAL: LINKS E LEITOR À ESQUERDA, QR CODE E VÍDEO A DIREITA
+    col_esq, col_dir = st.columns([2.5, 1], gap="medium")
     
-    col_links, col_qr = st.columns([2.5, 1], gap="medium")
-    with col_links:
+    with col_esq:
         st.markdown(f"""
             <div class="card-link">
                 <div class="link-title">🔗 LINK DO CLIENTE (REGISTO DE MÚSICA)</div>
@@ -877,16 +877,119 @@ def show_provider_panel_custom(provider_token):
             </div>
         """, unsafe_allow_html=True)
 
-    with col_qr:
+        # BLOCO "A Seguir" / CONTROLOS DE REPRODUÇÃO (IGUAL À IMAGEM)
+        st.markdown("""
+            <div style="border: 3px solid #FFC107; border-radius: 8px; padding: 15px; background-color: #000000; margin-bottom: 15px;">
+                <div style="font-family: monospace; color: #FFC107; font-size: 20px; font-weight: bold; margin-bottom: 15px;">Á Seguir -</div>
+        """, unsafe_allow_html=True)
+        
+        # Aqui chamamos o carregamento da fila para obter os dados do leitor atual
+        try:
+            url_firebase = f"{FIREBASE_URL}/pedidos/{provider_token}.json?_t={time.time()}"
+            response = requests.get(url_firebase, timeout=10)
+            pedidos = []
+            if response.status_code == 200 and response.json():
+                data = response.json()
+                pedidos = [{"id": k, **v} for k, v in data.items()]
+            
+            pedidos_ativos = [p for p in pedidos if p.get("estado") in ["pendente", "aprovado"]]
+            pedidos_ativos.sort(key=lambda x: x.get("timestamp", 0))
+            
+            tocando_agora = next((p for p in pedidos_ativos if p.get("estado") == "aprovado"), None)
+            if not tocando_agora and pedidos_ativos:
+                primeiro_id = pedidos_ativos[0].get('id')
+                atualizar_estado_pedido(provider_token, primeiro_id, 'aprovado')
+                pedidos_ativos[0]["estado"] = "aprovado"
+                tocando_agora = pedidos_ativos[0]
+
+            if tocando_agora:
+                cantor_atual = tocando_agora.get("cliente", "CONVIDADO").upper()
+                musica_atual = limpar_nome_musica(tocando_agora.get("musica", {}))
+                st.markdown(f"""
+                    <div style="margin-bottom: 15px; text-align: center;">
+                        <span style="color: #FFC107; font-size: 24px; font-family: monospace; font-weight: bold;">{cantor_atual}</span><br>
+                        <span style="color: #ffffff; font-size: 14px; font-family: monospace;">{musica_atual}</span>
+                    </div>
+                """, unsafe_allow_html=True)
+            else:
+                st.markdown("<div style='color: #FFC107; font-family: monospace; margin-bottom: 15px; text-align: center;'>NENHUMA MÚSICA EM REPRODUÇÃO</div>", unsafe_allow_html=True)
+
+            c_t1, c_t2, c_t3 = st.columns(3)
+            with c_t1:
+                if st.button("▶️ Tocar o Karaoke", key="btn_tocar_topo", use_container_width=True):
+                    if tocando_agora:
+                        terminar_todas_musicas_ativas(provider_token, pedidos)
+                        atualizar_estado_pedido(provider_token, tocando_agora.get('id'), 'aprovado')
+                        st.rerun()
+            with c_t2:
+                if st.button("⏹️ Parar o Karaoke", key="btn_parar_topo", use_container_width=True):
+                    terminar_todas_musicas_ativas(provider_token, pedidos)
+                    st.rerun()
+            with c_t3:
+                if st.button("⏭️ Avançar Karaoke", key="btn_prox_topo", use_container_width=True):
+                    if tocando_agora:
+                        atualizar_estado_pedido(provider_token, tocando_agora.get('id'), 'terminado')
+                        restantes = [x for x in pedidos_ativos if x.get('id'] != tocando_agora.get('id')]
+                        if restantes:
+                            atualizar_estado_pedido(provider_token, restantes[0].get('id'), 'aprovado')
+                        st.rerun()
+        except Exception:
+            pass
+
+        st.markdown("</div>", unsafe_allow_html=True)
+
+    with col_dir:
         st.markdown("<div style='font-family: monospace; color: #ffffff; font-size: 11px; font-weight: bold; margin-bottom: 3px; text-align: center;'>QR CODE CLIENTE</div>", unsafe_allow_html=True)
         st.markdown(f"""
-            <div class="qr-box">
-                <img src="{qr_url_cliente}" width="110" style="border-radius: 4px;" />
+            <div class="qr-box" style="margin-bottom: 20px;">
+                <img src="{qr_url_cliente}" width="150" style="border-radius: 4px;" />
             </div>
         """, unsafe_allow_html=True)
 
+        # SELETOR DE VÍDEO CLIPE À DIREITA (EXATAMENTE COMO NA IMAGEM)
+        video_fundo_atual = obter_video_fundo(provider_token)
+        lista_clipes_cloudinary = listar_videos_pasta_clipes()
+        
+        opcoes_labels = ["Nenhum (Ecrã Preto)"]
+        mapa_url_por_label = {}
+        for clipe in lista_clipes_cloudinary:
+            label = f"📁 {clipe['nome']}"
+            opcoes_labels.append(label)
+            mapa_url_por_label[label] = clipe['url']
+            
+        index_atual = 0
+        for idx, label in enumerate(opcoes_labels):
+            if label != "Nenhum (Ecrã Preto)":
+                url_mapeada = mapa_url_por_label.get(label, "")
+                if video_fundo_atual and (video_fundo_atual in url_mapeada or url_mapeada in video_fundo_atual):
+                    index_atual = idx
+                    break
+
+        with st.form(key="form_video_fundo_pos"):
+            st.markdown("<div style='font-family: monospace; color: #ffffff; font-size: 13px; font-weight: bold; margin-bottom: 5px;'>Pesquisar Vídeo Clipe</div>", unsafe_allow_html=True)
+            escolha_video = st.selectbox("Pesquisar Vídeo Clipe", options=opcoes_labels, index=index_atual, label_visibility="collapsed")
+            st.markdown("<div style='height: 10px;'></div>", unsafe_allow_html=True)
+            
+            col_btn_play, col_btn_stop = st.columns(2)
+            with col_btn_play:
+                btn_play_fundo = st.form_submit_button("▶️ Play", use_container_width=True)
+            with col_btn_stop:
+                btn_stop_fundo = st.form_submit_button("⏹️ Stop", use_container_width=True)
+
+            if btn_play_fundo:
+                valor_a_guardar = "" if escolha_video == "Nenhum (Ecrã Preto)" else mapa_url_por_label.get(escolha_video, "")
+                definir_video_fundo(provider_token, valor_a_guardar)
+                st.success("Vídeo clipe de fundo colocado em reprodução na tela!")
+                st.rerun()
+            
+            if btn_stop_fundo:
+                definir_video_fundo(provider_token, "")
+                st.success("Vídeo clipe parado (Ecrã Preto ativado)!")
+                st.rerun()
+
     st.markdown("<hr style='border-color: #333; margin: 15px 0;'>", unsafe_allow_html=True)
 
+    # SECÇÃO DE REFORÇO CASO NECESSÁRIO
     st.markdown("<div id='reforco_seccao'></div>", unsafe_allow_html=True)
     if segundos_restantes <= 1800:
         st.markdown("### ⚡ Solicitar Reforço de Tempo")
@@ -922,6 +1025,8 @@ def show_provider_panel_custom(provider_token):
                         st.error(f"Erro ao enviar reforço: {err}")
 
     st.markdown("<div style='height: 5px;'></div>", unsafe_allow_html=True)
+    
+    # POR FIM, RENDERIZA A TABELA DA FILA E PEDIDOS EXTRAS LOGO ABAIXO
     renderizar_gestao_fila_prestador(provider_token)
 
     
