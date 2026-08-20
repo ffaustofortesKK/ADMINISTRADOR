@@ -624,6 +624,10 @@ def renderizar_gestao_fila_prestador(provider_token):
         st.error(f"Erro ao carregar os pedidos do Firebase: {e}")
 
 def show_provider_panel_custom(provider_token, FIREBASE_URL=None, get_all_providers=None, renderizar_gestao_fila_prestador=None):
+    # Garantir URL do Firebase padrão caso venha vazio/None
+    if not FIREBASE_URL:
+        FIREBASE_URL = "https://grupo-ff-karaoke-default-rtdb.firebaseio.com"
+
     url_logotipo = "https://cdn.phototourl.com/free/2026-08-03-8b13edf5-0257-491d-ab78-f0d5329ffc15.jpg"
     url_fundo_painel = "https://cdn.phototourl.com/free/2026-08-03-694a4a2e-9914-4da8-93b2-87538a4805ab.png"
 
