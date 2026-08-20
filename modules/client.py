@@ -39,18 +39,22 @@ def obter_catalogo_cloudinary():
 
 def enviar_pedido_firebase(provider_token, cliente_nome, musica_escolhida):
     try:
+        # Garante que extraímos o título da música quer venha num dicionário ou string
+        titulo_musica = musica_escolhida.get('titulo', str(musica_escolhida)) if isinstance(musica_escolhida, dict) else str(musica_escolhida)
+        
         novo_pedido = {
             "cliente": cliente_nome,
-            "musica": musica_escolhida,
+            "musica": titulo_musica,
             "estado": "pendente",
             "timestamp": int(time.time() * 1000)
         }
         url = f"{FIREBASE_URL}/pedidos/{provider_token}.json"
         response = requests.post(url, json=novo_pedido, timeout=10)
         return response.status_code == 200
-    except Exception:
+    except Exception as e:
+        print(f"Erro detalhado no envio: {e}")
         return False
-
+        
 def obter_pedidos_cliente(provider_token):
     try:
         url = f"{FIREBASE_URL}/pedidos/{provider_token}.json"
