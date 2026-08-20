@@ -579,7 +579,7 @@ def renderizar_gestao_fila_prestador(provider_token):
                         st.rerun()
 
         # --- ABA DE PEDIDOS EXTRAS ---
-with aba_extras:
+        with aba_extras:
             st.markdown("### 🕹️ CAIXA DE PEDIDOS NÃO ACHADOS (EXTERNOS)")
             if pedidos_extras:
                 for p in pedidos_extras:
@@ -595,11 +595,9 @@ with aba_extras:
                         st.markdown(f"🎵 **{musica_nome}**")
                         st.caption(f"Pedido de cliente - {cliente} - {timestamp_pedido}")
                         
-                        # Link principal em cima (sublinhado a amarelo)
                         if link_selecionado:
                             st.markdown(f"<a href='{link_selecionado}' target='_blank' style='color: #FFC107; font-family: monospace; font-weight: bold; font-size: 13px; text-decoration: underline;'>{link_selecionado}</a>", unsafe_allow_html=True)
                         
-                        # Lista completa com todos os resultados do YouTube encontrados
                         if opcoes_encontradas:
                             for opt in opcoes_encontradas:
                                 t_opt = opt.get('titulo', 'Vídeo')
@@ -647,7 +645,7 @@ with aba_extras:
 
     except Exception as e:
         st.error(f"Erro ao carregar os pedidos do Firebase: {e}")
-
+        
 
 def show_provider_panel_custom(provider_token):
     url_logotipo = "https://cdn.phototourl.com/free/2026-08-03-8b13edf5-0257-491d-ab78-f0d5329ffc15.jpg"
