@@ -940,45 +940,33 @@ def show_provider_panel_custom(provider_token):
             </div>
         """, unsafe_allow_html=True)
 
-        # Construção correta e segura da tabela HTML integrada
-        linhas_tabela_html = ""
+        dados_tabela = []
         pedidos_ativos = [p for p in pedidos if p.get("estado") in ["pendente", "aprovado"]]
         
         if pedidos_ativos:
             for idx, p in enumerate(pedidos_ativos, 1):
                 cantor = str(p.get("cliente", "")).upper()
                 musica = limpar_nome_musica(p.get("musica", {}))
-                linhas_tabela_html += f"""
-                    <tr style="color: #ffffff;">
-                        <td style="padding: 12px; border: 1px solid #FFC107; text-align: center; color: #FFC107; font-weight: bold; font-size: 15px;">{idx}</td>
-                        <td style="padding: 12px; border: 1px solid #FFC107; font-weight: bold; font-size: 15px;">{cantor}</td>
-                        <td style="padding: 12px; border: 1px solid #FFC107; font-size: 15px;">{musica}</td>
-                    </tr>
-                """
+                dados_tabela.append({"Nº": idx, "CANTOR": cantor, "TÍTULO": musica})
+        
+        if dados_tabela:
+            df_exibicao = pd.DataFrame(dados_tabela)
+            st.dataframe(
+                df_exibicao,
+                use_container_width=True,
+                hide_index=True,
+                column_config={
+                    "Nº": st.column_config.NumberColumn("Nº", width="small"),
+                    "CANTOR": st.column_config.TextColumn("CANTOR", width="medium"),
+                    "TÍTULO": st.column_config.TextColumn("TÍTULO", width="large"),
+                }
+            )
         else:
-            linhas_tabela_html += """
-                    <tr>
-                        <td colspan="3" style="padding: 20px; border: 1px solid #FFC107; text-align: center; color: #FFC107; font-size: 15px;">Nenhum pedido na lista neste momento.</td>
-                    </tr>
-            """
-
-        tabela_completa_html = f"""
-        <div style="border: 3px solid #FFC107; border-radius: 8px; overflow: hidden; background: #000000; margin-bottom: 15px;">
-            <table style="width: 100%; border-collapse: collapse; font-family: monospace; text-align: left;">
-                <thead>
-                    <tr style="background-color: #00b0ff; color: #ffffff;">
-                        <th style="padding: 14px; border: 1px solid #FFC107; width: 12%; text-align: center; font-weight: bold; font-size: 16px;">Nº</th>
-                        <th style="padding: 14px; border: 1px solid #FFC107; width: 38%; font-weight: bold; font-size: 16px;">CANTOR</th>
-                        <th style="padding: 14px; border: 1px solid #FFC107; width: 50%; font-weight: bold; font-size: 16px;">TÍTULO</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {linhas_tabela_html}
-                </tbody>
-            </table>
-        </div>
-        """
-        st.markdown(tabela_completa_html, unsafe_allow_html=True)
+            st.markdown("""
+                <div style="border: 3px solid #FFC107; border-radius: 8px; padding: 20px; text-align: center; background: #000000; color: #FFC107; font-family: monospace; font-size: 15px;">
+                    Nenhum pedido na lista neste momento.
+                </div>
+            """, unsafe_allow_html=True)
 
     with col_dir:
         st.markdown("<div style='font-family: monospace; color: #ffffff; font-size: 11px; font-weight: bold; margin-bottom: 3px; text-align: center;'>QR CODE CLIENTE</div>", unsafe_allow_html=True)
@@ -1060,7 +1048,6 @@ def show_provider_panel_custom(provider_token):
                         st.success("Pedido de reforço submetido com sucesso! Aguarde a confirmação do Administrador.")
                     except Exception as err:
                         st.error(f"Erro ao enviar reforço: {err}")
-
     
 def renderizar_ecra_tv(provider_token):
     try:
