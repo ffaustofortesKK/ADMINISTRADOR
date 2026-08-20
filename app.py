@@ -587,7 +587,6 @@ def renderizar_gestao_fila_prestador(provider_token):
                     musica_nome = p.get("musica", "")
                     timestamp_pedido = p.get("timestamp_str", "Data não registada")
                     
-                    # Recuperar lista de opções encontradas guardadas no firebase (se houver)
                     opcoes_encontradas = p.get("opcoes_yt", [])
                     link_selecionado = p.get("link_yt", "")
                     
@@ -598,7 +597,7 @@ def renderizar_gestao_fila_prestador(provider_token):
                         if link_selecionado:
                             st.markdown(f"🔗 [{link_selecionado}]({link_selecionado})")
                         
-                        # Mostrar as opções de links encontrados no estilo da imagem 1
+                        # Se já existirem opções guardadas, mostra os links diretamente
                         if opcoes_encontradas:
                             for opt in opcoes_encontradas:
                                 st.markdown(f"▶️ [{opt['titulo']}]({opt['url']})")
@@ -612,13 +611,14 @@ def renderizar_gestao_fila_prestador(provider_token):
                                 resultados_busca = buscar_multiplos_links_youtube(termo_busca, max_resultados=6)
                                 if resultados_busca:
                                     primeiro_link = resultados_busca[0]['url']
-                                    # Atualiza no Firebase com os resultados e o primeiro link por defeito
-                                    requests.patch(f"{FIREBASE_URL}/pedidos/{provider_token}/{pedido_id}.json", json={
+                                    # Grava de imediato no Firebase para atualizar o estado da página
+                                    payload_atualizacao = {
                                         "opcoes_yt": resultados_busca,
                                         "link_yt": primeiro_link
-                                    })
+                                    }
+                                    requests.patch(f"{FIREBASE_URL}/pedidos/{provider_token}/{pedido_id}.json", json=payload_atualizacao)
                                     st.success(f"{len(resultados_busca)} opções encontradas!")
-                                    time.sleep(0.5)
+                                    time.sleep(0.3)
                                     st.rerun()
                                 else:
                                     st.error("Nenhum vídeo correspondente encontrado.")
