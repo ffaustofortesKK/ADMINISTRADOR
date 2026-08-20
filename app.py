@@ -708,7 +708,6 @@ def show_provider_panel_custom(provider_token):
 
     segundos_totais = segundos_base + segundos_bónus
     segundos_restantes = segundos_totais
-    
     if data_registo_str:
         try:
             dt_str_clean = data_registo_str.split('.')[0]
@@ -842,8 +841,7 @@ def show_provider_panel_custom(provider_token):
                 <div>
                     <h1 style="margin: 0; color: #FFC107; font-family: monospace; font-size: 20px; text-transform: uppercase; font-weight: bold;">PAINEL DO PRESTADOR: <span style="color: #FFC107;">{nome_prestador}</span></h1>
                 </div>
-            </div>
-        """, unsafe_allow_html=True)
+            </div>""", unsafe_allow_html=True)
     with col_topo_3:
         st.markdown(f'<div style="text-align: right;"><img src="{url_logotipo}" class="top-logo" /></div>', unsafe_allow_html=True)
 
@@ -859,7 +857,7 @@ def show_provider_panel_custom(provider_token):
     
     qr_url_cliente = f"https://api.qrserver.com/v1/create-qr-code/?size=150x150&data={urllib.parse.quote(link_cliente_absoluto)}"
 
-    # ESTRUTURA PRINCIPAL: LINKS E LEITOR À ESQUERDA, QR CODE E VÍDEO A DIREITA
+    # ESTRUTURA PRINCIPAL
     col_esq, col_dir = st.columns([2.5, 1], gap="medium")
     
     with col_esq:
@@ -877,13 +875,11 @@ def show_provider_panel_custom(provider_token):
             </div>
         """, unsafe_allow_html=True)
 
-        # BLOCO "A Seguir" / CONTROLOS DE REPRODUÇÃO (IGUAL À IMAGEM)
         st.markdown("""
             <div style="border: 3px solid #FFC107; border-radius: 8px; padding: 15px; background-color: #000000; margin-bottom: 15px;">
                 <div style="font-family: monospace; color: #FFC107; font-size: 20px; font-weight: bold; margin-bottom: 15px;">Á Seguir -</div>
         """, unsafe_allow_html=True)
         
-        # Aqui chamamos o carregamento da fila para obter os dados do leitor atual
         try:
             url_firebase = f"{FIREBASE_URL}/pedidos/{provider_token}.json?_t={time.time()}"
             response = requests.get(url_firebase, timeout=10)
@@ -896,6 +892,7 @@ def show_provider_panel_custom(provider_token):
             pedidos_ativos.sort(key=lambda x: x.get("timestamp", 0))
             
             tocando_agora = next((p for p in pedidos_ativos if p.get("estado") == "aprovado"), None)
+            
             if not tocando_agora and pedidos_ativos:
                 primeiro_id = pedidos_ativos[0].get('id')
                 atualizar_estado_pedido(provider_token, primeiro_id, 'aprovado')
@@ -929,7 +926,7 @@ def show_provider_panel_custom(provider_token):
                 if st.button("⏭️ Avançar Karaoke", key="btn_prox_topo", use_container_width=True):
                     if tocando_agora:
                         atualizar_estado_pedido(provider_token, tocando_agora.get('id'), 'terminado')
-                        restantes = [x for x in pedidos_ativos if x.get('id'] != tocando_agora.get('id')]
+                        restantes = [x for x in pedidos_ativos if x.get('id') != tocando_agora.get('id')]
                         if restantes:
                             atualizar_estado_pedido(provider_token, restantes[0].get('id'), 'aprovado')
                         st.rerun()
@@ -946,7 +943,6 @@ def show_provider_panel_custom(provider_token):
             </div>
         """, unsafe_allow_html=True)
 
-        # SELETOR DE VÍDEO CLIPE À DIREITA (EXATAMENTE COMO NA IMAGEM)
         video_fundo_atual = obter_video_fundo(provider_token)
         lista_clipes_cloudinary = listar_videos_pasta_clipes()
         
@@ -989,7 +985,7 @@ def show_provider_panel_custom(provider_token):
 
     st.markdown("<hr style='border-color: #333; margin: 15px 0;'>", unsafe_allow_html=True)
 
-    # SECÇÃO DE REFORÇO CASO NECESSÁRIO
+    # SECÇÃO DE REFORÇO
     st.markdown("<div id='reforco_seccao'></div>", unsafe_allow_html=True)
     if segundos_restantes <= 1800:
         st.markdown("### ⚡ Solicitar Reforço de Tempo")
@@ -997,11 +993,7 @@ def show_provider_panel_custom(provider_token):
             referencia_comprovativo = st.text_input("Referência de Pagamento / Nº de Comprovativo")
             duracao_reforco = st.selectbox(
                 "Duração Pretendida", 
-                options=[
-                    "2 Horas - 12 Mil Kwanzas", 
-                    "3 Horas - 15 Mil Kwanzas", 
-                    "4 Horas - 20 Mil Kwanzas"
-                ]
+                options=["2 Horas - 12 Mil Kwanzas", "3 Horas - 15 Mil Kwanzas", "4 Horas - 20 Mil Kwanzas"]
             )
             btn_sub_reforco = st.form_submit_button("Submeter Pedido de Reforço")
             if btn_sub_reforco:
@@ -1025,8 +1017,6 @@ def show_provider_panel_custom(provider_token):
                         st.error(f"Erro ao enviar reforço: {err}")
 
     st.markdown("<div style='height: 5px;'></div>", unsafe_allow_html=True)
-    
-    # POR FIM, RENDERIZA A TABELA DA FILA E PEDIDOS EXTRAS LOGO ABAIXO
     renderizar_gestao_fila_prestador(provider_token)
 
     
