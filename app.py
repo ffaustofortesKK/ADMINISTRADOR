@@ -838,13 +838,11 @@ def show_provider_panel_custom(provider_token, FIREBASE_URL=None, get_all_provid
         st.info("Aqui pode ver os pedidos manuais enviados pelos clientes e aceder diretamente às sugestões geradas no YouTube.")
         
         try:
-            # Tentar carregar usando o token direto ou varredura de segurança caso venha vazio
             extras_data = None
             res_extras = requests.get(f"{FIREBASE_URL}/pedidos_extras/{provider_token}.json", timeout=10)
             if res_extras.status_code == 200 and res_extras.json():
                 extras_data = res_extras.json()
             else:
-                # Fallback: se não encontrar pelo token exato, procura em todos os nós de pedidos_extras
                 res_all = requests.get(f"{FIREBASE_URL}/pedidos_extras.json", timeout=10)
                 if res_all.status_code == 200 and res_all.json():
                     all_providers_extras = res_all.json()
