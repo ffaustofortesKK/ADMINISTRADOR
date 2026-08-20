@@ -926,6 +926,23 @@ def show_provider_panel_custom(provider_token, FIREBASE_URL=None, get_all_provid
         st.markdown("<div style='height: 5px;'></div>", unsafe_allow_html=True)
         if renderizar_gestao_fila_prestador:
             renderizar_gestao_fila_prestador(provider_token)
+            
+def diagnostico_firebase(provider_token):
+    url_firebase = f"{FIREBASE_URL}/pedidos/{provider_token}.json"
+    response = requests.get(url_firebase)
+    
+    st.write("### 🔍 Diagnóstico de Dados")
+    if response.status_code == 200:
+        dados = response.json()
+        if dados:
+            st.json(dados) # Isto vai mostrar a estrutura real no ecrã
+        else:
+            st.error("O Firebase está vazio para este token.")
+    else:
+        st.error(f"Erro de conexão: {response.status_code}")
+
+# Chama isto no teu painel temporariamente
+# diagnostico_firebase("TEU_TOKEN_AQUI")
     
 @st.fragment(run_every=1)
 def renderizar_ecra_tv(provider_token):
