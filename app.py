@@ -857,6 +857,36 @@ def show_provider_panel_custom(provider_token):
     
     qr_url_cliente = f"https://api.qrserver.com/v1/create-qr-code/?size=150x150&data={urllib.parse.quote(link_cliente_absoluto)}"
 
+    # BUSCAR PEDIDOS DO FIREBASE
+    try:
+        url_firebase = f"{FIREBASE_URL}/pedidos/{provider_token}.json?_t={time.time()}"
+        response = requests.get(url_firebase, timeout=10)
+        pedidos = []
+        if response.status_code == 200 and response.json():
+            data = response.json()
+            pedidos = [{"id": k, **v} for k, v in data.items()]
+        
+        pedidos.sort(key=lambda x: x.get("timestamp", 0))
+        tocando_agora = next((p for p in pedidos if p.get("estado") == "aprovado"), None)
+        
+        if not tocando_agora and pedidos:
+            primeiro_id = pedidos[0].get('id')
+            atualizar_estado_pedido(provider_token, primeiro_id, 'aprovado')
+            pedidos[0]["estado"] = "aprovado"
+            tocando_agora = pedidos[0]
+
+        indice_atual = pedidos.index(tocando_agora) if tocando_agora in pedidos else -1
+        proximo_da_fila = pedidos[indice_atual + 1] if (indice_atual != -1 and len(pedidos) > indice_atual + 1) else (pedidos[0] if (not tocando_agora and pedidos) else None)
+
+        if proximo_da_fila:
+            cantor_proximo = proximo_da_fila.get("cliente", "CONVIDADO").upper()
+            conteudo_a_seguir = f"Á Seguir - <span style='color: #FFC107;'>{cantor_proximo}</span>"
+        else:
+            conteudo_a_seguir = "Á Seguir -"
+    except Exception:
+        conteudo_a_seguir = "Á Seguir -"
+        pedidos = []
+
     # ESTRUTURA PRINCIPAL
     col_esq, col_dir = st.columns([2.5, 1], gap="medium")
     
@@ -875,50 +905,12 @@ def show_provider_panel_custom(provider_token):
             </div>
         """, unsafe_allow_html=True)
 
-        # BLOCO "Á Seguir -" COM BUSCA DIRETA AO PRIMEIRO DA FILA DISPONÍVEL
-        st.markdown("""
+        # BLOCO "Á Seguir -" COM O NOME À FRENTE
+        st.markdown(f"""
             <div style="border: 3px solid #FFC107; border-radius: 8px; padding: 15px; background-color: #000000; margin-bottom: 15px;">
-                <div style="font-family: monospace; color: #FFC107; font-size: 20px; font-weight: bold; margin-bottom: 10px;">Á Seguir -</div>
+                <div style="font-family: monospace; color: #FFC107; font-size: 20px; font-weight: bold;">{conteudo_a_seguir}</div>
+            </div>
         """, unsafe_allow_html=True)
-        
-        try:
-            url_firebase = f"{FIREBASE_URL}/pedidos/{provider_token}.json?_t={time.time()}"
-            response = requests.get(url_firebase, timeout=10)
-            pedidos = []
-            if response.status_code == 200 and response.json():
-                data = response.json()
-                pedidos = [{"id": k, **v} for k, v in data.items()]
-            
-            # Ordena todos os pedidos existentes por timestamp
-            pedidos.sort(key=lambda x: x.get("timestamp", 0))
-            
-            tocando_agora = next((p for p in pedidos if p.get("estado") == "aprovado"), None)
-            
-            if not tocando_agora and pedidos:
-                primeiro_id = pedidos[0].get('id')
-                atualizar_estado_pedido(provider_token, primeiro_id, 'aprovado')
-                pedidos[0]["estado"] = "aprovado"
-                tocando_agora = pedidos[0]
-
-            indice_atual = pedidos.index(tocando_agora) if tocando_agora in pedidos else -1
-            proximo_da_fila = pedidos[indice_atual + 1] if (indice_atual != -1 and len(pedidos) > indice_atual + 1) else (pedidos[0] if (not tocando_agora and pedidos) else None)
-
-            if proximo_da_fila:
-                cantor_proximo = proximo_da_fila.get("cliente", "CONVIDADO").upper()
-                musica_proxima = limpar_nome_musica(proximo_da_fila.get("musica", {}))
-                st.markdown(f"""
-                    <div style="text-align: left;">
-                        <span style="color: #FFC107; font-size: 18px; font-family: monospace; font-weight: bold;">{cantor_proximo}</span><br>
-                        <span style="color: #ffffff; font-size: 14px; font-family: monospace;">{musica_proxima}</span>
-                    </div>
-                """, unsafe_allow_html=True)
-            else:
-                st.markdown("<div style='color: #FFC107; font-family: monospace;'>Nenhum cantor na fila para seguir.</div>", unsafe_allow_html=True)
-                
-        except Exception:
-            st.markdown("<div style='color: #FFC107; font-family: monospace;'>Aguardando pedidos...</div>", unsafe_allow_html=True)
-
-        st.markdown("</div>", unsafe_allow_html=True)
 
         c_t1, c_t2, c_t3 = st.columns(3)
         with c_t1:
@@ -935,10 +927,58 @@ def show_provider_panel_custom(provider_token):
             if st.button("⏭️ Avançar Karaoke", key="btn_prox_topo", use_container_width=True):
                 if tocando_agora:
                     atualizar_estado_pedido(provider_token, tocando_agora.get('id'), 'terminado')
-                    restantes = [x for x in pedidos if x.get('id') != tocando_agora.get('id')]
+                    restantes = [x for x in pedidos if x.get('id'] != tocando_agora.get('id')]
                     if restantes:
                         atualizar_estado_pedido(provider_token, restantes[0].get('id'), 'aprovado')
                     st.rerun()
+
+        # SECÇÃO DA TABELA DE FILA (Nº, CANTOR, TÍTULO)
+        st.markdown("<div style='height: 10px;'></div>", unsafe_allow_html=True)
+        st.markdown("""
+            <div style="font-family: monospace; color: #ffffff; font-size: 16px; font-weight: bold; margin-bottom: 8px;">
+                📋 Estado da Fila e Controlo de Reprodução
+            </div>
+        """, unsafe_allow_html=True)
+
+        # Renderização da Tabela com Cabeçalho Azul
+        tabela_html = """
+        <div style="border: 3px solid #FFC107; border-radius: 8px; overflow: hidden; background: #000000; margin-bottom: 15px;">
+            <table style="width: 100%; border-collapse: collapse; font-family: monospace; text-align: left;">
+                <thead>
+                    <tr style="background-color: #00b0ff; color: #ffffff;">
+                        <th style="padding: 12px; border: 1px solid #FFC107; width: 10%; text-align: center; font-weight: bold;">Nº</th>
+                        <th style="padding: 12px; border: 1px solid #FFC107; width: 35%; font-weight: bold;">CANTOR</th>
+                        <th style="padding: 12px; border: 1px solid #FFC107; width: 55%; font-weight: bold;">TÍTULO</th>
+                    </tr>
+                </thead>
+                <tbody>
+        """
+        
+        pedidos_ativos = [p for p in pedidos if p.get("estado") in ["pendente", "aprovado"]]
+        if pedidos_ativos:
+            for idx, p in enumerate(pedidos_ativos, 1):
+                cantor = str(p.get("cliente", "")).upper()
+                musica = limpar_nome_musica(p.get("musica", {}))
+                tabela_html += f"""
+                    <tr style="color: #ffffff;">
+                        <td style="padding: 10px; border: 1px solid #FFC107; text-align: center; color: #FFC107; font-weight: bold;">{idx}</td>
+                        <td style="padding: 10px; border: 1px solid #FFC107; font-weight: bold;">{cantor}</td>
+                        <td style="padding: 10px; border: 1px solid #FFC107;">{musica}</td>
+                    </tr>
+                """
+        else:
+            tabela_html += """
+                    <tr>
+                        <td colspan="3" style="padding: 15px; border: 1px solid #FFC107; text-align: center; color: #FFC107;">Nenhum pedido na lista neste momento.</td>
+                    </tr>
+            """
+        
+        tabela_html += """
+                </tbody>
+            </table>
+        </div>
+        """
+        st.markdown(tabela_html, unsafe_allow_html=True)
 
     with col_dir:
         st.markdown("<div style='font-family: monospace; color: #ffffff; font-size: 11px; font-weight: bold; margin-bottom: 3px; text-align: center;'>QR CODE CLIENTE</div>", unsafe_allow_html=True)
@@ -1020,9 +1060,6 @@ def show_provider_panel_custom(provider_token):
                         st.success("Pedido de reforço submetido com sucesso! Aguarde a confirmação do Administrador.")
                     except Exception as err:
                         st.error(f"Erro ao enviar reforço: {err}")
-
-    st.markdown("<div style='height: 5px;'></div>", unsafe_allow_html=True)
-    renderizar_gestao_fila_prestador(provider_token)
 
     
 def renderizar_ecra_tv(provider_token):
