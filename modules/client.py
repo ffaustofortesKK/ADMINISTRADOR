@@ -4,7 +4,7 @@ import time
 import cloudinary
 import cloudinary.api
 
-FIREBASE_URL = "https://grupoffkaraoke-default-rtdb.firebaseio.com"
+FIREBASE_URL = "https://grupo-ff-karaoke-default-rtdb.firebaseio.com"
 
 # Configuração do Cloudinary
 cloudinary.config(
@@ -157,6 +157,10 @@ def show_client_page():
     st.markdown(f"<h1 style='color: #4CAF50; font-size: 28px; margin-bottom: 0;'>Benvindo {cliente_nome}</h1>", unsafe_allow_html=True)
     st.markdown("<hr style='margin-top: 10px; margin-bottom: 20px;'>", unsafe_allow_html=True)
 
+    # --- INICIALIZAÇÃO SEGURA DAS VARIÁVEIS DE CONTROLO ---
+    tem_pedido_ativo = False
+    posicao_fila = None
+
     # --- VERIFICAÇÃO DE PEDIDO EXTRA ATIVO ---
     try:
         res_extras = requests.get(f"{FIREBASE_URL}/pedidos_extras/{provider_token}.json", timeout=10)
@@ -181,7 +185,6 @@ def show_client_page():
         pedidos_cliente = [p for p in pedidos if p.get("cliente", "").lower() == cliente_nome.lower() and p.get("estado") in ["pendente", "aprovado"]]
         
         tem_pedido_ativo = len(pedidos_cliente) > 0
-        posicao_fila = None
         if tem_pedido_ativo:
             pedidos_ativos = [p for p in pedidos if p.get("estado") in ["pendente", "aprovado"]]
             pedidos_ativos.sort(key=lambda x: x.get("timestamp", 0))
@@ -194,8 +197,7 @@ def show_client_page():
             st.markdown(f"""
                 <div style="text-align: center; padding: 20px 10px; margin: 10px auto; max-width: 700px;">
                     """ + (f'<div style="color: white; font-weight: bold; font-size: 20px; margin-bottom: 12px;">Encontra-se na <b style="color: #FFC107;">{posicao_fila}º</b> posição</div>' if posicao_fila else '') + """
-                    <div class="spinning-mic">🎤</div>
-                </div>
+                    <div class="spinning-mic">🎤</div>  </div>
             """, unsafe_allow_html=True)
         else:
             st.success("✅ Já poderá enviar o seu pedido!")
