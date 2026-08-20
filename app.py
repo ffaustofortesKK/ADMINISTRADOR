@@ -30,7 +30,7 @@ try:
     from modules.prestador import show_prestador_page
     importlib.reload(prestador)
 except Exception:
-def show_prestador_page(token, url): 
+    def show_prestador_page(token, url): 
         st.error("Módulo 'modules.prestador' não encontrado.")
 
 # --- 3. CONFIGURAÇÃO DO CLOUDINARY ---
