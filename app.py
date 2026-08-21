@@ -397,6 +397,13 @@ def limpar_nome_musica(musica_obj):
         return musica_obj.get("titulo", "Música Desconhecida")
     return str(musica_obj)
 
+def registar_prestador():
+    # Defina sempre um valor padrão ou inicial para evitar o erro
+    data_registo_str = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    
+    # Resto do seu código de submissão...
+    # Se houver condicionais, garanta que a variável nunca fica sem valor    
+
 def atualizar_estado_pedido(provider_token, pedido_id, novo_estado):
     try:
         url = f"{FIREBASE_URL}/pedidos/{provider_token}/{pedido_id}.json"
