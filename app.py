@@ -664,18 +664,20 @@ def show_provider_panel_custom(provider_token):
     df_prov = get_all_providers()
     
     nome_prestador = "PRESTADOR NÃO IDENTIFICADO"
-    tempo_plano = "2 Horas"
+    tempo_plano = "2 Horas - 12 Mil Kwanzas"  # Valor por defeito caso não encontre
     data_registo_str = None
     
     if not df_prov.empty:
-        col_token_candidates = ['token', 'provider_token', 'id']
+        col_token_candidates = ['token', 'provider_token', 'id', 'codigo']
         col_token_encontrada = next((c for c in col_token_candidates if c in df_prov.columns), None)
         
         if col_token_encontrada:
-            match = df_prov[df_prov[col_token_encontrada].astype(str) == str(provider_token)]
+            # Garantir correspondência exata de string ignorando espaços
+            match = df_prov[df_prov[col_token_encontrada].astype(str).str.strip() == str(provider_token).strip()]
             if not match.empty:
                 row = match.iloc[0]
                 
+                # Extração correta do Nome e Apelido do prestador
                 p_nome = ""
                 p_sobrenome = ""
                 for col_n in ['nome', 'prestador', 'user', 'primeiro_nome', 'name']:
@@ -691,21 +693,36 @@ def show_provider_panel_custom(provider_token):
                     nome_completo = f"{p_nome} {p_sobrenome}".strip()
                     nome_prestador = nome_completo.upper()
                 else:
-                    for col_alt in ['nome_prestador', 'nome_completo']:
+                    for col_alt in ['nome_prestador', 'nome_completo', 'utilizador']:
                         if col_alt in df_prov.columns and pd.notna(row.get(col_alt)):
                             nome_prestador = str(row.get(col_alt)).upper()
                             break
                 
+                # Extração dinâmica do Plano / Contrato escolhido
                 for col_p in ['tempo_plano', 'plano', 'duracao', 'tempo', 'contrato']:
                     if col_p in df_prov.columns and pd.notna(row.get(col_p)):
-                        tempo_plano = str(row.get(col_p))
+                        tempo_plano = str(row.get(col_p)).strip()
                         break
                         
+                # Extração da data de registo
                 for col_d in ['data_registo', 'data', 'timestamp', 'created_at']:
                     if col_d in df_prov.columns and pd.notna(row.get(col_d)):
                         data_registo_str = str(row.get(col_d))
                         break
 
+    # Cálculo dinâmico do tempo base consoante o contrato escolhido pelo prestador
+    segundos_base = 7200  # Default 2 Horas
+    t_lower = tempo_plano.lower()
+    if "4 hora" in t_lower or "4h" in t_lower:
+        segundos_base = 14400
+    elif "3 hora" in t_lower or "3h" in t_lower:
+        segundos_base = 10800
+    elif "2 hora" in t_lower or "2h" in t_lower:
+        segundos_base = 7200
+    elif "1 hora" in t_lower or "1h" in t_lower:
+        segundos_base = 3600
+
+    # Verificar segundos de bónus aprovados no Firebase
     segundos_bónus = 0
     try:
         res_ref = requests.get(f"{FIREBASE_URL}/reforcos_aprovados/{provider_token}.json", timeout=5)
@@ -713,24 +730,15 @@ def show_provider_panel_custom(provider_token):
             dados_ref = res_ref.json()
             if isinstance(dados_ref, dict):
                 for r_id, r_info in dados_ref.items():
-                    t_ref = r_info.get("tempo_plano", "")
-                    if "3 Horas" in t_ref:
-                        segundos_bónus += 10800
-                    elif "4 Horas" in t_ref:
+                    t_ref = str(r_info.get("tempo_plano", "")).lower()
+                    if "4 hora" in t_ref or "4h" in t_ref:
                         segundos_bónus += 14400
-                    elif "2 Horas" in t_ref:
+                    elif "3 hora" in t_ref or "3h" in t_ref:
+                        segundos_bónus += 10800
+                    elif "2 hora" in t_ref or "2h" in t_ref:
                         segundos_bónus += 7200
     except Exception:
         pass
-
-    # Definir segundos base de forma dinâmica com base no plano escolhido
-    segundos_base = 7200
-    if "4 Horas" in tempo_plano:
-        segundos_base = 14400
-    elif "3 Horas" in tempo_plano:
-        segundos_base = 10800
-    elif "2 Horas" in tempo_plano:
-        segundos_base = 7200
 
     segundos_totais = segundos_base + segundos_bónus
     segundos_restantes = segundos_totais
@@ -851,14 +859,14 @@ def show_provider_panel_custom(provider_token):
     </style>
     """, unsafe_allow_html=True)
 
-    # CABEÇALHO DO PAINEL (COM NOME DINÂMICO E CONTRATO ATUALIZADO)
+    # CABEÇALHO DO PAINEL COM NOME E CONTRATO DINÂMICO
     col_topo_1, col_topo_2, col_topo_3 = st.columns([1.2, 3, 0.8])
     with col_topo_1:
         st.markdown(f"""
             <div style="background: #000000; border: 2px solid #FFC107; border-radius: 6px; padding: 8px; text-align: center;">
-                <div style="font-family: monospace; color: #ffffff; font-size: 9px; text-transform: uppercase; letter-spacing: 1px;">TEMPO RESTANTE</div>
+                <div style="font-family: monospace; color: #ffffff; font-size: 9px; text-transform: uppercase; letter-spacing: 1px;">TEMPO / CONTRATO</div>
                 <div style="font-family: monospace; color: #FFC107; font-size: 18px; font-weight: bold; {classe_piscar} margin: 2px 0;">⏱️ {tempo_formatado}</div>
-                <div style="font-family: monospace; color: #fff; font-size: 10px;">Contrato: {tempo_plano}</div>
+                <div style="font-family: monospace; color: #fff; font-size: 10px;">({tempo_plano})</div>
             </div>
         """, unsafe_allow_html=True)
     with col_topo_2:
@@ -1091,8 +1099,6 @@ def show_provider_panel_custom(provider_token):
                 st.rerun()
 
     st.markdown("<hr style='border-color: #333; margin: 15px 0;'>", unsafe_allow_html=True)
-    
-    # SECÇÃO DE REFORÇO
     st.markdown("<div id='reforco_seccao'></div>", unsafe_allow_html=True)
     if segundos_restantes <= 1800:
         st.markdown("### ⚡ Solicitar Reforço de Tempo")
