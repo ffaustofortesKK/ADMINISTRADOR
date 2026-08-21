@@ -647,7 +647,17 @@ def renderizar_gestao_fila_prestador(provider_token):
         st.error(f"Erro ao carregar os pedidos do Firebase: {e}")
         
 
+# Importação opcional para o relógio atualizar automaticamente segundo a segundo
+try:
+    from streamlit_autorefresh import st_autorefresh
+except ImportError:
+    st_autorefresh = None
+
 def show_provider_panel_custom(provider_token):
+    # Ativar refresh automático a cada 1 segundo para o temporizador descontar em tempo real
+    if st_autorefresh:
+        st_autorefresh(interval=1000, key="relogio_prestador_tick")
+
     url_logotipo = "https://cdn.phototourl.com/free/2026-08-03-8b13edf5-0257-491d-ab78-f0d5329ffc15.jpg"
     url_fundo_painel = "https://cdn.phototourl.com/free/2026-08-03-694a4a2e-9914-4da8-93b2-87538a4805ab.png"
 
@@ -666,12 +676,28 @@ def show_provider_panel_custom(provider_token):
             if not match.empty:
                 row = match.iloc[0]
                 
-                for col_n in ['nome_prestador', 'nome', 'prestador', 'user']:
+                # Juntar Nome e Sobrenome caso existam em colunas separados, ou apanhar o campo geral
+                p_nome = ""
+                p_sobrenome = ""
+                for col_n in ['nome', 'prestador', 'user', 'primeiro_nome']:
                     if col_n in df_prov.columns and pd.notna(row.get(col_n)):
-                        nome_prestador = str(row.get(col_n)).upper()
+                        p_nome = str(row.get(col_n)).strip()
+                        break
+                for col_s in ['sobrenome', 'ultimo_nome', 'apelido']:
+                    if col_s in df_prov.columns and pd.notna(row.get(col_s)):
+                        p_sobrenome = str(row.get(col_s)).strip()
                         break
                 
-                for col_p in ['tempo_plano', 'plano', 'duracao', 'tempo']:
+                if p_nome:
+                    nome_completo = f"{p_nome} {p_sobrenome}".strip()
+                    nome_prestador = nome_completo.upper()
+                else:
+                    for col_alt in ['nome_prestador', 'nome_completo']:
+                        if col_alt in df_prov.columns and pd.notna(row.get(col_alt)):
+                            nome_prestador = str(row.get(col_alt)).upper()
+                            break
+                
+                for col_p in ['tempo_plano', 'plano', 'duracao', 'tempo', 'contrato']:
                     if col_p in df_prov.columns and pd.notna(row.get(col_p)):
                         tempo_plano = str(row.get(col_p))
                         break
@@ -927,12 +953,12 @@ def show_provider_panel_custom(provider_token):
             if st.button("⏭️ Avançar Karaoke", key="btn_prox_topo", use_container_width=True):
                 if tocando_agora:
                     atualizar_estado_pedido(provider_token, tocando_agora.get('id'), 'terminado')
-                    restantes = [x for x in pedidos if x.get('estado') in ['pendente', 'aprovado'] and x.get('id') != tocando_agora.get('id')]
+                    restantes = [x for x in pedidos if x.get('estado') in ['pendente', 'aprovado'] and x.get('id'] != tocando_agora.get('id')]
                     if restantes:
                         atualizar_estado_pedido(provider_token, restantes[0].get('id'), 'aprovado')
                     st.rerun()
 
-        # SECÇÃO DA TABELA COM OS 3 BOTÕES UNIDOS NA COLUNA AÇÕES
+        # SECÇÃO DA TABELA
         st.markdown("<div style='height: 10px;'></div>", unsafe_allow_html=True)
         st.markdown("""
             <div style="font-family: monospace; color: #ffffff; font-size: 16px; font-weight: bold; margin-bottom: 8px;">
@@ -958,7 +984,6 @@ def show_provider_panel_custom(provider_token):
                 musica = limpar_nome_musica(p.get("musica", {}))
                 pid = p.get("id")
                 
-                # Container de cada linha da tabela e as mini-colunas de ações alinhadas lado a lado
                 cols_linha = st.columns([0.10, 0.28, 0.38, 0.24])
                 
                 with cols_linha[0]:
@@ -968,7 +993,6 @@ def show_provider_panel_custom(provider_token):
                 with cols_linha[2]:
                     st.markdown(f"<div style='font-family: monospace; padding-top: 10px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;'>{musica}</div>", unsafe_allow_html=True)
                 
-                # Os 3 botões (Subir, Descer, Apagar) alinhados juntos na coluna AÇÕES
                 with cols_linha[3]:
                     sub_c1, sub_c2, sub_c3 = st.columns(3)
                     with sub_c1:
