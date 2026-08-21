@@ -664,7 +664,7 @@ def show_provider_panel_custom(provider_token):
     df_prov = get_all_providers()
     
     nome_prestador = "PRESTADOR NÃO IDENTIFICADO"
-    tempo_plano = "2 Horas - 12 Mil Kwanzas"
+    tempo_plano = "2 Horas"
     data_registo_str = None
     
     if not df_prov.empty:
@@ -678,7 +678,7 @@ def show_provider_panel_custom(provider_token):
                 
                 p_nome = ""
                 p_sobrenome = ""
-                for col_n in ['nome', 'prestador', 'user', 'primeiro_nome']:
+                for col_n in ['nome', 'prestador', 'user', 'primeiro_nome', 'name']:
                     if col_n in df_prov.columns and pd.notna(row.get(col_n)):
                         p_nome = str(row.get(col_n)).strip()
                         break
@@ -723,16 +723,18 @@ def show_provider_panel_custom(provider_token):
     except Exception:
         pass
 
+    # Definir segundos base de forma dinâmica com base no plano escolhido
     segundos_base = 7200
-    if "3 Horas" in tempo_plano:
-        segundos_base = 10800
-    elif "4 Horas" in tempo_plano:
+    if "4 Horas" in tempo_plano:
         segundos_base = 14400
+    elif "3 Horas" in tempo_plano:
+        segundos_base = 10800
     elif "2 Horas" in tempo_plano:
         segundos_base = 7200
 
     segundos_totais = segundos_base + segundos_bónus
     segundos_restantes = segundos_totais
+    
     if data_registo_str:
         try:
             dt_str_clean = data_registo_str.split('.')[0]
@@ -849,14 +851,14 @@ def show_provider_panel_custom(provider_token):
     </style>
     """, unsafe_allow_html=True)
 
-    # CABEÇALHO DO PAINEL
+    # CABEÇALHO DO PAINEL (COM NOME DINÂMICO E CONTRATO ATUALIZADO)
     col_topo_1, col_topo_2, col_topo_3 = st.columns([1.2, 3, 0.8])
     with col_topo_1:
         st.markdown(f"""
             <div style="background: #000000; border: 2px solid #FFC107; border-radius: 6px; padding: 8px; text-align: center;">
-                <div style="font-family: monospace; color: #ffffff; font-size: 9px; text-transform: uppercase; letter-spacing: 1px;">TEMPO / PLANO ESCOLHIDO</div>
+                <div style="font-family: monospace; color: #ffffff; font-size: 9px; text-transform: uppercase; letter-spacing: 1px;">TEMPO RESTANTE</div>
                 <div style="font-family: monospace; color: #FFC107; font-size: 18px; font-weight: bold; {classe_piscar} margin: 2px 0;">⏱️ {tempo_formatado}</div>
-                <div style="font-family: monospace; color: #fff; font-size: 10px;">({tempo_plano})</div>
+                <div style="font-family: monospace; color: #fff; font-size: 10px;">Contrato: {tempo_plano}</div>
             </div>
         """, unsafe_allow_html=True)
     with col_topo_2:
@@ -930,7 +932,6 @@ def show_provider_panel_custom(provider_token):
             </div>
         """, unsafe_allow_html=True)
 
-        # BLOCO "Á Seguir -" AUMENTADO EM 40% E COR AMARELA
         st.markdown(f"""
             <div style="border: 3px solid #FFC107; border-radius: 8px; padding: 18px; background-color: #000000; margin-bottom: 15px;">
                 <div style="font-family: monospace; color: #FFC107; font-size: 28px; font-weight: bold;">{conteudo_a_seguir}</div>
@@ -967,7 +968,6 @@ def show_provider_panel_custom(provider_token):
 
         pedidos_ativos = [p for p in pedidos if p.get("estado") in ["pendente", "aprovado"]]
 
-        # Cabeçalho da Tabela
         st.markdown("""
             <div style="background-color: #03a9f4; border: 3px solid #FFC107; border-bottom: none; border-radius: 8px 8px 0 0; padding: 10px 12px; display: flex; font-family: monospace; font-weight: bold; font-size: 15px; color: #ffffff;">
                 <div style="width: 10%;">Nº</div>
@@ -1091,7 +1091,7 @@ def show_provider_panel_custom(provider_token):
                 st.rerun()
 
     st.markdown("<hr style='border-color: #333; margin: 15px 0;'>", unsafe_allow_html=True)
-
+    
     # SECÇÃO DE REFORÇO
     st.markdown("<div id='reforco_seccao'></div>", unsafe_allow_html=True)
     if segundos_restantes <= 1800:
