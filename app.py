@@ -654,37 +654,55 @@ except ImportError:
     st_autorefresh = None
 
 def show_provider_panel_custom(provider_token):
-    # Ativar refresh automático a cada 1 segundo para o temporizador descontar em tempo real
     if st_autorefresh:
         st_autorefresh(interval=1000, key="relogio_prestador_tick")
 
-    url_logotipo = "https://cdn.phototourl.com/free/2026-08-03-8b13edf5-0257-491d-ab78-f0d5329ffc15.jpg"
-    url_fundo_painel = "https://cdn.phototourl.com/free/2026-08-03-694a4a2e-9914-4da8-93b2-87538a4805ab.png"
-
-    # BUSCAR DADOS DO PRESTADOR DIRETAMENTE DO FIREBASE PARA GARANTIR TEMPO E NOME ATUALIZADOS
     nome_prestador = "PRESTADOR NÃO IDENTIFICADO"
     tempo_plano = "2 Horas"
-    data_registo_str = None
     
+    # Consulta direta e eficiente na coleção 'providers' do Firebase
     try:
-        res_prov_fb = requests.get(f"{FIREBASE_URL}/prestadores/{provider_token}.json", timeout=5)
-        if res_prov_fb.status_code == 200 and res_prov_fb.json():
-            dados_fb = res_prov_fb.json()
-            if isinstance(dados_fb, dict):
-                for k_n in ['nome', 'prestador', 'nome_prestador', 'nome_completo', 'user']:
-                    if dados_fb.get(k_n):
-                        nome_prestador = str(dados_fb.get(k_n)).strip().upper()
-                        break
-                for k_p in ['tempo_plano', 'plano', 'duracao', 'tempo', 'contrato']:
-                    if dados_fb.get(k_p):
-                        tempo_plano = str(dados_fb.get(k_p))
-                        break
-                for k_d in ['data_registo', 'data', 'timestamp', 'created_at']:
-                    if dados_fb.get(k_d):
-                        data_registo_str = str(dados_fb.get(k_d))
-                        break
+        res = requests.get(f"{FIREBASE_URL}/providers.json", timeout=5)
+        if res.status_code == 200 and res.json():
+            dados = res.json()
+            if isinstance(dados, dict):
+                for k, v in dados.items():
+                    if isinstance(v, dict):
+                        tk_val = str(v.get('token', k))
+                        if tk_val == str(provider_token) or str(k) == str(provider_token):
+                            # Encontrou o prestador! Extrair nome
+                            for nk in ['name', 'nome', 'prestador', 'nome_prestador', 'nome_completo']:
+                                if v.get(nk):
+                                    nome_prestador = str(v.get(nk)).strip().upper()
+                                    break
+                            # Extrair o contrato / tempo / duração / referência
+                            for pk in ['tempo_plano', 'plano', 'duracao', 'tempo', 'contrato', 'expires_at', 'payment_ref']:
+                                if v.get(pk):
+                                    tempo_plano = str(v.get(pk))
+                                    break
+                            break
     except Exception:
         pass
+
+    # Fallback para a Base de Dados SQLite local caso não encontre no Firebase
+    if nome_prestador == "PRESTADOR NÃO IDENTIFICADO":
+        try:
+            conn = get_connection()
+            df_sql = pd.read_sql_query("SELECT * FROM providers WHERE token = ? OR id = ?", conn, params=(str(provider_token), str(provider_token)))
+            conn.close()
+            
+            if not df_sql.empty:
+                row = df_sql.iloc[0]
+                for col_n in ['name', 'nome', 'prestador', 'user']:
+                    if col_n in df_sql.columns and pd.notna(row.get(col_n)):
+                        nome_prestador = str(row.get(col_n)).strip().upper()
+                        break
+                for col_p in ['tempo_plano', 'plano', 'duracao', 'tempo', 'contrato', 'expires_at', 'payment_ref']:
+                    if col_p in df_sql.columns and pd.notna(row.get(col_p)):
+                        tempo_plano = str(row.get(col_p))
+                        break
+        except Exception:
+            pass
 
     # Fallback para o DataFrame caso não encontre diretamente no nó do Firebase
     if nome_prestador == "PRESTADOR NÃO IDENTIFICADO":
