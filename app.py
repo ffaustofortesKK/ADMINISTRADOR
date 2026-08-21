@@ -398,11 +398,22 @@ def limpar_nome_musica(musica_obj):
     return str(musica_obj)
 
 def registar_prestador():
-    # Defina sempre um valor padrão ou inicial para evitar o erro
+    # 1. Garantir que a variável existe no âmbito da função
     data_registo_str = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
     
-    # Resto do seu código de submissão...
-    # Se houver condicionais, garanta que a variável nunca fica sem valor    
+    # 2. Se o seu código original espera esta variável em algum dicionário, certifique-se disso:
+    dados_registo = {
+        "data_registo": data_registo_str,
+        # ... outros campos do prestador
+    }
+    
+    # Exemplo de como submeter para o Firebase/SQLite:
+    # try:
+    #     requests.post(f"{FIREBASE_URL}/providers.json", json=dados_registo)
+    # except:
+    #     pass
+    
+    return data_registo_str # Retornar a variável ajuda a evitar o erro de 'local variable'    
 
 def atualizar_estado_pedido(provider_token, pedido_id, novo_estado):
     try:
