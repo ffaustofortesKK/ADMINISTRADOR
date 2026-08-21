@@ -660,12 +660,15 @@ def show_provider_panel_custom(provider_token):
     url_logotipo = "https://cdn.phototourl.com/free/2026-08-03-8b13edf5-0257-491d-ab78-f0d5329ffc15.jpg"
     url_fundo_painel = "https://cdn.phototourl.com/free/2026-08-03-694a4a2e-9914-4da8-93b2-87538a4805ab.png"
 
+    # Buscar dados de todos os prestadores e também verificar no Firebase se necessário
     df_prov = get_all_providers()
     
     nome_prestador = "PRESTADOR NÃO IDENTIFICADO"
     tempo_plano = "2 Horas - 12 Mil Kwanzas"
     data_registo_str = None
     
+    # 1. Tentar ler diretamente da base de dados local/DataFrame de prestadores
+    found_provider = False
     if not df_prov.empty:
         col_token_candidates = ['token', 'provider_token', 'id', 'codigo']
         col_token_encontrada = next((c for c in col_token_candidates if c in df_prov.columns), None)
@@ -674,11 +677,19 @@ def show_provider_panel_custom(provider_token):
             match = df_prov[df_prov[col_token_encontrada].astype(str).str.strip() == str(provider_token).strip()]
             if not match.empty:
                 row = match.iloc[0]
+                found_provider = True
                 
-                # Extração correta do Nome / Prestador
-                p_nome = ""
-                p_sobrenome = ""
-                for col_n in ['nome', 'prestador', 'user', 'primeiro_nome', 'name']:
+                # Extração rigorosa do Nome do Prestador
+                for col_n in ['nome_prestador', 'nome_completo', 'prestador', 'nome', 'user', 'utilizador', 'primeiro_nome', 'name']:
+                    if col_n in df_prov.columns and pd.notna(row.get(col_n)):
+                        val = str(row.get(col_n)).strip()
+                        if val and val.lower() != "nan":
+                            nome_prestador = val.upper()
+                            break
+                
+                # Se encontrou separadamente nome e sobrenome
+                p_nome, p_sobrenome = "", ""
+                for col_n in ['nome', 'primeiro_nome', 'name']:
                     if col_n in df_prov.columns and pd.notna(row.get(col_n)):
                         p_nome = str(row.get(col_n)).strip()
                         break
@@ -686,28 +697,46 @@ def show_provider_panel_custom(provider_token):
                     if col_s in df_prov.columns and pd.notna(row.get(col_s)):
                         p_sobrenome = str(row.get(col_s)).strip()
                         break
-                
                 if p_nome:
-                    nome_completo = f"{p_nome} {p_sobrenome}".strip()
-                    nome_prestador = nome_completo.upper()
-                else:
-                    for col_alt in ['nome_prestador', 'nome_completo', 'utilizador', 'prestador']:
-                        if col_alt in df_prov.columns and pd.notna(row.get(col_alt)):
-                            nome_prestador = str(row.get(col_alt)).upper()
-                            break
-                
-                # Extração exata do Plano escolhido no registo
+                    nome_prestador = f"{p_nome} {p_sobrenome}".strip().upper()
+
+                # Extração rigorosa do Plano / Contrato
                 for col_p in ['tempo_plano', 'plano', 'duracao', 'tempo', 'contrato']:
                     if col_p in df_prov.columns and pd.notna(row.get(col_p)):
-                        tempo_plano = str(row.get(col_p)).strip()
-                        break
+                        val_p = str(row.get(col_p)).strip()
+                        if val_p and val_p.lower() != "nan":
+                            tempo_plano = val_p
+                            break
                         
                 for col_d in ['data_registo', 'data', 'timestamp', 'created_at']:
                     if col_d in df_prov.columns and pd.notna(row.get(col_d)):
                         data_registo_str = str(row.get(col_d))
                         break
 
-    segundos_base = 7200
+    # 2. Se não encontrou no DataFrame, tentar ir diretamente ao Firebase buscar o registo do prestador
+    if not found_provider or nome_prestador == "PRESTADOR NÃO IDENTIFICADO":
+        try:
+            res_fb_prov = requests.get(f"{FIREBASE_URL}/prestadores/{provider_token}.json", timeout=5)
+            if res_fb_prov.status_code == 200 and res_fb_prov.json():
+                dados_fb = res_fb_prov.json()
+                if isinstance(dados_fb, dict):
+                    for k_nome in ['nome_prestador', 'nome_completo', 'prestador', 'nome', 'user', 'utilizador']:
+                        if dados_fb.get(k_nome):
+                            nome_prestador = str(dados_fb.get(k_nome)).strip().upper()
+                            break
+                    for k_plano in ['tempo_plano', 'plano', 'duracao', 'tempo', 'contrato']:
+                        if dados_fb.get(k_plano):
+                            tempo_plano = str(dados_fb.get(k_plano)).strip()
+                            break
+                    for k_data in ['data_registo', 'data', 'timestamp', 'created_at']:
+                        if dados_fb.get(k_data):
+                            data_registo_str = str(dados_fb.get(k_data))
+                            break
+        except Exception:
+            pass
+
+    # Cálculo dinâmico do tempo base com base no contrato escolhido
+    segundos_base = 7200  # Default 2 Horas
     t_lower = tempo_plano.lower()
     if "4 hora" in t_lower or "4h" in t_lower:
         segundos_base = 14400
@@ -854,7 +883,7 @@ def show_provider_panel_custom(provider_token):
     </style>
     """, unsafe_allow_html=True)
 
-    # CABEÇALHO DO PAINEL COM NOME E CONTRATO EXATOS
+    # CABEÇALHO DO PAINEL COM NOME E CONTRATO CORRETOS
     col_topo_1, col_topo_2, col_topo_3 = st.columns([1.2, 3, 0.8])
     with col_topo_1:
         st.markdown(f"""
@@ -897,7 +926,6 @@ def show_provider_panel_custom(provider_token):
             pedidos = [{"id": k, **v} for k, v in data.items()]
         
         pedidos.sort(key=lambda x: x.get("timestamp", 0))
-        
         pedidos_ativos = [p for p in pedidos if p.get("estado") in ["pendente", "aprovado"]]
 
         # O campo 'Á Seguir' reflete rigorosamente o 1º elemento da lista ativa na tabela
