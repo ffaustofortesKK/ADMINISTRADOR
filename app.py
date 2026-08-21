@@ -1123,527 +1123,399 @@ def show_provider_panel_custom(provider_token):
                     except Exception as err:
                         st.error(f"Erro ao enviar reforço: {err}")
     
+def diagnostico_firebase(provider_token):
+    url_firebase = f"{FIREBASE_URL}/pedidos/{provider_token}.json"
+    response = requests.get(url_firebase)
+    
+    st.write("### 🔍 Diagnóstico de Dados")
+    if response.status_code == 200:
+        dados = response.json()
+        if dados:
+            st.json(dados) # Isto vai mostrar a estrutura real no ecrã
+        else:
+            st.error("O Firebase está vazio para este token.")
+    else:
+        st.error(f"Erro de conexão: {response.status_code}")
+
+# Chama isto no teu painel temporariamente
+# diagnostico_firebase("TEU_TOKEN_AQUI")
+    
+@st.fragment(run_every=1)
 def renderizar_ecra_tv(provider_token):
     try:
+        # Busca o vídeo de fundo definido pelo prestador
+        video_fundo_url = obter_video_fundo(provider_token)
+        
+        # Busca a música ativa na fila
+        # Adicionamos _t={time.time()} para forçar o navegador a não usar cache do navegador
         url_firebase = f"{FIREBASE_URL}/pedidos/{provider_token}.json?_t={time.time()}"
         response = requests.get(url_firebase, timeout=10)
         
-        pedidos_ativos = []
         tocando_agora = None
-        
         if response.status_code == 200 and response.json():
             data = response.json()
-            pedidos = [{"id": k, **v} for k, v in data.items()]
-            
-            # Filtra de forma segura aceitando variações de maiúsculas/minúsculas
-            pedidos_ativos = [
-                p for p in pedidos 
-                if str(p.get("estado", "pendente")).lower() in ["pendente", "aprovado", "novo", "aguardando"]
-            ]
-            
+            # Tratamento para garantir que o formato está correto
+            pedidos = [{"id": k, **(v if isinstance(v, dict) else {})} for k, v in data.items() if isinstance(v, dict)]
+            pedidos_ativos = [p for p in pedidos if str(p.get("estado", "")).lower() in ["pendente", "aprovado"]]
             pedidos_ativos.sort(key=lambda x: x.get("timestamp", 0))
-            
-            # Identifica de forma segura qual está a tocar (estado aprovado)
             tocando_agora = next((p for p in pedidos_ativos if str(p.get("estado", "")).lower() == "aprovado"), None)
-        
-        frame_styles = """
-            <style>
-                @keyframes pulseSpeaker {
-                    0% { transform: scale(1); filter: drop-shadow(0 0 2px #FFC107); }
-                    50% { transform: scale(1.12); filter: drop-shadow(0 0 14px #FFC107); }
-                    100% { transform: scale(1); filter: drop-shadow(0 0 2px #FFC107); }
-                }
-                @keyframes bounceIcon {
-                    0%, 100% { transform: translateY(0) rotate(0deg); }
-                    50% { transform: translateY(-5px) rotate(10deg); }
-                }
-                @keyframes marqueeFast {
-                    0% { transform: translateX(0%); }
-                    100% { transform: translateX(-50%); }
-                }
-                .speaker-box {
-                    position: fixed;
-                    z-index: 99998;
-                    width: 90px;
-                    height: 140px;
-                    background: #111;
-                    border: 4px solid #FFC107;
-                    border-radius: 10px;
-                    display: flex;
-                    flex-direction: column;
-                    align-items: center;
-                    justify-content: space-around;
-                    padding: 8px 0;
-                    box-shadow: 0 0 15px rgba(255, 193, 7, 0.4);
-                    pointer-events: none;
-                    animation: pulseSpeaker 0.55s infinite ease-in-out;
-                }
-                .woofer {
-                    width: 55px;
-                    height: 55px;
-                    border: 3px solid #FFC107;
-                    border-radius: 50%;
-                    background: radial-gradient(circle, #333 30%, #000 90%);
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                    box-shadow: inset 0 0 8px #FFC107;
-                }
-                .woofer-inner {
-                    width: 22px;
-                    height: 22px;
-                    background: #FFC107;
-                    border-radius: 50%;
-                }
-                .speaker-tl { top: 15px; left: 15px; }
-                .speaker-tr { top: 15px; right: 15px; }
-                .speaker-bl { bottom: 50px; left: 15px; }
-                .speaker-br { bottom: 50px; right: 15px; }
-                
-                .marquee-footer {
-                    position: fixed;
-                    bottom: 0;
-                    left: 0;
-                    width: 100vw;
-                    height: 38px;
-                    background: #111;
-                    border-top: 4px solid #FFC107;
-                    z-index: 99997;
-                    overflow: hidden;
-                    display: flex;
-                    align-items: center;
-                    white-space: nowrap;
-                    pointer-events: none;
-                }
-                .marquee-track {
-                    display: inline-block;
-                    white-space: nowrap;
-                    animation: marqueeFast 15s linear infinite;
-                    font-family: monospace;
-                    font-size: 16px;
-                    color: #ffffff;
-                    font-weight: bold;
-                    text-shadow: 1px 1px 3px rgba(0,0,0,0.9);
-                }
-                .marquee-item {
-                    display: inline-flex;
-                    align-items: center;
-                    gap: 12px;
-                    margin-right: 40px;
-                }
-                .icon-anim {
-                    display: inline-block;
-                    animation: bounceIcon 0.8s infinite ease-in-out; 
-                }
-            </style>
-            <div class="speaker-box speaker-tl"><div class="woofer"><div class="woofer-inner"></div></div><div class="woofer"><div class="woofer-inner"></div></div></div>
-            <div class="speaker-box speaker-tr"><div class="woofer"><div class="woofer-inner"></div></div><div class="woofer"><div class="woofer-inner"></div></div></div>
-            <div class="speaker-box speaker-bl"><div class="woofer"><div class="woofer-inner"></div></div><div class="woofer"><div class="woofer-inner"></div></div></div>
-            <div class="speaker-box speaker-br"><div class="woofer"><div class="woofer-inner"></div></div><div class="woofer"><div class="woofer-inner"></div></div></div>
-            <div class="marquee-footer">
-                <div class="marquee-track">
-                    <span class="marquee-item"><span class="icon-anim">🎵</span> FF KARAOKE CLOUD <span class="icon-anim">🎤</span> CANTE COMIGO <span class="icon-anim">🎶</span> A SUA MÚSICA FAVORITA <span class="icon-anim">🎙️</span> DIVIRTA-SE AO MÁXIMO</span>
-                    <span class="marquee-item"><span class="icon-anim">🎵</span> FF KARAOKE CLOUD <span class="icon-anim">🎤</span> CANTE COMIGO <span class="icon-anim">🎶</span> A SUA MÚSICA FAVORITA <span class="icon-anim">🎙️</span> DIVIRTA-SE AO MÁXIMO</span>
-                </div>
-            </div>
-        """
-        
-        url_atual_fundo = obter_video_fundo(provider_token) or ""
-        id_atual_tocando = tocando_agora.get('id') if tocando_agora else "none"
 
-        script_sincronizacao_global = f"""
-            <script>
-                const providerToken = "{provider_token}";
-                const firebaseBaseUrl = "{FIREBASE_URL}/pedidos/" + providerToken + ".json";
-                const firebaseVideoUrl = "{FIREBASE_URL}/video_fundo/" + providerToken + ".json";
-
-                let idAtualConhecido = "{id_atual_tocando}";
-                let urlFundoConhecida = "{url_atual_fundo}";
-
-                setInterval(async () => {{
-                    try {{
-                        let responsePedidos = await fetch(firebaseBaseUrl);
-                        let dataPedidos = await responsePedidos.json();
-                        let novoIdTocando = "none";
-                        
-                        if (dataPedidos) {{
-                            for (let key in dataPedidos) {{
-                                let est = dataPedidos[key].estado ? dataPedidos[key].estado.toLowerCase() : "";
-                                if (est === "aprovado") {{
-                                    novoIdTocando = key;
-                                    break;
-                                }}
-                            }}
-                        }}
-                        
-                        let responseVideo = await fetch(firebaseVideoUrl);
-                        let dataVideo = await responseVideo.json();
-                        let novaUrlFundo = "";
-                        if (dataVideo) {{
-                            if (typeof dataVideo === 'string') {{
-                                novaUrlFundo = dataVideo;
-                            }} else if (dataVideo.url) {{
-                                novaUrlFundo = dataVideo.url;
-                            }}
-                        }}
-                        
-                        if (novoIdTocando !== idAtualConhecido || novaUrlFundo !== urlFundoConhecida) {{
-                            window.location.reload();
-                        }}
-                    }} catch (e) {{
-                        console.log("Erro na sincronização:", e);
-                    }}
-                }}, 2000);
-            </script>
-        """
-
-        # SE HOUVER UM VÍDEO APROVADO, ABRE O LEITOR DE KARAOKE EM FULLSCREEN
-        if tocando_agora:
-            musica = tocando_agora.get("musica", {})
-            if isinstance(musica, dict):
-                titulo = musica.get("titulo", musica.get("nome", "Karaoke"))
-            else:
-                titulo = str(musica)
-            
-            titulo_limpo = limpar_nome_musica(titulo)
-            url_video = obter_url_video_cloudinary(musica, titulo_limpo)
-            c_nome = tocando_agora.get("cliente", "Convidado")
-
-            video_html = f"""
-            <style>
-                body, html {{ margin: 0; padding: 0; background: #000; overflow: hidden; width: 100vw; height: 100vh; }}
-                @keyframes zoomInNumber {{
-                    0% {{ transform: scale(0.2); opacity: 0; }}
-                    50% {{ transform: scale(1.2); opacity: 1; }}
-                    100% {{ transform: scale(1); opacity: 1; }}
-                }}
-                .countdown-overlay {{
-                    position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
-                    background: rgba(0,0,0,0.95); display: flex; justify-content: center; align-items: center;
-                    z-index: 99999; color: #ffffff; font-family: monospace; font-size: 15vw; font-weight: bold;
-                    text-shadow: 2px 2px 5px rgba(0,0,0,0.9); animation: zoomInNumber 0.9s ease-in-out infinite;
-                }}
-            </style>
-            <div id="countdown-screen" class="countdown-overlay">3</div>
-            <div id="karaoke-container" style="display: none; width: 100vw; height: 100vh; background: black; position: fixed; top: 0; left: 0; z-index: 99988;">
-                <div style="position: absolute; top: 15px; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,0.85); border: 2px solid #FFC107; padding: 10px 25px; border-radius: 8px; z-index: 10000; display: flex; align-items: center; gap: 20px;">
-                    <div style="color: #FFC107; font-family: monospace; font-size: 20px; text-transform: uppercase; font-weight: bold;">
-                        🎤 A CANTAR: <span style="color: #ffffff;">{c_nome}</span> — <span style="color: #aaaaaa; font-size: 16px;">{titulo_limpo}</span>
-                    </div>
-                    <button onclick="stopKaraoke()" style="background: #d9534f; color: white; border: none; padding: 6px 14px; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 14px;">⏹️ Terminar</button>
-                </div>
-
-                <video id="karaoke-player" width="100vw" height="100vh" autoplay playsinline style="object-fit: contain; background: black; width: 100vw; height: 100vh;">
-                    <source src="{url_video}" type="video/mp4">
-                    O seu navegador não suporta a reprodução deste vídeo.
-                </video>
-                <div id="audio-warning" style="display: none; position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); text-align: center; background: #222; border: 4px solid #FFC107; padding: 10px 20px; border-radius: 5px; z-index: 99999;">
-                    <p style="color: #ffffff; margin: 0 0 8px 0; font-family: monospace; font-size: 14px; font-weight: bold;">⚠️ O navegador bloqueou o áudio automático.</p>
-                    <button onclick="unmuteVideo()" style="background-color: #4CAF50; color: white; border: none; padding: 8px 16px; font-size: 15px; border-radius: 4px; cursor: pointer; font-weight: bold;">🔊 CLIQUE AQUI PARA ATIVAR O SOM</button>
-                </div>
-            </div>
-            <script>
-                var count = 3;
-                var cdScreen = document.getElementById('countdown-screen');
-                var timer = setInterval(function() {{
-                    count--;
-                    if (count > 0) {{
-                        cdScreen.innerText = count;
-                    }} else if (count === 0) {{
-                        cdScreen.innerText = "🎤 CANTE!";
-                    }} else {{
-                        clearInterval(timer);
-                        cdScreen.style.display = 'none';
-                        document.getElementById('karaoke-container').style.display = 'block';
-                        var video = document.getElementById('karaoke-player');
-                        video.muted = false; 
-                        var playPromise = video.play();
-                        if (playPromise !== undefined) {{
-                            playPromise.then(_ => {{}}).catch(error => {{
-                                video.muted = true;
-                                video.play();
-                                document.getElementById('audio-warning').style.display = 'block';
-                            }});
-                        }}
-                    }}
-                }}, 1000);
-
-                function unmuteVideo() {{
-                    var video = document.getElementById('karaoke-player');
-                    video.muted = false;
-                    video.play();
-                    document.getElementById('audio-warning').style.display = 'none';
-                }}
-
-                function stopKaraoke() {{
-                    var pedidoId = "{tocando_agora.get('id')}";
-                    var token = "{provider_token}";
-                    var firebaseURL = "{FIREBASE_URL}/pedidos/" + token + "/" + pedidoId + "/estado.json";
-                    
-                    fetch(firebaseURL, {{
-                        method: 'PUT',
-                        body: JSON.stringify('terminado'),
-                        headers: {{ 'Content-Type': 'application/json' }}
-                    }}).then(response => {{
-                        setTimeout(function() {{ window.location.reload(); }}, 200);
-                    }}).catch(err => {{
-                        window.location.reload();
-                    }});
-                }}
-
-                var video = document.getElementById('karaoke-player');
-                if (video) {{
-                    video.onended = function() {{
-                        stopKaraoke();
-                    }};
-                }}
-            </script>
-            {script_sincronizacao_global}
-            """
-            components.html(video_html, height=750, scrolling=False)
-            
-        # CASO CONTRÁRIO, MOSTRA O VÍDEO CLIPE DE FUNDO COM A FILA FLUTUANDO POR CIMA
-        else:
-            url_clipe_fundo = obter_video_fundo(provider_token)
-
-            st.markdown(frame_styles, unsafe_allow_html=True)
-            st.markdown(script_sincronizacao_global, unsafe_allow_html=True)
-            
-            html_elementos_sobreposicao = ""
-            
-            if url_clipe_fundo:
-                html_elementos_sobreposicao += f"""
-                <div style="position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: black; z-index: 99975; overflow: hidden;">
-                    <video id="fundo-player" autoplay loop muted playsinline controlslist="nodownload noremoteplayback" disablepictureinpicture style="width: 100vw; height: 100vh; object-fit: cover; background: black;">
-                        <source src="{url_clipe_fundo}" type="video/mp4">
-                        O seu navegador não suporta vídeo.
-                    </video>
-                    <div id="fundo-audio-warning" style="display: none; position: absolute; bottom: 60px; right: 20px; background: rgba(0,0,0,0.85); border: 2px solid #FFC107; padding: 8px 14px; border-radius: 6px; cursor: pointer; z-index: 99980;" onclick="unmuteFundo()">
-                        <span style="color: white; font-family: monospace; font-size: 13px; font-weight: bold;">🔊 Ativar Som</span>
-                    </div>
-                </div>
-                <script>
-                    var fundoVideo = document.getElementById('fundo-player');
-                    fundoVideo.muted = false;
-                    var fundoPromise = fundoVideo.play();
-                    if (fundoPromise !== undefined) {{
-                        fundoPromise.then(_ => {{}}).catch(error => {{
-                            fundoVideo.muted = true;
-                            fundoVideo.play();
-                            document.getElementById('fundo-audio-warning').style.display = 'block';
-                        }});
-                    }}
-                    function unmuteFundo() {{
-                        fundoVideo.muted = false;
-                        fundoVideo.play();
-                        document.getElementById('fundo-audio-warning').style.display = 'none';
-                    }}
-                </script>
-                """
-            else:
-                html_elementos_sobreposicao += """
-                <div style="position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: #000; z-index: 99975;"></div>
-                """
-
-            # Caixa flutuante com a Fila de Pedidos por cima do vídeo clipe
-            html_elementos_sobreposicao += """
-            <div style="position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 550px; max-width: 90vw; max-height: 75vh; background: rgba(0, 0, 0, 0.88); border: 4px solid #FFC107; border-radius: 12px; padding: 20px; z-index: 99985; overflow-y: auto; box-shadow: 0 0 30px rgba(255,193,7,0.5); backdrop-filter: blur(5px);">
-                <div style="display: flex; align-items: center; justify-content: center; gap: 10px; border-bottom: 2px solid #FFC107; padding-bottom: 10px; margin-bottom: 15px;">
-                    <span style="font-size: 22px;">📋</span>
-                    <h2 style="color: #FFC107; font-family: monospace; font-size: 20px; margin: 0; text-transform: uppercase;">FILA DE PEDIDOS DE MÚSICA</h2>
-                </div>
-            """
-
-            if pedidos_ativos:
-                for i, p in enumerate(pedidos_ativos, 1):
-                    cliente_nome = p.get("cliente", "Convidado")
-                    musica_obj = p.get("musica", {})
-                    if isinstance(musica_obj, dict):
-                        titulo_musica = musica_obj.get("titulo", musica_obj.get("nome", "Música"))
-                    else:
-                        titulo_musica = str(musica_obj)
-                    
-                    estado_atual = str(p.get("estado", "pendente")).upper()
-                    cor_estado = "#FFC107" if estado_atual == "APROVADO" else "#aaaaaa"
-                    
-                    html_elementos_sobreposicao += f"""
-                        <div style="background: rgba(20, 20, 20, 0.95); border: 2px solid #333; border-radius: 8px; padding: 12px; margin-bottom: 10px;">
-                            <div style="display: flex; justify-content: space-between; align-items: center; font-family: monospace;">
-                                <span style="color: #FFC107; font-weight: bold; font-size: 15px;">#{i} — {cliente_nome}</span>
-                                <span style="color: {cor_estado}; font-size: 11px; background: rgba(0,0,0,0.8); padding: 3px 8px; border-radius: 4px; border: 1px solid {cor_estado};">{estado_atual}</span>
-                            </div>
-                            <div style="color: #ffffff; font-family: monospace; font-size: 14px; margin-top: 6px;">🎵 {titulo_musica}</div>
-                        </div>
-                    """
-            else:
-                html_elementos_sobreposicao += """
-                    <div style="text-align: center; padding: 40px 10px; font-family: monospace; color: #888;">
-                        <p style="font-size: 35px; margin: 0 0 10px 0;">📭</p>
-                        <p style="font-size: 16px; color: #ddd; font-weight: bold;">A fila de pedidos está vazia.</p>
-                        <p style="font-size: 13px; color: #aaa;">Escaneie o QR Code para enviar a sua música!</p>
-                    </div>
-                """
-
-            html_elementos_sobreposicao += "</div>"
-
-            components.html(html_elementos_sobreposicao, height=800, scrolling=False)
-
-    except Exception as e:
-        st.error(f"Erro de sincronização na TV: {e}")
-        
-def show_client_screen():
-    query_params = st.query_params
-    provider_token = query_params.get("prestador") or query_params.get("provider", None)
-
-    if not provider_token:
-        st.error("Tela inválida. Falta o parâmetro do prestador.")
-        return
-
-    st.markdown("""
-    <style>
-    .stApp { background-color: #000000; color: white; }
-    </style>""", unsafe_allow_html=True)
-
-def obter_url_video_cloudinary(url_ou_nome):
-    if not url_ou_nome:
-        return ""
-    # Se já for um link completo do Cloudinary, retorna diretamente
-    if url_ou_nome.startswith("http"):
-        return url_ou_nome
-    
-    # Caso contrário, tenta procurar na lista de clipes disponíveis
-    try:
-        lista = listar_videos_pasta_clipes()
-        for clipe in lista:
-            if clipe['nome'] == url_ou_nome or clipe['url'] == url_ou_nome:
-                return clipe['url']
-    except Exception:
-        pass
-        
-    return url_ou_nome    
-
-    renderizar_ecra_tv(provider_token)
-
-def show_provider_panel_center(token):
-    show_provider_panel_custom(token)
-
-def main():
-    try:
-        query_params = st.query_params
-        
-        if "page" in query_params and query_params["page"] == "register":
-            custom_show_register_page()
-            return
-
-        if "page" in query_params and query_params["page"] == "client_register":
-            show_client_page()
-            return
-
-        if "page" in query_params and query_params["page"] == "client_screen":
-            show_client_screen()
-            return
-
-        token = query_params.get("prestador") or query_params.get("token") or query_params.get("provider")
-        
-        if token:
-            df = get_all_providers()
-            if df.empty or 'token' not in df.columns or not (df['token'] == token).any():
-                show_provider_panel_center(token)
-                return
-                
-            prior_prestador = df[df['token'] == token]
-            if not prior_prestador.empty:
-                row = prior_prestador.iloc[0]
-                if row.get('approved', 1) == 1:
-                    show_provider_panel_custom(token)
-                    return
-                else:
-                    st.warning("⏳ O seu registo aguarda aprovação do Administrador.")
-                    return
-            else:
-                show_provider_panel_custom(token)
-                return
-            
+        # Renderização do Ecrã/Tela de TV
         st.markdown("""
             <style>
-            .stApp {
-                background-color: #000000 !important;
-                color: #ffffff !important;
-                font-weight: bold !important;
+            .stApp { background: #000000 !important; }
+            .video-background {
+                position: fixed; right: 0; bottom: 0; min-width: 100%; min-height: 100%;
+                z-index: 0; object-fit: cover;
             }
-            .block-container {
-                background-color: #000000 !important;
-                border: 4px solid #FFC107 !important;
-                border-radius: 12px;
-                padding: 3rem !important;
+            .content-overlay {
+                position: relative; z-index: 1; display: flex; flex-direction: column;
+                align-items: center; justify-content: center; height: 80vh; text-align: center;
             }
-            h1, h2, h3, h4, h5, h6, p, span, label, div, button, input {
-                font-weight: bold !important;
-                text-shadow: 1px 1px 3px rgba(0,0,0,0.9);
+            .card-cantor {
+                background: rgba(0, 0, 0, 0.85); border: 4px solid #FFC107;
+                border-radius: 12px; padding: 30px 50px; box-shadow: 0 0 30px rgba(255, 193, 7, 0.5);
             }
             </style>
         """, unsafe_allow_html=True)
 
-        if not st.session_state.get("admin_logged", False):
-            st.title("🔒 FFKaraoke - Área Restrita (Administrador)")
-            
-            with st.form("form_admin_login"):
-                senha = st.text_input("Palavra-passe de Administrador", type="password")
-                submitted = st.form_submit_button("Entrar")
+        if video_fundo_url:
+            st.markdown(f"""
+                <video autoplay muted loop class="video-background">
+                    <source src="{video_fundo_url}" type="video/mp4">
+                </video>
+            """, unsafe_allow_html=True)
+
+        st.markdown('<div class="content-overlay">', unsafe_allow_html=True)
+        
+        if tocando_agora:
+            cantor = str(tocando_agora.get("cliente", "CONVIDADO")).upper()
+            musica_data = tocando_agora.get("musica", {})
+            # Tratamento de segurança para o nome da música
+            if isinstance(musica_data, dict):
+                musica = limpar_nome_musica(musica_data.get("titulo", "Karaoke"))
+            else:
+                musica = limpar_nome_musica(str(musica_data))
                 
+            st.markdown(f"""
+                <div class="card-cantor">
+                    <div style="font-family: monospace; color: #FFC107; font-size: 14px; letter-spacing: 2px; margin-bottom: 10px;">A CANTAR AGORA</div>
+                    <div style="font-family: monospace; color: #FFC107; font-size: 48px; font-weight: bold; text-transform: uppercase; margin-bottom: 15px; text-shadow: 3px 3px 8px rgba(0,0,0,0.9);">
+                        🎤 {cantor}
+                    </div>
+                    <div style="font-family: monospace; color: #ffffff; font-size: 22px; font-weight: bold; text-shadow: 2px 2px 6px rgba(0,0,0,0.9);">
+                        🎵 {musica}
+                    </div>
+                </div>
+            """, unsafe_allow_html=True)
+        else:
+            st.markdown("""
+                <div class="card-cantor">
+                    <div style="font-family: monospace; color: #FFC107; font-size: 28px; font-weight: bold;">
+                        ⏳ AGUARDANDO PRÓXIMA MÚSICA...
+                    </div>
+                </div>
+            """, unsafe_allow_html=True)
+        st.markdown('</div>', unsafe_allow_html=True)
+
+    except Exception as e:
+        st.error(f"Erro ao carregar a tela de TV: {e}")
+        
+        
+def show_client_screen():
+
+    query_params = st.query_params
+
+    provider_token = query_params.get("prestador") or query_params.get("token") or query_params.get("provider")
+
+
+
+    if not provider_token:
+
+        st.error("Tela inválida. Falta o parâmetro do prestador.")
+
+        return
+
+
+
+    st.markdown("""
+
+    <style>
+
+    .stApp { background-color: #000000; color: white; }
+
+    </style>""", unsafe_allow_html=True)
+
+
+
+    # Opcional: Se quiser carregar o nome do prestador para exibir na tela da TV
+
+    try:
+
+        df = get_all_providers()
+
+        if not df.empty and 'token' in df.columns:
+
+            prestador_info = df[df['token'] == provider_token]
+
+            if not prestador_info.empty:
+
+                nome_prestador = prestador_info.iloc[0].get('nome', 'Karaoke')
+
+                st.markdown(f"<h2 style='text-align: center; color: #FFC107;'>🎵 {nome_prestador} - Ecrã da TV</h2>", unsafe_allow_html=True)
+
+    except Exception:
+
+        pass # Se falhar ao buscar o nome, continua a execução normal da TV
+
+
+
+    # Chama a função original da TV passando o token
+
+    renderizar_ecra_tv(provider_token)
+
+
+
+def show_provider_panel_center(token):
+
+    show_provider_panel_custom(token)
+
+
+
+def main():
+
+    try:
+
+        query_params = st.query_params
+
+        
+
+        if "page" in query_params and query_params["page"] == "register":
+
+            custom_show_register_page()
+
+            return
+
+
+
+        if "page" in query_params and query_params["page"] == "client_register":
+
+            show_client_page()
+
+            return
+
+
+
+        if "page" in query_params and query_params["page"] == "client_screen":
+
+            show_client_screen()
+
+            return
+
+
+
+        token = query_params.get("prestador") or query_params.get("token") or query_params.get("provider")
+
+        
+
+        if token:
+
+            df = get_all_providers()
+
+            if df.empty or 'token' not in df.columns or not (df['token'] == token).any():
+
+                show_provider_panel_center(token)
+
+                return
+
+                
+
+            prior_prestador = df[df['token'] == token]
+
+            if not prior_prestador.empty:
+
+                row = prior_prestador.iloc[0]
+
+                if row.get('approved', 1) == 1:
+
+                    show_provider_panel_custom(token)
+
+                    return
+
+                else:
+
+                    st.warning("⏳ O seu registo aguarda aprovação do Administrador.")
+
+                    return
+
+            else:
+
+                show_provider_panel_custom(token)
+
+                return
+
+            
+
+        st.markdown("""
+
+            <style>
+
+            .stApp {
+
+                background-color: #000000 !important;
+
+                color: #ffffff !important;
+
+                font-weight: bold !important;
+
+            }
+
+            .block-container {
+
+                background-color: #000000 !important;
+
+                border: 4px solid #FFC107 !important;
+
+                border-radius: 12px;
+
+                padding: 3rem !important;
+
+            }
+
+            h1, h2, h3, h4, h5, h6, p, span, label, div, button, input {
+
+                font-weight: bold !important;
+
+                text-shadow: 1px 1px 3px rgba(0,0,0,0.9);
+
+            } </style>
+
+        """, unsafe_allow_html=True)
+
+
+
+        if not st.session_state.get("admin_logged", False):
+
+            st.title("🔒 FFKaraoke - Área Restrita (Administrador)")
+
+            
+
+            with st.form("form_admin_login"):
+
+                senha = st.text_input("Palavra-passe de Administrador", type="password")
+
+                submitted = st.form_submit_button("Entrar")
+
+                
+
                 if submitted:
+
                     if senha == "ffkaraoke2026" or senha == "admin123":
+
                         st.session_state["admin_logged"] = True
+
                         st.success("Sessão iniciada com sucesso!")
+
                         st.rerun()
+
                     else:
+
                         st.error("Palavra-passe incorreta.")
 
+
+
         if st.session_state.get("admin_logged", False):
+
             st.markdown("---")
+
             st.subheader("⚡ Gestão de Reforços de Tempo Pendentes")
+
             try:
+
                 res_all_ref = requests.get(f"{FIREBASE_URL}/reforcos_pendentes.json", timeout=10)
+
                 if res_all_ref.status_code == 200 and res_all_ref.json():
+
                     all_refs = res_all_ref.json()
+
                     tem_reforcos = False
+
                     for tok, refs_dict in all_refs.items():
+
                         if isinstance(refs_dict, dict):
+
                             for r_id, r_data in refs_dict.items():
+
                                 if r_data.get("approved", 0) == 0:
+
                                     tem_reforcos = True
+
                                     st.markdown(f"""
+
                                     <div style="background: rgba(0,0,0,0.95); border: 2px solid #FFC107; padding: 12px; border-radius: 6px; margin-bottom: 10px;">
+
                                         <b>Prestador:</b> {r_data.get('nome_prestador')} (Token: {tok})<br>
+
                                         <b>Referência / Comprovativo:</b> {r_data.get('referencia')}<br>
+
                                         <b>Duração Solicitada:</b> {r_data.get('tempo_plano')}
+
                                     </div>
+
                                     """, unsafe_allow_html=True)
+
                                     
+
                                     col_s, col_n = st.columns(2)
+
                                     with col_s:
+
                                         if st.button("✅ Aprovar Reforço", key=f"aprov_ref_{tok}_{r_id}"):
+
                                             r_data["approved"] = 1
+
                                             requests.put(f"{FIREBASE_URL}/reforcos_aprovados/{tok}/{r_id}.json", json=r_data)
+
                                             requests.delete(f"{FIREBASE_URL}/reforcos_pendentes/{tok}/{r_id}.json")
+
                                             st.success("Reforço aprovado e acumulado com sucesso!")
+
                                             st.rerun()
+
                                     with col_n:
+
                                         if st.button("❌ Recusar Reforço", key=f"rec_ref_{tok}_{r_id}"):
+
                                             requests.delete(f"{FIREBASE_URL}/reforcos_pendentes/{tok}/{r_id}.json")
+
                                             st.warning("Reforço recusado.")
+
                                             st.rerun()
+
                     if not tem_reforcos:
+
                         st.info("Nenhum pedido de reforço pendente neste momento.")
+
                 else:
+
                     st.info("Nenhum pedido de reforço pendente neste momento.")
+
             except Exception as e:
+
                 st.warning(f"Não foi possível carregar os reforços pendentes: {e}")
 
+
+
             show_admin_panel()
+
                 
+
     except Exception as e:
+
         st.error(f"Ocorreu um erro ao carregar a aplicação: {e}")
 
+
+
 if __name__ == "__main__":
+
     main()
