@@ -210,14 +210,11 @@ def custom_show_register_page():
         aprovado = False
         try:
             df_prov = get_all_providers()
-            if not df_prov.empty:
-                col_token_candidates = ['token', 'provider_token', 'id', 'codigo']
-                col_token_encontrada = next((c for c in col_token_candidates if c in df_prov.columns), None)
-                if col_token_encontrada:
-                    match = df_prov[df_prov[col_token_encontrada].astype(str).str.strip() == str(token_atual).strip()]
-                    if not match.empty:
-                        if int(match.iloc[0].get('approved', 0)) == 1:
-                            aprovado = True
+            if not df_prov.empty and 'token' in df_prov.columns:
+                match = df_prov[df_prov['token'] == token_atual]
+                if not match.empty:
+                    if int(match.iloc[0].get('approved', 0)) == 1:
+                        aprovado = True
         except Exception:
             pass
 
@@ -234,7 +231,7 @@ def custom_show_register_page():
                     del st.session_state["token_pendente_prestador"]
                 st.rerun()
             return
-
+        
         st.markdown(f"""
             <style>
             @keyframes spinMic {{
@@ -313,6 +310,13 @@ def custom_show_register_page():
         st.rerun()
         return
 
+    if original_show_register_page:
+        try:
+            original_show_register_page()
+            return
+        except Exception:
+            pass
+
     st.markdown("<h1>🎤 FFKaraoke - Registo de Prestador</h1>", unsafe_allow_html=True)
     st.markdown("<p>Preencha os seus dados.</p>", unsafe_allow_html=True)
     
@@ -339,39 +343,32 @@ def custom_show_register_page():
                 st.error("Por favor, preencha todos os campos obrigatórios.")
             else:
                 referencia_fake = "Plano Selecionado Direto"
-                nome_completo = f"{nome} {sobrenome}".strip()
-                
-                import uuid
-                token_gerado = str(uuid.uuid4())[:8]
-                
-                # Estrutura compatível exatamente com a tabela 'providers' do Firebase
-                dados_reg = {
-                    "token": token_gerado,
-                    "provider_token": token_gerado,
-                    "nome": nome.strip(),
-                    "sobrenome": sobrenome.strip(),
-                    "nome_prestador": nome_completo.upper(),
-                    "prestador": nome_completo.upper(),
-                    "user": nome_completo.upper(),
-                    "telefone": telefone.strip(),
-                    "referencia": referencia_fake,
-                    "tempo_plano": duracao,
-                    "plano": duracao,
-                    "contrato": duracao,
-                    "duracao": duracao,
-                    "approved": 0,
-                    "data_registo": str(datetime.now())
-                }
-                
                 try:
-                    # Grava diretamente no nó 'providers' que aparece no seu Firebase
-                    requests.put(f"{FIREBASE_URL}/providers/{token_gerado}.json", json=dados_reg, timeout=10)
-                    
+                    from utils.db_manager import save_provider_request
+                    token_gerado = save_provider_request(nome, sobrenome, telefone, referencia_fake, duracao)
                     st.session_state["token_pendente_prestador"] = token_gerado
-                    st.session_state["nome_pendente_prestador"] = nome_completo
+                    st.session_state["nome_pendente_prestador"] = f"{nome} {sobrenome}".strip()
                     st.rerun()
-                except Exception as err:
-                    st.error(f"Erro ao submeter registo: {err}")
+                except Exception as e:
+                    import uuid
+                    token_gerado = str(uuid.uuid4())[:8]
+                    nome_completo = f"{nome} {sobrenome}".strip()
+                    dados_reg = {
+                        "nome_prestador": nome_completo,
+                        "telefone": telefone,
+                        "referencia": referencia_fake,
+                        "tempo_plano": duracao,
+                        "approved": 0,
+                        "token": token_gerado,
+                        "data_registo": str(datetime.now())
+                    }
+                    try:
+                        requests.put(f"{FIREBASE_URL}/prestadores_pendentes/{token_gerado}.json", json=dados_reg, timeout=10)
+                        st.session_state["token_pendente_prestador"] = token_gerado
+                        st.session_state["nome_pendente_prestador"] = nome_completo
+                        st.rerun()
+                    except Exception as err:
+                        st.error(f"Erro ao submeter registo: {err}")
 
 # --- FUNÇÃO AUXILIAR: BUSCAR MÚLTIPLOS LINKS NO YOUTUBE ---
 def buscar_multiplos_links_youtube(termo, max_resultados=6):
@@ -650,105 +647,39 @@ def renderizar_gestao_fila_prestador(provider_token):
         st.error(f"Erro ao carregar os pedidos do Firebase: {e}")
         
 
-# Importação opcional para o relógio atualizar automaticamente segundo a segundo
-try:
-    from streamlit_autorefresh import st_autorefresh
-except ImportError:
-    st_autorefresh = None
-
 def show_provider_panel_custom(provider_token):
-    if st_autorefresh:
-        st_autorefresh(interval=1000, key="relogio_prestador_tick")
-
     url_logotipo = "https://cdn.phototourl.com/free/2026-08-03-8b13edf5-0257-491d-ab78-f0d5329ffc15.jpg"
     url_fundo_painel = "https://cdn.phototourl.com/free/2026-08-03-694a4a2e-9914-4da8-93b2-87538a4805ab.png"
 
-    # Buscar dados de todos os prestadores e também verificar no Firebase se necessário
     df_prov = get_all_providers()
     
     nome_prestador = "PRESTADOR NÃO IDENTIFICADO"
     tempo_plano = "2 Horas - 12 Mil Kwanzas"
     data_registo_str = None
     
-    # 1. Tentar ler diretamente da base de dados local/DataFrame de prestadores
-    found_provider = False
     if not df_prov.empty:
-        col_token_candidates = ['token', 'provider_token', 'id', 'codigo']
+        col_token_candidates = ['token', 'provider_token', 'id']
         col_token_encontrada = next((c for c in col_token_candidates if c in df_prov.columns), None)
         
         if col_token_encontrada:
-            match = df_prov[df_prov[col_token_encontrada].astype(str).str.strip() == str(provider_token).strip()]
+            match = df_prov[df_prov[col_token_encontrada].astype(str) == str(provider_token)]
             if not match.empty:
                 row = match.iloc[0]
-                found_provider = True
                 
-                # Extração rigorosa do Nome do Prestador
-                for col_n in ['nome_prestador', 'nome_completo', 'prestador', 'nome', 'user', 'utilizador', 'primeiro_nome', 'name']:
+                for col_n in ['nome_prestador', 'nome', 'prestador', 'user']:
                     if col_n in df_prov.columns and pd.notna(row.get(col_n)):
-                        val = str(row.get(col_n)).strip()
-                        if val and val.lower() != "nan":
-                            nome_prestador = val.upper()
-                            break
+                        nome_prestador = str(row.get(col_n)).upper()
+                        break
                 
-                # Se encontrou separadamente nome e sobrenome
-                p_nome, p_sobrenome = "", ""
-                for col_n in ['nome', 'primeiro_nome', 'name']:
-                    if col_n in df_prov.columns and pd.notna(row.get(col_n)):
-                        p_nome = str(row.get(col_n)).strip()
-                        break
-                for col_s in ['sobrenome', 'ultimo_nome', 'apelido']:
-                    if col_s in df_prov.columns and pd.notna(row.get(col_s)):
-                        p_sobrenome = str(row.get(col_s)).strip()
-                        break
-                if p_nome:
-                    nome_prestador = f"{p_nome} {p_sobrenome}".strip().upper()
-
-                # Extração rigorosa do Plano / Contrato
-                for col_p in ['tempo_plano', 'plano', 'duracao', 'tempo', 'contrato']:
+                for col_p in ['tempo_plano', 'plano', 'duracao', 'tempo']:
                     if col_p in df_prov.columns and pd.notna(row.get(col_p)):
-                        val_p = str(row.get(col_p)).strip()
-                        if val_p and val_p.lower() != "nan":
-                            tempo_plano = val_p
-                            break
+                        tempo_plano = str(row.get(col_p))
+                        break
                         
                 for col_d in ['data_registo', 'data', 'timestamp', 'created_at']:
                     if col_d in df_prov.columns and pd.notna(row.get(col_d)):
                         data_registo_str = str(row.get(col_d))
                         break
-
-    # 2. Se não encontrou no DataFrame, tentar ir diretamente ao Firebase buscar o registo do prestador
-    if not found_provider or nome_prestador == "PRESTADOR NÃO IDENTIFICADO":
-        try:
-            res_fb_prov = requests.get(f"{FIREBASE_URL}/prestadores/{provider_token}.json", timeout=5)
-            if res_fb_prov.status_code == 200 and res_fb_prov.json():
-                dados_fb = res_fb_prov.json()
-                if isinstance(dados_fb, dict):
-                    for k_nome in ['nome_prestador', 'nome_completo', 'prestador', 'nome', 'user', 'utilizador']:
-                        if dados_fb.get(k_nome):
-                            nome_prestador = str(dados_fb.get(k_nome)).strip().upper()
-                            break
-                    for k_plano in ['tempo_plano', 'plano', 'duracao', 'tempo', 'contrato']:
-                        if dados_fb.get(k_plano):
-                            tempo_plano = str(dados_fb.get(k_plano)).strip()
-                            break
-                    for k_data in ['data_registo', 'data', 'timestamp', 'created_at']:
-                        if dados_fb.get(k_data):
-                            data_registo_str = str(dados_fb.get(k_data))
-                            break
-        except Exception:
-            pass
-
-    # Cálculo dinâmico do tempo base com base no contrato escolhido
-    segundos_base = 7200  # Default 2 Horas
-    t_lower = tempo_plano.lower()
-    if "4 hora" in t_lower or "4h" in t_lower:
-        segundos_base = 14400
-    elif "3 hora" in t_lower or "3h" in t_lower:
-        segundos_base = 10800
-    elif "2 hora" in t_lower or "2h" in t_lower:
-        segundos_base = 7200
-    elif "1 hora" in t_lower or "1h" in t_lower:
-        segundos_base = 3600
 
     segundos_bónus = 0
     try:
@@ -757,19 +688,26 @@ def show_provider_panel_custom(provider_token):
             dados_ref = res_ref.json()
             if isinstance(dados_ref, dict):
                 for r_id, r_info in dados_ref.items():
-                    t_ref = str(r_info.get("tempo_plano", "")).lower()
-                    if "4 hora" in t_ref or "4h" in t_ref:
-                        segundos_bónus += 14400
-                    elif "3 hora" in t_ref or "3h" in t_ref:
+                    t_ref = r_info.get("tempo_plano", "")
+                    if "3 Horas" in t_ref:
                         segundos_bónus += 10800
-                    elif "2 hora" in t_ref or "2h" in t_ref:
+                    elif "4 Horas" in t_ref:
+                        segundos_bónus += 14400
+                    elif "2 Horas" in t_ref:
                         segundos_bónus += 7200
     except Exception:
         pass
 
+    segundos_base = 7200
+    if "3 Horas" in tempo_plano:
+        segundos_base = 10800
+    elif "4 Horas" in tempo_plano:
+        segundos_base = 14400
+    elif "2 Horas" in tempo_plano:
+        segundos_base = 7200
+
     segundos_totais = segundos_base + segundos_bónus
     segundos_restantes = segundos_totais
-    
     if data_registo_str:
         try:
             dt_str_clean = data_registo_str.split('.')[0]
@@ -886,12 +824,12 @@ def show_provider_panel_custom(provider_token):
     </style>
     """, unsafe_allow_html=True)
 
-    # CABEÇALHO DO PAINEL COM NOME E CONTRATO CORRETOS
+    # CABEÇALHO DO PAINEL
     col_topo_1, col_topo_2, col_topo_3 = st.columns([1.2, 3, 0.8])
     with col_topo_1:
         st.markdown(f"""
             <div style="background: #000000; border: 2px solid #FFC107; border-radius: 6px; padding: 8px; text-align: center;">
-                <div style="font-family: monospace; color: #ffffff; font-size: 9px; text-transform: uppercase; letter-spacing: 1px;">TEMPO / CONTRATO</div>
+                <div style="font-family: monospace; color: #ffffff; font-size: 9px; text-transform: uppercase; letter-spacing: 1px;">TEMPO / PLANO ESCOLHIDO</div>
                 <div style="font-family: monospace; color: #FFC107; font-size: 18px; font-weight: bold; {classe_piscar} margin: 2px 0;">⏱️ {tempo_formatado}</div>
                 <div style="font-family: monospace; color: #fff; font-size: 10px;">({tempo_plano})</div>
             </div>
@@ -919,7 +857,7 @@ def show_provider_panel_custom(provider_token):
     
     qr_url_cliente = f"https://api.qrserver.com/v1/create-qr-code/?size=150x150&data={urllib.parse.quote(link_cliente_absoluto)}"
 
-    # BUSCAR E ORDENAR PEDIDOS DO FIREBASE
+    # BUSCAR PEDIDOS DO FIREBASE
     try:
         url_firebase = f"{FIREBASE_URL}/pedidos/{provider_token}.json?_t={time.time()}"
         response = requests.get(url_firebase, timeout=10)
@@ -929,21 +867,27 @@ def show_provider_panel_custom(provider_token):
             pedidos = [{"id": k, **v} for k, v in data.items()]
         
         pedidos.sort(key=lambda x: x.get("timestamp", 0))
-        pedidos_ativos = [p for p in pedidos if p.get("estado") in ["pendente", "aprovado"]]
+        tocando_agora = next((p for p in pedidos if p.get("estado") == "aprovado"), None)
+        
+        if not tocando_agora and pedidos:
+            primeiro_id = pedidos[0].get('id')
+            atualizar_estado_pedido(provider_token, primeiro_id, 'aprovado')
+            pedidos[0]["estado"] = "aprovado"
+            tocando_agora = pedidos[0]
 
-        # O campo 'Á Seguir' reflete rigorosamente o 1º elemento da lista ativa na tabela
-        if pedidos_ativos:
-            primeiro_da_fila = pedidos_ativos[0]
-            cantor_proximo = str(primeiro_da_fila.get("cliente", "CONVIDADO")).upper()
+        indice_atual = pedidos.index(tocando_agora) if tocando_agora in pedidos else -1
+        proximo_da_fila = pedidos[indice_atual + 1] if (indice_atual != -1 and len(pedidos) > indice_atual + 1) else (pedidos[0] if (not tocando_agora and pedidos) else None)
+
+        if proximo_da_fila:
+            cantor_proximo = proximo_da_fila.get("cliente", "CONVIDADO").upper()
             conteudo_a_seguir = f"Á Seguir - <span style='color: #FFC107;'>{cantor_proximo}</span>"
         else:
             conteudo_a_seguir = "Á Seguir -"
-            
     except Exception:
         conteudo_a_seguir = "Á Seguir -"
         pedidos = []
-        pedidos_ativos = []
 
+    # ESTRUTURA PRINCIPAL
     col_esq, col_dir = st.columns([2.5, 1], gap="medium")
     
     with col_esq:
@@ -961,6 +905,7 @@ def show_provider_panel_custom(provider_token):
             </div>
         """, unsafe_allow_html=True)
 
+        # BLOCO "Á Seguir -" AUMENTADO EM 40% E COR AMARELA
         st.markdown(f"""
             <div style="border: 3px solid #FFC107; border-radius: 8px; padding: 18px; background-color: #000000; margin-bottom: 15px;">
                 <div style="font-family: monospace; color: #FFC107; font-size: 28px; font-weight: bold;">{conteudo_a_seguir}</div>
@@ -970,9 +915,9 @@ def show_provider_panel_custom(provider_token):
         c_t1, c_t2, c_t3 = st.columns(3)
         with c_t1:
             if st.button("▶️ Tocar o Karaoke", key="btn_tocar_topo", use_container_width=True):
-                if pedidos_ativos:
+                if tocando_agora:
                     terminar_todas_musicas_ativas(provider_token, pedidos)
-                    atualizar_estado_pedido(provider_token, pedidos_ativos[0].get('id'), 'aprovado')
+                    atualizar_estado_pedido(provider_token, tocando_agora.get('id'), 'aprovado')
                     st.rerun()
         with c_t2:
             if st.button("⏹️ Parar o Karaoke", key="btn_parar_topo", use_container_width=True):
@@ -980,14 +925,14 @@ def show_provider_panel_custom(provider_token):
                 st.rerun()
         with c_t3:
             if st.button("⏭️ Avançar Karaoke", key="btn_prox_topo", use_container_width=True):
-                if pedidos_ativos:
-                    atualizar_estado_pedido(provider_token, pedidos_ativos[0].get('id'), 'terminado')
-                    restantes = [x for x in pedidos_ativos if x.get('id') != pedidos_ativos[0].get('id')]
+                if tocando_agora:
+                    atualizar_estado_pedido(provider_token, tocando_agora.get('id'), 'terminado')
+                    restantes = [x for x in pedidos if x.get('estado') in ['pendente', 'aprovado'] and x.get('id') != tocando_agora.get('id')]
                     if restantes:
                         atualizar_estado_pedido(provider_token, restantes[0].get('id'), 'aprovado')
                     st.rerun()
 
-        # SECÇÃO DA TABELA
+        # SECÇÃO DA TABELA COM CONTROLO UNIFICADO NA COLUNA AÇÕES
         st.markdown("<div style='height: 10px;'></div>", unsafe_allow_html=True)
         st.markdown("""
             <div style="font-family: monospace; color: #ffffff; font-size: 16px; font-weight: bold; margin-bottom: 8px;">
@@ -995,12 +940,15 @@ def show_provider_panel_custom(provider_token):
             </div>
         """, unsafe_allow_html=True)
 
+        pedidos_ativos = [p for p in pedidos if p.get("estado") in ["pendente", "aprovado"]]
+
+        # Cabeçalho da Tabela Estilizado
         st.markdown("""
             <div style="background-color: #03a9f4; border: 3px solid #FFC107; border-bottom: none; border-radius: 8px 8px 0 0; padding: 10px 12px; display: flex; font-family: monospace; font-weight: bold; font-size: 15px; color: #ffffff;">
                 <div style="width: 10%;">Nº</div>
-                <div style="width: 28%;">CANTOR</div>
+                <div style="width: 30%;">CANTOR</div>
                 <div style="width: 38%;">TÍTULO</div>
-                <div style="width: 24%; text-align: center;">AÇÕES</div>
+                <div style="width: 22%; text-align: center;">AÇÕES</div>
             </div>
         """, unsafe_allow_html=True)
 
@@ -1010,54 +958,52 @@ def show_provider_panel_custom(provider_token):
                 musica = limpar_nome_musica(p.get("musica", {}))
                 pid = p.get("id")
                 
-                cols_linha = st.columns([0.10, 0.28, 0.38, 0.24])
+                # Linha individual estilizada
+                st.markdown(f"""
+                    <div style="background-color: #000000; border-left: 3px solid #FFC107; border-right: 3px solid #FFC107; border-bottom: 2px solid #FFC107; padding: 8px 12px; display: flex; align-items: center; font-family: monospace; font-size: 14px; color: #ffffff;">
+                        <div style="width: 10%; font-weight: bold;">{idx}</div>
+                        <div style="width: 30%; font-weight: bold; color: #FFC107;">{cantor}</div>
+                        <div style="width: 38%;">{musica}</div>
+                        <div style="width: 22%; text-align: center;"></div>
+                    </div>
+                """, unsafe_allow_html=True)
                 
-                with cols_linha[0]:
-                    st.markdown(f"<div style='font-family: monospace; font-weight: bold; padding-top: 10px;'>{idx}</div>", unsafe_allow_html=True)
-                with cols_linha[1]:
-                    st.markdown(f"<div style='font-family: monospace; font-weight: bold; color: #FFC107; padding-top: 10px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;'>{cantor}</div>", unsafe_allow_html=True)
-                with cols_linha[2]:
-                    st.markdown(f"<div style='font-family: monospace; padding-top: 10px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;'>{musica}</div>", unsafe_allow_html=True)
-                
-                with cols_linha[3]:
-                    sub_c1, sub_c2, sub_c3 = st.columns(3)
-                    with sub_c1:
-                        if st.button("⬆️", key=f"subir_{pid}", help="Subir na Fila", use_container_width=True):
-                            if idx > 1:
-                                try:
-                                    item_atual = pedidos_ativos[idx - 1]
-                                    item_acima = pedidos_ativos[idx - 2]
-                                    t_atual = item_atual.get("timestamp", time.time())
-                                    t_acima = item_acima.get("timestamp", time.time() - 1)
-                                    
-                                    requests.patch(f"{FIREBASE_URL}/pedidos/{provider_token}/{item_atual['id']}.json", json={"timestamp": t_acima}, timeout=5)
-                                    requests.patch(f"{FIREBASE_URL}/pedidos/{provider_token}/{item_acima['id']}.json", json={"timestamp": t_atual}, timeout=5)
-                                    st.rerun()
-                                except Exception:
-                                    pass
-                    with sub_c2:
-                        if st.button("⬇️", key=f"descer_{pid}", help="Descer na Fila", use_container_width=True):
-                            if idx < len(pedidos_ativos):
-                                try:
-                                    item_atual = pedidos_ativos[idx - 1]
-                                    item_abaixo = pedidos_ativos[idx]
-                                    t_atual = item_atual.get("timestamp", time.time())
-                                    t_abaixo = item_abaixo.get("timestamp", time.time() + 1)
-                                    
-                                    requests.patch(f"{FIREBASE_URL}/pedidos/{provider_token}/{item_atual['id']}.json", json={"timestamp": t_abaixo}, timeout=5)
-                                    requests.patch(f"{FIREBASE_URL}/pedidos/{provider_token}/{item_abaixo['id']}.json", json={"timestamp": t_atual}, timeout=5)
-                                    st.rerun()
-                                except Exception:
-                                    pass
-                    with sub_c3:
-                        if st.button("❌", key=f"apagar_{pid}", help="Apagar Pedido", use_container_width=True):
+                # Coluna de ações unificada com seletor de opções e botão de confirmação
+                col_acao_sel, col_acao_btn = st.columns([1.5, 1])
+                with col_acao_sel:
+                    acao_escolhida = st.selectbox(
+                        "Ação", 
+                        options=["Selecione...", "⬆️ Subir", "⬇️ Descer", "❌ Apagar"], 
+                        key=f"sel_acao_{pid}", 
+                        label_visibility="collapsed"
+                    )
+                with col_acao_btn:
+                    if st.button("Executar", key=f"btn_exec_{pid}", use_container_width=True):
+                        if acao_escolhida != "Selecione...":
                             try:
-                                requests.delete(f"{FIREBASE_URL}/pedidos/{provider_token}/{pid}.json", timeout=5)
-                                st.rerun()
+                                res_all = requests.get(f"{FIREBASE_URL}/pedidos/{provider_token}.json", timeout=5)
+                                if res_all.status_code == 200 and res_all.json():
+                                    items = sorted(res_all.json().items(), key=lambda x: x[1].get("timestamp", 0))
+                                    idx_alvo = next((i for i, (k, v) in enumerate(items) if k == pid), -1)
+                                    
+                                    if acao_escolhida == "❌ Apagar":
+                                        requests.delete(f"{FIREBASE_URL}/pedidos/{provider_token}/{pid}.json", timeout=5)
+                                    elif acao_escolhida == "⬆️ Subir" and idx_alvo > 0:
+                                        t_atual = items[idx_alvo][1].get("timestamp", time.time())
+                                        t_ant = items[idx_alvo-1][1].get("timestamp", time.time() - 1)
+                                        k_ant = items[idx_alvo-1][0]
+                                        requests.patch(f"{FIREBASE_URL}/pedidos/{provider_token}/{pid}.json", json={"timestamp": t_ant}, timeout=5)
+                                        requests.patch(f"{FIREBASE_URL}/pedidos/{provider_token}/{k_ant}.json", json={"timestamp": t_atual}, timeout=5)
+                                    elif acao_escolhida == "⬇️ Descer" and idx_alvo != -1 and idx_alvo < len(items) - 1:
+                                        t_atual = items[idx_alvo][1].get("timestamp", time.time())
+                                        t_prox = items[idx_alvo+1][1].get("timestamp", time.time() + 1)
+                                        k_prox = items[idx_alvo+1][0]
+                                        requests.patch(f"{FIREBASE_URL}/pedidos/{provider_token}/{pid}.json", json={"timestamp": t_prox}, timeout=5)
+                                        requests.patch(f"{FIREBASE_URL}/pedidos/{provider_token}/{k_prox}.json", json={"timestamp": t_atual}, timeout=5)
+                                        
+                                    st.rerun()
                             except Exception:
                                 pass
-                
-                st.markdown("<div style='border-bottom: 2px solid #FFC107; margin-top: 4px; margin-bottom: 4px;'></div>", unsafe_allow_html=True)
         else:
             st.markdown("""
                 <div style="background-color: #000000; border: 3px solid #FFC107; border-top: none; border-radius: 0 0 8px 8px; padding: 20px; text-align: center; color: #FFC107; font-family: monospace; font-size: 15px;">
@@ -1114,6 +1060,8 @@ def show_provider_panel_custom(provider_token):
                 st.rerun()
 
     st.markdown("<hr style='border-color: #333; margin: 15px 0;'>", unsafe_allow_html=True)
+
+    # SECÇÃO DE REFORÇO
     st.markdown("<div id='reforco_seccao'></div>", unsafe_allow_html=True)
     if segundos_restantes <= 1800:
         st.markdown("### ⚡ Solicitar Reforço de Tempo")
@@ -1528,9 +1476,11 @@ def show_client_screen():
 def obter_url_video_cloudinary(url_ou_nome):
     if not url_ou_nome:
         return ""
+    # Se já for um link completo do Cloudinary, retorna diretamente
     if url_ou_nome.startswith("http"):
         return url_ou_nome
     
+    # Caso contrário, tenta procurar na lista de clipes disponíveis
     try:
         lista = listar_videos_pasta_clipes()
         for clipe in lista:
@@ -1539,284 +1489,8 @@ def obter_url_video_cloudinary(url_ou_nome):
     except Exception:
         pass
         
-    return url_ou_nome
+    return url_ou_nome    
 
-def renderizar_ecra_tv(provider_token):
-    try:
-        # Buscar estado atual dos pedidos para identificar qual está aprovado (tocando agora)
-        url_firebase = f"{FIREBASE_URL}/pedidos/{provider_token}.json?_t={time.time()}"
-        response = requests.get(url_firebase, timeout=10)
-        pedidos = []
-        tocando_agora = None
-        
-        if response.status_code == 200 and response.json():
-            data = response.json()
-            pedidos = [{"id": k, **v} for k, v in data.items()]
-            pedidos.sort(key=lambda x: x.get("timestamp", 0))
-            
-            for p in pedidos:
-                if str(p.get("estado", "")).lower() == "aprovado":
-                    tocando_agora = p
-                    break
-
-        pedidos_ativos = [p for p in pedidos if p.get("estado") in ["pendente", "aprovado"]]
-        
-        url_atual_fundo = obter_video_fundo(provider_token) or ""
-        id_atual_tocando = tocando_agora.get('id') if tocando_agora else "none"
-
-        script_sincronizacao_global = f"""
-            <script>
-                const providerToken = "{provider_token}";
-                const firebaseBaseUrl = "{FIREBASE_URL}/pedidos/" + providerToken + ".json";
-                const firebaseVideoUrl = "{FIREBASE_URL}/video_fundo/" + providerToken + ".json";
-
-                let idAtualConhecido = "{id_atual_tocando}";
-                let urlFundoConhecida = "{url_atual_fundo}";
-
-                setInterval(async () => {{
-                    try {{
-                        let responsePedidos = await fetch(firebaseBaseUrl);
-                        let dataPedidos = await responsePedidos.json();
-                        let novoIdTocando = "none";
-                        
-                        if (dataPedidos) {{
-                            for (let key in dataPedidos) {{
-                                let est = dataPedidos[key].estado ? dataPedidos[key].estado.toLowerCase() : "";
-                                if (est === "aprovado") {{
-                                    novoIdTocando = key;
-                                    break;
-                                }}
-                            }}
-                        }}
-                        
-                        let responseVideo = await fetch(firebaseVideoUrl);
-                        let dataVideo = await responseVideo.json();
-                        let novaUrlFundo = "";
-                        if (dataVideo) {{
-                            if (typeof dataVideo === 'string') {{
-                                novaUrlFundo = dataVideo;
-                            }} else if (dataVideo.url) {{
-                                novaUrlFundo = dataVideo.url;
-                            }}
-                        }}
-                        
-                        if (novoIdTocando !== idAtualConhecido || novaUrlFundo !== urlFundoConhecida) {{
-                            window.location.reload();
-                        }}
-                    }} catch (e) {{
-                        console.log("Erro na sincronização:", e);
-                    }}
-                }}, 2000);
-            </script>
-        """ 
-
-        # SE HOUVER UM VÍDEO APROVADO, ABRE O LEITOR DE KARAOKE EM FULLSCREEN
-        if tocando_agora:
-            musica = tocando_agora.get("musica", {})
-            if isinstance(musica, dict):
-                titulo = musica.get("titulo", musica.get("nome", "Karaoke"))
-            else:
-                titulo = str(musica)
-            
-            titulo_limpo = limpar_nome_musica(titulo)
-            url_video = obter_url_video_cloudinary(titulo) # ou musica
-            c_nome = tocando_agora.get("cliente", "Convidado")
-
-            video_html = f"""
-            <style>
-                body, html {{ margin: 0; padding: 0; background: #000; overflow: hidden; width: 100vw; height: 100vh; }}
-                @keyframes zoomInNumber {{
-                    0% {{ transform: scale(0.2); opacity: 0; }}
-                    50% {{ transform: scale(1.2); opacity: 1; }}
-                    100% {{ transform: scale(1); opacity: 1; }}
-                }}
-                .countdown-overlay {{
-                    position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
-                    background: rgba(0,0,0,0.95); display: flex; justify-content: center; align-items: center;
-                    z-index: 99999; color: #ffffff; font-family: monospace; font-size: 15vw; font-weight: bold;
-                    text-shadow: 2px 2px 5px rgba(0,0,0,0.9); animation: zoomInNumber 0.9s ease-in-out infinite;
-                }}
-            </style>
-            <div id="countdown-screen" class="countdown-overlay">3</div>
-            <div id="karaoke-container" style="display: none; width: 100vw; height: 100vh; background: black; position: fixed; top: 0; left: 0; z-index: 99988;">
-                <div style="position: absolute; top: 15px; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,0.85); border: 2px solid #FFC107; padding: 10px 25px; border-radius: 8px; z-index: 10000; display: flex; align-items: center; gap: 20px;">
-                    <div style="color: #FFC107; font-family: monospace; font-size: 20px; text-transform: uppercase; font-weight: bold;">
-                        🎤 A CANTAR: <span style="color: #ffffff;">{c_nome}</span> — <span style="color: #aaaaaa; font-size: 16px;">{titulo_limpo}</span>
-                    </div>
-                    <button onclick="stopKaraoke()" style="background: #d9534f; color: white; border: none; padding: 6px 14px; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 14px;">⏹️ Terminar</button>
-                </div>
-
-                <video id="karaoke-player" width="100vw" height="100vh" autoplay playsinline style="object-fit: contain; background: black; width: 100vw; height: 100vh;">
-                    <source src="{url_video}" type="video/mp4">
-                    O seu navegador não suporta a reprodução deste vídeo.
-                </video>
-                <div id="audio-warning" style="display: none; position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); text-align: center; background: #222; border: 4px solid #FFC107; padding: 10px 20px; border-radius: 5px; z-index: 99999;">
-                    <p style="color: #ffffff; margin: 0 0 8px 0; font-family: monospace; font-size: 14px; font-weight: bold;">⚠️ O navegador bloqueou o áudio automático.</p>
-                    <button onclick="unmuteVideo()" style="background-color: #4CAF50; color: white; border: none; padding: 8px 16px; font-size: 15px; border-radius: 4px; cursor: pointer; font-weight: bold;">🔊 CLIQUE AQUI PARA ATIVAR O SOM</button>
-                </div>
-            </div>
-            <script>
-                var count = 3;
-                var cdScreen = document.getElementById('countdown-screen');
-                var timer = setInterval(function() {{
-                    count--;
-                    if (count > 0) {{
-                        cdScreen.innerText = count;
-                    }} else if (count === 0) {{
-                        cdScreen.innerText = "🎤 CANTE!";
-                    }} else {{
-                        clearInterval(timer);
-                        cdScreen.style.display = 'none';
-                        document.getElementById('karaoke-container').style.display = 'block';
-                        var video = document.getElementById('karaoke-player');
-                        video.muted = false; 
-                        var playPromise = video.play();
-                        if (playPromise !== undefined) {{
-                            playPromise.then(_ => {{}}).catch(error => {{
-                                video.muted = true;
-                                video.play();
-                                document.getElementById('audio-warning').style.display = 'block';
-                            }});
-                        }}
-                    }}
-                }}, 1000);
-
-                function unmuteVideo() {{
-                    var video = document.getElementById('karaoke-player');
-                    video.muted = false;
-                    video.play();
-                    document.getElementById('audio-warning').style.display = 'none';
-                }}
-
-                function stopKaraoke() {{
-                    var pedidoId = "{tocando_agora.get('id')}";
-                    var token = "{provider_token}";
-                    var firebaseURL = "{FIREBASE_URL}/pedidos/" + token + "/" + pedidoId + "/estado.json";
-                    
-                    fetch(firebaseURL, {{
-                        method: 'PUT',
-                        body: JSON.stringify('terminado'),
-                        headers: {{ 'Content-Type': 'application/json' }}
-                    }}).then(response => {{
-                        setTimeout(function() {{ window.location.reload(); }}, 200);
-                    }}).catch(err => {{
-                        window.location.reload();
-                    }});
-                }}
-
-                var video = document.getElementById('karaoke-player');
-                if (video) {{
-                    video.onended = function() {{
-                        stopKaraoke();
-                    }};
-                }}
-            </script>
-            {script_sincronizacao_global}
-            """
-            components.html(video_html, height=750, scrolling=False)
-            
-        # CASO CONTRÁRIO, MOSTRA O VÍDEO CLIPE DE FUNDO COM A FILA FLUTUANDO POR CIMA
-        else:
-            url_clipe_fundo = obter_video_fundo(provider_token)
-
-            # Se tiver frame_styles definido no seu projeto principal, certifique-se de o incluir
-            # st.markdown(frame_styles, unsafe_allow_html=True)
-            st.markdown(script_sincronizacao_global, unsafe_allow_html=True)
-            
-            html_elementos_sobreposicao = ""
-            
-            if url_clipe_fundo:
-                html_elementos_sobreposicao += f"""
-                <div style="position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: black; z-index: 99975; overflow: hidden;">
-                    <video id="fundo-player" autoplay loop muted playsinline controlslist="nodownload noremoteplayback" disablepictureinpicture style="width: 100vw; height: 100vh; object-fit: cover; background: black;">
-                        <source src="{url_clipe_fundo}" type="video/mp4">
-                        O seu navegador não suporta vídeo.
-                    </video>
-                    <div id="fundo-audio-warning" style="display: none; position: absolute; bottom: 60px; right: 20px; background: rgba(0,0,0,0.85); border: 2px solid #FFC107; padding: 8px 14px; border-radius: 6px; cursor: pointer; z-index: 99980;" onclick="unmuteFundo()">
-                        <span style="color: white; font-family: monospace; font-size: 13px; font-weight: bold;">🔊 Ativar Som</span>
-                    </div>
-                </div>
-                <script>
-                    var fundoVideo = document.getElementById('fundo-player');
-                    fundoVideo.muted = false;
-                    var fundoPromise = fundoVideo.play();
-                    if (fundoPromise !== undefined) {{
-                        fundoPromise.then(_ => {{}}).catch(error => {{
-                            fundoVideo.muted = true;
-                            fundoVideo.play();
-                            document.getElementById('fundo-audio-warning').style.display = 'block';
-                        }});
-                    }}
-                    function unmuteFundo() {{
-                        fundoVideo.muted = false;
-                        fundoVideo.play();
-                        document.getElementById('fundo-audio-warning').style.display = 'none';
-                    }}
-                </script>
-                """
-            else:
-                html_elementos_sobreposicao += """
-                <div style="position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: #000; z-index: 99975;"></div>
-                """
-
-            # Caixa flutuante com a Fila de Pedidos por cima do vídeo clipe
-            html_elementos_sobreposicao += """
-            <div style="position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 550px; max-width: 90vw; max-height: 75vh; background: rgba(0, 0, 0, 0.88); border: 4px solid #FFC107; border-radius: 12px; padding: 20px; z-index: 99985; overflow-y: auto; box-shadow: 0 0 30px rgba(255,193,7,0.5); backdrop-filter: blur(5px);">
-                <div style="display: flex; align-items: center; justify-content: center; gap: 10px; border-bottom: 2px solid #FFC107; padding-bottom: 10px; margin-bottom: 15px;">
-                    <span style="font-size: 22px;">📋</span>
-                    <h2 style="color: #FFC107; font-family: monospace; font-size: 20px; margin: 0; text-transform: uppercase;">FILA DE PEDIDOS DE MÚSICA</h2>
-                </div>
-            """
-
-            if pedidos_ativos:
-                for i, p in enumerate(pedidos_ativos, 1):
-                    cliente_nome = p.get("cliente", "Convidado")
-                    musica_obj = p.get("musica", {})
-                    if isinstance(musica_obj, dict):
-                        titulo_musica = musica_obj.get("titulo", musica_obj.get("nome", "Música"))
-                    else:
-                        titulo_musica = str(musica_obj)
-                    
-                    estado_atual = str(p.get("estado", "pendente")).upper()
-                    cor_estado = "#FFC107" if estado_atual == "APROVADO" else "#aaaaaa"
-                    
-                    html_elementos_sobreposicao += f"""
-                        <div style="background: rgba(20, 20, 20, 0.95); border: 2px solid #333; border-radius: 8px; padding: 12px; margin-bottom: 10px;">
-                            <div style="display: flex; justify-content: space-between; align-items: center; font-family: monospace;">
-                                <span style="color: #FFC107; font-weight: bold; font-size: 15px;">#{i} — {cliente_nome}</span>
-                                <span style="color: {cor_estado}; font-size: 11px; background: rgba(0,0,0,0.8); padding: 3px 8px; border-radius: 4px; border: 1px solid {cor_estado};">{estado_atual}</span>
-                            </div>
-                            <div style="color: #ffffff; font-family: monospace; font-size: 14px; margin-top: 6px;">🎵 {titulo_musica}</div>
-                        </div>
-                    """
-            else:
-                html_elementos_sobreposicao += """
-                    <div style="text-align: center; padding: 40px 10px; font-family: monospace; color: #888;">
-                        <p style="font-size: 35px; margin: 0 0 10px 0;">📭</p>
-                        <p style="font-size: 16px; color: #ddd; font-weight: bold;">A fila de pedidos está vazia.</p>
-                        <p style="font-size: 13px; color: #aaa;">Escaneie o QR Code para enviar a sua música!</p>
-                    </div>
-                """
-
-            html_elementos_sobreposicao += "</div>"
-            components.html(html_elementos_sobreposicao, height=800, scrolling=False)
-
-    except Exception as e:
-        st.error(f"Erro de sincronização na TV: {e}")
-
-def show_client_screen():
-    query_params = st.query_params
-    provider_token = query_params.get("prestador") or query_params.get("provider", None)
-
-    if not provider_token:
-        st.error("Tela inválida. Falta o parâmetro do prestador.")
-        return
-
-    st.markdown("""
-    <style>
-    .stApp { background-color: #000000; color: white; }
-    </style>""", unsafe_allow_html=True)
-    
     renderizar_ecra_tv(provider_token)
 
 def show_provider_panel_center(token):
@@ -1891,7 +1565,7 @@ def main():
                         st.session_state["admin_logged"] = True
                         st.success("Sessão iniciada com sucesso!")
                         st.rerun()
-                    else: 
+                    else:
                         st.error("Palavra-passe incorreta.")
 
         if st.session_state.get("admin_logged", False):
