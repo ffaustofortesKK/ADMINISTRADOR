@@ -662,9 +662,8 @@ def show_provider_panel_custom(provider_token):
     url_fundo_painel = "https://cdn.phototourl.com/free/2026-08-03-694a4a2e-9914-4da8-93b2-87538a4805ab.png"
 
     # BUSCAR DADOS DO PRESTADOR DIRETAMENTE DO FIREBASE PARA GARANTIR TEMPO E NOME ATUALIZADOS
-    nome_prestador = "PRESTADOR NÃO IDENTIFICADO"
-    tempo_plano = "2 Horas"
-    data_registo_str = None
+    nome_prestador = ""
+    tempo_plano = ""
     
     try:
         res_prov_fb = requests.get(f"{FIREBASE_URL}/prestadores/{provider_token}.json", timeout=5)
