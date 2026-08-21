@@ -661,50 +661,71 @@ def show_provider_panel_custom(provider_token):
     url_logotipo = "https://cdn.phototourl.com/free/2026-08-03-8b13edf5-0257-491d-ab78-f0d5329ffc15.jpg"
     url_fundo_painel = "https://cdn.phototourl.com/free/2026-08-03-694a4a2e-9914-4da8-93b2-87538a4805ab.png"
 
-    df_prov = get_all_providers()
-    
+    # BUSCAR DADOS DO PRESTADOR DIRETAMENTE DO FIREBASE PARA GARANTIR TEMPO E NOME ATUALIZADOS
     nome_prestador = "PRESTADOR NÃO IDENTIFICADO"
-    tempo_plano = "2 Horas - 12 Mil Kwanzas"
+    tempo_plano = "2 Horas"
     data_registo_str = None
     
-    if not df_prov.empty:
-        col_token_candidates = ['token', 'provider_token', 'id']
-        col_token_encontrada = next((c for c in col_token_candidates if c in df_prov.columns), None)
-        
-        if col_token_encontrada:
-            match = df_prov[df_prov[col_token_encontrada].astype(str) == str(provider_token)]
-            if not match.empty:
-                row = match.iloc[0]
-                
-                p_nome = ""
-                p_sobrenome = ""
-                for col_n in ['nome', 'prestador', 'user', 'primeiro_nome']:
-                    if col_n in df_prov.columns and pd.notna(row.get(col_n)):
-                        p_nome = str(row.get(col_n)).strip()
+    try:
+        res_prov_fb = requests.get(f"{FIREBASE_URL}/prestadores/{provider_token}.json", timeout=5)
+        if res_prov_fb.status_code == 200 and res_prov_fb.json():
+            dados_fb = res_prov_fb.json()
+            if isinstance(dados_fb, dict):
+                for k_n in ['nome', 'prestador', 'nome_prestador', 'nome_completo', 'user']:
+                    if dados_fb.get(k_n):
+                        nome_prestador = str(dados_fb.get(k_n)).strip().upper()
                         break
-                for col_s in ['sobrenome', 'ultimo_nome', 'apelido']:
-                    if col_s in df_prov.columns and pd.notna(row.get(col_s)):
-                        p_sobrenome = str(row.get(col_s)).strip()
+                for k_p in ['tempo_plano', 'plano', 'duracao', 'tempo', 'contrato']:
+                    if dados_fb.get(k_p):
+                        tempo_plano = str(dados_fb.get(k_p))
                         break
-                
-                if p_nome:
-                    nome_completo = f"{p_nome} {p_sobrenome}".strip()
-                    nome_prestador = nome_completo.upper()
-                else:
-                    for col_alt in ['nome_prestador', 'nome_completo']:
-                        if col_alt in df_prov.columns and pd.notna(row.get(col_alt)):
-                            nome_prestador = str(row.get(col_alt)).upper()
+                for k_d in ['data_registo', 'data', 'timestamp', 'created_at']:
+                    if dados_fb.get(k_d):
+                        data_registo_str = str(dados_fb.get(k_d))
+                        break
+    except Exception:
+        pass
+
+    # Fallback para o DataFrame caso não encontre diretamente no nó do Firebase
+    if nome_prestador == "PRESTADOR NÃO IDENTIFICADO":
+        df_prov = get_all_providers()
+        if not df_prov.empty:
+            col_token_candidates = ['token', 'provider_token', 'id']
+            col_token_encontrada = next((c for c in col_token_candidates if c in df_prov.columns), None)
+            
+            if col_token_encontrada:
+                match = df_prov[df_prov[col_token_encontrada].astype(str) == str(provider_token)]
+                if not match.empty:
+                    row = match.iloc[0]
+                    p_nome = ""
+                    p_sobrenome = ""
+                    for col_n in ['nome', 'prestador', 'user', 'primeiro_nome']:
+                        if col_n in df_prov.columns and pd.notna(row.get(col_n)):
+                            p_nome = str(row.get(col_n)).strip()
                             break
-                
-                for col_p in ['tempo_plano', 'plano', 'duracao', 'tempo', 'contrato']:
-                    if col_p in df_prov.columns and pd.notna(row.get(col_p)):
-                        tempo_plano = str(row.get(col_p))
-                        break
-                        
-                for col_d in ['data_registo', 'data', 'timestamp', 'created_at']:
-                    if col_d in df_prov.columns and pd.notna(row.get(col_d)):
-                        data_registo_str = str(row.get(col_d))
-                        break
+                    for col_s in ['sobrenome', 'ultimo_nome', 'apelido']:
+                        if col_s in df_prov.columns and pd.notna(row.get(col_s)):
+                            p_sobrenome = str(row.get(col_s)).strip()
+                            break
+                    
+                    if p_nome:
+                        nome_completo = f"{p_nome} {p_sobrenome}".strip()
+                        nome_prestador = nome_completo.upper()
+                    else:
+                        for col_alt in ['nome_prestador', 'nome_completo']:
+                            if col_alt in df_prov.columns and pd.notna(row.get(col_alt)):
+                                nome_prestador = str(row.get(col_alt)).upper()
+                                break
+                    
+                    for col_p in ['tempo_plano', 'plano', 'duracao', 'tempo', 'contrato']:
+                        if col_p in df_prov.columns and pd.notna(row.get(col_p)):
+                            tempo_plano = str(row.get(col_p))
+                            break
+                            
+                    for col_d in ['data_registo', 'data', 'timestamp', 'created_at']:
+                        if col_d in df_prov.columns and pd.notna(row.get(col_d)):
+                            data_registo_str = str(row.get(col_d))
+                            break
 
     segundos_bónus = 0
     try:
@@ -723,16 +744,18 @@ def show_provider_panel_custom(provider_token):
     except Exception:
         pass
 
+    # Definir segundos base com base no contrato escolhido pelo prestador
     segundos_base = 7200
-    if "3 Horas" in tempo_plano:
-        segundos_base = 10800
-    elif "4 Horas" in tempo_plano:
+    if "4 Horas" in tempo_plano:
         segundos_base = 14400
+    elif "3 Horas" in tempo_plano:
+        segundos_base = 10800
     elif "2 Horas" in tempo_plano:
         segundos_base = 7200
 
     segundos_totais = segundos_base + segundos_bónus
     segundos_restantes = segundos_totais
+    
     if data_registo_str:
         try:
             dt_str_clean = data_registo_str.split('.')[0]
@@ -849,14 +872,14 @@ def show_provider_panel_custom(provider_token):
     </style>
     """, unsafe_allow_html=True)
 
-    # CABEÇALHO DO PAINEL
+    # CABEÇALHO DO PAINEL CORRIGIDO (CONTRATO DINÂMICO E NOME DO PRESTADOR)
     col_topo_1, col_topo_2, col_topo_3 = st.columns([1.2, 3, 0.8])
     with col_topo_1:
         st.markdown(f"""
             <div style="background: #000000; border: 2px solid #FFC107; border-radius: 6px; padding: 8px; text-align: center;">
                 <div style="font-family: monospace; color: #ffffff; font-size: 9px; text-transform: uppercase; letter-spacing: 1px;">TEMPO / PLANO ESCOLHIDO</div>
                 <div style="font-family: monospace; color: #FFC107; font-size: 18px; font-weight: bold; {classe_piscar} margin: 2px 0;">⏱️ {tempo_formatado}</div>
-                <div style="font-family: monospace; color: #fff; font-size: 10px;">({tempo_plano})</div>
+                <div style="font-family: monospace; color: #fff; font-size: 10px;">Contrato: {tempo_plano}</div>
             </div>
         """, unsafe_allow_html=True)
     with col_topo_2:
