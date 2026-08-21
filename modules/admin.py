@@ -46,7 +46,6 @@ def get_total_revenue():
     df = get_all_providers()
     if df.empty or 'amount_paid' not in df.columns:
         return 0.0
-    # Soma apenas os aprovados ou todos os registos válidos pagos
     return float(df[df['approved'].astype(str).isin(['1', '0', '-1'])]['amount_paid'].sum())
 
 def show_admin_panel():
@@ -172,7 +171,6 @@ def show_admin_panel():
                         with col_r2: st.markdown(f"📞 {telefone}")
                         with col_r3: st.markdown(f"🏠 {payment_ref}")
                         with col_r4: st.markdown(f"⏱️ {expires_at}")
-                            
                         with col_r5:
                             sub_c1, sub_c2 = st.columns(2)
                             with sub_c1:
