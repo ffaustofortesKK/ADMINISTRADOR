@@ -640,7 +640,8 @@ def show_provider_panel_custom(provider_token):
 
     nome_prestador = "PRESTADOR NÃO IDENTIFICADO"
     tempo_plano = "2 Horas"
-    
+    data_registo_str = ""  # <--- ADICIONE ESTA LINHA AQUI NO TOPO
+      
     # Consulta direta e eficiente na coleção 'providers' do Firebase
     try:
         res = requests.get(f"{FIREBASE_URL}/providers.json", timeout=5)
@@ -660,6 +661,12 @@ def show_provider_panel_custom(provider_token):
                             for pk in ['tempo_plano', 'plano', 'duracao', 'tempo', 'contrato', 'expires_at', 'payment_ref']:
                                 if v.get(pk):
                                     tempo_plano = str(v.get(pk))
+                                    break
+                            
+                            # Extrair também a data aqui se existir no Firebase!
+                            for dk in ['data_registo', 'data', 'timestamp', 'created_at']:
+                                if v.get(dk):
+                                    data_registo_str = str(v.get(dk))
                                     break
                             break
     except Exception:
