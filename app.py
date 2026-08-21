@@ -210,11 +210,14 @@ def custom_show_register_page():
         aprovado = False
         try:
             df_prov = get_all_providers()
-            if not df_prov.empty and 'token' in df_prov.columns:
-                match = df_prov[df_prov['token'] == token_atual]
-                if not match.empty:
-                    if int(match.iloc[0].get('approved', 0)) == 1:
-                        aprovado = True
+            if not df_prov.empty:
+                col_token_candidates = ['token', 'provider_token', 'id', 'codigo']
+                col_token_encontrada = next((c for c in col_token_candidates if c in df_prov.columns), None)
+                if col_token_encontrada:
+                    match = df_prov[df_prov[col_token_encontrada].astype(str).str.strip() == str(token_atual).strip()]
+                    if not match.empty:
+                        if int(match.iloc[0].get('approved', 0)) == 1:
+                            aprovado = True
         except Exception:
             pass
 
@@ -231,7 +234,7 @@ def custom_show_register_page():
                     del st.session_state["token_pendente_prestador"]
                 st.rerun()
             return
-        
+
         st.markdown(f"""
             <style>
             @keyframes spinMic {{
@@ -310,13 +313,6 @@ def custom_show_register_page():
         st.rerun()
         return
 
-    if original_show_register_page:
-        try:
-            original_show_register_page()
-            return
-        except Exception:
-            pass
-
     st.markdown("<h1>🎤 FFKaraoke - Registo de Prestador</h1>", unsafe_allow_html=True)
     st.markdown("<p>Preencha os seus dados.</p>", unsafe_allow_html=True)
     
@@ -343,32 +339,41 @@ def custom_show_register_page():
                 st.error("Por favor, preencha todos os campos obrigatórios.")
             else:
                 referencia_fake = "Plano Selecionado Direto"
+                nome_completo = f"{nome} {sobrenome}".strip()
+                
+                import uuid
+                token_gerado = str(uuid.uuid4())[:8]
+                
+                # Garantimos que salvamos com redundância de chaves em ambas as tabelas/estruturas
+                # para que o painel e o painel de admin encontrem sempre os dados independentemente da chave usada.
+                dados_reg = {
+                    "token": token_gerado,
+                    "provider_token": token_gerado,
+                    "nome": nome.strip(),
+                    "sobrenome": sobrenome.strip(),
+                    "nome_prestador": nome_completo.upper(),
+                    "prestador": nome_completo.upper(),
+                    "user": nome_completo.upper(),
+                    "telefone": telefone.strip(),
+                    "referencia": referencia_fake,
+                    "tempo_plano": duracao,
+                    "plano": duracao,
+                    "contrato": duracao,
+                    "duracao": duracao,
+                    "approved": 0,
+                    "data_registo": str(datetime.now())
+                }
+                
                 try:
-                    from utils.db_manager import save_provider_request
-                    token_gerado = save_provider_request(nome, sobrenome, telefone, referencia_fake, duracao)
+                    # Grava diretamente no Firebase em ambas as rotas comuns de prestadores e pendentes
+                    requests.put(f"{FIREBASE_URL}/prestadores/{token_gerado}.json", json=dados_reg, timeout=10)
+                    requests.put(f"{FIREBASE_URL}/prestadores_pendentes/{token_gerado}.json", json=dados_reg, timeout=10)
+                    
                     st.session_state["token_pendente_prestador"] = token_gerado
-                    st.session_state["nome_pendente_prestador"] = f"{nome} {sobrenome}".strip()
+                    st.session_state["nome_pendente_prestador"] = nome_completo
                     st.rerun()
-                except Exception as e:
-                    import uuid
-                    token_gerado = str(uuid.uuid4())[:8]
-                    nome_completo = f"{nome} {sobrenome}".strip()
-                    dados_reg = {
-                        "nome_prestador": nome_completo,
-                        "telefone": telefone,
-                        "referencia": referencia_fake,
-                        "tempo_plano": duracao,
-                        "approved": 0,
-                        "token": token_gerado,
-                        "data_registo": str(datetime.now())
-                    }
-                    try:
-                        requests.put(f"{FIREBASE_URL}/prestadores_pendentes/{token_gerado}.json", json=dados_reg, timeout=10)
-                        st.session_state["token_pendente_prestador"] = token_gerado
-                        st.session_state["nome_pendente_prestador"] = nome_completo
-                        st.rerun()
-                    except Exception as err:
-                        st.error(f"Erro ao submeter registo: {err}")
+                except Exception as err:
+                    st.error(f"Erro ao submeter registo: {err}")
 
 # --- FUNÇÃO AUXILIAR: BUSCAR MÚLTIPLOS LINKS NO YOUTUBE ---
 def buscar_multiplos_links_youtube(termo, max_resultados=6):
