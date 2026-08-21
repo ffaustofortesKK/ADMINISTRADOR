@@ -654,7 +654,6 @@ except ImportError:
     st_autorefresh = None
 
 def show_provider_panel_custom(provider_token):
-    # Ativar refresh automático a cada 1 segundo para o temporizador descontar em tempo real
     if st_autorefresh:
         st_autorefresh(interval=1000, key="relogio_prestador_tick")
 
@@ -664,7 +663,7 @@ def show_provider_panel_custom(provider_token):
     df_prov = get_all_providers()
     
     nome_prestador = "PRESTADOR NÃO IDENTIFICADO"
-    tempo_plano = "2 Horas - 12 Mil Kwanzas"  # Valor por defeito caso não encontre
+    tempo_plano = "2 Horas - 12 Mil Kwanzas"
     data_registo_str = None
     
     if not df_prov.empty:
@@ -672,12 +671,11 @@ def show_provider_panel_custom(provider_token):
         col_token_encontrada = next((c for c in col_token_candidates if c in df_prov.columns), None)
         
         if col_token_encontrada:
-            # Garantir correspondência exata de string ignorando espaços
             match = df_prov[df_prov[col_token_encontrada].astype(str).str.strip() == str(provider_token).strip()]
             if not match.empty:
                 row = match.iloc[0]
                 
-                # Extração correta do Nome e Apelido do prestador
+                # Extração correta do Nome / Prestador
                 p_nome = ""
                 p_sobrenome = ""
                 for col_n in ['nome', 'prestador', 'user', 'primeiro_nome', 'name']:
@@ -693,25 +691,23 @@ def show_provider_panel_custom(provider_token):
                     nome_completo = f"{p_nome} {p_sobrenome}".strip()
                     nome_prestador = nome_completo.upper()
                 else:
-                    for col_alt in ['nome_prestador', 'nome_completo', 'utilizador']:
+                    for col_alt in ['nome_prestador', 'nome_completo', 'utilizador', 'prestador']:
                         if col_alt in df_prov.columns and pd.notna(row.get(col_alt)):
                             nome_prestador = str(row.get(col_alt)).upper()
                             break
                 
-                # Extração dinâmica do Plano / Contrato escolhido
+                # Extração exata do Plano escolhido no registo
                 for col_p in ['tempo_plano', 'plano', 'duracao', 'tempo', 'contrato']:
                     if col_p in df_prov.columns and pd.notna(row.get(col_p)):
                         tempo_plano = str(row.get(col_p)).strip()
                         break
                         
-                # Extração da data de registo
                 for col_d in ['data_registo', 'data', 'timestamp', 'created_at']:
                     if col_d in df_prov.columns and pd.notna(row.get(col_d)):
                         data_registo_str = str(row.get(col_d))
                         break
 
-    # Cálculo dinâmico do tempo base consoante o contrato escolhido pelo prestador
-    segundos_base = 7200  # Default 2 Horas
+    segundos_base = 7200
     t_lower = tempo_plano.lower()
     if "4 hora" in t_lower or "4h" in t_lower:
         segundos_base = 14400
@@ -722,7 +718,6 @@ def show_provider_panel_custom(provider_token):
     elif "1 hora" in t_lower or "1h" in t_lower:
         segundos_base = 3600
 
-    # Verificar segundos de bónus aprovados no Firebase
     segundos_bónus = 0
     try:
         res_ref = requests.get(f"{FIREBASE_URL}/reforcos_aprovados/{provider_token}.json", timeout=5)
@@ -859,7 +854,7 @@ def show_provider_panel_custom(provider_token):
     </style>
     """, unsafe_allow_html=True)
 
-    # CABEÇALHO DO PAINEL COM NOME E CONTRATO DINÂMICO
+    # CABEÇALHO DO PAINEL COM NOME E CONTRATO EXATOS
     col_topo_1, col_topo_2, col_topo_3 = st.columns([1.2, 3, 0.8])
     with col_topo_1:
         st.markdown(f"""
@@ -892,7 +887,7 @@ def show_provider_panel_custom(provider_token):
     
     qr_url_cliente = f"https://api.qrserver.com/v1/create-qr-code/?size=150x150&data={urllib.parse.quote(link_cliente_absoluto)}"
 
-    # BUSCAR PEDIDOS DO FIREBASE
+    # BUSCAR E ORDENAR PEDIDOS DO FIREBASE
     try:
         url_firebase = f"{FIREBASE_URL}/pedidos/{provider_token}.json?_t={time.time()}"
         response = requests.get(url_firebase, timeout=10)
@@ -902,27 +897,22 @@ def show_provider_panel_custom(provider_token):
             pedidos = [{"id": k, **v} for k, v in data.items()]
         
         pedidos.sort(key=lambda x: x.get("timestamp", 0))
-        tocando_agora = next((p for p in pedidos if p.get("estado") == "aprovado"), None)
         
-        if not tocando_agora and pedidos:
-            primeiro_id = pedidos[0].get('id')
-            atualizar_estado_pedido(provider_token, primeiro_id, 'aprovado')
-            pedidos[0]["estado"] = "aprovado"
-            tocando_agora = pedidos[0]
+        pedidos_ativos = [p for p in pedidos if p.get("estado") in ["pendente", "aprovado"]]
 
-        indice_atual = pedidos.index(tocando_agora) if tocando_agora in pedidos else -1
-        proximo_da_fila = pedidos[indice_atual + 1] if (indice_atual != -1 and len(pedidos) > indice_atual + 1) else (pedidos[0] if (not tocando_agora and pedidos) else None)
-
-        if proximo_da_fila:
-            cantor_proximo = proximo_da_fila.get("cliente", "CONVIDADO").upper()
+        # O campo 'Á Seguir' reflete rigorosamente o 1º elemento da lista ativa na tabela
+        if pedidos_ativos:
+            primeiro_da_fila = pedidos_ativos[0]
+            cantor_proximo = str(primeiro_da_fila.get("cliente", "CONVIDADO")).upper()
             conteudo_a_seguir = f"Á Seguir - <span style='color: #FFC107;'>{cantor_proximo}</span>"
         else:
             conteudo_a_seguir = "Á Seguir -"
+            
     except Exception:
         conteudo_a_seguir = "Á Seguir -"
         pedidos = []
+        pedidos_ativos = []
 
-    # ESTRUTURA PRINCIPAL
     col_esq, col_dir = st.columns([2.5, 1], gap="medium")
     
     with col_esq:
@@ -949,9 +939,9 @@ def show_provider_panel_custom(provider_token):
         c_t1, c_t2, c_t3 = st.columns(3)
         with c_t1:
             if st.button("▶️ Tocar o Karaoke", key="btn_tocar_topo", use_container_width=True):
-                if tocando_agora:
+                if pedidos_ativos:
                     terminar_todas_musicas_ativas(provider_token, pedidos)
-                    atualizar_estado_pedido(provider_token, tocando_agora.get('id'), 'aprovado')
+                    atualizar_estado_pedido(provider_token, pedidos_ativos[0].get('id'), 'aprovado')
                     st.rerun()
         with c_t2:
             if st.button("⏹️ Parar o Karaoke", key="btn_parar_topo", use_container_width=True):
@@ -959,9 +949,9 @@ def show_provider_panel_custom(provider_token):
                 st.rerun()
         with c_t3:
             if st.button("⏭️ Avançar Karaoke", key="btn_prox_topo", use_container_width=True):
-                if tocando_agora:
-                    atualizar_estado_pedido(provider_token, tocando_agora.get('id'), 'terminado')
-                    restantes = [x for x in pedidos if x.get('estado') in ['pendente', 'aprovado'] and x.get('id') != tocando_agora.get('id')]
+                if pedidos_ativos:
+                    atualizar_estado_pedido(provider_token, pedidos_ativos[0].get('id'), 'terminado')
+                    restantes = [x for x in pedidos_ativos if x.get('id') != pedidos_ativos[0].get('id')]
                     if restantes:
                         atualizar_estado_pedido(provider_token, restantes[0].get('id'), 'aprovado')
                     st.rerun()
@@ -973,8 +963,6 @@ def show_provider_panel_custom(provider_token):
                 📋 Estado da Fila e Controlo de Reprodução
             </div>
         """, unsafe_allow_html=True)
-
-        pedidos_ativos = [p for p in pedidos if p.get("estado") in ["pendente", "aprovado"]]
 
         st.markdown("""
             <div style="background-color: #03a9f4; border: 3px solid #FFC107; border-bottom: none; border-radius: 8px 8px 0 0; padding: 10px 12px; display: flex; font-family: monospace; font-weight: bold; font-size: 15px; color: #ffffff;">
@@ -1004,36 +992,32 @@ def show_provider_panel_custom(provider_token):
                     sub_c1, sub_c2, sub_c3 = st.columns(3)
                     with sub_c1:
                         if st.button("⬆️", key=f"subir_{pid}", help="Subir na Fila", use_container_width=True):
-                            try:
-                                res_all = requests.get(f"{FIREBASE_URL}/pedidos/{provider_token}.json", timeout=5)
-                                if res_all.status_code == 200 and res_all.json():
-                                    items = sorted(res_all.json().items(), key=lambda x: x[1].get("timestamp", 0))
-                                    idx_alvo = next((i for i, (k, v) in enumerate(items) if k == pid), -1)
-                                    if idx_alvo > 0:
-                                        t_atual = items[idx_alvo][1].get("timestamp", time.time())
-                                        t_ant = items[idx_alvo-1][1].get("timestamp", time.time() - 1)
-                                        k_ant = items[idx_alvo-1][0]
-                                        requests.patch(f"{FIREBASE_URL}/pedidos/{provider_token}/{pid}.json", json={"timestamp": t_ant}, timeout=5)
-                                        requests.patch(f"{FIREBASE_URL}/pedidos/{provider_token}/{k_ant}.json", json={"timestamp": t_atual}, timeout=5)
-                                        st.rerun()
-                            except Exception:
-                                pass
+                            if idx > 1:
+                                try:
+                                    item_atual = pedidos_ativos[idx - 1]
+                                    item_acima = pedidos_ativos[idx - 2]
+                                    t_atual = item_atual.get("timestamp", time.time())
+                                    t_acima = item_acima.get("timestamp", time.time() - 1)
+                                    
+                                    requests.patch(f"{FIREBASE_URL}/pedidos/{provider_token}/{item_atual['id']}.json", json={"timestamp": t_acima}, timeout=5)
+                                    requests.patch(f"{FIREBASE_URL}/pedidos/{provider_token}/{item_acima['id']}.json", json={"timestamp": t_atual}, timeout=5)
+                                    st.rerun()
+                                except Exception:
+                                    pass
                     with sub_c2:
                         if st.button("⬇️", key=f"descer_{pid}", help="Descer na Fila", use_container_width=True):
-                            try:
-                                res_all = requests.get(f"{FIREBASE_URL}/pedidos/{provider_token}.json", timeout=5)
-                                if res_all.status_code == 200 and res_all.json():
-                                    items = sorted(res_all.json().items(), key=lambda x: x[1].get("timestamp", 0))
-                                    idx_alvo = next((i for i, (k, v) in enumerate(items) if k == pid), -1)
-                                    if idx_alvo != -1 and idx_alvo < len(items) - 1:
-                                        t_atual = items[idx_alvo][1].get("timestamp", time.time())
-                                        t_prox = items[idx_alvo+1][1].get("timestamp", time.time() + 1)
-                                        k_prox = items[idx_alvo+1][0]
-                                        requests.patch(f"{FIREBASE_URL}/pedidos/{provider_token}/{pid}.json", json={"timestamp": t_prox}, timeout=5)
-                                        requests.patch(f"{FIREBASE_URL}/pedidos/{provider_token}/{k_prox}.json", json={"timestamp": t_atual}, timeout=5)
-                                        st.rerun()
-                            except Exception:
-                                pass
+                            if idx < len(pedidos_ativos):
+                                try:
+                                    item_atual = pedidos_ativos[idx - 1]
+                                    item_abaixo = pedidos_ativos[idx]
+                                    t_atual = item_atual.get("timestamp", time.time())
+                                    t_abaixo = item_abaixo.get("timestamp", time.time() + 1)
+                                    
+                                    requests.patch(f"{FIREBASE_URL}/pedidos/{provider_token}/{item_atual['id']}.json", json={"timestamp": t_abaixo}, timeout=5)
+                                    requests.patch(f"{FIREBASE_URL}/pedidos/{provider_token}/{item_abaixo['id']}.json", json={"timestamp": t_atual}, timeout=5)
+                                    st.rerun()
+                                except Exception:
+                                    pass
                     with sub_c3:
                         if st.button("❌", key=f"apagar_{pid}", help="Apagar Pedido", use_container_width=True):
                             try:
