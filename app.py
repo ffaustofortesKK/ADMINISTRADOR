@@ -647,7 +647,17 @@ def renderizar_gestao_fila_prestador(provider_token):
         st.error(f"Erro ao carregar os pedidos do Firebase: {e}")
         
 
+# Importação opcional para o relógio atualizar automaticamente segundo a segundo
+try:
+    from streamlit_autorefresh import st_autorefresh
+except ImportError:
+    st_autorefresh = None
+
 def show_provider_panel_custom(provider_token):
+    # Ativar refresh automático a cada 1 segundo para o temporizador descontar em tempo real
+    if st_autorefresh:
+        st_autorefresh(interval=1000, key="relogio_prestador_tick")
+
     url_logotipo = "https://cdn.phototourl.com/free/2026-08-03-8b13edf5-0257-491d-ab78-f0d5329ffc15.jpg"
     url_fundo_painel = "https://cdn.phototourl.com/free/2026-08-03-694a4a2e-9914-4da8-93b2-87538a4805ab.png"
 
@@ -666,12 +676,27 @@ def show_provider_panel_custom(provider_token):
             if not match.empty:
                 row = match.iloc[0]
                 
-                for col_n in ['nome_prestador', 'nome', 'prestador', 'user']:
+                p_nome = ""
+                p_sobrenome = ""
+                for col_n in ['nome', 'prestador', 'user', 'primeiro_nome']:
                     if col_n in df_prov.columns and pd.notna(row.get(col_n)):
-                        nome_prestador = str(row.get(col_n)).upper()
+                        p_nome = str(row.get(col_n)).strip()
+                        break
+                for col_s in ['sobrenome', 'ultimo_nome', 'apelido']:
+                    if col_s in df_prov.columns and pd.notna(row.get(col_s)):
+                        p_sobrenome = str(row.get(col_s)).strip()
                         break
                 
-                for col_p in ['tempo_plano', 'plano', 'duracao', 'tempo']:
+                if p_nome:
+                    nome_completo = f"{p_nome} {p_sobrenome}".strip()
+                    nome_prestador = nome_completo.upper()
+                else:
+                    for col_alt in ['nome_prestador', 'nome_completo']:
+                        if col_alt in df_prov.columns and pd.notna(row.get(col_alt)):
+                            nome_prestador = str(row.get(col_alt)).upper()
+                            break
+                
+                for col_p in ['tempo_plano', 'plano', 'duracao', 'tempo', 'contrato']:
                     if col_p in df_prov.columns and pd.notna(row.get(col_p)):
                         tempo_plano = str(row.get(col_p))
                         break
@@ -932,7 +957,7 @@ def show_provider_panel_custom(provider_token):
                         atualizar_estado_pedido(provider_token, restantes[0].get('id'), 'aprovado')
                     st.rerun()
 
-        # SECÇÃO DA TABELA COM CONTROLO UNIFICADO NA COLUNA AÇÕES
+        # SECÇÃO DA TABELA
         st.markdown("<div style='height: 10px;'></div>", unsafe_allow_html=True)
         st.markdown("""
             <div style="font-family: monospace; color: #ffffff; font-size: 16px; font-weight: bold; margin-bottom: 8px;">
@@ -942,13 +967,13 @@ def show_provider_panel_custom(provider_token):
 
         pedidos_ativos = [p for p in pedidos if p.get("estado") in ["pendente", "aprovado"]]
 
-        # Cabeçalho da Tabela Estilizado
+        # Cabeçalho da Tabela
         st.markdown("""
             <div style="background-color: #03a9f4; border: 3px solid #FFC107; border-bottom: none; border-radius: 8px 8px 0 0; padding: 10px 12px; display: flex; font-family: monospace; font-weight: bold; font-size: 15px; color: #ffffff;">
                 <div style="width: 10%;">Nº</div>
-                <div style="width: 30%;">CANTOR</div>
+                <div style="width: 28%;">CANTOR</div>
                 <div style="width: 38%;">TÍTULO</div>
-                <div style="width: 22%; text-align: center;">AÇÕES</div>
+                <div style="width: 24%; text-align: center;">AÇÕES</div>
             </div>
         """, unsafe_allow_html=True)
 
@@ -958,52 +983,58 @@ def show_provider_panel_custom(provider_token):
                 musica = limpar_nome_musica(p.get("musica", {}))
                 pid = p.get("id")
                 
-                # Linha individual estilizada
-                st.markdown(f"""
-                    <div style="background-color: #000000; border-left: 3px solid #FFC107; border-right: 3px solid #FFC107; border-bottom: 2px solid #FFC107; padding: 8px 12px; display: flex; align-items: center; font-family: monospace; font-size: 14px; color: #ffffff;">
-                        <div style="width: 10%; font-weight: bold;">{idx}</div>
-                        <div style="width: 30%; font-weight: bold; color: #FFC107;">{cantor}</div>
-                        <div style="width: 38%;">{musica}</div>
-                        <div style="width: 22%; text-align: center;"></div>
-                    </div>
-                """, unsafe_allow_html=True)
+                cols_linha = st.columns([0.10, 0.28, 0.38, 0.24])
                 
-                # Coluna de ações unificada com seletor de opções e botão de confirmação
-                col_acao_sel, col_acao_btn = st.columns([1.5, 1])
-                with col_acao_sel:
-                    acao_escolhida = st.selectbox(
-                        "Ação", 
-                        options=["Selecione...", "⬆️ Subir", "⬇️ Descer", "❌ Apagar"], 
-                        key=f"sel_acao_{pid}", 
-                        label_visibility="collapsed"
-                    )
-                with col_acao_btn:
-                    if st.button("Executar", key=f"btn_exec_{pid}", use_container_width=True):
-                        if acao_escolhida != "Selecione...":
+                with cols_linha[0]:
+                    st.markdown(f"<div style='font-family: monospace; font-weight: bold; padding-top: 10px;'>{idx}</div>", unsafe_allow_html=True)
+                with cols_linha[1]:
+                    st.markdown(f"<div style='font-family: monospace; font-weight: bold; color: #FFC107; padding-top: 10px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;'>{cantor}</div>", unsafe_allow_html=True)
+                with cols_linha[2]:
+                    st.markdown(f"<div style='font-family: monospace; padding-top: 10px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;'>{musica}</div>", unsafe_allow_html=True)
+                
+                with cols_linha[3]:
+                    sub_c1, sub_c2, sub_c3 = st.columns(3)
+                    with sub_c1:
+                        if st.button("⬆️", key=f"subir_{pid}", help="Subir na Fila", use_container_width=True):
                             try:
                                 res_all = requests.get(f"{FIREBASE_URL}/pedidos/{provider_token}.json", timeout=5)
                                 if res_all.status_code == 200 and res_all.json():
                                     items = sorted(res_all.json().items(), key=lambda x: x[1].get("timestamp", 0))
                                     idx_alvo = next((i for i, (k, v) in enumerate(items) if k == pid), -1)
-                                    
-                                    if acao_escolhida == "❌ Apagar":
-                                        requests.delete(f"{FIREBASE_URL}/pedidos/{provider_token}/{pid}.json", timeout=5)
-                                    elif acao_escolhida == "⬆️ Subir" and idx_alvo > 0:
+                                    if idx_alvo > 0:
                                         t_atual = items[idx_alvo][1].get("timestamp", time.time())
                                         t_ant = items[idx_alvo-1][1].get("timestamp", time.time() - 1)
                                         k_ant = items[idx_alvo-1][0]
                                         requests.patch(f"{FIREBASE_URL}/pedidos/{provider_token}/{pid}.json", json={"timestamp": t_ant}, timeout=5)
                                         requests.patch(f"{FIREBASE_URL}/pedidos/{provider_token}/{k_ant}.json", json={"timestamp": t_atual}, timeout=5)
-                                    elif acao_escolhida == "⬇️ Descer" and idx_alvo != -1 and idx_alvo < len(items) - 1:
+                                        st.rerun()
+                            except Exception:
+                                pass
+                    with sub_c2:
+                        if st.button("⬇️", key=f"descer_{pid}", help="Descer na Fila", use_container_width=True):
+                            try:
+                                res_all = requests.get(f"{FIREBASE_URL}/pedidos/{provider_token}.json", timeout=5)
+                                if res_all.status_code == 200 and res_all.json():
+                                    items = sorted(res_all.json().items(), key=lambda x: x[1].get("timestamp", 0))
+                                    idx_alvo = next((i for i, (k, v) in enumerate(items) if k == pid), -1)
+                                    if idx_alvo != -1 and idx_alvo < len(items) - 1:
                                         t_atual = items[idx_alvo][1].get("timestamp", time.time())
                                         t_prox = items[idx_alvo+1][1].get("timestamp", time.time() + 1)
                                         k_prox = items[idx_alvo+1][0]
                                         requests.patch(f"{FIREBASE_URL}/pedidos/{provider_token}/{pid}.json", json={"timestamp": t_prox}, timeout=5)
                                         requests.patch(f"{FIREBASE_URL}/pedidos/{provider_token}/{k_prox}.json", json={"timestamp": t_atual}, timeout=5)
-                                        
-                                    st.rerun()
+                                        st.rerun()
                             except Exception:
                                 pass
+                    with sub_c3:
+                        if st.button("❌", key=f"apagar_{pid}", help="Apagar Pedido", use_container_width=True):
+                            try:
+                                requests.delete(f"{FIREBASE_URL}/pedidos/{provider_token}/{pid}.json", timeout=5)
+                                st.rerun()
+                            except Exception:
+                                pass
+                
+                st.markdown("<div style='border-bottom: 2px solid #FFC107; margin-top: 4px; margin-bottom: 4px;'></div>", unsafe_allow_html=True)
         else:
             st.markdown("""
                 <div style="background-color: #000000; border: 3px solid #FFC107; border-top: none; border-radius: 0 0 8px 8px; padding: 20px; text-align: center; color: #FFC107; font-family: monospace; font-size: 15px;">
