@@ -14,7 +14,6 @@ import cloudinary.uploader
 import cloudinary.search
 import importlib
 import yt_dlp
-import random
 
 # --- 1. CONFIGURAR OS CAMINHOS UMA ÚNICA VEZ ---
 current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -398,24 +397,6 @@ def limpar_nome_musica(musica_obj):
         return musica_obj.get("titulo", "Música Desconhecida")
     return str(musica_obj)
 
-def registar_prestador():
-    # 1. Garantir que a variável existe no âmbito da função
-    data_registo_str = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-    
-    # 2. Se o seu código original espera esta variável em algum dicionário, certifique-se disso:
-    dados_registo = {
-        "data_registo": data_registo_str,
-        # ... outros campos do prestador
-    }
-    
-    # Exemplo de como submeter para o Firebase/SQLite:
-    # try:
-    #     requests.post(f"{FIREBASE_URL}/providers.json", json=dados_registo)
-    # except:
-    #     pass
-    
-    return data_registo_str # Retornar a variável ajuda a evitar o erro de 'local variable'    
-
 def atualizar_estado_pedido(provider_token, pedido_id, novo_estado):
     try:
         url = f"{FIREBASE_URL}/pedidos/{provider_token}/{pedido_id}.json"
@@ -461,7 +442,6 @@ def get_all_providers():
 
 
 @st.fragment(run_every=1)
-@st.fragment(run_every=1)
 def renderizar_gestao_fila_prestador(provider_token):
     try:
         url_firebase = f"{FIREBASE_URL}/pedidos/{provider_token}.json?_t={time.time()}"
@@ -476,8 +456,8 @@ def renderizar_gestao_fila_prestador(provider_token):
         pedidos_ativos.sort(key=lambda x: x.get("timestamp", 0))
         
         pedidos_extras = [p for p in pedidos if p.get("estado") == "pendente_ext"]
-        tocando_agora = next((p for p in pedidos_ativos if p.get("estado") == "aprovado"), None)
 
+        tocando_agora = next((p for p in pedidos_ativos if p.get("estado") == "aprovado"), None)
         if not tocando_agora and pedidos_ativos:
             primeiro_id = pedidos_ativos[0].get('id')
             atualizar_estado_pedido(provider_token, primeiro_id, 'aprovado')
@@ -485,16 +465,18 @@ def renderizar_gestao_fila_prestador(provider_token):
             tocando_agora = pedidos_ativos[0]
 
         aba_fila, aba_extras = st.tabs([f"📋 Fila de Reprodução ({len(pedidos_ativos)})", f"🎵 Pedidos Extras ({len(pedidos_extras)})"])
-        
+
         with aba_fila:
             col_esq, col_dir = st.columns([1.5, 1], gap="medium")
             
             with col_esq:
                 st.markdown("### 📋 Estado da Fila e Controlo de Reprodução")
+
                 if pedidos_ativos:
                     for idx, p in enumerate(pedidos_ativos, start=1):
                         titulo_musica = limpar_nome_musica(p.get("musica", {}))
                         cliente_nome = p.get("cliente", "Convidado").upper()
+                        
                         c_num, c_cli, c_tit, c_btn = st.columns([0.5, 2, 4, 0.8])
                         with c_num:
                             st.markdown(f"<div style='background:#000; color:#FFC107; border:1px solid #FFC107; padding:6px; text-align:center; font-family:monospace; font-weight:bold; border-radius:4px;'>{idx}</div>", unsafe_allow_html=True)
@@ -508,15 +490,27 @@ def renderizar_gestao_fila_prestador(provider_token):
                                 st.rerun()
                     st.markdown("<div style='height: 10px;'></div>", unsafe_allow_html=True)
                 else:
-                    st.markdown("<div style='background-color: #000000; border: 2px solid #FFC107; border-radius: 6px; padding: 12px; color: #FFC107; font-family: monospace; font-size: 13px; margin-bottom: 15px; text-align: center; font-weight: bold;'>NENHUM PEDIDO NA LISTA NESTE MOMENTO.<br>À ESPERA DE NOVOS PEDIDOS...</div>", unsafe_allow_html=True)
+                    st.markdown("""
+                        <div style="background-color: #000000; border: 2px solid #FFC107; border-radius: 6px; padding: 12px; color: #FFC107; font-family: monospace; font-size: 13px; margin-bottom: 15px; text-align: center; font-weight: bold;">
+                            NENHUM PEDIDO NA LISTA NESTE MOMENTO.<br>À ESPERA DE NOVOS PEDIDOS...</div>
+                    """, unsafe_allow_html=True)
 
                 st.markdown("### LEITOR KARAOKE")
+                
                 if tocando_agora:
                     cantor_atual = tocando_agora.get("cliente", "CONVIDADO").upper()
                     musica_atual = limpar_nome_musica(tocando_agora.get("musica", {}))
-                    st.markdown(f"""<div style="background: #000000; border: 3px solid #FFC107; border-radius: 6px; padding: 20px; margin-bottom: 15px; text-align: center;">
-                                    <div style="color: #FFC107; font-family: monospace; font-size: 32px; font-weight: bold; text-transform: uppercase; margin-bottom: 8px; text-shadow: 2px 2px 6px rgba(0,0,0,0.9);">{cantor_atual}</div>
-                                    <div style="color: #ffffff; font-family: monospace; font-size: 15px; font-weight: bold;">{musica_atual}</div></div>""", unsafe_allow_html=True)
+                    
+                    st.markdown(f"""
+                        <div style="background: #000000; border: 3px solid #FFC107; border-radius: 6px; padding: 20px; margin-bottom: 15px; text-align: center;">
+                            <div style="color: #FFC107; font-family: monospace; font-size: 32px; font-weight: bold; text-transform: uppercase; margin-bottom: 8px; text-shadow: 2px 2px 6px rgba(0,0,0,0.9);">
+                                {cantor_atual}
+                            </div>
+                            <div style="color: #ffffff; font-family: monospace; font-size: 15px; font-weight: bold;">
+                                {musica_atual}
+                            </div>
+                        </div>
+                    """, unsafe_allow_html=True)
                     
                     c_t1, c_t2, c_t3 = st.columns(3)
                     with c_t1:
@@ -536,19 +530,24 @@ def renderizar_gestao_fila_prestador(provider_token):
                                 atualizar_estado_pedido(provider_token, restantes[0].get('id'), 'aprovado')
                             st.rerun()
                 else:
-                    st.markdown("<div style='background: #000000; border: 3px solid #FFC107; border-radius: 6px; padding: 20px; text-align: center; font-family: monospace; color: #FFC107; font-weight: bold;'>NENHUMA MÚSICA EM REPRODUÇÃO - À ESPERA DA FILA DE ESPERA</div>", unsafe_allow_html=True)
+                    st.markdown("""
+                        <div style="background: #000000; border: 3px solid #FFC107; border-radius: 6px; padding: 20px; text-align: center; font-family: monospace; color: #FFC107; font-weight: bold;">
+                            NENHUMA MÚSICA EM REPRODUÇÃO - À ESPERA DA FILA DE ESPERA
+                        </div>
+                    """, unsafe_allow_html=True)
 
             with col_dir:
                 st.markdown("<div style='height: 5px;'></div>", unsafe_allow_html=True)
                 video_fundo_atual = obter_video_fundo(provider_token)
                 lista_clipes_cloudinary = listar_videos_pasta_clipes()
+                
                 opcoes_labels = ["Nenhum (Ecrã Preto)"]
                 mapa_url_por_label = {}
                 for clipe in lista_clipes_cloudinary:
                     label = f"📁 {clipe['nome']}"
                     opcoes_labels.append(label)
                     mapa_url_por_label[label] = clipe['url']
-                
+                    
                 index_atual = 0
                 for idx, label in enumerate(opcoes_labels):
                     if label != "Nenhum (Ecrã Preto)":
@@ -556,21 +555,30 @@ def renderizar_gestao_fila_prestador(provider_token):
                         if video_fundo_atual and (video_fundo_atual in url_mapeada or url_mapeada in video_fundo_atual):
                             index_atual = idx
                             break
-                            
+
                 with st.form(key="form_video_fundo_pos"):
+                    st.markdown("<div style='font-family: monospace; color: #ffffff; font-size: 13px; font-weight: bold; margin-bottom: 5px;'>Pesquisar Vídeo Clipe</div>", unsafe_allow_html=True)
                     escolha_video = st.selectbox("Pesquisar Vídeo Clipe", options=opcoes_labels, index=index_atual, label_visibility="collapsed")
+                    st.markdown("<div style='height: 10px;'></div>", unsafe_allow_html=True)
+                    
                     col_btn_play, col_btn_stop = st.columns(2)
                     with col_btn_play:
                         btn_play_fundo = st.form_submit_button("▶️ Play", use_container_width=True)
                     with col_btn_stop:
                         btn_stop_fundo = st.form_submit_button("⏹️ Stop", use_container_width=True)
+
                     if btn_play_fundo:
-                        definir_video_fundo(provider_token, "" if escolha_video == "Nenhum (Ecrã Preto)" else mapa_url_por_label.get(escolha_video, ""))
+                        valor_a_guardar = "" if escolha_video == "Nenhum (Ecrã Preto)" else mapa_url_por_label.get(escolha_video, "")
+                        definir_video_fundo(provider_token, valor_a_guardar)
+                        st.success("Vídeo clipe de fundo colocado em reprodução na tela!")
                         st.rerun()
+                    
                     if btn_stop_fundo:
                         definir_video_fundo(provider_token, "")
+                        st.success("Vídeo clipe parado (Ecrã Preto ativado)!")
                         st.rerun()
 
+        # --- ABA DE PEDIDOS EXTRAS ---
         with aba_extras:
             st.markdown("### 🕹️ CAIXA DE PEDIDOS NÃO ACHADOS (EXTERNOS)")
             if pedidos_extras:
@@ -578,16 +586,14 @@ def renderizar_gestao_fila_prestador(provider_token):
                     pedido_id = p.get("id")
                     cliente = p.get("cliente", "Desconhecido")
                     musica_nome = p.get("musica", "")
-                    
-                    # Inicialização segura da variável para prevenir o erro
-                    data_registo_str = p.get("timestamp_str") or p.get("data_registo_str") or "Data não registada"
+                    timestamp_pedido = p.get("timestamp_str", "Data não registada")
                     
                     opcoes_encontradas = p.get("opcoes_yt", [])
                     link_selecionado = p.get("link_yt", "")
                     
                     with st.container(border=True):
                         st.markdown(f"🎵 **{musica_nome}**")
-                        st.caption(f"Pedido de cliente - {cliente} - {data_registo_str}")
+                        st.caption(f"Pedido de cliente - {cliente} - {timestamp_pedido}")
                         
                         if link_selecionado:
                             st.markdown(f"<a href='{link_selecionado}' target='_blank' style='color: #FFC107; font-family: monospace; font-weight: bold; font-size: 13px; text-decoration: underline;'>{link_selecionado}</a>", unsafe_allow_html=True)
@@ -599,10 +605,10 @@ def renderizar_gestao_fila_prestador(provider_token):
                                 st.markdown(f"<div style='margin: 4px 0;'><a href='{u_opt}' target='_blank' style='color: #FFC107; font-family: monospace; font-size: 13px; text-decoration: none; font-weight: bold;'>▶️ {t_opt}</a></div>", unsafe_allow_html=True)
                         
                         st.markdown("<div style='height: 5px;'></div>", unsafe_allow_html=True)
-                        col_b1, col_b2, col_b3 = st.columns([1.5, 1, 0.8])
                         
+                        col_b1, col_b2, col_b3 = st.columns([1.5, 1, 0.8])
                         with col_b1:
-                            if st.button("🔍 Procurar no YouTube", key=f"procurar_{pedido_id}", use_container_width=True):
+                            if st.button("🔍 Procurar karaoke no YouTube", key=f"procurar_ext_{pedido_id}", type="secondary", use_container_width=True):
                                 termo_busca = f"{musica_nome} karaoke"
                                 resultados_busca = buscar_multiplos_links_youtube(termo_busca, max_resultados=6)
                                 if resultados_busca:
@@ -624,6 +630,12 @@ def renderizar_gestao_fila_prestador(provider_token):
                                         Abrir no YouTube
                                     </a>
                                 """, unsafe_allow_html=True)
+                            else:
+                                st.markdown("""
+                                    <div style="background-color: #111; color: #666; border: 1px solid #222; text-align: center; padding: 6px 12px; border-radius: 4px; font-family: monospace; font-weight: bold; font-size: 14px; cursor: not-allowed;">
+                                        Abrir no YouTube
+                                    </div>
+                                """, unsafe_allow_html=True)
                         with col_b3:
                             if st.button("Apagar", key=f"apagar_ext_{pedido_id}", type="primary", use_container_width=True):
                                 requests.delete(f"{FIREBASE_URL}/pedidos/{provider_token}/{pedido_id}.json")
@@ -632,106 +644,67 @@ def renderizar_gestao_fila_prestador(provider_token):
                 st.markdown("<div style='border: 2px solid #FFC107; padding: 15px; color: #FFC107; text-align: center; font-weight: bold;'>NENHUM PEDIDO EXTRA PENDENTE NO MOMENTO.</div>", unsafe_allow_html=True)
 
     except Exception as e:
-        st.error(f"Erro ao carregar os pedidos: {e}")
+        st.error(f"Erro ao carregar os pedidos do Firebase: {e}")
+        
+
+# Importação opcional para o relógio atualizar automaticamente segundo a segundo
+try:
+    from streamlit_autorefresh import st_autorefresh
+except ImportError:
+    st_autorefresh = None
 
 def show_provider_panel_custom(provider_token):
+    # Ativar refresh automático a cada 1 segundo para o temporizador descontar em tempo real
     if st_autorefresh:
         st_autorefresh(interval=1000, key="relogio_prestador_tick")
 
-    nome_prestador = "PRESTADOR NÃO IDENTIFICADO"
-    tempo_plano = "2 Horas"
-    data_registo_str = ""  # <--- ADICIONE ESTA LINHA AQUI NO TOPO
-      
-    # Consulta direta e eficiente na coleção 'providers' do Firebase
-    try:
-        res = requests.get(f"{FIREBASE_URL}/providers.json", timeout=5)
-        if res.status_code == 200 and res.json():
-            dados = res.json()
-            if isinstance(dados, dict):
-                for k, v in dados.items():
-                    if isinstance(v, dict):
-                        tk_val = str(v.get('token', k))
-                        if tk_val == str(provider_token) or str(k) == str(provider_token):
-                            # Encontrou o prestador! Extrair nome
-                            for nk in ['name', 'nome', 'prestador', 'nome_prestador', 'nome_completo']:
-                                if v.get(nk):
-                                    nome_prestador = str(v.get(nk)).strip().upper()
-                                    break
-                            # Extrair o contrato / tempo / duração / referência
-                            for pk in ['tempo_plano', 'plano', 'duracao', 'tempo', 'contrato', 'expires_at', 'payment_ref']:
-                                if v.get(pk):
-                                    tempo_plano = str(v.get(pk))
-                                    break
-                            
-                            # Extrair também a data aqui se existir no Firebase!
-                            for dk in ['data_registo', 'data', 'timestamp', 'created_at']:
-                                if v.get(dk):
-                                    data_registo_str = str(v.get(dk))
-                                    break
-                            break
-    except Exception:
-        pass
+    url_logotipo = "https://cdn.phototourl.com/free/2026-08-03-8b13edf5-0257-491d-ab78-f0d5329ffc15.jpg"
+    url_fundo_painel = "https://cdn.phototourl.com/free/2026-08-03-694a4a2e-9914-4da8-93b2-87538a4805ab.png"
 
-    # Fallback para a Base de Dados SQLite local caso não encontre no Firebase
-    if nome_prestador == "PRESTADOR NÃO IDENTIFICADO":
-        try:
-            conn = get_connection()
-            df_sql = pd.read_sql_query("SELECT * FROM providers WHERE token = ? OR id = ?", conn, params=(str(provider_token), str(provider_token)))
-            conn.close()
-            
-            if not df_sql.empty:
-                row = df_sql.iloc[0]
-                for col_n in ['name', 'nome', 'prestador', 'user']:
-                    if col_n in df_sql.columns and pd.notna(row.get(col_n)):
-                        nome_prestador = str(row.get(col_n)).strip().upper()
+    df_prov = get_all_providers()
+    
+    nome_prestador = "PRESTADOR NÃO IDENTIFICADO"
+    tempo_plano = "2 Horas - 12 Mil Kwanzas"
+    data_registo_str = None
+    
+    if not df_prov.empty:
+        col_token_candidates = ['token', 'provider_token', 'id']
+        col_token_encontrada = next((c for c in col_token_candidates if c in df_prov.columns), None)
+        
+        if col_token_encontrada:
+            match = df_prov[df_prov[col_token_encontrada].astype(str) == str(provider_token)]
+            if not match.empty:
+                row = match.iloc[0]
+                
+                p_nome = ""
+                p_sobrenome = ""
+                for col_n in ['nome', 'prestador', 'user', 'primeiro_nome']:
+                    if col_n in df_prov.columns and pd.notna(row.get(col_n)):
+                        p_nome = str(row.get(col_n)).strip()
                         break
-                for col_p in ['tempo_plano', 'plano', 'duracao', 'tempo', 'contrato', 'expires_at', 'payment_ref']:
-                    if col_p in df_sql.columns and pd.notna(row.get(col_p)):
+                for col_s in ['sobrenome', 'ultimo_nome', 'apelido']:
+                    if col_s in df_prov.columns and pd.notna(row.get(col_s)):
+                        p_sobrenome = str(row.get(col_s)).strip()
+                        break
+                
+                if p_nome:
+                    nome_completo = f"{p_nome} {p_sobrenome}".strip()
+                    nome_prestador = nome_completo.upper()
+                else:
+                    for col_alt in ['nome_prestador', 'nome_completo']:
+                        if col_alt in df_prov.columns and pd.notna(row.get(col_alt)):
+                            nome_prestador = str(row.get(col_alt)).upper()
+                            break
+                
+                for col_p in ['tempo_plano', 'plano', 'duracao', 'tempo', 'contrato']:
+                    if col_p in df_prov.columns and pd.notna(row.get(col_p)):
                         tempo_plano = str(row.get(col_p))
                         break
-        except Exception:
-            pass
-
-    # Fallback para o DataFrame caso não encontre diretamente no nó do Firebase
-    if nome_prestador == "PRESTADOR NÃO IDENTIFICADO":
-        df_prov = get_all_providers()
-        if not df_prov.empty:
-            col_token_candidates = ['token', 'provider_token', 'id']
-            col_token_encontrada = next((c for c in col_token_candidates if c in df_prov.columns), None)
-            
-            if col_token_encontrada:
-                match = df_prov[df_prov[col_token_encontrada].astype(str) == str(provider_token)]
-                if not match.empty:
-                    row = match.iloc[0]
-                    p_nome = ""
-                    p_sobrenome = ""
-                    for col_n in ['nome', 'prestador', 'user', 'primeiro_nome']:
-                        if col_n in df_prov.columns and pd.notna(row.get(col_n)):
-                            p_nome = str(row.get(col_n)).strip()
-                            break
-                    for col_s in ['sobrenome', 'ultimo_nome', 'apelido']:
-                        if col_s in df_prov.columns and pd.notna(row.get(col_s)):
-                            p_sobrenome = str(row.get(col_s)).strip()
-                            break
-                    
-                    if p_nome:
-                        nome_completo = f"{p_nome} {p_sobrenome}".strip()
-                        nome_prestador = nome_completo.upper()
-                    else:
-                        for col_alt in ['nome_prestador', 'nome_completo']:
-                            if col_alt in df_prov.columns and pd.notna(row.get(col_alt)):
-                                nome_prestador = str(row.get(col_alt)).upper()
-                                break
-                    
-                    for col_p in ['tempo_plano', 'plano', 'duracao', 'tempo', 'contrato']:
-                        if col_p in df_prov.columns and pd.notna(row.get(col_p)):
-                            tempo_plano = str(row.get(col_p))
-                            break
                         
-                    for col_d in ['data_registo', 'data', 'timestamp', 'created_at']:
-                        if col_d in df_prov.columns and pd.notna(row.get(col_d)):
-                            data_registo_str = str(row.get(col_d))
-                            break
+                for col_d in ['data_registo', 'data', 'timestamp', 'created_at']:
+                    if col_d in df_prov.columns and pd.notna(row.get(col_d)):
+                        data_registo_str = str(row.get(col_d))
+                        break
 
     segundos_bónus = 0
     try:
@@ -750,18 +723,16 @@ def show_provider_panel_custom(provider_token):
     except Exception:
         pass
 
-    # Definir segundos base com base no contrato escolhido pelo prestador de forma dinâmica
     segundos_base = 7200
-    if "4 Horas" in tempo_plano:
-        segundos_base = 14400
-    elif "3 Horas" in tempo_plano:
+    if "3 Horas" in tempo_plano:
         segundos_base = 10800
+    elif "4 Horas" in tempo_plano:
+        segundos_base = 14400
     elif "2 Horas" in tempo_plano:
         segundos_base = 7200
 
     segundos_totais = segundos_base + segundos_bónus
     segundos_restantes = segundos_totais
-    
     if data_registo_str:
         try:
             dt_str_clean = data_registo_str.split('.')[0]
@@ -878,14 +849,14 @@ def show_provider_panel_custom(provider_token):
     </style>
     """, unsafe_allow_html=True)
 
-    # CABEÇALHO DO PAINEL CORRIGIDO (COM NOME DINÂMICO E TEMPO A CONTAR EM TEMPO REAL)
+    # CABEÇALHO DO PAINEL
     col_topo_1, col_topo_2, col_topo_3 = st.columns([1.2, 3, 0.8])
     with col_topo_1:
         st.markdown(f"""
             <div style="background: #000000; border: 2px solid #FFC107; border-radius: 6px; padding: 8px; text-align: center;">
-                <div style="font-family: monospace; color: #ffffff; font-size: 9px; text-transform: uppercase; letter-spacing: 1px;">CRONÓMETRO REGRESSIVO</div>
+                <div style="font-family: monospace; color: #ffffff; font-size: 9px; text-transform: uppercase; letter-spacing: 1px;">TEMPO / PLANO ESCOLHIDO</div>
                 <div style="font-family: monospace; color: #FFC107; font-size: 18px; font-weight: bold; {classe_piscar} margin: 2px 0;">⏱️ {tempo_formatado}</div>
-                <div style="font-family: monospace; color: #fff; font-size: 10px;">Contrato: {tempo_plano}</div>
+                <div style="font-family: monospace; color: #fff; font-size: 10px;">({tempo_plano})</div>
             </div>
         """, unsafe_allow_html=True)
     with col_topo_2:
@@ -959,7 +930,7 @@ def show_provider_panel_custom(provider_token):
             </div>
         """, unsafe_allow_html=True)
 
-        # BLOCO "Á Seguir -"
+        # BLOCO "Á Seguir -" AUMENTADO EM 40% E COR AMARELA
         st.markdown(f"""
             <div style="border: 3px solid #FFC107; border-radius: 8px; padding: 18px; background-color: #000000; margin-bottom: 15px;">
                 <div style="font-family: monospace; color: #FFC107; font-size: 28px; font-weight: bold;">{conteudo_a_seguir}</div>
