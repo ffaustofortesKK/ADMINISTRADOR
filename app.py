@@ -474,8 +474,8 @@ def renderizar_gestao_fila_prestador(provider_token):
         pedidos_ativos.sort(key=lambda x: x.get("timestamp", 0))
         
         pedidos_extras = [p for p in pedidos if p.get("estado") == "pendente_ext"]
+tocando_agora = next((p for p in pedidos_ativos if p.get("estado") == "aprovado"), None)
 
-        tocando_agora = next((p for p in pedidos_ativos if p.get("estado") == "aprovado"), None)
         if not tocando_agora and pedidos_ativos:
             primeiro_id = pedidos_ativos[0].get('id')
             atualizar_estado_pedido(provider_token, primeiro_id, 'aprovado')
@@ -565,8 +565,7 @@ def renderizar_gestao_fila_prestador(provider_token):
                     label = f"📁 {clipe['nome']}"
                     opcoes_labels.append(label)
                     mapa_url_por_label[label] = clipe['url']
-                    
-                index_atual = 0
+        index_atual = 0
                 for idx, label in enumerate(opcoes_labels):
                     if label != "Nenhum (Ecrã Preto)":
                         url_mapeada = mapa_url_por_label.get(label, "")
@@ -623,8 +622,7 @@ def renderizar_gestao_fila_prestador(provider_token):
                                 st.markdown(f"<div style='margin: 4px 0;'><a href='{u_opt}' target='_blank' style='color: #FFC107; font-family: monospace; font-size: 13px; text-decoration: none; font-weight: bold;'>▶️ {t_opt}</a></div>", unsafe_allow_html=True)
                         
                         st.markdown("<div style='height: 5px;'></div>", unsafe_allow_html=True)
-                        
-                        col_b1, col_b2, col_b3 = st.columns([1.5, 1, 0.8])
+col_b1, col_b2, col_b3 = st.columns([1.5, 1, 0.8])
                         with col_b1:
                             if st.button("🔍 Procurar karaoke no YouTube", key=f"procurar_ext_{pedido_id}", type="secondary", use_container_width=True):
                                 termo_busca = f"{musica_nome} karaoke"
