@@ -14,6 +14,7 @@ import cloudinary.uploader
 import cloudinary.search
 import importlib
 import yt_dlp
+import random
 
 # --- 1. CONFIGURAR OS CAMINHOS UMA ÚNICA VEZ ---
 current_dir = os.path.dirname(os.path.abspath(__file__))
