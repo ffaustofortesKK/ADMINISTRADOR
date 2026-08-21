@@ -344,8 +344,7 @@ def custom_show_register_page():
                 import uuid
                 token_gerado = str(uuid.uuid4())[:8]
                 
-                # Garantimos que salvamos com redundância de chaves em ambas as tabelas/estruturas
-                # para que o painel e o painel de admin encontrem sempre os dados independentemente da chave usada.
+                # Estrutura compatível exatamente com a tabela 'providers' do Firebase
                 dados_reg = {
                     "token": token_gerado,
                     "provider_token": token_gerado,
@@ -365,9 +364,8 @@ def custom_show_register_page():
                 }
                 
                 try:
-                    # Grava diretamente no Firebase em ambas as rotas comuns de prestadores e pendentes
-                    requests.put(f"{FIREBASE_URL}/prestadores/{token_gerado}.json", json=dados_reg, timeout=10)
-                    requests.put(f"{FIREBASE_URL}/prestadores_pendentes/{token_gerado}.json", json=dados_reg, timeout=10)
+                    # Grava diretamente no nó 'providers' que aparece no seu Firebase
+                    requests.put(f"{FIREBASE_URL}/providers/{token_gerado}.json", json=dados_reg, timeout=10)
                     
                     st.session_state["token_pendente_prestador"] = token_gerado
                     st.session_state["nome_pendente_prestador"] = nome_completo
