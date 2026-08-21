@@ -676,7 +676,6 @@ def show_provider_panel_custom(provider_token):
             if not match.empty:
                 row = match.iloc[0]
                 
-                # Juntar Nome e Sobrenome caso existam em colunas separados, ou apanhar o campo geral
                 p_nome = ""
                 p_sobrenome = ""
                 for col_n in ['nome', 'prestador', 'user', 'primeiro_nome']:
@@ -953,7 +952,7 @@ def show_provider_panel_custom(provider_token):
             if st.button("⏭️ Avançar Karaoke", key="btn_prox_topo", use_container_width=True):
                 if tocando_agora:
                     atualizar_estado_pedido(provider_token, tocando_agora.get('id'), 'terminado')
-                    restantes = [x for x in pedidos if x.get('estado') in ['pendente', 'aprovado'] and x.get('id'] != tocando_agora.get('id')]
+                    restantes = [x for x in pedidos if x.get('estado') in ['pendente', 'aprovado'] and x.get('id') != tocando_agora.get('id')]
                     if restantes:
                         atualizar_estado_pedido(provider_token, restantes[0].get('id'), 'aprovado')
                     st.rerun()
