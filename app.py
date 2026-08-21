@@ -721,7 +721,7 @@ def show_provider_panel_custom(provider_token):
                         if col_p in df_prov.columns and pd.notna(row.get(col_p)):
                             tempo_plano = str(row.get(col_p))
                             break
-                            
+                        
                     for col_d in ['data_registo', 'data', 'timestamp', 'created_at']:
                         if col_d in df_prov.columns and pd.notna(row.get(col_d)):
                             data_registo_str = str(row.get(col_d))
@@ -744,7 +744,7 @@ def show_provider_panel_custom(provider_token):
     except Exception:
         pass
 
-    # Definir segundos base com base no contrato escolhido pelo prestador
+    # Definir segundos base com base no contrato escolhido pelo prestador de forma dinâmica
     segundos_base = 7200
     if "4 Horas" in tempo_plano:
         segundos_base = 14400
@@ -872,12 +872,12 @@ def show_provider_panel_custom(provider_token):
     </style>
     """, unsafe_allow_html=True)
 
-    # CABEÇALHO DO PAINEL CORRIGIDO (CONTRATO DINÂMICO E NOME DO PRESTADOR)
+    # CABEÇALHO DO PAINEL CORRIGIDO (COM NOME DINÂMICO E TEMPO A CONTAR EM TEMPO REAL)
     col_topo_1, col_topo_2, col_topo_3 = st.columns([1.2, 3, 0.8])
     with col_topo_1:
         st.markdown(f"""
             <div style="background: #000000; border: 2px solid #FFC107; border-radius: 6px; padding: 8px; text-align: center;">
-                <div style="font-family: monospace; color: #ffffff; font-size: 9px; text-transform: uppercase; letter-spacing: 1px;">TEMPO / PLANO ESCOLHIDO</div>
+                <div style="font-family: monospace; color: #ffffff; font-size: 9px; text-transform: uppercase; letter-spacing: 1px;">CRONÓMETRO REGRESSIVO</div>
                 <div style="font-family: monospace; color: #FFC107; font-size: 18px; font-weight: bold; {classe_piscar} margin: 2px 0;">⏱️ {tempo_formatado}</div>
                 <div style="font-family: monospace; color: #fff; font-size: 10px;">Contrato: {tempo_plano}</div>
             </div>
@@ -953,7 +953,7 @@ def show_provider_panel_custom(provider_token):
             </div>
         """, unsafe_allow_html=True)
 
-        # BLOCO "Á Seguir -" AUMENTADO EM 40% E COR AMARELA
+        # BLOCO "Á Seguir -"
         st.markdown(f"""
             <div style="border: 3px solid #FFC107; border-radius: 8px; padding: 18px; background-color: #000000; margin-bottom: 15px;">
                 <div style="font-family: monospace; color: #FFC107; font-size: 28px; font-weight: bold;">{conteudo_a_seguir}</div>
