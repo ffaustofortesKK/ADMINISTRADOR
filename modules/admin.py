@@ -3,6 +3,10 @@ import time
 import pandas as pd
 from datetime import datetime
 import sqlite3
+import requests
+
+# Defina a URL do seu Firebase Realtime Database
+FIREBASE_URL = "https://grupoffkaraoke-default-rtdb.firebaseio.com"
 
 # Funções de suporte de base de dados para o Admin
 def get_connection():
@@ -29,18 +33,50 @@ def get_active_providers():
         conn.close()
 
 def approve_provider(token):
+    # Atualizar na base de dados SQLite local
     conn = get_connection()
     cursor = conn.cursor()
     cursor.execute("UPDATE providers SET approved = 1 WHERE token = ?", (token,))
     conn.commit()
     conn.close()
+    
+    # Atualizar também no Firebase na coleção 'providers'
+    try:
+        res = requests.get(f"{FIREBASE_URL}/providers.json", timeout=5)
+        if res.status_code == 200 and res.json():
+            dados = res.json()
+            if isinstance(dados, dict):
+                for k, v in dados.items():
+                    if isinstance(v, dict):
+                        tk_val = str(v.get('token', k))
+                        if tk_val == str(token) or str(k) == str(token):
+                            requests.patch(f"{FIREBASE_URL}/providers/{k}.json", json={"approved": 1}, timeout=5)
+                            break
+    except Exception:
+        pass
 
 def reject_provider(token):
+    # Atualizar na base de dados SQLite local
     conn = get_connection()
     cursor = conn.cursor()
     cursor.execute("UPDATE providers SET approved = -1 WHERE token = ?", (token,))
     conn.commit()
     conn.close()
+    
+    # Atualizar também no Firebase na coleção 'providers'
+    try:
+        res = requests.get(f"{FIREBASE_URL}/providers.json", timeout=5)
+        if res.status_code == 200 and res.json():
+            dados = res.json()
+            if isinstance(dados, dict):
+                for k, v in dados.items():
+                    if isinstance(v, dict):
+                        tk_val = str(v.get('token', k))
+                        if tk_val == str(token) or str(k) == str(token):
+                            requests.patch(f"{FIREBASE_URL}/providers/{k}.json", json={"approved": -1}, timeout=5)
+                            break
+    except Exception:
+        pass
 
 def get_total_revenue():
     df = get_all_providers()
