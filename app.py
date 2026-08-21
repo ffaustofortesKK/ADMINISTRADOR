@@ -661,6 +661,11 @@ def show_provider_panel_custom(provider_token):
     url_logotipo = "https://cdn.phototourl.com/free/2026-08-03-8b13edf5-0257-491d-ab78-f0d5329ffc15.jpg"
     url_fundo_painel = "https://cdn.phototourl.com/free/2026-08-03-694a4a2e-9914-4da8-93b2-87538a4805ab.png"
 
+    # BUSCAR DADOS DO PRESTADOR DIRETAMENTE DO FIREBASE PARA GARANTIR TEMPO E NOME ATUALIZADOS
+    nome_prestador = "PRESTADOR NÃO IDENTIFICADO"
+    tempo_plano = "2 Horas"
+    data_registo_str = None
+    
     try:
         res_prov_fb = requests.get(f"{FIREBASE_URL}/prestadores/{provider_token}.json", timeout=5)
         if res_prov_fb.status_code == 200 and res_prov_fb.json():
