@@ -766,7 +766,7 @@ def show_provider_panel_custom(provider_token):
         </div>
         """
 
-    # SCRIPT JS: ATUALIZAÇÃO EM TEMPO REAL SEM RECARREGAR A PÁGINA (POLLING DIRETO AO FIREBASE)
+    # SCRIPT JS: ATUALIZAÇÃO EM TEMPO REAL SEM RECARREGAR A PÁGINA
     script_live_sync = f"""
         <script>
             const firebasePedidosUrl = "{FIREBASE_URL}/pedidos/" + "{provider_token}" + ".json";
@@ -788,7 +788,6 @@ def show_provider_panel_custom(provider_token):
                         return;
                     }}
                     
-                    // Converter objeto do Firebase em array e ordenar por timestamp
                     let pedidosArray = Object.keys(data).map(key => ({{ id: key, ...data[key] }}));
                     pedidosArray.sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
                     
@@ -814,7 +813,7 @@ def show_provider_panel_custom(provider_token):
                                 <div style="width: 10%; font-weight: bold; color: #fff;">${{index + 1}}</div>
                                 <div style="width: 28%; font-weight: bold; color: #FFC107; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${{cantor}}</div>
                                 <div style="width: 38%; color: #fff; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${{tituloMusica}}</div>
-                                <div style="width: 24%; text-align: center; color: #4CAF50; font-size: 12px; font-weight: bold;">(Atualizado Live)</div>
+                                <div style="width: 24%; text-align: center; color: #4CAF50; font-size: 12px; font-weight: bold;">(Live Sync)</div>
                             </div>
                         `;
                     });
@@ -826,7 +825,6 @@ def show_provider_panel_custom(provider_token):
                 }}
             }}
             
-            // Executar a cada 2 segundos
             setInterval(verificarNovasMusicas, 2000);
         </script>
     """
