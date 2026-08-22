@@ -766,27 +766,29 @@ def show_provider_panel_custom(provider_token):
         </div>
         """
 
-    # SCRIPT DE ATUALIZAÇÃO AUTOMÁTICA EM TEMPO REAL (FIREBASE SYNC)
+    # SCRIPT JAVASCRIPT DE ATUALIZAÇÃO AUTOMÁTICA EM TEMPO REAL PARA NOVAS MÚSICAS
     script_auto_refresh_firebase = f"""
         <script>
             const firebasePedidosUrl = "{FIREBASE_URL}/pedidos/" + "{provider_token}" + ".json";
-            let ultimaQuantidadePedidos = null;
+            let ultimaAssinaturaPedidos = null;
 
             setInterval(async () => {{
                 try {{
-                    let response = await fetch(firebasePedidosUrl);
+                    let response = await fetch(firebasePedidosUrl + "?_t=" + Date.now());
                     let data = await response.json();
-                    let qtdeAtual = data ? Object.keys(data).length : 0;
                     
-                    if (ultimaQuantidadePedidos === null) {{
-                        ultimaQuantidadePedidos = qtdeAtual;
-                    }} else if (qtdeAtual !== ultimaQuantidadePedidos) {{
+                    // Cria uma string única baseada nas chaves e estados dos pedidos para detetar qualquer nova música ou alteração
+                    let assinaturaAtual = data ? JSON.stringify(data) : "";
+                    
+                    if (ultimaAssinaturaPedidos === null) {{
+                        ultimaAssinaturaPedidos = assinaturaAtual;
+                    }} else if (assinaturaAtual !== ultimaAssinaturaPedidos) {{
                         window.location.reload();
                     }}
                 }} catch (e) {{
                     console.log("Erro na verificação automática de pedidos:", e);
                 }}
-            }}, 3000);
+            }}, 2000);
         </script>
     """
     st.markdown(script_auto_refresh_firebase, unsafe_allow_html=True)
@@ -874,7 +876,7 @@ def show_provider_panel_custom(provider_token):
     </style>
     """, unsafe_allow_html=True)
 
-    # CABEÇALHO DO PAINEL (Exibindo Nome e Contrato Corretamente)
+    # CABEÇALHO DO PAINEL
     col_topo_1, col_topo_2, col_topo_3 = st.columns([1.2, 3, 0.8])
     with col_topo_1:
         st.markdown(f"""
@@ -982,7 +984,7 @@ def show_provider_panel_custom(provider_token):
                         atualizar_estado_pedido(provider_token, restantes[0].get('id'), 'aprovado')
                     st.rerun()
 
-        # SECÇÃO DA TABELA (RENOMEADA PARA "Fila de Pedidos")
+        # SECÇÃO DA TABELA
         st.markdown("<div style='height: 10px;'></div>", unsafe_allow_html=True)
         st.markdown("""
             <div style="font-family: monospace; color: #ffffff; font-size: 16px; font-weight: bold; margin-bottom: 8px;">
