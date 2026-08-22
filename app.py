@@ -653,202 +653,7 @@ try:
 except ImportError:
     st_autorefresh = None
 
-def show_provider_panel_custom(provider_token):
-    url_logotipo = "https://cdn.phototourl.com/free/2026-08-03-8b13edf5-0257-491d-ab78-f0d5329ffc15.jpg"
-    url_fundo_painel = "https://cdn.phototourl.com/free/2026-08-03-694a4a2e-9914-4da8-93b2-87538a4805ab.png"
-
-    df_prov = get_all_providers()
-    
-    nome_prestador = "PRESTADOR NÃO IDENTIFICADO"
-    tempo_plano = "2 Horas - 12 Mil Kwanzas"
-    data_registo_str = None
-    
-    if not df_prov.empty:
-        col_token_candidates = ['token', 'provider_token', 'id']
-        col_token_encontrada = next((c for c in col_token_candidates if c in df_prov.columns), None)
-        
-        if col_token_encontrada:
-            match = df_prov[df_prov[col_token_encontrada].astype(str) == str(provider_token)]
-            if not match.empty:
-                row = match.iloc[0]
-                
-                for col_n in ['nome_prestador', 'nome', 'prestador', 'user']:
-                    if col_n in df_prov.columns and pd.notna(row.get(col_n)):
-                        nome_prestador = str(row.get(col_n)).upper()
-                        break
-                
-                for col_p in ['tempo_plano', 'plano', 'duracao', 'tempo']:
-                    if col_p in df_prov.columns and pd.notna(row.get(col_p)):
-                        tempo_plano = str(row.get(col_p))
-                        break
-                        
-                for col_d in ['data_registo', 'data', 'timestamp', 'created_at']:
-                    if col_d in df_prov.columns and pd.notna(row.get(col_d)):
-                        data_registo_str = str(row.get(col_d))
-                        break
-
-    segundos_bónus = 0
-    try:
-        res_ref = requests.get(f"{FIREBASE_URL}/reforcos_aprovados/{provider_token}.json", timeout=5)
-        if res_ref.status_code == 200 and res_ref.json():
-            dados_ref = res_ref.json()
-            if isinstance(dados_ref, dict):
-                for r_id, r_info in dados_ref.items():
-                    t_ref = r_info.get("tempo_plano", "")
-                    if "3 Horas" in t_ref:
-                        segundos_bónus += 10800
-                    elif "4 Horas" in t_ref:
-                        segundos_bónus += 14400
-                    elif "2 Horas" in t_ref:
-                        segundos_bónus += 7200
-    except Exception:
-        pass
-
-    segundos_base = 7200
-    if "3 Horas" in tempo_plano:
-        segundos_base = 10800
-    elif "4 Horas" in tempo_plano:
-        segundos_base = 14400
-    elif "2 Horas" in tempo_plano:
-        segundos_base = 7200
-
-    segundos_totais = segundos_base + segundos_bónus
-    segundos_restantes = segundos_totais
-    
-    if data_registo_str:
-        try:
-            dt_str_clean = data_registo_str.split('.')[0]
-            try:
-                dt_reg = datetime.strptime(dt_str_clean, "%Y-%m-%d %H:%M:%S")
-            except Exception:
-                dt_reg = datetime.fromisoformat(data_registo_str.replace('Z', '+00:00').split('+')[0])
-                
-            diff = (datetime.now() - dt_reg).total_seconds()
-            segundos_restantes = max(0, int(segundos_totais - diff))
-        except Exception:
-            pass
-
-    horas_restantes = segundos_restantes // 3600
-    min_restantes = (segundos_restantes % 3600) // 60
-    seg_restantes = segundos_restantes % 60
-    tempo_formatado = f"{int(horas_restantes):02d}:{int(min_restantes):02d}:{int(seg_restantes):02d}"
-    
-    aviso_reforço_html = ""
-    classe_piscar = ""
-    if segundos_restantes <= 1800 and segundos_restantes > 0:
-        classe_piscar = "animation: piscarRelogio 1s infinite;"
-        aviso_reforço_html = """
-        <div style="background: rgba(255,0,0,0.85); border: 3px solid #ffeb3b; padding: 10px; border-radius: 6px; margin-bottom: 15px; text-align: center; animation: pulseAviso 1s infinite;">
-            <span style="color: #ffffff; font-size: 14px; font-weight: bold; text-shadow: 1px 1px 3px rgba(0,0,0,0.9);">
-                O SEU TEMPO ESTÁ A TERMINAR. PARA QUE NÃO PERCA OS SEUS REGISTOS, PEÇA REFORÇO DE TEMPO.
-            </span>
-            <div style="margin-top: 8px;">
-                <a href="#reforco_seccao" style="background: #FFC107; color: #000; padding: 6px 12px; border-radius: 4px; text-decoration: none; font-weight: bold; font-size: 13px;">⚡ PEDIR REFORÇO AGORA</a>
-            </div>
-        </div>
-        """
-
-    st.markdown(f"""
-    <style>
-    .stApp {{
-        background: url("{url_fundo_painel}") no-repeat center center fixed !important;
-        background-size: cover !important;
-    }}
-    .block-container {{
-        padding-top: 2rem !important;
-        padding-bottom: 2rem !important;
-        padding-left: 2.5rem !important;
-        padding-right: 2.5rem !important;
-        background: rgba(0, 0, 0, 0.95) !important;
-        border-radius: 12px;
-        margin-top: 1rem;
-        margin-bottom: 1rem;
-        border: 4px solid #FFC107 !important;
-        max-width: 1400px;
-    }}
-    @keyframes pulseAviso {{
-        0% {{ opacity: 1; transform: scale(1); }}
-        50% {{ opacity: 0.7; transform: scale(1.01); }}
-        100% {{ opacity: 1; transform: scale(1); }}
-    }}
-    @keyframes piscarRelogio {{
-        0% {{ opacity: 1; color: #FFC107; }}
-        50% {{ opacity: 0.3; color: #ff5252; }}
-        100% {{ opacity: 1; color: #FFC107; }}
-    }}
-    .card-link, .card-tv {{
-        background: #000000 !important;
-        border: 2px solid #FFC107 !important;
-        border-radius: 6px;
-        padding: 8px 10px;
-        text-align: left;
-        margin-bottom: 8px;
-        width: 100%;
-    }}
-    .card-tv {{
-        border: 2px solid #9c27b0 !important;
-    }}
-    .qr-box {{
-        background: #000;
-        border: 2px solid #FFC107 !important;
-        border-radius: 6px;
-        padding: 4px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-    }}
-    .link-title, .link-title-tv {{
-        font-family: monospace;
-        color: #FFC107 !important;
-        font-size: 11px;
-        font-weight: bold !important;
-        margin-bottom: 2px;
-    }}
-    .link-text, .link-text-tv {{
-        font-family: monospace;
-        color: #ffffff !important;
-        font-size: 10px;
-        word-break: break-all;
-        text-decoration: underline;
-    }}
-    .top-logo {{
-        width: 50px;
-        height: 50px;
-        border-radius: 50%;
-        border: 2px solid #FFC107;
-        object-fit: cover;
-    }}
-    /* Estilos para compactar os botões de ações da tabela */
-    .stButton > button {{
-        padding: 2px 8px !important;
-        font-size: 12px !important;
-        min-height: 28px !important;
-    }}
-    h1, h2, h3, h4, h5, h6, p, label, span, div, .stMarkdown {{
-        color: #ffffff !important;
-        font-weight: bold !important;
-        text-shadow: 1px 1px 3px rgba(0,0,0,0.9) !important;
-    }}
-    </style>
-    """, unsafe_allow_html=True)
-
-    col_topo_1, col_topo_2, col_topo_3 = st.columns([1.2, 3, 0.8])
-    
-    with col_topo_1:
-        st.markdown(f"""
-            <div style="background: #000000; border: 2px solid #FFC107; border-radius: 6px; padding: 6px; text-align: center;">
-                <div style="font-family: monospace; color: #ffffff; font-size: 8px; text-transform: uppercase;">TEMPO / PLANO</div>
-                <div style="font-family: monospace; color: #FFC107; font-size: 16px; font-weight: bold; {classe_piscar} margin: 2px 0;">⏱️ {tempo_formatado}</div>
-                <div style="font-family: monospace; color: #fff; font-size: 9px;">({tempo_plano})</div>
-            </div>
-        """, unsafe_allow_html=True)
-        
-    with col_topo_2:
-        st.markdown(f"""
-            <div style="display: flex; align-items: center; gap: 10px; padding-top: 4px;">
-                <span style="font-size: 24px;">🎤</span>
-                <div>
-                    <h1 style="margin: 0; color: #FFC107; font-family: monospace; font-size: 17px; text-transform: uppercase;">PAINEL DO PRESTADOR: <span style="color: #FFC107;">{nome_prestador}</span></h1>
+ <h1 style="margin: 0; color: #FFC107; font-family: monospace; font-size: 20px; text-transform: uppercase; font-weight: bold;">PAINEL DO PRESTADOR: <span style="color: #FFC107;">{nome_prestador}</span></h1>
                 </div>
             </div>
         """, unsafe_allow_html=True)
@@ -856,7 +661,7 @@ def show_provider_panel_custom(provider_token):
     with col_topo_3:
         st.markdown(f'<div style="text-align: right;"><img src="{url_logotipo}" class="top-logo" /></div>', unsafe_allow_html=True)
 
-    st.markdown("<hr style='border-color: #FFC107; margin: 10px 0;'>", unsafe_allow_html=True)
+    st.markdown("<hr style='border-color: #FFC107; margin: 15px 0;'>", unsafe_allow_html=True)
     st.markdown(aviso_reforço_html, unsafe_allow_html=True)
     
     link_cliente_rel = f"/?page=client_register&prestador={provider_token}"
@@ -866,10 +671,9 @@ def show_provider_panel_custom(provider_token):
     link_cliente_absoluto = f"https://{host_dominio}{link_cliente_rel}"
     link_tv_absoluto = f"https://{host_dominio}{link_tv_rel}"
     
-    qr_url_cliente = f"https://api.qrserver.com/v1/create-qr-code/?size=120x120&data={urllib.parse.quote(link_cliente_absoluto)}"
+    qr_url_cliente = f"https://api.qrserver.com/v1/create-qr-code/?size=150x150&data={urllib.parse.quote(link_cliente_absoluto)}"
 
-    # Ajustando tamanho dos blocos de links para ficarem mais compactos (como na 2ª imagem)
-    col_links, col_qr = st.columns([3, 1], gap="small")
+    col_links, col_qr = st.columns([2.5, 1], gap="medium")
     with col_links:
         st.markdown(f"""
             <div class="card-link">
@@ -880,121 +684,20 @@ def show_provider_panel_custom(provider_token):
         
         st.markdown(f"""
             <div class="card-tv">
-                <div class="link-title-tv" style="color: #ab47bc !important;">📺 LINK DA TELA DE TV / REPRODUÇÃO</div>
+                <div class="link-title-tv">📺 LINK DA TELA DE TV / REPRODUÇÃO</div>
                 <a href="{link_tv_rel}" target="_blank" class="link-text-tv">{link_tv_absoluto}</a>
             </div>
         """, unsafe_allow_html=True)
 
     with col_qr:
-        st.markdown("<div style='font-family: monospace; color: #FFC107; font-size: 10px; font-weight: bold; margin-bottom: 2px; text-align: center;'>QR CODE CLIENTE</div>", unsafe_allow_html=True)
+        st.markdown("<div style='font-family: monospace; color: #ffffff; font-size: 11px; font-weight: bold; margin-bottom: 3px; text-align: center;'>QR CODE CLIENTE</div>", unsafe_allow_html=True)
         st.markdown(f"""
             <div class="qr-box">
-                <img src="{qr_url_cliente}" width="95" style="border-radius: 4px;" />
+                <img src="{qr_url_cliente}" width="110" style="border-radius: 4px;" />
             </div>
         """, unsafe_allow_html=True)
 
-    st.markdown("<hr style='border-color: #333; margin: 10px 0;'>", unsafe_allow_html=True)
-
-    # 3º Ajuste: Passar o leitor de karaoke para cima da fila de reprodução e estilizar nomes em amarelo
-    st.markdown("### 🎛️ Leitor de Karaoke (Reprodução Atual)")
-    # (Aqui entra a sua função ou lógica existente do leitor de karaoke atual)
-    # renderizar_leitor_karaoke(provider_token) -> Certifique-se de destacar o nome do cantor em amarelo (#FFC107) aqui dentro se aplicável.
-
-    st.markdown("<hr style='border-color: #333; margin: 10px 0;'>", unsafe_allow_html=True)
-    st.markdown("### 📋 Fila de Reprodução (Gestão de Pedidos)")
-
-    # 4º Ajuste: Criação da tabela personalizada de 4 colunas com linhas finas e os botões alinhados
-    try:
-        res_fila = requests.get(f"{FIREBASE_URL}/filas/{provider_token}.json", timeout=5)
-        fila_data = res_fila.json() if res_fila.status_code == 200 else None
-        
-        if not fila_data or not isinstance(fila_data, dict):
-            st.info("A fila de reprodução está vazia no momento.")
-        else:
-            # Converter dicionário da fila numa lista ordenada
-            lista_fila = []
-            for item_id, info in fila_data.items():
-                if isinstance(info, dict):
-                    info['id_firebase'] = item_id
-                    lista_fila.append(info)
-            
-            if not lista_fila:
-                st.info("A fila de reprodução está vazia no momento.")
-            else:
-                # Cabeçalhos da tabela personalizada com linhas finas
-                st.markdown("""
-                <style>
-                .tabela-cabecalho {
-                    display: flex;
-                    background-color: rgba(255, 193, 7, 0.15);
-                    border-bottom: 2px solid #FFC107;
-                    padding: 6px 10px;
-                    font-weight: bold;
-                    font-size: 12px;
-                    color: #FFC107 !important;
-                }
-                .tabela-linha {
-                    display: flex;
-                    align-items: center;
-                    background-color: rgba(0, 0, 0, 0.4);
-                    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-                    padding: 4px 10px;
-                    font-size: 12px;
-                }
-                </style>
-                """, unsafe_allow_html=True)
-
-                col_h1, col_h2, col_h3, col_h4 = st.columns([0.6, 2.5, 3.5, 1.8])
-                with col_h1: st.markdown("<b>Nº</b>", unsafe_allow_html=True)
-                with col_h2: st.markdown("<b>Cantor</b>", unsafe_allow_html=True)
-                with col_h3: st.markdown("<b>Título da Música</b>", unsafe_allow_html=True)
-                with col_h4: st.markdown("<b>Ações</b>", unsafe_allow_html=True)
-
-                st.markdown("<hr style='margin: 2px 0 8px 0; border-color: #FFC107;'>", unsafe_allow_html=True)
-
-                for idx, item in enumerate(lista_fila, start=1):
-                    cantor_nome = item.get('cantor') or item.get('nome') or 'Desconhecido'
-                    musica_obj = item.get('musica') or item.get('titulo') or 'Sem título'
-                    if isinstance(musica_obj, dict):
-                        titulo_musica = musica_obj.get('titulo') or musica_obj.get('nome') or str(musica_obj)
-                    else:
-                        titulo_musica = str(musica_obj)
-
-                    col_r1, col_r2, col_r3, col_r4 = st.columns([0.6, 2.5, 3.5, 1.8])
-                    
-                    with col_r1:
-                        st.markdown(f"<span style='color: #fff;'>{idx}</span>", unsafe_allow_html=True)
-                    with col_r2:
-                        # Nome do cantor destacado em amarelo
-                        st.markdown(f"<span style='color: #FFC107; font-weight: bold;'>{cantor_nome}</span>", unsafe_allow_html=True)
-                    with col_r3:
-                        st.markdown(f"<span style='color: #ffffff;'>{titulo_musica}</span>", unsafe_allow_html=True)
-                        
-                    with col_r4:
-                        # 3 botões lado a lado (Subir ⬆️, Descer ⬇️, Excluir 🗑️)
-                        b_up, b_down, b_del = st.columns(3)
-                        item_id = item.get('id_firebase')
-                        
-                        with b_up:
-                            if st.button("⬆️", key=f"up_{item_id}", help="Subir na fila"):
-                                # Lógica para subir na fila
-                                pass
-                        with b_down:
-                            if st.button("⬇️", key=f"down_{item_id}", help="Descer na fila"):
-                                # Lógica para descer na fila
-                                pass
-                        with b_del:
-                            if st.button("🗑️", key=f"del_{item_id}", help="Excluir da fila"):
-                                try:
-                                    requests.delete(f"{FIREBASE_URL}/filas/{provider_token}/{item_id}.json", timeout=5)
-                                    st.rerun()
-                                except Exception:
-                                    pass
-
-                    st.markdown("<hr style='margin: 4px 0; border-color: rgba(255,255,255,0.08);'>", unsafe_allow_html=True)
-
-    except Exception as e:
-        st.error(f"Erro ao carregar a fila de reprodução: {e}")
+    st.markdown("<hr style='border-color: #333; margin: 15px 0;'>", unsafe_allow_html=True)
 
     st.markdown("<div id='reforco_seccao'></div>", unsafe_allow_html=True)
     if segundos_restantes <= 1800:
@@ -1029,6 +732,9 @@ def show_provider_panel_custom(provider_token):
                         st.success("Pedido de reforço submetido com sucesso! Aguarde a confirmação do Administrador.")
                     except Exception as err:
                         st.error(f"Erro ao enviar reforço: {err}")
+
+    st.markdown("<div style='height: 5px;'></div>", unsafe_allow_html=True)
+    renderizar_gestao_fila_prestador(provider_token)
     
 @st.fragment(run_every=1)
 def renderizar_ecra_tv(provider_token):
