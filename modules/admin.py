@@ -46,6 +46,7 @@ def get_total_revenue():
     df = get_all_providers()
     if df.empty or 'amount_paid' not in df.columns:
         return 0.0
+    # Soma apenas os aprovados ou todos os registos válidos pagos
     return float(df[df['approved'].astype(str).isin(['1', '0', '-1'])]['amount_paid'].sum())
 
 def show_admin_panel():
@@ -56,7 +57,8 @@ def show_admin_panel():
         background-size: cover !important;
         color: #ffffff !important;
         font-weight: bold !important;
-    }.block-container {
+    }
+    .block-container {
         background-color: rgba(0, 0, 0, 0.75) !important;
         border: 4px solid #FFC107 !important;
         border-radius: 12px;
@@ -117,7 +119,7 @@ def show_admin_panel():
             "📊 Gestão Total", 
             "📈 Relatórios e Estatísticas"
         ])
-        
+
         with aba1:
             st.subheader("🔗 Portal do Prestadores")
             st.write("Partilhe este link ou o QR Code com os prestadores para que possam submeter os seus dados.")
@@ -182,8 +184,8 @@ def show_admin_panel():
                                 if st.button("✅ Aprovar", key=f"btn_aprovar_{token}"):
                                     approve_provider(token)
                                     st.success(f"Prestador {nome} aprovado com sucesso!")
-                                    st.rerun()                    
-                        
+                                    st.rerun()
+                                    
                         st.markdown("<hr style='margin: 10px 0; border-color: rgba(255,193,7,0.3);'>", unsafe_allow_html=True)
 
         with aba3:
