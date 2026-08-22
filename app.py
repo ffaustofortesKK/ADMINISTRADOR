@@ -766,10 +766,10 @@ def show_provider_panel_custom(provider_token):
         </div>
         """
 
-    # SCRIPT JS COM CONCATENAÇÃO NORMAL (SEM RISCO DE ERROS DE F-STRING)
-    script_live_sync = """
+    # SCRIPT JS COM .replace() PARA EVITAR QUALQUER CONFLITO DE FORMATAÇÃO
+    script_live_template = """
         <script>
-            const firebasePedidosUrl = "%s/pedidos/" + "%s" + ".json";
+            const firebasePedidosUrl = "FIREBASE_URL_PLACEHOLDER/pedidos/" + "PROVIDER_TOKEN_PLACEHOLDER" + ".json";
             
             async function verificarNovasMusicas() {
                 try {
@@ -827,7 +827,8 @@ def show_provider_panel_custom(provider_token):
             
             setInterval(verificarNovasMusicas, 2000);
         </script>
-    """ % (FIREBASE_URL, provider_token)
+    """
+    script_live_sync = script_live_template.replace("FIREBASE_URL_PLACEHOLDER", str(FIREBASE_URL)).replace("PROVIDER_TOKEN_PLACEHOLDER", str(provider_token))
     
     st.markdown(script_live_sync, unsafe_allow_html=True)
 
