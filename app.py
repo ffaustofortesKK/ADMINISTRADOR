@@ -750,7 +750,7 @@ def show_provider_panel_custom(provider_token):
     min_restantes = (segundos_restantes % 3600) // 60
     seg_restantes = segundos_restantes % 60
     tempo_formatado = f"{int(horas_restantes):02d}:{int(min_restantes):02d}:{int(seg_restantes):02d}"
-    
+
     aviso_reforço_html = ""
     classe_piscar = ""
     if segundos_restantes <= 1800 and segundos_restantes > 0:
@@ -765,6 +765,31 @@ def show_provider_panel_custom(provider_token):
             </div>
         </div>
         """
+
+    # SCRIPT DE ATUALIZAÇÃO AUTOMÁTICA EM TEMPO REAL (FIREBASE SYNC)
+    script_auto_refresh_firebase = f"""
+        <script>
+            const firebasePedidosUrl = "{FIREBASE_URL}/pedidos/" + "{provider_token}" + ".json";
+            let ultimaQuantidadePedidos = null;
+
+            setInterval(async () => {{
+                try {{
+                    let response = await fetch(firebasePedidosUrl);
+                    let data = await response.json();
+                    let qtdeAtual = data ? Object.keys(data).length : 0;
+                    
+                    if (ultimaQuantidadePedidos === null) {{
+                        ultimaQuantidadePedidos = qtdeAtual;
+                    }} else if (qtdeAtual !== ultimaQuantidadePedidos) {{
+                        window.location.reload();
+                    }}
+                }} catch (e) {{
+                    console.log("Erro na verificação automática de pedidos:", e);
+                }}
+            }}, 3000);
+        </script>
+    """
+    st.markdown(script_auto_refresh_firebase, unsafe_allow_html=True)
 
     st.markdown(f"""
     <style>
@@ -849,14 +874,14 @@ def show_provider_panel_custom(provider_token):
     </style>
     """, unsafe_allow_html=True)
 
-    # CABEÇALHO DO PAINEL
+    # CABEÇALHO DO PAINEL (Exibindo Nome e Contrato Corretamente)
     col_topo_1, col_topo_2, col_topo_3 = st.columns([1.2, 3, 0.8])
     with col_topo_1:
         st.markdown(f"""
             <div style="background: #000000; border: 2px solid #FFC107; border-radius: 6px; padding: 8px; text-align: center;">
-                <div style="font-family: monospace; color: #ffffff; font-size: 9px; text-transform: uppercase; letter-spacing: 1px;">TEMPO / PLANO ESCOLHIDO</div>
+                <div style="font-family: monospace; color: #ffffff; font-size: 9px; text-transform: uppercase; letter-spacing: 1px;">TEMPO / PLANO</div>
                 <div style="font-family: monospace; color: #FFC107; font-size: 18px; font-weight: bold; {classe_piscar} margin: 2px 0;">⏱️ {tempo_formatado}</div>
-                <div style="font-family: monospace; color: #fff; font-size: 10px;">({tempo_plano})</div>
+                <div style="font-family: monospace; color: #4CAF50; font-size: 10px;">({tempo_plano})</div>
             </div>
         """, unsafe_allow_html=True)
     with col_topo_2:
@@ -864,7 +889,7 @@ def show_provider_panel_custom(provider_token):
             <div style="display: flex; align-items: center; gap: 12px; padding-top: 5px;">
                 <span style="font-size: 28px;">🎤</span>
                 <div>
-                    <h1 style="margin: 0; color: #FFC107; font-family: monospace; font-size: 20px; text-transform: uppercase; font-weight: bold;">PAINEL DO PRESTADOR: <span style="color: #FFC107;">{nome_prestador}</span></h1>
+                    <h1 style="margin: 0; color: #FFC107; font-family: monospace; font-size: 18px; text-transform: uppercase; font-weight: bold;">PAINEL: <span style="color: #ffffff;">{nome_prestador}</span></h1>
                 </div>
             </div>""", unsafe_allow_html=True)
     with col_topo_3:
@@ -930,7 +955,7 @@ def show_provider_panel_custom(provider_token):
             </div>
         """, unsafe_allow_html=True)
 
-        # BLOCO "Á Seguir -" AUMENTADO EM 40% E COR AMARELA
+        # BLOCO "Á Seguir -"
         st.markdown(f"""
             <div style="border: 3px solid #FFC107; border-radius: 8px; padding: 18px; background-color: #000000; margin-bottom: 15px;">
                 <div style="font-family: monospace; color: #FFC107; font-size: 28px; font-weight: bold;">{conteudo_a_seguir}</div>
@@ -957,16 +982,16 @@ def show_provider_panel_custom(provider_token):
                         atualizar_estado_pedido(provider_token, restantes[0].get('id'), 'aprovado')
                     st.rerun()
 
-        # SECÇÃO DA TABELA
+        # SECÇÃO DA TABELA (RENOMEADA PARA "Fila de Pedidos")
         st.markdown("<div style='height: 10px;'></div>", unsafe_allow_html=True)
         st.markdown("""
             <div style="font-family: monospace; color: #ffffff; font-size: 16px; font-weight: bold; margin-bottom: 8px;">
-                📋 Estado da Fila e Controlo de Reprodução
+                📋 Fila de Pedidos
             </div>
         """, unsafe_allow_html=True)
 
-        pedidos_ativos = [p for p in pedidos if p.get("estado") in ["pendente", "aprovado"]]
-
+        pedidos_ativos = [p for p in pedidos if p.get("estado") in ["pendente", "aprovado"]] 
+        
         # Cabeçalho da Tabela
         st.markdown("""
             <div style="background-color: #03a9f4; border: 3px solid #FFC107; border-bottom: none; border-radius: 8px 8px 0 0; padding: 10px 12px; display: flex; font-family: monospace; font-weight: bold; font-size: 15px; color: #ffffff;">
