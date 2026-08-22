@@ -766,53 +766,53 @@ def show_provider_panel_custom(provider_token):
         </div>
         """
 
-    # SCRIPT JS: ATUALIZAÇÃO EM TEMPO REAL SEM RECARREGAR A PÁGINA
-    script_live_sync = f"""
+    # SCRIPT JS COM CONCATENAÇÃO NORMAL (SEM RISCO DE ERROS DE F-STRING)
+    script_live_sync = """
         <script>
-            const firebasePedidosUrl = "{FIREBASE_URL}/pedidos/" + "{provider_token}" + ".json";
+            const firebasePedidosUrl = "%s/pedidos/" + "%s" + ".json";
             
-            async function verificarNovasMusicas() {{
-                try {{
+            async function verificarNovasMusicas() {
+                try {
                     let response = await fetch(firebasePedidosUrl + "?_t=" + Date.now());
                     let data = await response.json();
                     
                     let containerFila = document.getElementById("container-fila-dinamica");
                     if (!containerFila) return;
                     
-                    if (!data || Object.keys(data).length === 0) {{
+                    if (!data || Object.keys(data).length === 0) {
                         containerFila.innerHTML = `
                             <div style="background-color: #000000; border: 3px solid #FFC107; border-top: none; border-radius: 0 0 8px 8px; padding: 20px; text-align: center; color: #FFC107; font-family: monospace; font-size: 15px;">
                                 Nenhum pedido na lista neste momento.
                             </div>
                         `;
                         return;
-                    }}
+                    }
                     
-                    let pedidosArray = Object.keys(data).map(key => ({{ id: key, ...data[key] }}));
+                    let pedidosArray = Object.keys(data).map(key => ({ id: key, ...data[key] }));
                     pedidosArray.sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
                     
                     let pedidosAtivos = pedidosArray.filter(p => p.estado === "pendente" || p.estado === "aprovado");
                     
-                    if (pedidosAtivos.length === 0) {{
+                    if (pedidosAtivos.length === 0) {
                         containerFila.innerHTML = `
                             <div style="background-color: #000000; border: 3px solid #FFC107; border-top: none; border-radius: 0 0 8px 8px; padding: 20px; text-align: center; color: #FFC107; font-family: monospace; font-size: 15px;">
                                 Nenhum pedido na lista neste momento.
                             </div>
                         `;
                         return;
-                    }}
+                    }
                     
                     let htmlItens = "";
-                    pedidosAtivos.forEach((p, index) => {{
+                    pedidosAtivos.forEach((p, index) => {
                         let cantor = (p.cliente || "").toUpperCase();
-                        let musicaObj = p.musica || {{}};
+                        let musicaObj = p.musica || {};
                         let tituloMusica = musicaObj.titulo || musicaObj.song || musicaObj.nome || JSON.stringify(musicaObj);
                         
                         htmlItens += `
                             <div style="display: flex; align-items: center; padding: 10px 12px; background: rgba(0,0,0,0.8); border-bottom: 2px solid #FFC107; font-family: monospace;">
-                                <div style="width: 10%; font-weight: bold; color: #fff;">${{index + 1}}</div>
-                                <div style="width: 28%; font-weight: bold; color: #FFC107; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${{cantor}}</div>
-                                <div style="width: 38%; color: #fff; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${{tituloMusica}}</div>
+                                <div style="width: 10%; font-weight: bold; color: #fff;">${index + 1}</div>
+                                <div style="width: 28%; font-weight: bold; color: #FFC107; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${cantor}</div>
+                                <div style="width: 38%; color: #fff; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${tituloMusica}</div>
                                 <div style="width: 24%; text-align: center; color: #4CAF50; font-size: 12px; font-weight: bold;">(Live Sync)</div>
                             </div>
                         `;
@@ -820,14 +820,15 @@ def show_provider_panel_custom(provider_token):
                     
                     containerFila.innerHTML = htmlItens;
                     
-                }} catch (e) {{
+                } catch (e) {
                     console.log("Erro ao buscar músicas em tempo real:", e);
-                }}
-            }}
+                }
+            }
             
             setInterval(verificarNovasMusicas, 2000);
         </script>
-    """
+    """ % (FIREBASE_URL, provider_token)
+    
     st.markdown(script_live_sync, unsafe_allow_html=True)
 
     st.markdown(f"""
