@@ -766,32 +766,71 @@ def show_provider_panel_custom(provider_token):
         </div>
         """
 
-    # SCRIPT JAVASCRIPT DE ATUALIZAÇÃO AUTOMÁTICA EM TEMPO REAL PARA NOVAS MÚSICAS
-    script_auto_refresh_firebase = f"""
+    # SCRIPT JS: ATUALIZAÇÃO EM TEMPO REAL SEM RECARREGAR A PÁGINA (POLLING DIRETO AO FIREBASE)
+    script_live_sync = f"""
         <script>
             const firebasePedidosUrl = "{FIREBASE_URL}/pedidos/" + "{provider_token}" + ".json";
-            let ultimaAssinaturaPedidos = null;
-
-            setInterval(async () => {{
+            
+            async function verificarNovasMusicas() {{
                 try {{
                     let response = await fetch(firebasePedidosUrl + "?_t=" + Date.now());
                     let data = await response.json();
                     
-                    // Cria uma string única baseada nas chaves e estados dos pedidos para detetar qualquer nova música ou alteração
-                    let assinaturaAtual = data ? JSON.stringify(data) : "";
+                    let containerFila = document.getElementById("container-fila-dinamica");
+                    if (!containerFila) return;
                     
-                    if (ultimaAssinaturaPedidos === null) {{
-                        ultimaAssinaturaPedidos = assinaturaAtual;
-                    }} else if (assinaturaAtual !== ultimaAssinaturaPedidos) {{
-                        window.location.reload();
+                    if (!data || Object.keys(data).length === 0) {{
+                        containerFila.innerHTML = `
+                            <div style="background-color: #000000; border: 3px solid #FFC107; border-top: none; border-radius: 0 0 8px 8px; padding: 20px; text-align: center; color: #FFC107; font-family: monospace; font-size: 15px;">
+                                Nenhum pedido na lista neste momento.
+                            </div>
+                        `;
+                        return;
                     }}
+                    
+                    // Converter objeto do Firebase em array e ordenar por timestamp
+                    let pedidosArray = Object.keys(data).map(key => ({{ id: key, ...data[key] }}));
+                    pedidosArray.sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
+                    
+                    let pedidosAtivos = pedidosArray.filter(p => p.estado === "pendente" || p.estado === "aprovado");
+                    
+                    if (pedidosAtivos.length === 0) {{
+                        containerFila.innerHTML = `
+                            <div style="background-color: #000000; border: 3px solid #FFC107; border-top: none; border-radius: 0 0 8px 8px; padding: 20px; text-align: center; color: #FFC107; font-family: monospace; font-size: 15px;">
+                                Nenhum pedido na lista neste momento.
+                            </div>
+                        `;
+                        return;
+                    }}
+                    
+                    let htmlItens = "";
+                    pedidosAtivos.forEach((p, index) => {{
+                        let cantor = (p.cliente || "").toUpperCase();
+                        let musicaObj = p.musica || {{}};
+                        let tituloMusica = musicaObj.titulo || musicaObj.song || musicaObj.nome || JSON.stringify(musicaObj);
+                        
+                        htmlItens += `
+                            <div style="display: flex; align-items: center; padding: 10px 12px; background: rgba(0,0,0,0.8); border-bottom: 2px solid #FFC107; font-family: monospace;">
+                                <div style="width: 10%; font-weight: bold; color: #fff;">${{index + 1}}</div>
+                                <div style="width: 28%; font-weight: bold; color: #FFC107; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${{cantor}}</div>
+                                <div style="width: 38%; color: #fff; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${{tituloMusica}}</div>
+                                <div style="width: 24%; text-align: center; color: #4CAF50; font-size: 12px; font-weight: bold;">(Atualizado Live)</div>
+                            </div>
+                        `;
+                    });
+                    
+                    containerFila.innerHTML = htmlItens;
+                    
                 }} catch (e) {{
-                    console.log("Erro na verificação automática de pedidos:", e);
+                    console.log("Erro ao buscar músicas em tempo real:", e);
                 }}
-            }}, 2000);
+            }}
+            
+            // Executar a cada 2 segundos
+            setInterval(verificarNovasMusicas, 2000);
         </script>
     """
-    st.markdown(script_auto_refresh_firebase, unsafe_allow_html=True)
+    st.markdown(script_live_sync, unsafe_allow_html=True)
 
     st.markdown(f"""
     <style>
@@ -909,7 +948,7 @@ def show_provider_panel_custom(provider_token):
     
     qr_url_cliente = f"https://api.qrserver.com/v1/create-qr-code/?size=150x150&data={urllib.parse.quote(link_cliente_absoluto)}"
 
-    # BUSCAR PEDIDOS DO FIREBASE
+    # BUSCAR PEDIDOS DO FIREBASE PARA CARGA INICIAL
     try:
         url_firebase = f"{FIREBASE_URL}/pedidos/{provider_token}.json?_t={time.time()}"
         response = requests.get(url_firebase, timeout=10)
@@ -1004,6 +1043,9 @@ def show_provider_panel_custom(provider_token):
             </div>
         """, unsafe_allow_html=True)
 
+        # Divisor onde o JavaScript injeta as atualizações instantâneas
+        st.markdown('<div id="container-fila-dinamica">', unsafe_allow_html=True)
+
         if pedidos_ativos:
             for idx, p in enumerate(pedidos_ativos, 1):
                 cantor = str(p.get("cliente", "")).upper()
@@ -1068,6 +1110,8 @@ def show_provider_panel_custom(provider_token):
                     Nenhum pedido na lista neste momento.
                 </div>
             """, unsafe_allow_html=True)
+
+        st.markdown('</div>', unsafe_allow_html=True)
 
     with col_dir:
         st.markdown("<div style='font-family: monospace; color: #ffffff; font-size: 11px; font-weight: bold; margin-bottom: 3px; text-align: center;'>QR CODE CLIENTE</div>", unsafe_allow_html=True)
