@@ -659,13 +659,11 @@ def show_provider_panel_custom(provider_token):
 
     df_prov = get_all_providers()
     
-    # Valores padrão caso não encontre (substituído o "Carlos Miguel" genérico por um aviso limpo)
     nome_prestador = "PRESTADOR NÃO IDENTIFICADO"
     tempo_plano = "2 Horas - 12 Mil Kwanzas"
     data_registo_str = None
     
     if not df_prov.empty:
-        # Tenta identificar qual coluna guarda o token
         col_token_candidates = ['token', 'provider_token', 'id']
         col_token_encontrada = next((c for c in col_token_candidates if c in df_prov.columns), None)
         
@@ -674,19 +672,16 @@ def show_provider_panel_custom(provider_token):
             if not match.empty:
                 row = match.iloc[0]
                 
-                # Procura dinamicamente pelas colunas de nome
                 for col_n in ['nome_prestador', 'nome', 'prestador', 'user']:
                     if col_n in df_prov.columns and pd.notna(row.get(col_n)):
                         nome_prestador = str(row.get(col_n)).upper()
                         break
                 
-                # Procura dinamicamente pelas colunas de plano/tempo
                 for col_p in ['tempo_plano', 'plano', 'duracao', 'tempo']:
                     if col_p in df_prov.columns and pd.notna(row.get(col_p)):
                         tempo_plano = str(row.get(col_p))
                         break
                         
-                # Procura dinamicamente pela data de registo
                 for col_d in ['data_registo', 'data', 'timestamp', 'created_at']:
                     if col_d in df_prov.columns and pd.notna(row.get(col_d)):
                         data_registo_str = str(row.get(col_d))
@@ -709,7 +704,6 @@ def show_provider_panel_custom(provider_token):
     except Exception:
         pass
 
-    # Define os segundos base com base estrita no plano escolhido pelo prestador
     segundos_base = 7200
     if "3 Horas" in tempo_plano:
         segundos_base = 10800
@@ -786,21 +780,21 @@ def show_provider_panel_custom(provider_token):
         background: #000000 !important;
         border: 3px solid #FFC107 !important;
         border-radius: 8px;
-        padding: 10px 14px;
+        padding: 6px 10px;
         text-align: left;
         box-shadow: 0 4px 15px rgba(255, 193, 7, 0.25);
-        margin-bottom: 12px;
+        margin-bottom: 8px;
         width: 100%;
     }}
     .card-tv {{
         border: 3px solid #9c27b0 !important;
         box-shadow: 0 4px 15px rgba(156, 39, 176, 0.25);
     }}
-    .qr-box {{
+    .qr-box {{ 
         background: #000;
         border: 3px solid #FFC107 !important;
         border-radius: 8px;
-        padding: 8px;
+        padding: 6px;
         display: flex;
         align-items: center;
         justify-content: center;
@@ -808,15 +802,15 @@ def show_provider_panel_custom(provider_token):
     .link-title, .link-title-tv {{
         font-family: monospace;
         color: #ffffff !important;
-        font-size: 13px;
+        font-size: 11px;
         font-weight: bold !important;
-        margin-bottom: 4px;
+        margin-bottom: 2px;
         text-shadow: 1px 1px 3px rgba(0,0,0,0.9) !important;
     }}
     .link-text, .link-text-tv {{
         font-family: monospace;
         color: #ffffff !important;
-        font-size: 11px;
+        font-size: 10px;
         word-break: break-all;
         text-decoration: underline;
         font-weight: bold !important;
@@ -852,8 +846,7 @@ def show_provider_panel_custom(provider_token):
         st.markdown(f"""
             <div style="display: flex; align-items: center; gap: 12px; padding-top: 5px;">
                 <span style="font-size: 28px;">🎤</span>
-                <div>
-                    <h1 style="margin: 0; color: #FFC107; font-family: monospace; font-size: 20px; text-transform: uppercase; font-weight: bold;">PAINEL DO PRESTADOR: <span style="color: #FFC107;">{nome_prestador}</span></h1>
+                <div> <h1 style="margin: 0; color: #FFC107; font-family: monospace; font-size: 20px; text-transform: uppercase; font-weight: bold;">PAINEL DO PRESTADOR: <span style="color: #FFC107;">{nome_prestador}</span></h1>
                 </div>
             </div>
         """, unsafe_allow_html=True)
@@ -890,15 +883,156 @@ def show_provider_panel_custom(provider_token):
         """, unsafe_allow_html=True)
 
     with col_qr:
-        st.markdown("<div style='font-family: monospace; color: #ffffff; font-size: 11px; font-weight: bold; margin-bottom: 3px; text-align: center;'>QR CODE CLIENTE</div>", unsafe_allow_html=True)
+        st.markdown("<div style='font-family: monospace; color: #ffffff; font-size: 11px; font-weight: bold; margin-bottom: 2px; text-align: center;'>QR CODE CLIENTE</div>", unsafe_allow_html=True)
         st.markdown(f"""
             <div class="qr-box">
-                <img src="{qr_url_cliente}" width="110" style="border-radius: 4px;" />
+                <img src="{qr_url_cliente}" width="95" style="border-radius: 4px;" />
             </div>
         """, unsafe_allow_html=True)
 
     st.markdown("<hr style='border-color: #333; margin: 15px 0;'>", unsafe_allow_html=True)
 
+    # ==================== LEITOR DE KARAOKE (MOVIDO PARA CIMA DA FILA) ====================
+    try:
+        url_firebase = f"{FIREBASE_URL}/pedidos/{provider_token}.json?_t={time.time()}"
+        response = requests.get(url_firebase, timeout=10)
+        pedidos = []
+        if response.status_code == 200 and response.json():
+            data = response.json()
+            pedidos = [{"id": k, **v} for k, v in data.items()]
+        
+        pedidos.sort(key=lambda x: x.get("timestamp", 0))
+        tocando_agora = next((p for p in pedidos if p.get("estado") == "aprovado"), None)
+        
+        if not tocando_agora and pedidos:
+            primeiro_id = pedidos[0].get('id')
+            atualizar_estado_pedido(provider_token, primeiro_id, 'aprovado')
+            pedidos[0]["estado"] = "aprovado"
+            tocando_agora = pedidos[0]
+    except Exception:
+        pedidos = []
+        tocando_agora = None
+
+    cantor_atual = tocando_agora.get("cliente", "AGUARDANDO...").upper() if tocando_agora else "NENHUM"
+    musica_obj_atual = tocando_agora.get("musica", {}) if tocando_agora else {}
+    titulo_atual_txt = musica_obj_atual.get("titulo") or musica_obj_atual.get("song") or musica_obj_atual.get("nome") or "Nenhuma música em reprodução"
+
+    st.markdown("### LEITOR KARAOKE", unsafe_allow_html=True)
+    st.markdown(f"""
+        <div style="background: #000; border: 2px solid #FFC107; border-radius: 6px; padding: 12px; text-align: center; margin-bottom: 10px;">
+            <div style="font-family: monospace; color: #FFC107; font-size: 22px; font-weight: bold; margin-bottom: 4px;">{cantor_atual}</div>
+            <div style="font-family: monospace; color: #ffffff; font-size: 13px;">{titulo_atual_txt}</div>
+        </div>
+    """, unsafe_allow_html=True)
+
+    c_t1, c_t2, c_t3 = st.columns(3)
+    with c_t1:
+        if st.button("▶️ Tocar", key="btn_tocar_topo", use_container_width=True):
+            if tocando_agora:
+                terminar_todas_musicas_ativas(provider_token, pedidos)
+                atualizar_estado_pedido(provider_token, tocando_agora.get('id'), 'aprovado')
+                st.rerun()
+    with c_t2:
+        if st.button("⏹️ Parar", key="btn_parar_topo", use_container_width=True):
+            terminar_todas_musicas_ativas(provider_token, pedidos)
+            st.rerun()
+    with c_t3:
+        if st.button("⏭️ Avançar", key="btn_prox_topo", use_container_width=True):
+            if tocando_agora:
+                atualizar_estado_pedido(provider_token, tocando_agora.get('id'), 'terminado')
+                restantes = [x for x in pedidos if x.get('estado') in ['pendente', 'aprovado'] and x.get('id') != tocando_agora.get('id')]
+                if restantes:
+                    atualizar_estado_pedido(provider_token, restantes[0].get('id'), 'aprovado')
+                st.rerun()
+
+    st.markdown("<hr style='border-color: #333; margin: 15px 0;'>", unsafe_allow_html=True)
+
+    # ==================== TABELA DA FILA DE REPRODUÇÃO ====================
+    st.markdown("""
+        <div style="font-family: monospace; color: #ffffff; font-size: 15px; font-weight: bold; margin-bottom: 8px;">
+            📋 Fila de Reprodução
+        </div>
+    """, unsafe_allow_html=True)
+
+    pedidos_ativos = [p for p in pedidos if p.get("estado") in ["pendente", "aprovado"]] 
+
+    # Cabeçalho da Tabela customizada com 4 colunas
+    st.markdown("""
+        <div style="background-color: #03a9f4; border: 2px solid #FFC107; border-bottom: none; border-radius: 6px 6px 0 0; padding: 6px 10px; display: flex; font-family: monospace; font-weight: bold; font-size: 13px; color: #ffffff;">
+            <div style="width: 10%;">Nº</div>
+            <div style="width: 28%;">CANTOR</div>
+            <div style="width: 38%;">TÍTULO DA MÚSICA</div>
+            <div style="width: 24%; text-align: center;">AÇÕES</div>
+        </div>
+    """, unsafe_allow_html=True)
+
+    if pedidos_ativos:
+        for idx, p in enumerate(pedidos_ativos, 1):
+            cantor = str(p.get("cliente", "")).upper()
+            musica = limpar_nome_musica(p.get("musica", {}))
+            pid = p.get("id")
+            
+            # Linhas compactas / finas
+            cols_linha = st.columns([0.10, 0.28, 0.38, 0.24])
+            
+            with cols_linha[0]:
+                st.markdown(f"<div style='font-family: monospace; font-weight: bold; padding-top: 6px; font-size: 12px;'>{idx}</div>", unsafe_allow_html=True)
+            with cols_linha[1]:
+                st.markdown(f"<div style='font-family: monospace; font-weight: bold; color: #FFC107; padding-top: 6px; font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;'>{cantor}</div>", unsafe_allow_html=True)
+            with cols_linha[2]:
+                st.markdown(f"<div style='font-family: monospace; padding-top: 6px; font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;'>{musica}</div>", unsafe_allow_html=True)
+            
+            with cols_linha[3]:
+                sub_c1, sub_c2, sub_c3 = st.columns(3)
+                with sub_c1:
+                    if st.button("⬆️", key=f"subir_{pid}", help="Subir na Fila", use_container_width=True):
+                        try:
+                            res_all = requests.get(f"{FIREBASE_URL}/pedidos/{provider_token}.json", timeout=5)
+                            if res_all.status_code == 200 and res_all.json():
+                                items = sorted(res_all.json().items(), key=lambda x: x[1].get("timestamp", 0))
+                                idx_alvo = next((i for i, (k, v) in enumerate(items) if k == pid), -1)
+                                if idx_alvo > 0:
+                                    t_atual = items[idx_alvo][1].get("timestamp", time.time())
+                                    t_ant = items[idx_alvo-1][1].get("timestamp", time.time() - 1)
+                                    k_ant = items[idx_alvo-1][0]
+                                    requests.patch(f"{FIREBASE_URL}/pedidos/{provider_token}/{pid}.json", json={"timestamp": t_ant}, timeout=5)
+                                    requests.patch(f"{FIREBASE_URL}/pedidos/{provider_token}/{k_ant}.json", json={"timestamp": t_atual}, timeout=5)
+                                    st.rerun()
+                        except Exception:
+                            pass
+                with sub_c2:
+                    if st.button("⬇️", key=f"descer_{pid}", help="Descer na Fila", use_container_width=True):
+                        try:
+                            res_all = requests.get(f"{FIREBASE_URL}/pedidos/{provider_token}.json", timeout=5)
+                            if res_all.status_code == 200 and res_all.json():
+                                items = sorted(res_all.json().items(), key=lambda x: x[1].get("timestamp", 0))
+                                idx_alvo = next((i for i, (k, v) in enumerate(items) if k == pid), -1)
+                                if idx_alvo != -1 and idx_alvo < len(items) - 1:
+                                    t_atual = items[idx_alvo][1].get("timestamp", time.time())
+                                    t_prox = items[idx_alvo+1][1].get("timestamp", time.time() + 1)
+                                    k_prox = items[idx_alvo+1][0]
+                                    requests.patch(f"{FIREBASE_URL}/pedidos/{provider_token}/{pid}.json", json={"timestamp": t_prox}, timeout=5)
+                                    requests.patch(f"{FIREBASE_URL}/pedidos/{provider_token}/{k_prox}.json", json={"timestamp": t_atual}, timeout=5)
+                                    st.rerun()
+                        except Exception:
+                            pass
+                with sub_c3:
+                    if st.button("❌", key=f"apagar_{pid}", help="Apagar Pedido", use_container_width=True):
+                        try:
+                            requests.delete(f"{FIREBASE_URL}/pedidos/{provider_token}/{pid}.json", timeout=5)
+                            st.rerun()
+                        except Exception:
+                            pass
+            
+            st.markdown("<div style='border-bottom: 1px solid #FFC107; margin-top: 2px; margin-bottom: 2px;'></div>", unsafe_allow_html=True)
+    else:
+        st.markdown("""
+            <div style="background-color: #000000; border: 2px solid #FFC107; border-top: none; border-radius: 0 0 6px 6px; padding: 15px; text-align: center; color: #FFC107; font-family: monospace; font-size: 13px;">
+                Nenhum pedido na lista neste momento.
+            </div>
+        """, unsafe_allow_html=True)
+
+    # ==================== SECÇÃO DE REFORÇO ====================
     st.markdown("<div id='reforco_seccao'></div>", unsafe_allow_html=True)
     if segundos_restantes <= 1800:
         st.markdown("### ⚡ Solicitar Reforço de Tempo")
@@ -934,24 +1068,6 @@ def show_provider_panel_custom(provider_token):
                         st.error(f"Erro ao enviar reforço: {err}")
 
     st.markdown("<div style='height: 5px;'></div>", unsafe_allow_html=True)
-    renderizar_gestao_fila_prestador(provider_token)
-    
-def diagnostico_firebase(provider_token):
-    url_firebase = f"{FIREBASE_URL}/pedidos/{provider_token}.json"
-    response = requests.get(url_firebase)
-    
-    st.write("### 🔍 Diagnóstico de Dados")
-    if response.status_code == 200:
-        dados = response.json()
-        if dados:
-            st.json(dados) # Isto vai mostrar a estrutura real no ecrã
-        else:
-            st.error("O Firebase está vazio para este token.")
-    else:
-        st.error(f"Erro de conexão: {response.status_code}")
-
-# Chama isto no teu painel temporariamente
-# diagnostico_firebase("TEU_TOKEN_AQUI")
     
 @st.fragment(run_every=1)
 def renderizar_ecra_tv(provider_token):
