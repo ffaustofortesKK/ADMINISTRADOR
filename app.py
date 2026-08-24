@@ -602,6 +602,7 @@ def show_provider_panel_custom(provider_token):
     data_registo_str = None
     
     if not df_prov.empty:
+        # Tenta identificar qual coluna guarda o token
         col_token_candidates = ['token', 'provider_token', 'id']
         col_token_encontrada = next((c for c in col_token_candidates if c in df_prov.columns), None)
         
@@ -610,16 +611,19 @@ def show_provider_panel_custom(provider_token):
             if not match.empty:
                 row = match.iloc[0]
                 
+                # Procura dinamicamente pelas colunas de nome
                 for col_n in ['nome_prestador', 'nome', 'prestador', 'user']:
                     if col_n in df_prov.columns and pd.notna(row.get(col_n)):
                         nome_prestador = str(row.get(col_n)).upper()
                         break
                 
+                # Procura dinamicamente pelas colunas de plano/tempo
                 for col_p in ['tempo_plano', 'plano', 'duracao', 'tempo']:
                     if col_p in df_prov.columns and pd.notna(row.get(col_p)):
                         tempo_plano = str(row.get(col_p))
                         break
                         
+                # Procura dinamicamente pela data de registo
                 for col_d in ['data_registo', 'data', 'timestamp', 'created_at']:
                     if col_d in df_prov.columns and pd.notna(row.get(col_d)):
                         data_registo_str = str(row.get(col_d))
@@ -642,6 +646,7 @@ def show_provider_panel_custom(provider_token):
     except Exception:
         pass
 
+    # Define os segundos base com base estrita no plano escolhido pelo prestador
     segundos_base = 7200
     if "3 Horas" in tempo_plano:
         segundos_base = 10800
@@ -666,8 +671,15 @@ def show_provider_panel_custom(provider_token):
         except Exception:
             pass
 
+    horas_restantes = segundos_restantes // 3600
+    min_restantes = (segundos_restantes % 3600) // 60
+    seg_restantes = segundos_restantes % 60
+    tempo_formatado = f"{int(horas_restantes):02d}:{int(min_restantes):02d}:{int(seg_restantes):02d}"
+    
     aviso_reforço_html = ""
+    classe_piscar = ""
     if segundos_restantes <= 1800 and segundos_restantes > 0:
+        classe_piscar = "animation: piscarRelogio 1s infinite;"
         aviso_reforço_html = """
         <div style="background: rgba(255,0,0,0.85); border: 3px solid #ffeb3b; padding: 10px; border-radius: 6px; margin-bottom: 15px; text-align: center; animation: pulseAviso 1s infinite;">
             <span style="color: #ffffff; font-size: 14px; font-weight: bold; text-shadow: 1px 1px 3px rgba(0,0,0,0.9);">
@@ -701,6 +713,11 @@ def show_provider_panel_custom(provider_token):
         0% {{ opacity: 1; transform: scale(1); }}
         50% {{ opacity: 0.7; transform: scale(1.01); }}
         100% {{ opacity: 1; transform: scale(1); }}
+    }}
+    @keyframes piscarRelogio {{
+        0% {{ opacity: 1; color: #FFC107; }}
+        50% {{ opacity: 0.3; color: #ff5252; }}
+        100% {{ opacity: 1; color: #FFC107; }}
     }}
     .card-link, .card-tv {{
         background: #000000 !important;
@@ -741,6 +758,13 @@ def show_provider_panel_custom(provider_token):
         text-decoration: underline;
         font-weight: bold !important;
         text-shadow: 1px 1px 3px rgba(0,0,0,0.9) !important;
+    }}
+    .top-logo {{
+        width: 55px;
+        height: 55px;
+        border-radius: 50%;
+        border: 3px solid #FFC107;
+        object-fit: cover;
     }}
     h1, h2, h3, h4, h5, h6, p, label, span, div, .stMarkdown {{
         color: #ffffff !important;
