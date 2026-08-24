@@ -564,40 +564,47 @@ def renderizar_gestao_fila_prestador(provider_token):
                         link_selecionado = p.get("link_yt", "")
                         
                         with st.container(border=True):
-                            # 1. Título e Informação do Cliente
-                            st.markdown(f"🎵 **{musica_nome}**")
+                            # 1. Informação do Cliente e Data em cima
                             st.caption(f"Pedido de cliente - {cliente} - {timestamp_pedido}")
                             
-                            st.markdown("<div style='height: 5px;'></div>", unsafe_allow_html=True)
+                            # 2. Título da música e botão de pesquisa na mesma linha (ou lado a lado)
+                            col_tit, col_pesq = st.columns([3, 1])
+                            with col_tit:
+                                st.markdown(f"🎵 **{musica_nome}**")
+                            with col_pesq:
+                                if st.button("🔍 Pesquisa", key=f"procurar_ext_{pedido_id}", type="secondary", use_container_width=True):
+                                    termo_busca = f"{musica_nome} karaoke"
+                                    with st.spinner("A pesquisar..."):
+                                        resultados_busca = buscar_multiplos_links_youtube(termo_busca, max_resultados=5)
+                                    
+                                    if resultados_busca:
+                                        primeiro_link = resultados_busca[0]['url']
+                                        payload_atualizacao = {
+                                            "opcoes_yt": resultados_busca,
+                                            "link_yt": primeiro_link
+                                        }
+                                        requests.patch(f"{FIREBASE_URL}/pedidos/{provider_token}/{pedido_id}.json", json=payload_atualizacao)
+                                        st.success("Encontrado!")
+                                        time.sleep(0.3)
+                                        st.rerun()
+                                    else:
+                                        st.error("Não encontrado.")
                             
-                            # 2. Botão de Procurar logo a seguir ao título
-                            if st.button("🔍 Procurar karaoke no YouTube", key=f"procurar_ext_{pedido_id}", type="secondary", use_container_width=True):
-                                termo_busca = f"{musica_nome} karaoke"
-                                with st.spinner("A pesquisar no YouTube..."):
-                                    resultados_busca = buscar_multiplos_links_youtube(termo_busca, max_resultados=5)
-                                
-                                if resultados_busca:
-                                    primeiro_link = resultados_busca[0]['url']
-                                    payload_atualizacao = {
-                                        "opcoes_yt": resultados_busca,
-                                        "link_yt": primeiro_link
-                                    }
-                                    requests.patch(f"{FIREBASE_URL}/pedidos/{provider_token}/{pedido_id}.json", json=payload_atualizacao)
-                                    st.success("Opções encontradas com sucesso!")
-                                    time.sleep(0.3)
-                                    st.rerun()
-                                else:
-                                    st.error("Não foi possível obter links automáticos.")
-
-                            st.markdown("<div style='height: 5px;'></div>", unsafe_allow_html=True)
+                            st.markdown("<div style='height: 2px;'></div>", unsafe_allow_html=True)
                             
-                            # 3. Links encontrados
+                            # 3. Links gerados e botão Apagar logo à frente (em colunas como na imagem)
                             if link_selecionado:
-                                st.markdown(f"""
-                                <div style="margin: 8px 0;">
-                                    🔗 <a href='{link_selecionado}' target='_blank' style='color: #FFC107; font-family: monospace; font-weight: bold; font-size: 13px; text-decoration: underline;'>{link_selecionado}</a>
-                                </div>
-                                """, unsafe_allow_html=True)
+                                col_link, col_del = st.columns([4, 1])
+                                with col_link:
+                                    st.markdown(f"""
+                                    <div style="margin: 8px 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                                        🔗 <a href='{link_selecionado}' target='_blank' style='color: #FFC107; font-family: monospace; font-weight: bold; font-size: 13px; text-decoration: underline;'>{link_selecionado}</a>
+                                    </div>
+                                    """, unsafe_allow_html=True)
+                                with col_del:
+                                    if st.button("Apagar", key=f"apagar_ext_{pedido_id}", type="primary", use_container_width=True):
+                                        requests.delete(f"{FIREBASE_URL}/pedidos/{provider_token}/{pedido_id}.json")
+                                        st.rerun()
                             
                             if opcoes_encontradas:
                                 for opt in opcoes_encontradas:
@@ -608,13 +615,6 @@ def renderizar_gestao_fila_prestador(provider_token):
                                         🔗 <a href='{u_opt}' target='_blank' style='color: #FFC107; font-family: monospace; font-size: 13px; text-decoration: none; font-weight: bold;'>{t_opt}</a>
                                     </div>
                                     """, unsafe_allow_html=True)
-                            
-                            st.markdown("<div style='height: 5px;'></div>", unsafe_allow_html=True)
-                            
-                            # 4. Botão Apagar colocado logo depois dos links
-                            if st.button("Apagar", key=f"apagar_ext_{pedido_id}", type="primary", use_container_width=True):
-                                requests.delete(f"{FIREBASE_URL}/pedidos/{provider_token}/{pedido_id}.json")
-                                st.rerun()
                 else:
                     st.info("Nenhum pedido extra pendente no momento.")
                     
