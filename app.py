@@ -983,340 +983,94 @@ def show_provider_panel_custom(provider_token):
     st.markdown("<div style='height: 5px;'></div>", unsafe_allow_html=True)
     renderizar_gestao_fila_prestador(provider_token) 
     
+@st.fragment(run_every=1)
 def renderizar_ecra_tv(provider_token):
     try:
+        # Busca o vídeo de fundo definido pelo prestador em tempo real
+        video_fundo_url = obter_video_fundo(provider_token)
+        
+        # Busca a música ativa na fila para exibir na tela
         url_firebase = f"{FIREBASE_URL}/pedidos/{provider_token}.json?_t={time.time()}"
         response = requests.get(url_firebase, timeout=10)
         
-        pedidos_ativos = []
         tocando_agora = None
-        
         if response.status_code == 200 and response.json():
             data = response.json()
-            # Garante a leitura correta quer venha como dicionário ou lista
-            if isinstance(data, dict):
-                pedidos = [{"id": k, **v} for k, v in data.items() if isinstance(v, dict)]
-            elif isinstance(data, list):
-                pedidos = [{"id": str(i), **v} for i, v in enumerate(data) if isinstance(v, dict)]
-            else:
-                pedidos = []
-            
-            # Filtra de forma segura aceitando variações
-            pedidos_ativos = [
-                p for p in pedidos 
-                if str(p.get("estado", "pendente")).lower() in ["pendente", "aprovado", "novo", "aguardando"]
-            ]
-            
+            pedidos = [{"id": k, **v} for k, v in data.items()]
+            pedidos_ativos = [p for p in pedidos if p.get("estado") in ["pendente", "aprovado"]]
             pedidos_ativos.sort(key=lambda x: x.get("timestamp", 0))
-            
-            # Identifica de forma segura qual está a tocar (estado aprovado)
-            tocando_agora = next((p for p in pedidos_ativos if str(p.get("estado", "")).lower() == "aprovado"), None)
-        
-        frame_styles = """
+            tocando_agora = next((p for p in pedidos_ativos if p.get("estado") == "aprovado"), None)
+
+        # Renderização do Ecrã/Tela de TV com o Vídeo Clipe de fundo comandado pelo Prestador
+        st.markdown("""
             <style>
-                @keyframes pulseSpeaker {
-                    0% { transform: scale(1); filter: drop-shadow(0 0 2px #FFC107); }
-                    50% { transform: scale(1.12); filter: drop-shadow(0 0 14px #FFC107); }
-                    100% { transform: scale(1); filter: drop-shadow(0 0 2px #FFC107); }
-                }
-                @keyframes bounceIcon {
-                    0%, 100% { transform: translateY(0) rotate(0deg); }
-                    50% { transform: translateY(-5px) rotate(10deg); }
-                }
-                @keyframes marqueeFast {
-                    0% { transform: translateX(0%); }
-                    100% { transform: translateX(-50%); }
-                }
-                .speaker-box {
-                    position: fixed; z-index: 99998; width: 90px; height: 140px;
-                    background: #111; border: 4px solid #FFC107; border-radius: 10px;
-                    display: flex; flex-direction: column; align-items: center;
-                    justify-content: space-around; padding: 8px 0;
-                    box-shadow: 0 0 15px rgba(255, 193, 7, 0.4); pointer-events: none;
-                    animation: pulseSpeaker 0.55s infinite ease-in-out;
-                }
-                .woofer {
-                    width: 55px; height: 55px; border: 3px solid #FFC107; border-radius: 50%;
-                    background: radial-gradient(circle, #333 30%, #000 90%);
-                    display: flex; align-items: center; justify-content: center;
-                    box-shadow: inset 0 0 8px #FFC107;
-                }
-                .woofer-inner { width: 22px; height: 22px; background: #FFC107; border-radius: 50%; }
-                .speaker-tl { top: 15px; left: 15px; }
-                .speaker-tr { top: 15px; right: 15px; }
-                .speaker-bl { bottom: 50px; left: 15px; }
-                .speaker-br { bottom: 50px; right: 15px; }
-                
-                .marquee-footer {
-                    position: fixed; bottom: 0; left: 0; width: 100vw; height: 38px;
-                    background: #111; border-top: 4px solid #FFC107; z-index: 99997;
-                    overflow: hidden; display: flex; align-items: center; white-space: nowrap; pointer-events: none;
-                }
-                .marquee-track {
-                    display: inline-block; white-space: nowrap; animation: marqueeFast 15s linear infinite;
-                    font-family: monospace; font-size: 16px; color: #ffffff; font-weight: bold;
-                    text-shadow: 1px 1px 3px rgba(0,0,0,0.9);
-                }
-                .marquee-item { display: inline-flex; align-items: center; gap: 12px; margin-right: 40px; }
-                .icon-anim { display: inline-block; animation: bounceIcon 0.8s infinite ease-in-out; }
+            .stApp {
+                background: #000000 !important;
+            }
+            .video-background {
+                position: fixed;
+                right: 0;
+                bottom: 0;
+                min-width: 100%;
+                min-height: 100%;
+                z-index: 0;
+                object-fit: cover;
+            }
+            .content-overlay {
+                position: relative;
+                z-index: 1;
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                justify-content: center;
+                height: 80vh;
+                text-align: center;
+            }
+            .card-cantor {
+                background: rgba(0, 0, 0, 0.85);
+                border: 4px solid #FFC107;
+                border-radius: 12px;
+                padding: 30px 50px;
+                box-shadow: 0 0 30px rgba(255, 193, 7, 0.5);
+            }
             </style>
-            <div class="speaker-box speaker-tl"><div class="woofer"><div class="woofer-inner"></div></div><div class="woofer"><div class="woofer-inner"></div></div></div>
-            <div class="speaker-box speaker-tr"><div class="woofer"><div class="woofer-inner"></div></div><div class="woofer"><div class="woofer-inner"></div></div></div>
-            <div class="speaker-box speaker-bl"><div class="woofer"><div class="woofer-inner"></div></div><div class="woofer"><div class="woofer-inner"></div></div></div>
-            <div class="speaker-box speaker-br"><div class="woofer"><div class="woofer-inner"></div></div><div class="woofer"><div class="woofer-inner"></div></div></div>
-            <div class="marquee-footer">
-                <div class="marquee-track">
-                    <span class="marquee-item"><span class="icon-anim">🎵</span> FF KARAOKE CLOUD <span class="icon-anim">🎤</span> CANTE COMIGO <span class="icon-anim">🎶</span> A SUA MÚSICA FAVORITA <span class="icon-anim">🎙️</span> DIVIRTA-SE AO MÁXIMO</span>
-                    <span class="marquee-item"><span class="icon-anim">🎵</span> FF KARAOKE CLOUD <span class="icon-anim">🎤</span> CANTE COMIGO <span class="icon-anim">🎶</span> A SUA MÚSICA FAVORITA <span class="icon-anim">🎙️</span> DIVIRTA-SE AO MÁXIMO</span>
-                </div>
-            </div>
-        """
-        
-        url_atual_fundo = obter_video_fundo(provider_token) or ""
-        id_atual_tocando = tocando_agora.get('id') if tocando_agora else "none"
+        """, unsafe_allow_html=True)
 
-        script_sincronizacao_global = f"""
-            <script>
-                const providerToken = "{provider_token}";
-                const firebaseBaseUrl = "{FIREBASE_URL}/pedidos/" + providerToken + ".json";
-                const firebaseVideoUrl = "{FIREBASE_URL}/video_fundo/" + providerToken + ".json";
-
-                let idAtualConhecido = "{id_atual_tocando}";
-                let urlFundoConhecida = "{url_atual_fundo}";
-
-                setInterval(async () => {{
-                    try {{
-                        let responsePedidos = await fetch(firebaseBaseUrl + "?_t=" + Date.now());
-                        let dataPedidos = await responsePedidos.json();
-                        let novoIdTocando = "none";
-                        
-                        if (dataPedidos) {{
-                            for (let key in dataPedidos) {{
-                                let item = dataPedidos[key];
-                                if (item && item.estado && item.estado.toLowerCase() === "aprovado") {{
-                                    novoIdTocando = key;
-                                    break;
-                                }}
-                            }}
-                        }}
-                        
-                        let responseVideo = await fetch(firebaseVideoUrl + "?_t=" + Date.now());
-                        let dataVideo = await responseVideo.json();
-                        let novaUrlFundo = "";
-                        if (dataVideo) {{
-                            if (typeof dataVideo === 'string') {{
-                                novaUrlFundo = dataVideo;
-                            }} else if (dataVideo.url) {{
-                                novaUrlFundo = dataVideo.url;
-                            }}
-                        }}
-                        
-                        if (novoIdTocando !== idAtualConhecido || novaUrlFundo !== urlFundoConhecida) {{
-                            window.location.reload();
-                        }}
-                    }} catch (e) {{
-                        console.log("Erro na sincronização:", e);
-                    }}
-                }}, 2000);
-            </script>
-        """
-
-        # SE HOUVER UM VÍDEO APROVADO, ABRE O LEITOR DE KARAOKE EM FULLSCREEN
-        if tocando_agora:
-            musica = tocando_agora.get("musica", {})
-            if isinstance(musica, dict):
-                titulo = musica.get("titulo", musica.get("nome", "Karaoke"))
-            else:
-                titulo = str(musica)
-            
-            titulo_limpo = limpar_nome_musica(titulo)
-            url_video = obter_url_video_cloudinary(musica, titulo_limpo)
-            c_nome = tocando_agora.get("cliente", "Convidado")
-            
-            # Verificação de segurança caso o link do Cloudinary venha vazio
-            if not url_video:
-                st.warning(f"⚠️ O link do Cloudinary para a música '{titulo_limpo}' não foi encontrado ou está vazio.")
-                url_video = ""
-
-            video_html = f"""
-            <style>
-                body, html {{ margin: 0; padding: 0; background: #000; overflow: hidden; width: 100vw; height: 100vh; }}
-                @keyframes zoomInNumber {{
-                    0% {{ transform: scale(0.2); opacity: 0; }}
-                    50% {{ transform: scale(1.2); opacity: 1; }}
-                    100% {{ transform: scale(1); opacity: 1; }}
-                }}
-                .countdown-overlay {{
-                    position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
-                    background: rgba(0,0,0,0.95); display: flex; justify-content: center; align-items: center;
-                    z-index: 99999; color: #ffffff; font-family: monospace; font-size: 15vw; font-weight: bold;
-                    text-shadow: 2px 2px 5px rgba(0,0,0,0.9); animation: zoomInNumber 0.9s ease-in-out infinite;
-                }}
-            </style>
-            <div id="countdown-screen" class="countdown-overlay">3</div>
-            <div id="karaoke-container" style="display: none; width: 100vw; height: 100vh; background: black; position: fixed; top: 0; left: 0; z-index: 99988;">
-                <div style="position: absolute; top: 15px; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,0.85); border: 2px solid #FFC107; padding: 10px 25px; border-radius: 8px; z-index: 10000; display: flex; align-items: center; gap: 20px;">
-                    <div style="color: #FFC107; font-family: monospace; font-size: 20px; text-transform: uppercase; font-weight: bold;">
-                        🎤 A CANTAR: <span style="color: #ffffff;">{c_nome}</span> — <span style="color: #aaaaaa; font-size: 16px;">{titulo_limpo}</span>
-                    </div>
-                    <button onclick="stopKaraoke()" style="background: #d9534f; color: white; border: none; padding: 6px 14px; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 14px;">⏹️ Terminar</button>
-                </div>
-
-                <video id="karaoke-player" width="100vw" height="100vh" autoplay playsinline style="object-fit: contain; background: black; width: 100vw; height: 100vh;">
-                    <source src="{url_video}" type="video/mp4">
-                    O seu navegador não suporta a reprodução deste vídeo.
+        if video_fundo_url:
+            st.markdown(f"""
+                <video autoplay muted loop class="video-background">
+                    <source src="{video_fundo_url}" type="video/mp4">
+                    O seu navegador não suporta vídeos em HTML5.
                 </video>
-                <div id="audio-warning" style="display: none; position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); text-align: center; background: #222; border: 4px solid #FFC107; padding: 10px 20px; border-radius: 5px; z-index: 99999;">
-                    <p style="color: #ffffff; margin: 0 0 8px 0; font-family: monospace; font-size: 14px; font-weight: bold;">⚠️ O navegador bloqueou o áudio automático.</p>
-                    <button onclick="unmuteVideo()" style="background-color: #4CAF50; color: white; border: none; padding: 8px 16px; font-size: 15px; border-radius: 4px; cursor: pointer; font-weight: bold;">🔊 CLIQUE AQUI PARA ATIVAR O SOM</button>
+            """, unsafe_allow_html=True)
+
+        st.markdown('<div class="content-overlay">', unsafe_allow_html=True)
+        if tocando_agora:
+            cantor = tocando_agora.get("cliente", "CONVIDADO").upper()
+            musica = limpar_nome_musica(tocando_agora.get("musica", {}))
+            st.markdown(f"""
+                <div class="card-cantor">
+                    <div style="font-family: monospace; color: #FFC107; font-size: 14px; letter-spacing: 2px; margin-bottom: 10px;">A CANTAR AGORA</div>
+                    <div style="font-family: monospace; color: #FFC107; font-size: 48px; font-weight: bold; text-transform: uppercase; margin-bottom: 15px; text-shadow: 3px 3px 8px rgba(0,0,0,0.9);">
+                        🎤 {cantor}
+                    </div>
+                    <div style="font-family: monospace; color: #ffffff; font-size: 22px; font-weight: bold; text-shadow: 2px 2px 6px rgba(0,0,0,0.9);">
+                        🎵 {musica}
+                    </div>
                 </div>
-            </div>
-            <script>
-                var count = 3;
-                var cdScreen = document.getElementById('countdown-screen');
-                var timer = setInterval(function() {{
-                    count--;
-                    if (count > 0) {{
-                        cdScreen.innerText = count;
-                    }} else if (count === 0) {{
-                        cdScreen.innerText = "🎤 CANTE!";
-                    }} else {{
-                        clearInterval(timer);
-                        cdScreen.style.display = 'none';
-                        document.getElementById('karaoke-container').style.display = 'block';
-                        var video = document.getElementById('karaoke-player');
-                        video.muted = false; 
-                        var playPromise = video.play();
-                        if (playPromise !== undefined) {{
-                            playPromise.then(_ => {{}}).catch(error => {{
-                                video.muted = true;
-                                video.play();
-                                document.getElementById('audio-warning').style.display = 'block';
-                            }});
-                        }}
-                    }}
-                }}, 1000);
-
-                function unmuteVideo() {{
-                    var video = document.getElementById('karaoke-player');
-                    video.muted = false;
-                    video.play();
-                    document.getElementById('audio-warning').style.display = 'none';
-                }}
-
-                function stopKaraoke() {{
-                    var pedidoId = "{tocando_agora.get('id')}";
-                    var token = "{provider_token}";
-                    var firebaseURL = "{FIREBASE_URL}/pedidos/" + token + "/" + pedidoId + "/estado.json";
-                    
-                    fetch(firebaseURL, {{
-                        method: 'PUT',
-                        body: JSON.stringify('terminado'),
-                        headers: {{ 'Content-Type': 'application/json' }}
-                    }}).then(response => {{
-                        setTimeout(function() {{ window.location.reload(); }}, 200);
-                    }}).catch(err => {{
-                        window.location.reload();
-                    }});
-                }}
-
-                var video = document.getElementById('karaoke-player');
-                if (video) {{
-                    video.onended = function() {{
-                        stopKaraoke();
-                    }};
-                }}
-            </script>
-            {script_sincronizacao_global}
-            """
-            components.html(video_html, height=750, scrolling=False)
-            
-        # CASO CONTRÁRIO, MOSTRA O VÍDEO CLIPE DE FUNDO COM A FILA FLUTUANDO POR CIMA
+            """, unsafe_allow_html=True)
         else:
-            url_clipe_fundo = obter_video_fundo(provider_token)
-
-            st.markdown(frame_styles, unsafe_allow_html=True)
-            st.markdown(script_sincronizacao_global, unsafe_allow_html=True)
-            
-            html_elementos_sobreposicao = ""
-            
-            if url_clipe_fundo:
-                html_elementos_sobreposicao += f"""
-                <div style="position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: black; z-index: 99975; overflow: hidden;">
-                    <video id="fundo-player" autoplay loop muted playsinline controlslist="nodownload noremoteplayback" disablepictureinpicture style="width: 100vw; height: 100vh; object-fit: cover; background: black;">
-                        <source src="{url_clipe_fundo}" type="video/mp4">
-                        O seu navegador não suporta vídeo.
-                    </video>
-                    <div id="fundo-audio-warning" style="display: none; position: absolute; bottom: 60px; right: 20px; background: rgba(0,0,0,0.85); border: 2px solid #FFC107; padding: 8px 14px; border-radius: 6px; cursor: pointer; z-index: 99980;" onclick="unmuteFundo()">
-                        <span style="color: white; font-family: monospace; font-size: 13px; font-weight: bold;">🔊 Ativar Som</span>
+            st.markdown("""
+                <div class="card-cantor">
+                    <div style="font-family: monospace; color: #FFC107; font-size: 28px; font-weight: bold;">
+                        ⏳ AGUARDANDO PRÓXIMA MÚSICA...
                     </div>
                 </div>
-                <script>
-                    var fundoVideo = document.getElementById('fundo-player');
-                    fundoVideo.muted = false;
-                    var fundoPromise = fundoVideo.play();
-                    if (fundoPromise !== undefined) {{
-                        fundoPromise.then(_ => {{}}).catch(error => {{
-                            fundoVideo.muted = true;
-                            fundoVideo.play();
-                            document.getElementById('fundo-audio-warning').style.display = 'block';
-                        }});
-                    }}
-                    function unmuteFundo() {{
-                        fundoVideo.muted = false;
-                        fundoVideo.play();
-                        document.getElementById('fundo-audio-warning').style.display = 'none';
-                    }}
-                </script>
-                """
-            else:
-                html_elementos_sobreposicao += """
-                <div style="position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: #000; z-index: 99975;"></div>
-                """
-
-            html_elementos_sobreposicao += """
-            <div style="position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 550px; max-width: 90vw; max-height: 75vh; background: rgba(0, 0, 0, 0.88); border: 4px solid #FFC107; border-radius: 12px; padding: 20px; z-index: 99985; overflow-y: auto; box-shadow: 0 0 30px rgba(255,193,7,0.5); backdrop-filter: blur(5px);">
-                <div style="display: flex; align-items: center; justify-content: center; gap: 10px; border-bottom: 2px solid #FFC107; padding-bottom: 10px; margin-bottom: 15px;">
-                    <span style="font-size: 22px;">📋</span>
-                    <h2 style="color: #FFC107; font-family: monospace; font-size: 20px; margin: 0; text-transform: uppercase;">FILA DE PEDIDOS DE MÚSICA</h2>
-                </div>
-            """ 
-            
-            if pedidos_ativos:
-                for i, p in enumerate(pedidos_ativos, 1):
-                    cliente_nome = p.get("cliente", "Convidado")
-                    musica_obj = p.get("musica", {})
-                    if isinstance(musica_obj, dict):
-                        titulo_musica = musica_obj.get("titulo", musica_obj.get("nome", "Música"))
-                    else:
-                        titulo_musica = str(musica_obj)
-                    
-                    estado_atual = str(p.get("estado", "pendente")).upper()
-                    cor_estado = "#FFC107" if estado_atual == "APROVADO" else "#aaaaaa"
-                    
-                    html_elementos_sobreposicao += f"""
-                        <div style="background: rgba(20, 20, 20, 0.95); border: 2px solid #333; border-radius: 8px; padding: 12px; margin-bottom: 10px;">
-                            <div style="display: flex; justify-content: space-between; align-items: center; font-family: monospace;">
-                                <span style="color: #FFC107; font-weight: bold; font-size: 15px;">#{i} — {cliente_nome}</span>
-                                <span style="color: {cor_estado}; font-size: 11px; background: rgba(0,0,0,0.8); padding: 3px 8px; border-radius: 4px; border: 1px solid {cor_estado};">{estado_atual}</span>
-                            </div>
-                            <div style="color: #ffffff; font-family: monospace; font-size: 14px; margin-top: 6px;">🎵 {titulo_musica}</div>
-                        </div>
-                    """
-            else:
-                html_elementos_sobreposicao += """
-                    <div style="text-align: center; padding: 40px 10px; font-family: monospace; color: #888;">
-                        <p style="font-size: 35px; margin: 0 0 10px 0;">📭</p>
-                        <p style="font-size: 16px; color: #ddd; font-weight: bold;">A fila de pedidos está vazia.</p>
-                        <p style="font-size: 13px; color: #aaa;">Escaneie o QR Code para enviar a sua música!</p>
-                    </div>
-                """
-
-            html_elementos_sobreposicao += "</div>"
-            components.html(html_elementos_sobreposicao, height=800, scrolling=False)
+            """, unsafe_allow_html=True)
+        st.markdown('</div>', unsafe_allow_html=True)
 
     except Exception as e:
-        st.error(f"Erro de sincronização na TV: {e}")
+        st.error(f"Erro ao carregar a tela de TV: {e}")
         
 def show_client_screen():
     query_params = st.query_params
