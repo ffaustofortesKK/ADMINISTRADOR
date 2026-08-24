@@ -983,6 +983,13 @@ def show_provider_panel_custom(provider_token):
     st.markdown("<div style='height: 5px;'></div>", unsafe_allow_html=True)
     renderizar_gestao_fila_prestador(provider_token) 
     
+import streamlit as st
+import requests
+import time
+
+# (Nota: Mantenha as suas funções auxiliares originais no topo do seu ficheiro se houver mais, 
+# tais como limpar_nome_musica, obter_video_fundo, listar_videos_pasta_clipes, get_all_providers, etc.)
+
 @st.fragment(run_every=1)
 def renderizar_ecra_tv(provider_token):
     try:
@@ -1072,6 +1079,7 @@ def renderizar_ecra_tv(provider_token):
     except Exception as e:
         st.error(f"Erro ao carregar a tela de TV: {e}")
         
+
 def show_client_screen():
     query_params = st.query_params
     provider_token = query_params.get("prestador") or query_params.get("provider", None)
@@ -1085,28 +1093,32 @@ def show_client_screen():
     .stApp { background-color: #000000; color: white; }
     </style>""", unsafe_allow_html=True)
 
+    # Chamada correta do ecrã de TV dentro do fluxo da página de cliente
+    renderizar_ecra_tv(provider_token)
+
+
 def obter_url_video_cloudinary(url_ou_nome):
     if not url_ou_nome:
         return ""
     # Se já for um link completo do Cloudinary, retorna diretamente
-    if url_ou_nome.startswith("http"):
+    if str(url_ou_nome).startswith("http"):
         return url_ou_nome
     
     # Caso contrário, tenta procurar na lista de clipes disponíveis
     try:
         lista = listar_videos_pasta_clipes()
         for clipe in lista:
-            if clipe['nome'] == url_ou_nome or clipe['url'] == url_ou_nome:
-                return clipe['url']
+            if clipe.get('nome') == url_ou_nome or clipe.get('url') == url_ou_nome:
+                return clipe.get('url')
     except Exception:
         pass
         
-    return url_ou_nome    
+    return ""
 
-    renderizar_ecra_tv(provider_token)
 
 def show_provider_panel_center(token):
     show_provider_panel_custom(token)
+
 
 def main():
     try:
