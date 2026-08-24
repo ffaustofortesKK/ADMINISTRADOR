@@ -653,11 +653,13 @@ def show_provider_panel_custom(provider_token):
 
     df_prov = get_all_providers()
     
+    # Valores padrão caso não encontre (substituído o "Carlos Miguel" genérico por um aviso limpo)
     nome_prestador = "PRESTADOR NÃO IDENTIFICADO"
     tempo_plano = "2 Horas - 12 Mil Kwanzas"
     data_registo_str = None
     
     if not df_prov.empty:
+        # Tenta identificar qual coluna guarda o token
         col_token_candidates = ['token', 'provider_token', 'id']
         col_token_encontrada = next((c for c in col_token_candidates if c in df_prov.columns), None)
         
@@ -666,16 +668,19 @@ def show_provider_panel_custom(provider_token):
             if not match.empty:
                 row = match.iloc[0]
                 
+                # Procura dinamicamente pelas colunas de nome
                 for col_n in ['nome_prestador', 'nome', 'prestador', 'user']:
                     if col_n in df_prov.columns and pd.notna(row.get(col_n)):
                         nome_prestador = str(row.get(col_n)).upper()
                         break
                 
+                # Procura dinamicamente pelas colunas de plano/tempo
                 for col_p in ['tempo_plano', 'plano', 'duracao', 'tempo']:
                     if col_p in df_prov.columns and pd.notna(row.get(col_p)):
                         tempo_plano = str(row.get(col_p))
                         break
                         
+                # Procura dinamicamente pela data de registo
                 for col_d in ['data_registo', 'data', 'timestamp', 'created_at']:
                     if col_d in df_prov.columns and pd.notna(row.get(col_d)):
                         data_registo_str = str(row.get(col_d))
@@ -698,6 +703,7 @@ def show_provider_panel_custom(provider_token):
     except Exception:
         pass
 
+    # Define os segundos base com base estrita no plano escolhido pelo prestador
     segundos_base = 7200
     if "3 Horas" in tempo_plano:
         segundos_base = 10800
@@ -708,6 +714,7 @@ def show_provider_panel_custom(provider_token):
 
     segundos_totais = segundos_base + segundos_bónus
     segundos_restantes = segundos_totais
+    
     if data_registo_str:
         try:
             dt_str_clean = data_registo_str.split('.')[0]
@@ -824,6 +831,31 @@ def show_provider_panel_custom(provider_token):
     </style>
     """, unsafe_allow_html=True)
 
+    col_topo_1, col_topo_2, col_topo_3 = st.columns([1.2, 3, 0.8])
+    
+    with col_topo_1:
+        st.markdown(f"""
+            <div style="background: #000000; border: 2px solid #FFC107; border-radius: 6px; padding: 8px; text-align: center;">
+                <div style="font-family: monospace; color: #ffffff; font-size: 9px; text-transform: uppercase; letter-spacing: 1px;">TEMPO / PLANO ESCOLHIDO</div>
+                <div style="font-family: monospace; color: #FFC107; font-size: 18px; font-weight: bold; {classe_piscar} margin: 2px 0;">⏱️ {tempo_formatado}</div>
+                <div style="font-family: monospace; color: #fff; font-size: 10px;">({tempo_plano})</div>
+            </div>
+        """, unsafe_allow_html=True)
+        
+    with col_topo_2:
+        st.markdown(f"""
+            <div style="display: flex; align-items: center; gap: 12px; padding-top: 5px;">
+                <span style="font-size: 28px;">🎤</span>
+                <div>
+                    <h1 style="margin: 0; color: #FFC107; font-family: monospace; font-size: 20px; text-transform: uppercase; font-weight: bold;">PAINEL DO PRESTADOR: <span style="color: #FFC107;">{nome_prestador}</span></h1>
+                </div>
+            </div>
+        """, unsafe_allow_html=True)
+        
+    with col_topo_3:
+        st.markdown(f'<div style="text-align: right;"><img src="{url_logotipo}" class="top-logo" /></div>', unsafe_allow_html=True)
+
+    st.markdown("<hr style='border-color: #FFC107; margin: 15px 0;'>", unsafe_allow_html=True)
     st.markdown(aviso_reforço_html, unsafe_allow_html=True)
     
     link_cliente_rel = f"/?page=client_register&prestador={provider_token}"
@@ -835,40 +867,8 @@ def show_provider_panel_custom(provider_token):
     
     qr_url_cliente = f"https://api.qrserver.com/v1/create-qr-code/?size=150x150&data={urllib.parse.quote(link_cliente_absoluto)}"
 
-    # BUSCAR PEDIDOS DO FIREBASE
-    try:
-        url_firebase = f"{FIREBASE_URL}/pedidos/{provider_token}.json?_t={time.time()}"
-        response = requests.get(url_firebase, timeout=10)
-        pedidos = []
-        if response.status_code == 200 and response.json():
-            data = response.json()
-            pedidos = [{"id": k, **v} for k, v in data.items()]
-        
-        pedidos.sort(key=lambda x: x.get("timestamp", 0))
-        tocando_agora = next((p for p in pedidos if p.get("estado") == "aprovado"), None)
-        
-        if not tocando_agora and pedidos:
-            primeiro_id = pedidos[0].get('id')
-            atualizar_estado_pedido(provider_token, primeiro_id, 'aprovado')
-            pedidos[0]["estado"] = "aprovado"
-            tocando_agora = pedidos[0]
-            
-        indice_atual = pedidos.index(tocando_agora) if tocando_agora in pedidos else -1
-        proximo_da_fila = pedidos[indice_atual + 1] if (indice_atual != -1 and len(pedidos) > indice_atual + 1) else (pedidos[0] if (not tocando_agora and pedidos) else None)
-
-        if proximo_da_fila:
-            cantor_proximo = proximo_da_fila.get("cliente", "CONVIDADO").upper()
-            conteudo_a_seguir = f"Á Seguir - <span style='color: #FFC107;'>{cantor_proximo}</span>"
-        else:
-            conteudo_a_seguir = "Á Seguir -"
-    except Exception:
-        conteudo_a_seguir = "Á Seguir -"
-        pedidos = []
-
-    # ESTRUTURA PRINCIPAL
-    col_esq, col_dir = st.columns([2.5, 1], gap="medium")
-    
-    with col_esq:
+    col_links, col_qr = st.columns([2.5, 1], gap="medium")
+    with col_links:
         st.markdown(f"""
             <div class="card-link">
                 <div class="link-title">🔗 LINK DO CLIENTE (REGISTO DE MÚSICA)</div>
@@ -883,160 +883,16 @@ def show_provider_panel_custom(provider_token):
             </div>
         """, unsafe_allow_html=True)
 
-        # BLOCO "Á Seguir -" AUMENTADO EM 40% E COR AMARELA
-        st.markdown(f"""
-            <div style="border: 3px solid #FFC107; border-radius: 8px; padding: 18px; background-color: #000000; margin-bottom: 15px;">
-                <div style="font-family: monospace; color: #FFC107; font-size: 28px; font-weight: bold;">{conteudo_a_seguir}</div>
-            </div>
-        """, unsafe_allow_html=True)
-
-        c_t1, c_t2, c_t3 = st.columns(3)
-        with c_t1:
-            if st.button("▶️ Tocar o Karaoke", key="btn_tocar_topo", use_container_width=True):
-                if tocando_agora:
-                    terminar_todas_musicas_ativas(provider_token, pedidos)
-                    atualizar_estado_pedido(provider_token, tocando_agora.get('id'), 'aprovado')
-                    st.rerun()
-        with c_t2:
-            if st.button("⏹️ Parar o Karaoke", key="btn_parar_topo", use_container_width=True):
-                terminar_todas_musicas_ativas(provider_token, pedidos)
-                st.rerun()
-        with c_t3:
-            if st.button("⏭️ Avançar Karaoke", key="btn_prox_topo", use_container_width=True):
-                if tocando_agora:
-                    atualizar_estado_pedido(provider_token, tocando_agora.get('id'), 'terminado')
-                    restantes = [x for x in pedidos if x.get('estado') in ['pendente', 'aprovado'] and x.get('id') != tocando_agora.get('id')]
-                    if restantes:
-                        atualizar_estado_pedido(provider_token, restantes[0].get('id'), 'aprovado')
-                    st.rerun()
-
-        st.markdown("<div style='height: 10px;'></div>", unsafe_allow_html=True)
-        st.markdown("""
-            <div style="font-family: monospace; color: #ffffff; font-size: 16px; font-weight: bold; margin-bottom: 8px;">
-                📋 Estado da Fila e Controlo de Reprodução
-            </div>
-        """, unsafe_allow_html=True)
-
-        pedidos_ativos = [p for p in pedidos if p.get("estado") in ["pendente", "aprovado"]]
-
-        # Cabeçalho da Tabela Estilizado
-        st.markdown("""
-            <div style="background-color: #03a9f4; border: 3px solid #FFC107; border-bottom: none; border-radius: 8px 8px 0 0; padding: 10px 12px; display: flex; font-family: monospace; font-weight: bold; font-size: 15px; color: #ffffff;">
-                <div style="width: 10%;">Nº</div>
-                <div style="width: 30%;">CANTOR</div>
-                <div style="width: 38%;">TÍTULO</div>
-                <div style="width: 22%; text-align: center;">AÇÕES</div>
-            </div>
-        """, unsafe_allow_html=True)
-
-        if pedidos_ativos:
-            for idx, p in enumerate(pedidos_ativos, 1):
-                cantor = str(p.get("cliente", "")).upper()
-                musica = limpar_nome_musica(p.get("musica", {}))
-                pid = p.get("id")
-                
-                st.markdown(f"""
-                    <div style="background-color: #000000; border-left: 3px solid #FFC107; border-right: 3px solid #FFC107; border-bottom: 2px solid #FFC107; padding: 8px 12px; display: flex; align-items: center; font-family: monospace; font-size: 14px; color: #ffffff;">
-                        <div style="width: 10%; font-weight: bold;">{idx}</div>
-                        <div style="width: 30%; font-weight: bold; color: #FFC107;">{cantor}</div>
-                        <div style="width: 38%;">{musica}</div>
-                        <div style="width: 22%; text-align: center;"></div>
-                    </div>
-                """, unsafe_allow_html=True)
-                
-                col_acao_sel, col_acao_btn = st.columns([1.5, 1])
-                with col_acao_sel:
-                    acao_escolhida = st.selectbox(
-                        "Ação", 
-                        options=["Selecione...", "⬆️ Subir", "⬇️ Descer", "❌ Apagar"], 
-                        key=f"sel_acao_{pid}", 
-                        label_visibility="collapsed"
-                    )
-                with col_acao_btn:
-                    if st.button("Executar", key=f"btn_exec_{pid}", use_container_width=True):
-                        if acao_escolhida != "Selecione...":
-                            try:
-                                res_all = requests.get(f"{FIREBASE_URL}/pedidos/{provider_token}.json", timeout=5)
-                                if res_all.status_code == 200 and res_all.json():
-                                    items = sorted(res_all.json().items(), key=lambda x: x[1].get("timestamp", 0))
-                                    idx_alvo = next((i for i, (k, v) in enumerate(items) if k == pid), -1)
-                                    
-                                    if acao_escolhida == "❌ Apagar":
-                                        requests.delete(f"{FIREBASE_URL}/pedidos/{provider_token}/{pid}.json", timeout=5)
-                                    elif acao_escolhida == "⬆️ Subir" and idx_alvo > 0:
-                                        t_atual = items[idx_alvo][1].get("timestamp", time.time())
-                                        t_ant = items[idx_alvo-1][1].get("timestamp", time.time() - 1)
-                                        k_ant = items[idx_alvo-1][0]
-                                        requests.patch(f"{FIREBASE_URL}/pedidos/{provider_token}/{pid}.json", json={"timestamp": t_ant}, timeout=5)
-                                        requests.patch(f"{FIREBASE_URL}/pedidos/{provider_token}/{k_ant}.json", json={"timestamp": t_atual}, timeout=5)
-                                    elif acao_escolhida == "⬇️ Descer" and idx_alvo != -1 and idx_alvo < len(items) - 1:
-                                        t_atual = items[idx_alvo][1].get("timestamp", time.time())
-                                        t_prox = items[idx_alvo+1][1].get("timestamp", time.time() + 1)
-                                        k_prox = items[idx_alvo+1][0]
-                                        requests.patch(f"{FIREBASE_URL}/pedidos/{provider_token}/{pid}.json", json={"timestamp": t_prox}, timeout=5)
-                                        requests.patch(f"{FIREBASE_URL}/pedidos/{provider_token}/{k_prox}.json", json={"timestamp": t_atual}, timeout=5)
-                                        
-                                    st.rerun()
-                            except Exception:
-                                pass
-        else:
-            st.markdown("""
-                <div style="background-color: #000000; border: 3px solid #FFC107; border-top: none; border-radius: 0 0 8px 8px; padding: 20px; text-align: center; color: #FFC107; font-family: monospace; font-size: 15px;">
-                    Nenhum pedido na lista neste momento.
-                </div>
-            """, unsafe_allow_html=True)
-
-    with col_dir:
+    with col_qr:
         st.markdown("<div style='font-family: monospace; color: #ffffff; font-size: 11px; font-weight: bold; margin-bottom: 3px; text-align: center;'>QR CODE CLIENTE</div>", unsafe_allow_html=True)
         st.markdown(f"""
-            <div class="qr-box" style="margin-bottom: 20px;">
-                <img src="{qr_url_cliente}" width="150" style="border-radius: 4px;" />
+            <div class="qr-box">
+                <img src="{qr_url_cliente}" width="110" style="border-radius: 4px;" />
             </div>
         """, unsafe_allow_html=True)
-
-        video_fundo_atual = obter_video_fundo(provider_token)
-        lista_clipes_cloudinary = listar_videos_pasta_clipes()
-        
-        opcoes_labels = ["Nenhum (Ecrã Preto)"]
-        mapa_url_por_label = {}
-        for clipe in lista_clipes_cloudinary:
-            label = f"📁 {clipe['nome']}"
-            opcoes_labels.append(label)
-            mapa_url_por_label[label] = clipe['url']
-            
-        index_atual = 0
-        for idx, label in enumerate(opcoes_labels):
-            if label != "Nenhum (Ecrã Preto)":
-                url_mapeada = mapa_url_por_label.get(label, "")
-                if video_fundo_atual and (video_fundo_atual in url_mapeada or url_mapeada in video_fundo_atual):
-                    index_atual = idx
-                    break
-
-        with st.form(key="form_video_fundo_pos"):
-            st.markdown("<div style='font-family: monospace; color: #ffffff; font-size: 13px; font-weight: bold; margin-bottom: 5px;'>Pesquisar Vídeo Clipe</div>", unsafe_allow_html=True)
-            escolha_video = st.selectbox("Pesquisar Vídeo Clipe", options=opcoes_labels, index=index_atual, label_visibility="collapsed")
-            st.markdown("<div style='height: 10px;'></div>", unsafe_allow_html=True)
-            
-            col_btn_play, col_btn_stop = st.columns(2)
-            with col_btn_play:
-                btn_play_fundo = st.form_submit_button("▶️ Play", use_container_width=True)
-            with col_btn_stop:
-                btn_stop_fundo = st.form_submit_button("⏹️ Stop", use_container_width=True)
-
-            if btn_play_fundo:
-                valor_a_guardar = "" if escolha_video == "Nenhum (Ecrã Preto)" else mapa_url_por_label.get(escolha_video, "")
-                definir_video_fundo(provider_token, valor_a_guardar)
-                st.success("Vídeo clipe de fundo colocado em reprodução na tela!")
-                st.rerun()
-            
-            if btn_stop_fundo:
-                definir_video_fundo(provider_token, "")
-                st.success("Vídeo clipe parado (Ecrã Preto ativado)!")
-                st.rerun()
 
     st.markdown("<hr style='border-color: #333; margin: 15px 0;'>", unsafe_allow_html=True)
 
-    # SECÇÃO DE REFORÇO
     st.markdown("<div id='reforco_seccao'></div>", unsafe_allow_html=True)
     if segundos_restantes <= 1800:
         st.markdown("### ⚡ Solicitar Reforço de Tempo")
@@ -1044,7 +900,11 @@ def show_provider_panel_custom(provider_token):
             referencia_comprovativo = st.text_input("Referência de Pagamento / Nº de Comprovativo")
             duracao_reforco = st.selectbox(
                 "Duração Pretendida", 
-                options=["2 Horas - 12 Mil Kwanzas", "3 Horas - 15 Mil Kwanzas", "4 Horas - 20 Mil Kwanzas"]
+                options=[
+                    "2 Horas - 12 Mil Kwanzas", 
+                    "3 Horas - 15 Mil Kwanzas", 
+                    "4 Horas - 20 Mil Kwanzas"
+                ]
             )
             btn_sub_reforco = st.form_submit_button("Submeter Pedido de Reforço")
             if btn_sub_reforco:
@@ -1065,7 +925,10 @@ def show_provider_panel_custom(provider_token):
                         requests.put(f"{FIREBASE_URL}/reforcos_pendentes/{provider_token}/{ref_id}.json", json=dados_reforco, timeout=10)
                         st.success("Pedido de reforço submetido com sucesso! Aguarde a confirmação do Administrador.")
                     except Exception as err:
-                        st.error(f"Erro ao enviar reforço: {err}") 
+                        st.error(f"Erro ao enviar reforço: {err}")
+
+    st.markdown("<div style='height: 5px;'></div>", unsafe_allow_html=True)
+    renderizar_gestao_fila_prestador(provider_token) 
     
 def renderizar_ecra_tv(provider_token):
     try:
