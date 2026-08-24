@@ -1110,62 +1110,45 @@ def show_client_screen():
     # Chama a função que desenha o ecrã de TV/vídeo em tempo real
     renderizar_ecra_tv(provider_token)
 
-def obter_url_video_cloudinary(*args):
-    """
-    Pesquisa inteligente que encontra o vídeo no Cloudinary mesmo que o título 
-    tenha texto adicional, maiúsculas ou pequenas diferenças.
-    """
-    url_ou_nome = args[0] if args else ""
-    
-    if isinstance(url_ou_nome, dict):
-        alvo = url_ou_nome.get("url") or url_ou_nome.get("nome") or url_ou_nome.get("titulo") or ""
-    else:
-        alvo = str(url_ou_nome) if url_ou_nome else ""
-    
-    if not alvo:
+def limpar_string_para_url(texto):
+    """Remove acentos e caracteres especiais para corresponder ao padrão de ficheiros no Cloudinary."""
+    if not texto:
         return ""
-        
-    # Se já for um link HTTP direto, retorna imediatamente
-    if alvo.startswith("http"):
-        return alvo
-    
-    try:
-        lista = listar_videos_pasta_clipes()
-        if not lista:
-            return ""
-            
-        # 1. Tenta correspondência exata primeiro
-        for clipe in lista:
-            if isinstance(clipe, dict):
-                if clipe.get('nome') == alvo or clipe.get('url') == alvo:
-                    return clipe.get('url')
-                    
-        # 2. Pesquisa parcial inteligente (remove acentos, coloca em minúsculas e procura palavras-chave)
-        alvo_limpo = ''.join(c for c in alvo.lower() if c.isalnum() or c.isspace())
-        palavras_chave = [p for p in alvo_limpo.split() if len(p) > 3] # Ignora palavras muito curtas
-        
-        melhor_match = None
-        max_correspondencias = 0
-        
-        for clipe in lista:
-            if isinstance(clipe, dict):
-                nome_clipe = clipe.get('nome', '').lower()
-                nome_clipe_limpo = ''.join(c for c in nome_clipe if c.isalnum() or c.isspace())
-                
-                # Conta quantas palavras do título existem no nome do ficheiro do Cloudinary
-                pontos = sum(1 for palavra in palavras_chave if palavra in nome_clipe_limpo)
-                if pontos > max_correspondencias:
-                    max_correspondencias = pontos
-                    melhor_match = clipe.get('url')
-                    
-        if melhor_match and max_correspondencias > 0:
-            return melhor_match
-            
-    except Exception as e:
-        print(f"Erro na busca inteligente do Cloudinary: {e}")
-        
-    return ""
+    # Remove acentos
+    nfkd = unicodedata.normalize('NFKD', texto)
+    texto_sem_acento = "".join([c for c in nfkd if not unicodedata.combining(c)])
+    # Deixa apenas letras, números e espaços, converte para minúsculas e troca espaços por underscores
+    texto_limpo = re.sub(r'[^a-zA-Z0-9\s]', '', texto_sem_acento).lower()
+    return "_".join(texto_limpo.split())
 
+def obter_url_video_cloudinary(musica_obj, titulo_fornecido=None):
+    if isinstance(musica_obj, dict):
+        url_direta = musica_obj.get("url_cloudinary", "") or musica_obj.get("url", "")
+        if url_direta and "http" in url_direta:
+            if "res.cloudinary.com" in url_direta and "/upload/" in url_direta and "f_auto,q_auto" not in url_direta:
+                return url_direta.replace("/upload/", "/upload/f_auto,q_auto/")
+            return url_direta
+        
+        # Se vier em dicionário, tenta extrair o título
+        titulo_base = musica_obj.get("titulo") or musica_obj.get("nome") or ""
+    else:
+        titulo_base = str(musica_obj) if musica_obj else ""
+
+    # Se foi passado um segundo argumento opcional, usa-o também
+    if titulo_fornecido and isinstance(titulo_fornecido, str) and not titulo_fornecido.startswith("http"):
+        titulo_base = titulo_fornecido
+
+    if not titulo_base:
+        return ""
+
+    # Limpa o título para o formato padrão de upload (ex: "Não Largo..." vira "nao_largo")
+    titulo_limpo = limpar_string_para_url(titulo_base)
+    
+    cloud_name = "yhwgjh7g"
+    encoded_title = urllib.parse.quote(titulo_limpo + ".mp4")
+    return f"https://res.cloudinary.com/{cloud_name}/video/upload/f_auto,q_auto/{encoded_title}"
+
+    
 def show_provider_panel_center(token):
     show_provider_panel_custom(token)
 
