@@ -512,10 +512,8 @@ def renderizar_gestao_fila_prestador(provider_token):
                         v['id'] = str(idx)
                         pedidos.append(v)
             
-        # CORREÇÃO: Aceitar também estados vazios (None ou ausentes) para garantir que novos pedidos aparecem
+        # Pedidos normais ativos
         pedidos_ativos = [p for p in pedidos if p.get("estado") in ["pendente", "aprovado", None, ""]]
-        
-        # Atribuir estado "pendente" por defeito caso venham sem estado
         for p in pedidos_ativos:
             if not p.get("estado"):
                 p["estado"] = "pendente"
@@ -529,11 +527,12 @@ def renderizar_gestao_fila_prestador(provider_token):
             pedidos_ativos[0]["estado"] = "aprovado"
             tocando_agora = pedidos_ativos[0]
 
-        # Vamos estruturar com as duas abas tal como já tinha
+        # Vamos estruturar com as duas abas
         with st.container():
             aba_extras, aba_fila = st.tabs(["🎶 Pedidos Extras / Não Achados", "📋 Fila de Reprodução"])
             
             with aba_extras:
+                # CORREÇÃO: Apanha pedidos marcados como externos, sem link, ou que explicitamente precisam de intervenção/pesquisa
                 pedidos_extras_lista = []
                 try:
                     r_ext = requests.get(f"{FIREBASE_URL}/pedidos/{provider_token}.json", timeout=5)
@@ -541,9 +540,19 @@ def renderizar_gestao_fila_prestador(provider_token):
                         d_ext = r_ext.json()
                         if isinstance(d_ext, dict):
                             for p_id, p_val in d_ext.items():
-                                if isinstance(p_val, dict) and (p_val.get("opcoes_yt") or p_val.get("link_yt") or p_val.get("tipo") == "externo"):
-                                    p_val['id'] = p_id
-                                    pedidos_extras_lista.append(p_val)
+                                if isinstance(p_val, dict):
+                                    # Condição alargada para capturar qualquer pedido extra, manual ou não achado
+                                    is_extra = (
+                                        p_val.get("tipo") == "externo" or 
+                                        p_val.get("manual") == True or 
+                                        p_val.get("estado") == "externo" or
+                                        not p_val.get("link_yt") or 
+                                        p_val.get("opcoes_yt")
+                                    )
+                                    # Excluir os que já estão a tocar normalmente na fila principal se preferir separar estritamente
+                                    if is_extra and p_val.get("estado") not in ["terminado"]:
+                                        p_val['id'] = p_id
+                                        pedidos_extras_lista.append(p_val)
                 except Exception:
                     pass
 
