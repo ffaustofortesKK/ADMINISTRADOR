@@ -532,7 +532,6 @@ def renderizar_gestao_fila_prestador(provider_token):
             aba_extras, aba_fila = st.tabs(["🎶 Pedidos Extras / Não Achados", "📋 Fila de Reprodução"])
             
             with aba_extras:
-                # CORREÇÃO: Apanha pedidos marcados como externos, sem link, ou que explicitamente precisam de intervenção/pesquisa
                 pedidos_extras_lista = []
                 try:
                     r_ext = requests.get(f"{FIREBASE_URL}/pedidos/{provider_token}.json", timeout=5)
@@ -541,7 +540,6 @@ def renderizar_gestao_fila_prestador(provider_token):
                         if isinstance(d_ext, dict):
                             for p_id, p_val in d_ext.items():
                                 if isinstance(p_val, dict):
-                                    # Condição alargada para capturar qualquer pedido extra, manual ou não achado
                                     is_extra = (
                                         p_val.get("tipo") == "externo" or 
                                         p_val.get("manual") == True or 
@@ -549,7 +547,6 @@ def renderizar_gestao_fila_prestador(provider_token):
                                         not p_val.get("link_yt") or 
                                         p_val.get("opcoes_yt")
                                     )
-                                    # Excluir os que já estão a tocar normalmente na fila principal se preferir separar estritamente
                                     if is_extra and p_val.get("estado") not in ["terminado"]:
                                         p_val['id'] = p_id
                                         pedidos_extras_lista.append(p_val)
@@ -570,25 +567,9 @@ def renderizar_gestao_fila_prestador(provider_token):
                             st.markdown(f"🎵 **{musica_nome}**")
                             st.caption(f"Pedido de cliente - {cliente} - {timestamp_pedido}")
                             
-                            if link_selecionado:
-                                st.markdown(f"""
-                                <div style="margin: 8px 0;">
-                                    🔗 <a href='{link_selecionado}' target='_blank' style='color: #FFC107; font-family: monospace; font-weight: bold; font-size: 13px; text-decoration: underline;'>{link_selecionado}</a>
-                                </div>
-                                """, unsafe_allow_html=True)
-                            
-                            if opcoes_encontradas:
-                                for opt in opcoes_encontradas:
-                                    t_opt = opt.get('titulo', 'Vídeo')
-                                    u_opt = opt.get('url', '#')
-                                    st.markdown(f"""
-                                    <div style='margin: 4px 0;'>
-                                        🔗 <a href='{u_opt}' target='_blank' style='color: #FFC107; font-family: monospace; font-size: 13px; text-decoration: none; font-weight: bold;'>{t_opt}</a>
-                                    </div>
-                                    """, unsafe_allow_html=True)
-                            
                             st.markdown("<div style='height: 5px;'></div>", unsafe_allow_html=True)
                             
+                            # 1. BOTÕES COLOCADOS LOGO A SEGUIR AO TÍTULO/INFO
                             col_b1, col_b2 = st.columns([2, 1])
                             
                             with col_b1:
@@ -614,6 +595,26 @@ def renderizar_gestao_fila_prestador(provider_token):
                                 if st.button("Apagar", key=f"apagar_ext_{pedido_id}", type="primary", use_container_width=True):
                                     requests.delete(f"{FIREBASE_URL}/pedidos/{provider_token}/{pedido_id}.json")
                                     st.rerun()
+
+                            st.markdown("<div style='height: 5px;'></div>", unsafe_allow_html=True)
+                            
+                            # 2. LINKS MOSTRADOS LOGO DEPOIS DOS BOTÕES
+                            if link_selecionado:
+                                st.markdown(f"""
+                                <div style="margin: 8px 0;">
+                                    🔗 <a href='{link_selecionado}' target='_blank' style='color: #FFC107; font-family: monospace; font-weight: bold; font-size: 13px; text-decoration: underline;'>{link_selecionado}</a>
+                                </div>
+                                """, unsafe_allow_html=True)
+                            
+                            if opcoes_encontradas:
+                                for opt in opcoes_encontradas:
+                                    t_opt = opt.get('titulo', 'Vídeo')
+                                    u_opt = opt.get('url', '#')
+                                    st.markdown(f"""
+                                    <div style='margin: 4px 0;'>
+                                        🔗 <a href='{u_opt}' target='_blank' style='color: #FFC107; font-family: monospace; font-size: 13px; text-decoration: none; font-weight: bold;'>{t_opt}</a>
+                                    </div>
+                                    """, unsafe_allow_html=True)
                 else:
                     st.info("Nenhum pedido extra pendente no momento.")
                     
