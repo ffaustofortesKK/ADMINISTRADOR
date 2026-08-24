@@ -476,8 +476,10 @@ def listar_videos_pasta_clipes():
             max_results=50
         )
         recursos = resultado.get("resources", [])
+        # Garante que mapeia corretamente para o formato esperado
         return [{"nome": r.get("public_id").split("/")[-1], "url": r.get("secure_url")} for r in recursos]
-    except Exception:
+    except Exception as e:
+        print(f"Erro ao listar clipes do Cloudinary: {e}")
         return []
 
 def get_all_providers():
@@ -993,10 +995,8 @@ import time
 @st.fragment(run_every=1)
 def renderizar_ecra_tv(provider_token):
     try:
-        # 1. Busca o vídeo de fundo padrão do prestador
         video_fundo_url = obter_video_fundo(provider_token)
         
-        # 2. Busca a música ativa na fila do Firebase
         url_firebase = f"{FIREBASE_URL}/pedidos/{provider_token}.json?_t={time.time()}"
         response = requests.get(url_firebase, timeout=10)
         
@@ -1008,17 +1008,16 @@ def renderizar_ecra_tv(provider_token):
             pedidos_ativos.sort(key=lambda x: x.get("timestamp", 0))
             tocando_agora = next((p for p in pedidos_ativos if p.get("estado") == "aprovado"), None)
 
-        # 3. Se houver música a tocar, tenta buscar o link direto do vídeo associado à música
         video_musica_url = ""
         if tocando_agora:
             musica_info = tocando_agora.get("musica", {})
-            # Usa a nossa função robusta para obter a URL real do vídeo (seja ela dict ou string)
-            video_musica_url = obter_url_video_cloudinary(musica_info, musica_info)
+            video_musica_url = obter_url_video_cloudinary(musica_info)
 
-        # Prioriza o vídeo da música a tocar; se não houver, usa o vídeo de fundo do prestador
-        url_para_reproduzir = video_musica_url if video_musica_url else video_fundo_url
+        # Só define como URL para reproduzir se começar realmente com http
+        url_para_reproduzir = video_musica_url if (video_musica_url and video_musica_url.startswith("http")) else video_fundo_url
+        if url_para_reproduzir and not url_para_reproduzir.startswith("http"):
+            url_para_reproduzir = ""
 
-        # Renderização do Ecrã de TV com suporte a vídeo ativo
         st.markdown("""
             <style>
             .stApp {
@@ -1053,21 +1052,18 @@ def renderizar_ecra_tv(provider_token):
             </style>
         """, unsafe_allow_html=True)
 
-        # Insere a tag de vídeo em HTML5 se houver uma URL válida
         if url_para_reproduzir:
+            # Adicionado playsinline e autoplay forçado para evitar que fique travado
             st.markdown(f"""
-                <video autoplay controls muted loop class="video-background">
+                <video autoplay playsinline muted loop class="video-background" onloadedmetadata="this.play()">
                     <source src="{url_para_reproduzir}" type="video/mp4">
                     O seu navegador não suporta vídeos em HTML5.
                 </video>
             """, unsafe_allow_html=True)
 
-        # Mostra os dados do cantor por cima do vídeo
         st.markdown('<div class="content-overlay">', unsafe_allow_html=True)
         if tocando_agora:
             cantor = tocando_agora.get("cliente", "CONVIDADO").upper()
-            
-            # Trata o nome da música de forma segura (seja dicionário ou string)
             m_raw = tocando_agora.get("musica", {})
             if isinstance(m_raw, dict):
                 musica_nome = m_raw.get("nome") or m_raw.get("titulo") or str(m_raw)
@@ -1097,30 +1093,8 @@ def renderizar_ecra_tv(provider_token):
 
     except Exception as e:
         st.error(f"Erro ao carregar a tela de TV: {e}")
-        
-
-def show_client_screen():
-    query_params = st.query_params
-    provider_token = query_params.get("prestador") or query_params.get("provider", None)
-
-    if not provider_token:
-        st.error("Tela inválida. Falta o parâmetro do prestador.")
-        return
-
-    st.markdown("""
-    <style>
-    .stApp { background-color: #000000; color: white; }
-    </style>""", unsafe_allow_html=True)
-
-    # Chamada correta do ecrã de TV dentro do fluxo da página de cliente
-    renderizar_ecra_tv(provider_token)
-
 
 def obter_url_video_cloudinary(*args):
-    """
-    Função universal segura que aceita qualquer quantidade de argumentos,
-    evitando totalmente o erro 'takes 1 positional argument but 2 were given'.
-    """
     url_ou_nome = args[0] if args else ""
     
     if isinstance(url_ou_nome, dict):
@@ -1131,18 +1105,21 @@ def obter_url_video_cloudinary(*args):
     if not alvo:
         return ""
         
+    # Se já for um link HTTP válido, retorna imediatamente
     if alvo.startswith("http"):
         return alvo
     
+    # Caso contrário, procura na pasta do Cloudinary
     try:
         lista = listar_videos_pasta_clipes()
         for clipe in lista:
-            if isinstance(clipe, dict) and (clipe.get('nome') == alvo or clipe.get('url') == alvo):
-                return clipe.get('url')
+            if isinstance(clipe, dict):
+                if clipe.get('nome') == alvo or clipe.get('url') == alvo:
+                    return clipe.get('url')
     except Exception:
         pass
         
-    return alvo
+    return ""  # Retorna vazio se não encontrar link válido (evita passar nomes de músicas como URLs)
 
 
 def show_provider_panel_center(token):
