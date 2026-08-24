@@ -373,26 +373,77 @@ def custom_show_register_page():
                         st.error(f"Erro ao submeter registo: {err}")
 
 # --- FUNÇÃO AUXILIAR: BUSCAR MÚLTIPLOS LINKS NO YOUTUBE ---
-def buscar_multiplos_links_youtube(termo, max_resultados=6):
-    ydl_opts = {'default_search': f'ytsearch{max_resultados}', 'format': 'best', 'extract_flat': False}
-    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-        try:
-            info = ydl.extract_info(termo, download=False)
-            entries = info.get('entries', [])
-            resultados = []
-            for entry in entries:
-                if entry:
-                    titulo = entry.get('title', 'Vídeo do YouTube')
-                    vid_id = entry.get('id', '')
-                    if vid_id:
-                        resultados.append({
-                            "titulo": titulo,
-                            "url": f"https://www.youtube.com/watch?v={vid_id}"
-                        })
-            return resultados
-        except Exception:
-            pass
-    return []
+def buscar_multiplos_links_youtube(termo_busca, max_resultados=5):
+    """
+    Função robusta para pesquisar vídeos no YouTube sem falhar silenciosamente,
+    retornando uma lista de dicionários com 'titulo' e 'url'.
+    """
+    resultados = []
+    try:
+        query_tratada = urllib.parse.quote(termo_busca)
+        url = f"https://www.youtube.com/results?search_query={query_tratada}"
+        
+        req = urllib.request.Request(
+            url, 
+            headers={'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'}
+        )
+        
+        with urllib.request.urlopen(req, timeout=8) as response:
+            html_content = response.read().decode('utf-8')
+            
+        # Extração segura de vídeos através dos dados em JSON incorporados no HTML do YouTube
+        match = re.search(r'ytInitialData\s*=\s*({.+?});</script>', html_content)
+        if match:
+            data_json = json.loads(match.group(1))
+            try:
+                # Caminho padrão nos dados do YouTube
+                contents = data_json['contents']['twoColumnSearchResultsRenderer']['primaryContents']['sectionListRenderer']['contents']
+                for section in contents:
+                    if 'itemSectionRenderer' in section:
+                        for item in section['itemSectionRenderer']['contents']:
+                            if 'videoRenderer' in item:
+                                v_data = item['videoRenderer']
+                                v_id = v_data.get('videoId')
+                                if v_id:
+                                    # Tentar extrair o título de forma segura
+                                    v_title_runs = v_data.get('title', {}).get('runs', [])
+                                    v_title = "".join([run.get('text', '') for run in v_title_runs]) or "Vídeo Karaoke"
+                                    
+                                    resultados.append({
+                                        "titulo": v_title,
+                                        "url": f"https://www.youtube.com/watch?v={v_id}"
+                                    })
+                                    if len(resultados) >= max_resultados:
+                                        break
+            except Exception:
+                pass
+                
+        # Método alternativo (Regex direto) caso o caminho JSON mude
+        if not resultados:
+            video_ids = re.findall(r'\"videoId\":\"([a-zA-Z0-9_-]{11})\"', html_content)
+            vistos = set()
+            for v_id in video_ids:
+                if v_id not in vistos:
+                    vistos.add(v_id)
+                    resultados.append({
+                        "titulo": f"Karaoke - {termo_busca} ({len(resultados)+1})",
+                        "url": f"https://www.youtube.com/watch?v={v_id}"
+                    })
+                    if len(resultados) >= max_resultados:
+                        break
+                        
+    except Exception as e:
+        print(f"Erro na pesquisa do YouTube: {e}")
+        
+    # Se mesmo assim não encontrar nada, gera um link de pesquisa direto do YouTube para evitar deixar o utilizador pendurado
+    if not resultados:
+        url_fallback = f"https://www.youtube.com/results?search_query={urllib.parse.quote(termo_busca)}"
+        resultados.append({
+            "titulo": f"🔍 Abrir pesquisa direta para: {termo_busca}",
+            "url": url_fallback
+        })
+        
+    return resultados
 
 def limpar_nome_musica(musica_obj):
     if isinstance(musica_obj, dict):
@@ -609,6 +660,24 @@ def renderizar_gestao_fila_prestador(provider_token):
                         
                         col_b1, col_b2, col_b3 = st.columns([1.5, 1, 0.8])
                         with col_b1:
+                        if st.button("🔍 Procurar karaoke no YouTube", key=f"procurar_ext_{pedido_id}", type="secondary", use_container_width=True):
+    termo_busca = f"{musica_nome} karaoke"
+    with st.spinner("A pesquisar no YouTube..."):
+        resultados_busca = buscar_multiplos_links_youtube(termo_busca, max_resultados=5)
+    
+    if resultados_busca:
+        primeiro_link = resultados_busca[0]['url']
+        payload_atualizacao = {
+            "opcoes_yt": resultados_busca,
+            "link_yt": primeiro_link
+        }
+        # Atualiza o firebase com os links encontrados
+        requests.patch(f"{FIREBASE_URL}/pedidos/{provider_token}/{pedido_id}.json", json=payload_atualizacao)
+        st.success("Opções encontradas com sucesso!")
+        time.sleep(0.3)
+        st.rerun()
+    else:
+        st.error("Não foi possível obter links automáticos. Utilize o link direto de pesquisa.")
                             if st.button("🔍 Procurar karaoke no YouTube", key=f"procurar_ext_{pedido_id}", type="secondary", use_container_width=True):
                                 termo_busca = f"{musica_nome} karaoke"
                                 resultados_busca = buscar_multiplos_links_youtube(termo_busca, max_resultados=6)
