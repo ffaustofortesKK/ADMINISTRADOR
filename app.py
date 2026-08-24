@@ -647,13 +647,21 @@ def renderizar_gestao_fila_prestador(provider_token):
         st.error(f"Erro ao carregar os pedidos do Firebase: {e}")
         
 
+import streamlit as st
+import streamlit.components.v1 as components
+import requests
+import urllib.parse
+from datetime import datetime
+import pandas as pd
+import uuid
+
 def show_provider_panel_custom(provider_token):
     url_logotipo = "https://cdn.phototourl.com/free/2026-08-03-8b13edf5-0257-491d-ab78-f0d5329ffc15.jpg"
     url_fundo_painel = "https://cdn.phototourl.com/free/2026-08-03-694a4a2e-9914-4da8-93b2-87538a4805ab.png"
 
     df_prov = get_all_providers()
     
-    # Valores padrão caso não encontre (substituído o "Carlos Miguel" genérico por um aviso limpo)
+    # Valores padrão caso não encontre
     nome_prestador = "PRESTADOR NÃO IDENTIFICADO"
     tempo_plano = "2 Horas - 12 Mil Kwanzas"
     data_registo_str = None
@@ -831,31 +839,6 @@ def show_provider_panel_custom(provider_token):
     </style>
     """, unsafe_allow_html=True)
 
-    col_topo_1, col_topo_2, col_topo_3 = st.columns([1.2, 3, 0.8])
-    
-    with col_topo_1:
-        st.markdown(f"""
-            <div style="background: #000000; border: 2px solid #FFC107; border-radius: 6px; padding: 8px; text-align: center;">
-                <div style="font-family: monospace; color: #ffffff; font-size: 9px; text-transform: uppercase; letter-spacing: 1px;">TEMPO / PLANO ESCOLHIDO</div>
-                <div style="font-family: monospace; color: #FFC107; font-size: 18px; font-weight: bold; {classe_piscar} margin: 2px 0;">⏱️ {tempo_formatado}</div>
-                <div style="font-family: monospace; color: #fff; font-size: 10px;">({tempo_plano})</div>
-            </div>
-        """, unsafe_allow_html=True)
-        
-    with col_topo_2:
-        st.markdown(f"""
-            <div style="display: flex; align-items: center; gap: 12px; padding-top: 5px;">
-                <span style="font-size: 28px;">🎤</span>
-                <div>
-                    <h1 style="margin: 0; color: #FFC107; font-family: monospace; font-size: 20px; text-transform: uppercase; font-weight: bold;">PAINEL DO PRESTADOR: <span style="color: #FFC107;">{nome_prestador}</span></h1>
-                </div>
-            </div>
-        """, unsafe_allow_html=True)
-        
-    with col_topo_3:
-        st.markdown(f'<div style="text-align: right;"><img src="{url_logotipo}" class="top-logo" /></div>', unsafe_allow_html=True)
-
-    st.markdown("<hr style='border-color: #FFC107; margin: 15px 0;'>", unsafe_allow_html=True)
     st.markdown(aviso_reforço_html, unsafe_allow_html=True)
     
     link_cliente_rel = f"/?page=client_register&prestador={provider_token}"
@@ -920,7 +903,6 @@ def show_provider_panel_custom(provider_token):
                         "data_registo": str(datetime.now())
                     }
                     try:
-                        import uuid
                         ref_id = str(uuid.uuid4())[:8]
                         requests.put(f"{FIREBASE_URL}/reforcos_pendentes/{provider_token}/{ref_id}.json", json=dados_reforco, timeout=10)
                         st.success("Pedido de reforço submetido com sucesso! Aguarde a confirmação do Administrador.")
