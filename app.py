@@ -1094,6 +1094,22 @@ def renderizar_ecra_tv(provider_token):
     except Exception as e:
         st.error(f"Erro ao carregar a tela de TV: {e}")
 
+def show_client_screen():
+    query_params = st.query_params
+    provider_token = query_params.get("prestador") or query_params.get("provider", None)
+
+    if not provider_token:
+        st.error("Tela inválida. Falta o parâmetro do prestador.")
+        return
+
+    st.markdown("""
+    <style>
+    .stApp { background-color: #000000; color: white; }
+    </style>""", unsafe_allow_html=True)
+
+    # Chama a função que desenha o ecrã de TV/vídeo em tempo real
+    renderizar_ecra_tv(provider_token)
+
 def obter_url_video_cloudinary(*args):
     url_ou_nome = args[0] if args else ""
     
