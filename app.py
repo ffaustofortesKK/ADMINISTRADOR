@@ -460,16 +460,6 @@ def terminar_todas_musicas_ativas(provider_token, pedidos):
         if p.get("estado") == "aprovado":
             atualizar_estado_pedido(provider_token, p.get("id"), "terminado")
 
-def obter_video_fundo(provider_token):
-    try:
-        url = f"{FIREBASE_URL}/video_fundo/{provider_token}.json"
-        res = requests.get(url, timeout=5)
-        if res.status_code == 200 and res.json():
-            return res.json().get("url", "")
-    except Exception:
-        pass
-    return ""
-
 def definir_video_fundo(provider_token, url_video):
     try:
         url = f"{FIREBASE_URL}/video_fundo/{provider_token}.json"
@@ -478,7 +468,17 @@ def definir_video_fundo(provider_token, url_video):
         pass
 
 def listar_videos_pasta_clipes():
-    return []
+    try:
+        resultado = cloudinary.api.resources(
+            type="upload",
+            prefix="clipes/",
+            resource_type="video",
+            max_results=50
+        )
+        recursos = resultado.get("resources", [])
+        return [{"nome": r.get("public_id").split("/")[-1], "url": r.get("secure_url")} for r in recursos]
+    except Exception:
+        return []
 
 def get_all_providers():
     try:
@@ -1116,23 +1116,33 @@ def show_client_screen():
     renderizar_ecra_tv(provider_token)
 
 
-def obter_url_video_cloudinary(url_ou_nome):
-    if not url_ou_nome:
-        return ""
-    # Se já for um link completo do Cloudinary, retorna diretamente
-    if str(url_ou_nome).startswith("http"):
-        return url_ou_nome
+def obter_url_video_cloudinary(*args):
+    """
+    Função universal segura que aceita qualquer quantidade de argumentos,
+    evitando totalmente o erro 'takes 1 positional argument but 2 were given'.
+    """
+    url_ou_nome = args[0] if args else ""
     
-    # Caso contrário, tenta procurar na lista de clipes disponíveis
+    if isinstance(url_ou_nome, dict):
+        alvo = url_ou_nome.get("url") or url_ou_nome.get("nome") or url_ou_nome.get("titulo") or ""
+    else:
+        alvo = str(url_ou_nome) if url_ou_nome else ""
+    
+    if not alvo:
+        return ""
+        
+    if alvo.startswith("http"):
+        return alvo
+    
     try:
         lista = listar_videos_pasta_clipes()
         for clipe in lista:
-            if clipe.get('nome') == url_ou_nome or clipe.get('url') == url_ou_nome:
+            if isinstance(clipe, dict) and (clipe.get('nome') == alvo or clipe.get('url') == alvo):
                 return clipe.get('url')
     except Exception:
         pass
         
-    return ""
+    return alvo
 
 
 def show_provider_panel_center(token):
