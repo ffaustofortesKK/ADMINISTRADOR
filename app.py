@@ -1111,6 +1111,10 @@ def show_client_screen():
     renderizar_ecra_tv(provider_token)
 
 def obter_url_video_cloudinary(*args):
+    """
+    Pesquisa inteligente que encontra o vídeo no Cloudinary mesmo que o título 
+    tenha texto adicional, maiúsculas ou pequenas diferenças.
+    """
     url_ou_nome = args[0] if args else ""
     
     if isinstance(url_ou_nome, dict):
@@ -1121,22 +1125,46 @@ def obter_url_video_cloudinary(*args):
     if not alvo:
         return ""
         
-    # Se já for um link HTTP válido, retorna imediatamente
+    # Se já for um link HTTP direto, retorna imediatamente
     if alvo.startswith("http"):
         return alvo
     
-    # Caso contrário, procura na pasta do Cloudinary
     try:
         lista = listar_videos_pasta_clipes()
+        if not lista:
+            return ""
+            
+        # 1. Tenta correspondência exata primeiro
         for clipe in lista:
             if isinstance(clipe, dict):
                 if clipe.get('nome') == alvo or clipe.get('url') == alvo:
                     return clipe.get('url')
-    except Exception:
-        pass
+                    
+        # 2. Pesquisa parcial inteligente (remove acentos, coloca em minúsculas e procura palavras-chave)
+        alvo_limpo = ''.join(c for c in alvo.lower() if c.isalnum() or c.isspace())
+        palavras_chave = [p for p in alvo_limpo.split() if len(p) > 3] # Ignora palavras muito curtas
         
-    return ""  # Retorna vazio se não encontrar link válido (evita passar nomes de músicas como URLs)
-
+        melhor_match = None
+        max_correspondencias = 0
+        
+        for clipe in lista:
+            if isinstance(clipe, dict):
+                nome_clipe = clipe.get('nome', '').lower()
+                nome_clipe_limpo = ''.join(c for c in nome_clipe if c.isalnum() or c.isspace())
+                
+                # Conta quantas palavras do título existem no nome do ficheiro do Cloudinary
+                pontos = sum(1 for palavra in palavras_chave if palavra in nome_clipe_limpo)
+                if pontos > max_correspondencias:
+                    max_correspondencias = pontos
+                    melhor_match = clipe.get('url')
+                    
+        if melhor_match and max_correspondencias > 0:
+            return melhor_match
+            
+    except Exception as e:
+        print(f"Erro na busca inteligente do Cloudinary: {e}")
+        
+    return ""
 
 def show_provider_panel_center(token):
     show_provider_panel_custom(token)
