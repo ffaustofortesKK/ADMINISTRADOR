@@ -792,8 +792,7 @@ def show_provider_panel_custom(provider_token):
     .stApp {{
         background: url("{url_fundo_painel}") no-repeat center center fixed !important;
         background-size: cover !important;
-    }}
-    .block-container {{
+    }}.block-container {{
         padding-top: 2rem !important;
         padding-bottom: 2rem !important;
         padding-left: 2.5rem !important;
@@ -871,8 +870,7 @@ def show_provider_panel_custom(provider_token):
 
     col_links, col_qr = st.columns([2.5, 1], gap="medium")
     with col_links:
-        st.markdown(f"""
-            <div class="card-link">
+        st.markdown(f""" <div class="card-link">
                 <div class="link-title">🔗 LINK DO CLIENTE (REGISTO DE MÚSICA)</div>
                 <a href="{link_cliente_rel}" target="_blank" class="link-text">{link_cliente_absoluto}</a>
             </div>
