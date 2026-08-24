@@ -14,6 +14,8 @@ import cloudinary.uploader
 import cloudinary.search
 import importlib
 import yt_dlp
+import unicodedata
+import re
 
 # --- 1. CONFIGURAR OS CAMINHOS UMA ÚNICA VEZ ---
 current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -1129,20 +1131,22 @@ def obter_url_video_cloudinary(musica_obj, titulo_fornecido=None):
                 return url_direta.replace("/upload/", "/upload/f_auto,q_auto/")
             return url_direta
         
-        # Se vier em dicionário, tenta extrair o título
         titulo_base = musica_obj.get("titulo") or musica_obj.get("nome") or ""
     else:
         titulo_base = str(musica_obj) if musica_obj else ""
 
-    # Se foi passado um segundo argumento opcional, usa-o também
     if titulo_fornecido and isinstance(titulo_fornecido, str) and not titulo_fornecido.startswith("http"):
         titulo_base = titulo_fornecido
 
     if not titulo_base:
         return ""
 
-    # Limpa o título para o formato padrão de upload (ex: "Não Largo..." vira "nao_largo")
-    titulo_limpo = limpar_string_para_url(titulo_base)
+    # Limpeza segura de caracteres especiais e acentos embutida
+    import unicodedata, re
+    nfkd = unicodedata.normalize('NFKD', str(titulo_base))
+    texto_sem_acento = "".join([c for c in nfkd if not unicodedata.combining(c)])
+    texto_limpo = re.sub(r'[^a-zA-Z0-9\s]', '', texto_sem_acento).lower()
+    titulo_limpo = "_".join(texto_limpo.split())
     
     cloud_name = "yhwgjh7g"
     encoded_title = urllib.parse.quote(titulo_limpo + ".mp4")
