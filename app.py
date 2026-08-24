@@ -494,7 +494,7 @@ def get_all_providers():
     return pd.DataFrame(columns=['token', 'approved', 'data_registo', 'nome_prestador', 'tempo_plano'])
 
 
-@st.fragment(run_every=3)
+@st.fragment(run_every=1)
 def renderizar_gestao_fila_prestador(provider_token):
     try:
         url_firebase = f"{FIREBASE_URL}/pedidos/{provider_token}.json?_t={time.time()}"
@@ -503,154 +503,202 @@ def renderizar_gestao_fila_prestador(provider_token):
         pedidos = []
         if response.status_code == 200 and response.json():
             data = response.json()
-            pedidos = [{"id": k, **v} for k, v in data.items()]
+            if isinstance(data, dict):
+                for k, v in data.items():
+                    if isinstance(v, dict):
+                        v['id'] = k
+                        pedidos.append(v)
+            elif isinstance(data, list):
+                for idx, v in enumerate(data):
+                    if isinstance(v, dict):
+                        v['id'] = str(idx)
+                        pedidos.append(v)
             
-        pedidos_ativos = [p for p in pedidos if p.get("estado") in ["pendente", "aprovado"]]
+        # Pedidos normais ativos
+        pedidos_ativos = [p for p in pedidos if p.get("estado") in ["pendente", "aprovado", None, ""]]
+        for p in pedidos_ativos:
+            if not p.get("estado"):
+                p["estado"] = "pendente"
+
         pedidos_ativos.sort(key=lambda x: x.get("timestamp", 0))
         
         tocando_agora = next((p for p in pedidos_ativos if p.get("estado") == "aprovado"), None)
-        pendentes = [p for p in pedidos_ativos if p.get("estado") == "pendente"]
+        if not tocando_agora and pedidos_ativos:
+            primeiro_id = pedidos_ativos[0].get('id')
+            requests.patch(f"{FIREBASE_URL}/pedidos/{provider_token}/{primeiro_id}.json", json={"estado": "aprovado"})
+            pedidos_ativos[0]["estado"] = "aprovado"
+            tocando_agora = pedidos_ativos[0]
 
-        if pendentes:
-            st.markdown("""
-                <div style="background-color: rgba(0,0,0,0.95); border: 4px solid #FFC107; padding: 15px; border-radius: 8px; text-align: center; margin-bottom: 20px;">
-                    <div style="color: #ffffff; font-family: monospace; font-size: 15px; font-weight: bold; margin-bottom: 5px; text-shadow: 1px 1px 3px rgba(0,0,0,0.9);">Confirmação de Pedido</div>
-                    <div style="color: #ffffff; font-family: monospace; font-size: 18px; font-weight: bold; margin-bottom: 10px; text-shadow: 1px 1px 3px rgba(0,0,0,0.9);">QUER CANTAR</div>
-            """, unsafe_allow_html=True)
+        # Vamos estruturar com as duas abas
+        with st.container():
+            aba_extras, aba_fila = st.tabs(["🎶 Pedidos Extras / Não Achados", "📋 Fila de Reprodução"])
             
-            for p in pendentes:
-                titulo_p = limpar_nome_musica(p.get("musica", {}))
-                cliente_p = p.get("cliente", "Convidado")
-                st.markdown(f"""
-                    <div style="color: #ffffff; font-family: monospace; font-size: 15px; margin-bottom: 15px; font-weight: bold; text-shadow: 1px 1px 3px rgba(0,0,0,0.9);">
-                        <b>{titulo_p}</b> <span style="color: #ffffff; font-size: 13px; font-weight: bold; text-shadow: 1px 1px 3px rgba(0,0,0,0.9);">({cliente_p})</span>
-                    </div>
-                """, unsafe_allow_html=True)
-                
-                col_btn_dummy1, col_center_btn, col_btn_dummy2 = st.columns([1, 1.2, 1])
-                with col_center_btn:
-                    if st.button("✅ Sim", key=f"conf_sim_{p.get('id')}", use_container_width=True):
-                        terminar_todas_musicas_ativas(provider_token, pedidos)
-                        atualizar_estado_pedido(provider_token, p.get('id'), 'aprovado')
-                        st.success(f"Música '{titulo_p}' enviada para a tela!")
-                        st.rerun()
-                    if st.button("❌ Não", key=f"conf_nao_{p.get('id')}", use_container_width=True):
-                        atualizar_estado_pedido(provider_token, p.get('id'), 'terminado')
-                        st.warning("Pedido recusado/cancelado.")
-                        st.rerun()
-            st.markdown("</div>", unsafe_allow_html=True)
+            with aba_extras:
+                pedidos_extras_lista = []
+                try:
+                    r_ext = requests.get(f"{FIREBASE_URL}/pedidos/{provider_token}.json", timeout=5)
+                    if r_ext.status_code == 200 and r_ext.json():
+                        d_ext = r_ext.json()
+                        if isinstance(d_ext, dict):
+                            for p_id, p_val in d_ext.items():
+                                if isinstance(p_val, dict):
+                                    is_extra = (
+                                        p_val.get("tipo") == "externo" or 
+                                        p_val.get("manual") == True or 
+                                        p_val.get("estado") == "externo" or
+                                        not p_val.get("link_yt") or 
+                                        p_val.get("opcoes_yt")
+                                    )
+                                    if is_extra and p_val.get("estado") not in ["terminado"]:
+                                        p_val['id'] = p_id
+                                        pedidos_extras_lista.append(p_val)
+                except Exception:
+                    pass
 
-        st.markdown("### 📋 Estado da Fila e Controlo de Reprodução")
-
-        if pedidos_ativos:
-            for idx, p in enumerate(pedidos_ativos, start=1):
-                titulo_musica = limpar_nome_musica(p.get("musica", {}))
-                cliente_nome = p.get("cliente", "Convidado")
-                estado_atual = p.get("estado")
-                
-                is_playing = (estado_atual == "aprovado")
-                cor_borda = "#4CAF50" if is_playing else "#FFC107"
-                badge_texto = "🎵 A TOCAR AGORA" if is_playing else f"⏳ Fila #{idx}"
-                
-                with st.container():
-                    st.markdown(f"""
-                        <div style="background: rgba(0,0,0,0.95); border: 4px solid {cor_borda}; border-radius: 8px; padding: 12px 15px; margin-bottom: 10px; font-family: monospace;">
-                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-                                <span style="color: #ffffff; font-weight: bold; font-size: 14px; text-shadow: 1px 1px 3px rgba(0,0,0,0.9);">{badge_texto}</span>
-                                <span style="color: #ffffff; font-size: 13px; font-weight: bold; text-shadow: 1px 1px 3px rgba(0,0,0,0.9);">Cliente: <b>{cliente_nome}</b></span>
-                            </div>
-                            <div style="color: #ffffff; font-size: 16px; font-weight: bold; margin-bottom: 8px; text-shadow: 1px 1px 3px rgba(0,0,0,0.9);">
-                                🎶 {titulo_musica}
-                            </div>
-                        </div>
-                    """, unsafe_allow_html=True)
-                    
-                    col_acao1, col_acao2, col_acao3 = st.columns(3)
-                    with col_acao1:
-                        if not is_playing:
-                            if st.button("▶️ Tocar Agora", key=f"play_linha_{p.get('id')}", use_container_width=True):
-                                terminar_todas_musicas_ativas(provider_token, pedidos)
-                                atualizar_estado_pedido(provider_token, p.get('id'), 'aprovado')
-                                st.success(f"A avançar para: {titulo_musica}")
-                                st.rerun()
-                    with col_acao2:
-                        if is_playing:
-                            if st.button("⏹️ Terminar Atual", key=f"term_linha_{p.get('id')}", use_container_width=True):
-                                terminar_todas_musicas_ativas(provider_token, pedidos)
-                                st.success("Música terminada!")
-                                st.rerun()
-                    with col_acao3:
-                        if st.button("❌ Remover", key=f"rem_linha_{p.get('id')}", use_container_width=True):
-                            atualizar_estado_pedido(provider_token, p.get('id'), 'terminado')
-                            st.warning("Música removida da fila.")
-                            st.rerun()
-                    st.markdown("<hr style='margin: 5px 0 15px 0; border-color: #333;'>", unsafe_allow_html=True)
-        else:
-            st.markdown("""
-                <div style="background-color: rgba(0,0,0,0.95); border: 4px solid #FFC107; border-radius: 8px; padding: 15px; color: #ffffff; width: 100%; font-family: monospace; font-size: 14px; margin-bottom: 20px; text-align: center; font-weight: bold; text-shadow: 1px 1px 3px rgba(0,0,0,0.9);">
-                    NENHUM PEDIDO NA LISTA NESTE MOMENTO.<br>À ESPERA DE NOVOS PEDIDOS...
-                </div>
-            """, unsafe_allow_html=True)
-
-        if tocando_agora:
-            if st.button("🛑 Stop Geral (Limpar Tela)", key="stop_geral_btn", use_container_width=True):
-                terminar_todas_musicas_ativas(provider_token, pedidos)
-                definir_video_fundo(provider_token, "")
-                st.warning("Reprodução parada e tela limpa com sucesso!")
-                st.rerun()
-
-        st.markdown("---")
-        
-        video_fundo_atual = obter_video_fundo(provider_token)
-        lista_clipes_cloudinary = listar_videos_pasta_clipes()
-        
-        opcoes_labels = ["Nenhum (Ecrã Preto)"]
-        mapa_url_por_label = {}
-        
-        for clipe in lista_clipes_cloudinary:
-            label = f"📁 {clipe['nome']}"
-            opcoes_labels.append(label)
-            mapa_url_por_label[label] = clipe['url']
-            
-        index_atual = 0
-        for idx, label in enumerate(opcoes_labels):
-            if label != "Nenhum (Ecrã Preto)":
-                url_mapeada = mapa_url_por_label.get(label, "")
-                if video_fundo_atual and (video_fundo_atual in url_mapeada or url_mapeada in video_fundo_atual):
-                    index_atual = idx
-                    break
-
-        with st.form(key="form_video_fundo"):
-            escolha_video = st.selectbox(
-                "Pesquisar Vídeo Clipe", 
-                options=opcoes_labels, 
-                index=index_atual
-            )
-
-            st.markdown("""
-                <style>
-                div[data-testid="stFormSubmitButton"] button {
-                    background-color: #4CAF50 !important;
-                    color: white !important;
-                    border: 2px solid #2E7D32 !important;
-                }
-                div[data-testid="stFormSubmitButton"] button:hover {
-                    background-color: #43A047 !important;
-                }
-                </style>
-            """, unsafe_allow_html=True)
-
-            btn_salvar_fundo = st.form_submit_button("Pesquisar Vídeo Clipe")
-            if btn_salvar_fundo:
-                if escolha_video == "Nenhum (Ecrã Preto)":
-                    valor_a_guardar = ""
+                if pedidos_extras_lista:
+                    for p in pedidos_extras_lista:
+                        pedido_id = p.get("id")
+                        cliente = p.get("cliente", "Desconhecido")
+                        musica_nome = p.get("musica", "")
+                        timestamp_pedido = p.get("timestamp_str", "Data não registada")
+                        
+                        opcoes_encontradas = p.get("opcoes_yt", [])
+                        link_selecionado = p.get("link_yt", "")
+                        
+                        with st.container(border=True):
+                            # 1. Informação do Cliente em cima
+                            st.caption(f"Pedido de cliente - {cliente} - {timestamp_pedido}")
+                            
+                            # 2. Título da música, botão pesquisa e botão apagar na mesma linha
+                            col_tit, col_pesq, col_del = st.columns([2.5, 1, 1])
+                            with col_tit:
+                                st.markdown(f"🎵 **{musica_nome}**")
+                            with col_pesq:
+                                if st.button("🔍 Pesquisa", key=f"procurar_ext_{pedido_id}", type="secondary", use_container_width=True):
+                                    termo_busca = f"{musica_nome} karaoke"
+                                    with st.spinner("A pesquisar..."):
+                                        resultados_busca = buscar_multiplos_links_youtube(termo_busca, max_resultados=5)
+                                    
+                                    if resultados_busca:
+                                        primeiro_link = resultados_busca[0]['url']
+                                        payload_atualizacao = {
+                                            "opcoes_yt": resultados_busca,
+                                            "link_yt": primeiro_link
+                                        }
+                                        requests.patch(f"{FIREBASE_URL}/pedidos/{provider_token}/{pedido_id}.json", json=payload_atualizacao)
+                                        st.success("Encontrado!")
+                                        time.sleep(0.3)
+                                        st.rerun()
+                                    else:
+                                        st.error("Não encontrado.")
+                            with col_del:
+                                if st.button("Apagar", key=f"apagar_ext_{pedido_id}", type="primary", use_container_width=True):
+                                    requests.delete(f"{FIREBASE_URL}/pedidos/{provider_token}/{pedido_id}.json")
+                                    st.rerun()
+                            
+                            st.markdown("<div style='height: 2px;'></div>", unsafe_allow_html=True)
+                            
+                            # 3. Links gerados (limitados a no máximo 3)
+                            links_para_mostrar = []
+                            if link_selecionado:
+                                links_para_mostrar.append(link_selecionado)
+                            
+                            if opcoes_encontradas:
+                                for opt in opcoes_encontradas:
+                                    u_opt = opt.get('url', '#')
+                                    if u_opt not in links_para_mostrar:
+                                        links_para_mostrar.append(u_opt)
+                            
+                            # Mantém apenas os 3 primeiros links
+                            links_para_mostrar = links_para_mostrar[:3]
+                            
+                            for link_url in links_para_mostrar:
+                                st.markdown(f"""
+                                <div style="margin: 6px 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                                    🔗 <a href='{link_url}' target='_blank' style='color: #FFC107; font-family: monospace; font-weight: bold; font-size: 13px; text-decoration: underline;'>{link_url}</a>
+                                </div>
+                                """, unsafe_allow_html=True)
                 else:
-                    valor_a_guardar = mapa_url_por_label.get(escolha_video, "")
+                    st.info("Nenhum pedido extra pendente no momento.")
                     
-                definir_video_fundo(provider_token, valor_a_guardar)
-                st.success("Vídeo clipe de fundo iniciado com sucesso na tela!")
-                st.rerun()
-            
+            with aba_fila:
+                col_esq, col_dir = st.columns([1.5, 1], gap="medium")
+                
+                with col_esq:
+                    st.markdown("### 📋 Estado da Fila e Controlo de Reprodução")
+
+                    if pedidos_ativos:
+                        for idx, p in enumerate(pedidos_ativos, start=1):
+                            titulo_musica = p.get("musica", "")
+                            cliente_nome = p.get("cliente", "Convidado").upper()
+                            
+                            c_num, c_cli, c_tit, c_btn = st.columns([0.5, 2, 4, 0.8])
+                            with c_num:
+                                st.markdown(f"<div style='background:#000; color:#FFC107; border:1px solid #FFC107; padding:6px; text-align:center; font-family:monospace; font-weight:bold; border-radius:4px;'>{idx}</div>", unsafe_allow_html=True)
+                            with c_cli:
+                                st.markdown(f"<div style='background:#000; color:#FFC107; border:1px solid #FFC107; padding:6px; font-family:monospace; font-weight:bold; border-radius:4px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;'>{cliente_nome}</div>", unsafe_allow_html=True)
+                            with c_tit:
+                                st.markdown(f"<div style='background:#000; color:#FFC107; border:1px solid #FFC107; padding:6px; font-family:monospace; font-weight:bold; border-radius:4px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;'>{titulo_musica}</div>", unsafe_allow_html=True)
+                            with c_btn:
+                                if st.button("✕", key=f"del_fila_{p.get('id')}", use_container_width=True):
+                                    requests.patch(f"{FIREBASE_URL}/pedidos/{provider_token}/{p.get('id')}.json", json={"estado": "terminado"})
+                                    st.rerun()
+                        st.markdown("<div style='height: 10px;'></div>", unsafe_allow_html=True)
+                    else:
+                        st.markdown("""
+                            <div style="background-color: #000000; border: 2px solid #FFC107; border-radius: 6px; padding: 12px; color: #FFC107; font-family: monospace; font-size: 13px; margin-bottom: 15px; text-align: center; font-weight: bold;">
+                                NENHUM PEDIDO NA LISTA NESTE MOMENTO.<br>À ESPERA DE NOVOS PEDIDOS...</div>
+                        """, unsafe_allow_html=True)
+
+                    st.markdown("### LEITOR KARAOKE")
+                    
+                    if tocando_agora:
+                        cantor_atual = tocando_agora.get("cliente", "CONVIDADO").upper()
+                        musica_atual = tocando_agora.get("musica", "")
+                        
+                        st.markdown(f"""
+                            <div style="background: #000000; border: 3px solid #FFC107; border-radius: 6px; padding: 20px; margin-bottom: 15px; text-align: center;">
+                                <div style="color: #FFC107; font-family: monospace; font-size: 32px; font-weight: bold; text-transform: uppercase; margin-bottom: 8px; text-shadow: 2px 2px 6px rgba(0,0,0,0.9);">
+                                    {cantor_atual}
+                                </div>
+                                <div style="color: #ffffff; font-family: monospace; font-size: 15px; font-weight: bold;">
+                                    {musica_atual}
+                                </div>
+                            </div>
+                        """, unsafe_allow_html=True)
+                        
+                        c_t1, c_t2, c_t3 = st.columns(3)
+                        with c_t1:
+                            if st.button("▶️ Tocar", key=f"btn_tocar_{tocando_agora.get('id')}", use_container_width=True):
+                                requests.patch(f"{FIREBASE_URL}/pedidos/{provider_token}/{tocando_agora.get('id')}.json", json={"estado": "aprovado"})
+                                st.rerun()
+                        with c_t2:
+                            if st.button("⏹️ Parar", key=f"btn_parar_{tocando_agora.get('id')}", use_container_width=True):
+                                st.rerun()
+                        with c_t3:
+                            if st.button("⏭️ Avançar", key=f"btn_prox_{tocando_agora.get('id')}", use_container_width=True):
+                                requests.patch(f"{FIREBASE_URL}/pedidos/{provider_token}/{tocando_agora.get('id')}.json", json={"estado": "terminado"})
+                                st.rerun()
+                    else:
+                        st.markdown("""
+                            <div style="background: #000000; border: 3px solid #FFC107; border-radius: 6px; padding: 20px; text-align: center; font-family: monospace; color: #FFC107; font-weight: bold;">
+                                NENHUMA MÚSICA EM REPRODUÇÃO
+                            </div>
+                        """, unsafe_allow_html=True)
+
+                with col_dir:
+                    st.markdown("<div style='height: 5px;'></div>", unsafe_allow_html=True)
+                    with st.form(key="form_video_fundo_pos"):
+                        st.markdown("<div style='font-family: monospace; color: #ffffff; font-size: 13px; font-weight: bold; margin-bottom: 5px;'>Vídeo Clipe de Fundo</div>", unsafe_allow_html=True)
+                        escolha_video = st.selectbox("Vídeo Clipe", options=["Nenhum (Ecrã Preto)"], label_visibility="collapsed")
+                        st.markdown("<div style='height: 10px;'></div>", unsafe_allow_html=True)
+                        
+                        col_btn_play, col_btn_stop = st.columns(2)
+                        with col_btn_play:
+                            st.form_submit_button("▶️ Play", use_container_width=True)
+                        with col_btn_stop:
+                            st.form_submit_button("⏹️ Stop", use_container_width=True)
+          
     except Exception as e:
         st.error(f"Erro ao carregar os pedidos do Firebase: {e}")
         
