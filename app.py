@@ -824,28 +824,6 @@ def show_provider_panel_custom(provider_token):
     </style>
     """, unsafe_allow_html=True)
 
-    # CABEÇALHO DO PAINEL
-    col_topo_1, col_topo_2, col_topo_3 = st.columns([1.2, 3, 0.8])
-    with col_topo_1:
-        st.markdown(f"""
-            <div style="background: #000000; border: 2px solid #FFC107; border-radius: 6px; padding: 8px; text-align: center;">
-                <div style="font-family: monospace; color: #ffffff; font-size: 9px; text-transform: uppercase; letter-spacing: 1px;">TEMPO / PLANO ESCOLHIDO</div>
-                <div style="font-family: monospace; color: #FFC107; font-size: 18px; font-weight: bold; {classe_piscar} margin: 2px 0;">⏱️ {tempo_formatado}</div>
-                <div style="font-family: monospace; color: #fff; font-size: 10px;">({tempo_plano})</div>
-            </div>
-        """, unsafe_allow_html=True)
-    with col_topo_2:
-        st.markdown(f"""
-            <div style="display: flex; align-items: center; gap: 12px; padding-top: 5px;">
-                <span style="font-size: 28px;">🎤</span>
-                <div>
-                    <h1 style="margin: 0; color: #FFC107; font-family: monospace; font-size: 20px; text-transform: uppercase; font-weight: bold;">PAINEL DO PRESTADOR: <span style="color: #FFC107;">{nome_prestador}</span></h1>
-                </div>
-            </div>""", unsafe_allow_html=True)
-    with col_topo_3:
-        st.markdown(f'<div style="text-align: right;"><img src="{url_logotipo}" class="top-logo" /></div>', unsafe_allow_html=True)
-
-    st.markdown("<hr style='border-color: #FFC107; margin: 15px 0;'>", unsafe_allow_html=True)
     st.markdown(aviso_reforço_html, unsafe_allow_html=True)
     
     link_cliente_rel = f"/?page=client_register&prestador={provider_token}"
@@ -874,7 +852,7 @@ def show_provider_panel_custom(provider_token):
             atualizar_estado_pedido(provider_token, primeiro_id, 'aprovado')
             pedidos[0]["estado"] = "aprovado"
             tocando_agora = pedidos[0]
-
+            
         indice_atual = pedidos.index(tocando_agora) if tocando_agora in pedidos else -1
         proximo_da_fila = pedidos[indice_atual + 1] if (indice_atual != -1 and len(pedidos) > indice_atual + 1) else (pedidos[0] if (not tocando_agora and pedidos) else None)
 
@@ -932,7 +910,6 @@ def show_provider_panel_custom(provider_token):
                         atualizar_estado_pedido(provider_token, restantes[0].get('id'), 'aprovado')
                     st.rerun()
 
-        # SECÇÃO DA TABELA COM CONTROLO UNIFICADO NA COLUNA AÇÕES
         st.markdown("<div style='height: 10px;'></div>", unsafe_allow_html=True)
         st.markdown("""
             <div style="font-family: monospace; color: #ffffff; font-size: 16px; font-weight: bold; margin-bottom: 8px;">
@@ -958,7 +935,6 @@ def show_provider_panel_custom(provider_token):
                 musica = limpar_nome_musica(p.get("musica", {}))
                 pid = p.get("id")
                 
-                # Linha individual estilizada
                 st.markdown(f"""
                     <div style="background-color: #000000; border-left: 3px solid #FFC107; border-right: 3px solid #FFC107; border-bottom: 2px solid #FFC107; padding: 8px 12px; display: flex; align-items: center; font-family: monospace; font-size: 14px; color: #ffffff;">
                         <div style="width: 10%; font-weight: bold;">{idx}</div>
@@ -968,7 +944,6 @@ def show_provider_panel_custom(provider_token):
                     </div>
                 """, unsafe_allow_html=True)
                 
-                # Coluna de ações unificada com seletor de opções e botão de confirmação
                 col_acao_sel, col_acao_btn = st.columns([1.5, 1])
                 with col_acao_sel:
                     acao_escolhida = st.selectbox(
