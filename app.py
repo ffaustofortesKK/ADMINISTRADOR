@@ -659,28 +659,13 @@ def renderizar_gestao_fila_prestador(provider_token):
                         st.markdown("<div style='height: 5px;'></div>", unsafe_allow_html=True)
                         
                         col_b1, col_b2, col_b3 = st.columns([1.5, 1, 0.8])
+                        
                         with col_b1:
-                        if st.button("🔍 Procurar karaoke no YouTube", key=f"procurar_ext_{pedido_id}", type="secondary", use_container_width=True):
-    termo_busca = f"{musica_nome} karaoke"
-    with st.spinner("A pesquisar no YouTube..."):
-        resultados_busca = buscar_multiplos_links_youtube(termo_busca, max_resultados=5)
-    
-    if resultados_busca:
-        primeiro_link = resultados_busca[0]['url']
-        payload_atualizacao = {
-            "opcoes_yt": resultados_busca,
-            "link_yt": primeiro_link
-        }
-        # Atualiza o firebase com os links encontrados
-        requests.patch(f"{FIREBASE_URL}/pedidos/{provider_token}/{pedido_id}.json", json=payload_atualizacao)
-        st.success("Opções encontradas com sucesso!")
-        time.sleep(0.3)
-        st.rerun()
-    else:
-        st.error("Não foi possível obter links automáticos. Utilize o link direto de pesquisa.")
                             if st.button("🔍 Procurar karaoke no YouTube", key=f"procurar_ext_{pedido_id}", type="secondary", use_container_width=True):
                                 termo_busca = f"{musica_nome} karaoke"
-                                resultados_busca = buscar_multiplos_links_youtube(termo_busca, max_resultados=6)
+                                with st.spinner("A pesquisar no YouTube..."):
+                                    resultados_busca = buscar_multiplos_links_youtube(termo_busca, max_resultados=5)
+                                
                                 if resultados_busca:
                                     primeiro_link = resultados_busca[0]['url']
                                     payload_atualizacao = {
@@ -692,7 +677,8 @@ def renderizar_gestao_fila_prestador(provider_token):
                                     time.sleep(0.3)
                                     st.rerun()
                                 else:
-                                    st.error("Nenhum vídeo correspondente encontrado.")
+                                    st.error("Não foi possível obter links automáticos. Utilize o link direto de pesquisa.")
+                                    
                         with col_b2:
                             if link_selecionado:
                                 st.markdown(f"""
@@ -706,15 +692,11 @@ def renderizar_gestao_fila_prestador(provider_token):
                                         Abrir no YouTube
                                     </div>
                                 """, unsafe_allow_html=True)
+                                
                         with col_b3:
                             if st.button("Apagar", key=f"apagar_ext_{pedido_id}", type="primary", use_container_width=True):
                                 requests.delete(f"{FIREBASE_URL}/pedidos/{provider_token}/{pedido_id}.json")
                                 st.rerun()
-            else:
-                st.markdown("<div style='border: 2px solid #FFC107; padding: 15px; color: #FFC107; text-align: center; font-weight: bold;'>NENHUM PEDIDO EXTRA PENDENTE NO MOMENTO.</div>", unsafe_allow_html=True)
-
-    except Exception as e:
-        st.error(f"Erro ao carregar os pedidos do Firebase: {e}")
         
 def show_provider_panel_custom(provider_token):
     url_logotipo = "https://cdn.phototourl.com/free/2026-08-03-8b13edf5-0257-491d-ab78-f0d5329ffc15.jpg"
