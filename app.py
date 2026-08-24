@@ -993,10 +993,10 @@ import time
 @st.fragment(run_every=1)
 def renderizar_ecra_tv(provider_token):
     try:
-        # Busca o vídeo de fundo definido pelo prestador em tempo real
+        # 1. Busca o vídeo de fundo padrão do prestador
         video_fundo_url = obter_video_fundo(provider_token)
         
-        # Busca a música ativa na fila para exibir na tela
+        # 2. Busca a música ativa na fila do Firebase
         url_firebase = f"{FIREBASE_URL}/pedidos/{provider_token}.json?_t={time.time()}"
         response = requests.get(url_firebase, timeout=10)
         
@@ -1008,7 +1008,17 @@ def renderizar_ecra_tv(provider_token):
             pedidos_ativos.sort(key=lambda x: x.get("timestamp", 0))
             tocando_agora = next((p for p in pedidos_ativos if p.get("estado") == "aprovado"), None)
 
-        # Renderização do Ecrã/Tela de TV com o Vídeo Clipe de fundo comandado pelo Prestador
+        # 3. Se houver música a tocar, tenta buscar o link direto do vídeo associado à música
+        video_musica_url = ""
+        if tocando_agora:
+            musica_info = tocando_agora.get("musica", {})
+            # Usa a nossa função robusta para obter a URL real do vídeo (seja ela dict ou string)
+            video_musica_url = obter_url_video_cloudinary(musica_info, musica_info)
+
+        # Prioriza o vídeo da música a tocar; se não houver, usa o vídeo de fundo do prestador
+        url_para_reproduzir = video_musica_url if video_musica_url else video_fundo_url
+
+        # Renderização do Ecrã de TV com suporte a vídeo ativo
         st.markdown("""
             <style>
             .stApp {
@@ -1043,18 +1053,27 @@ def renderizar_ecra_tv(provider_token):
             </style>
         """, unsafe_allow_html=True)
 
-        if video_fundo_url:
+        # Insere a tag de vídeo em HTML5 se houver uma URL válida
+        if url_para_reproduzir:
             st.markdown(f"""
-                <video autoplay muted loop class="video-background">
-                    <source src="{video_fundo_url}" type="video/mp4">
+                <video autoplay controls muted loop class="video-background">
+                    <source src="{url_para_reproduzir}" type="video/mp4">
                     O seu navegador não suporta vídeos em HTML5.
                 </video>
             """, unsafe_allow_html=True)
 
+        # Mostra os dados do cantor por cima do vídeo
         st.markdown('<div class="content-overlay">', unsafe_allow_html=True)
         if tocando_agora:
             cantor = tocando_agora.get("cliente", "CONVIDADO").upper()
-            musica = limpar_nome_musica(tocando_agora.get("musica", {}))
+            
+            # Trata o nome da música de forma segura (seja dicionário ou string)
+            m_raw = tocando_agora.get("musica", {})
+            if isinstance(m_raw, dict):
+                musica_nome = m_raw.get("nome") or m_raw.get("titulo") or str(m_raw)
+            else:
+                musica_nome = str(m_raw)
+                
             st.markdown(f"""
                 <div class="card-cantor">
                     <div style="font-family: monospace; color: #FFC107; font-size: 14px; letter-spacing: 2px; margin-bottom: 10px;">A CANTAR AGORA</div>
@@ -1062,7 +1081,7 @@ def renderizar_ecra_tv(provider_token):
                         🎤 {cantor}
                     </div>
                     <div style="font-family: monospace; color: #ffffff; font-size: 22px; font-weight: bold; text-shadow: 2px 2px 6px rgba(0,0,0,0.9);">
-                        🎵 {musica}
+                        🎵 {musica_nome}
                     </div>
                 </div>
             """, unsafe_allow_html=True)
