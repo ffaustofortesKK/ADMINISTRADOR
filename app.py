@@ -993,9 +993,15 @@ def renderizar_ecra_tv(provider_token):
         
         if response.status_code == 200 and response.json():
             data = response.json()
-            pedidos = [{"id": k, **v} for k, v in data.items()]
+            # Garante a leitura correta quer venha como dicionário ou lista
+            if isinstance(data, dict):
+                pedidos = [{"id": k, **v} for k, v in data.items() if isinstance(v, dict)]
+            elif isinstance(data, list):
+                pedidos = [{"id": str(i), **v} for i, v in enumerate(data) if isinstance(v, dict)]
+            else:
+                pedidos = []
             
-            # Filtra de forma segura aceitando variações de maiúsculas/minúsculas
+            # Filtra de forma segura aceitando variações
             pedidos_ativos = [
                 p for p in pedidos 
                 if str(p.get("estado", "pendente")).lower() in ["pendente", "aprovado", "novo", "aguardando"]
@@ -1022,79 +1028,37 @@ def renderizar_ecra_tv(provider_token):
                     100% { transform: translateX(-50%); }
                 }
                 .speaker-box {
-                    position: fixed;
-                    z-index: 99998;
-                    width: 90px;
-                    height: 140px;
-                    background: #111;
-                    border: 4px solid #FFC107;
-                    border-radius: 10px;
-                    display: flex;
-                    flex-direction: column;
-                    align-items: center;
-                    justify-content: space-around;
-                    padding: 8px 0;
-                    box-shadow: 0 0 15px rgba(255, 193, 7, 0.4);
-                    pointer-events: none;
+                    position: fixed; z-index: 99998; width: 90px; height: 140px;
+                    background: #111; border: 4px solid #FFC107; border-radius: 10px;
+                    display: flex; flex-direction: column; align-items: center;
+                    justify-content: space-around; padding: 8px 0;
+                    box-shadow: 0 0 15px rgba(255, 193, 7, 0.4); pointer-events: none;
                     animation: pulseSpeaker 0.55s infinite ease-in-out;
                 }
                 .woofer {
-                    width: 55px;
-                    height: 55px;
-                    border: 3px solid #FFC107;
-                    border-radius: 50%;
+                    width: 55px; height: 55px; border: 3px solid #FFC107; border-radius: 50%;
                     background: radial-gradient(circle, #333 30%, #000 90%);
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
+                    display: flex; align-items: center; justify-content: center;
                     box-shadow: inset 0 0 8px #FFC107;
                 }
-                .woofer-inner {
-                    width: 22px;
-                    height: 22px;
-                    background: #FFC107;
-                    border-radius: 50%;
-                }
+                .woofer-inner { width: 22px; height: 22px; background: #FFC107; border-radius: 50%; }
                 .speaker-tl { top: 15px; left: 15px; }
                 .speaker-tr { top: 15px; right: 15px; }
                 .speaker-bl { bottom: 50px; left: 15px; }
                 .speaker-br { bottom: 50px; right: 15px; }
                 
                 .marquee-footer {
-                    position: fixed;
-                    bottom: 0;
-                    left: 0;
-                    width: 100vw;
-                    height: 38px;
-                    background: #111;
-                    border-top: 4px solid #FFC107;
-                    z-index: 99997;
-                    overflow: hidden;
-                    display: flex;
-                    align-items: center;
-                    white-space: nowrap;
-                    pointer-events: none;
+                    position: fixed; bottom: 0; left: 0; width: 100vw; height: 38px;
+                    background: #111; border-top: 4px solid #FFC107; z-index: 99997;
+                    overflow: hidden; display: flex; align-items: center; white-space: nowrap; pointer-events: none;
                 }
                 .marquee-track {
-                    display: inline-block;
-                    white-space: nowrap;
-                    animation: marqueeFast 15s linear infinite;
-                    font-family: monospace;
-                    font-size: 16px;
-                    color: #ffffff;
-                    font-weight: bold;
+                    display: inline-block; white-space: nowrap; animation: marqueeFast 15s linear infinite;
+                    font-family: monospace; font-size: 16px; color: #ffffff; font-weight: bold;
                     text-shadow: 1px 1px 3px rgba(0,0,0,0.9);
                 }
-                .marquee-item {
-                    display: inline-flex;
-                    align-items: center;
-                    gap: 12px;
-                    margin-right: 40px;
-                }
-                .icon-anim {
-                    display: inline-block;
-                    animation: bounceIcon 0.8s infinite ease-in-out; 
-                }
+                .marquee-item { display: inline-flex; align-items: center; gap: 12px; margin-right: 40px; }
+                .icon-anim { display: inline-block; animation: bounceIcon 0.8s infinite ease-in-out; }
             </style>
             <div class="speaker-box speaker-tl"><div class="woofer"><div class="woofer-inner"></div></div><div class="woofer"><div class="woofer-inner"></div></div></div>
             <div class="speaker-box speaker-tr"><div class="woofer"><div class="woofer-inner"></div></div><div class="woofer"><div class="woofer-inner"></div></div></div>
@@ -1122,21 +1086,21 @@ def renderizar_ecra_tv(provider_token):
 
                 setInterval(async () => {{
                     try {{
-                        let responsePedidos = await fetch(firebaseBaseUrl);
+                        let responsePedidos = await fetch(firebaseBaseUrl + "?_t=" + Date.now());
                         let dataPedidos = await responsePedidos.json();
                         let novoIdTocando = "none";
                         
                         if (dataPedidos) {{
                             for (let key in dataPedidos) {{
-                                let est = dataPedidos[key].estado ? dataPedidos[key].estado.toLowerCase() : "";
-                                if (est === "aprovado") {{
+                                let item = dataPedidos[key];
+                                if (item && item.estado && item.estado.toLowerCase() === "aprovado") {{
                                     novoIdTocando = key;
                                     break;
                                 }}
                             }}
                         }}
                         
-                        let responseVideo = await fetch(firebaseVideoUrl);
+                        let responseVideo = await fetch(firebaseVideoUrl + "?_t=" + Date.now());
                         let dataVideo = await responseVideo.json();
                         let novaUrlFundo = "";
                         if (dataVideo) {{
@@ -1168,6 +1132,11 @@ def renderizar_ecra_tv(provider_token):
             titulo_limpo = limpar_nome_musica(titulo)
             url_video = obter_url_video_cloudinary(musica, titulo_limpo)
             c_nome = tocando_agora.get("cliente", "Convidado")
+            
+            # Verificação de segurança caso o link do Cloudinary venha vazio
+            if not url_video:
+                st.warning(f"⚠️ O link do Cloudinary para a música '{titulo_limpo}' não foi encontrado ou está vazio.")
+                url_video = ""
 
             video_html = f"""
             <style>
@@ -1305,15 +1274,14 @@ def renderizar_ecra_tv(provider_token):
                 <div style="position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: #000; z-index: 99975;"></div>
                 """
 
-            # Caixa flutuante com a Fila de Pedidos por cima do vídeo clipe
             html_elementos_sobreposicao += """
             <div style="position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 550px; max-width: 90vw; max-height: 75vh; background: rgba(0, 0, 0, 0.88); border: 4px solid #FFC107; border-radius: 12px; padding: 20px; z-index: 99985; overflow-y: auto; box-shadow: 0 0 30px rgba(255,193,7,0.5); backdrop-filter: blur(5px);">
                 <div style="display: flex; align-items: center; justify-content: center; gap: 10px; border-bottom: 2px solid #FFC107; padding-bottom: 10px; margin-bottom: 15px;">
                     <span style="font-size: 22px;">📋</span>
                     <h2 style="color: #FFC107; font-family: monospace; font-size: 20px; margin: 0; text-transform: uppercase;">FILA DE PEDIDOS DE MÚSICA</h2>
                 </div>
-            """
-
+            """ 
+            
             if pedidos_ativos:
                 for i, p in enumerate(pedidos_ativos, 1):
                     cliente_nome = p.get("cliente", "Convidado")
@@ -1345,7 +1313,6 @@ def renderizar_ecra_tv(provider_token):
                 """
 
             html_elementos_sobreposicao += "</div>"
-
             components.html(html_elementos_sobreposicao, height=800, scrolling=False)
 
     except Exception as e:
