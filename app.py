@@ -596,6 +596,7 @@ def show_provider_panel_custom(provider_token):
 
     df_prov = get_all_providers()
     
+    # Valores padrão caso não encontre
     nome_prestador = "PRESTADOR NÃO IDENTIFICADO"
     tempo_plano = "2 Horas - 12 Mil Kwanzas"
     data_registo_str = None
