@@ -501,25 +501,39 @@ def renderizar_gestao_fila_prestador(provider_token):
         pedidos = []
         if response.status_code == 200 and response.json():
             data = response.json()
-            pedidos = [{"id": k, **v} for k, v in data.items()]
+            if isinstance(data, dict):
+                for k, v in data.items():
+                    if isinstance(v, dict):
+                        v['id'] = k
+                        pedidos.append(v)
+            elif isinstance(data, list):
+                for idx, v in enumerate(data):
+                    if isinstance(v, dict):
+                        v['id'] = str(idx)
+                        pedidos.append(v)
             
-        # Separar pedidos extras / externos (se aplicável na sua base de dados)
-        pedidos_extras = [p for p in pedidos if p.get("estado") not in ["pendente", "aprovado", "terminado"] or "opcoes_yt" in p or "link_yt" in p or p.get("tipo") == "externo"]
-        # Caso guarde os pedidos extras num nó separado no Firebase, ajuste conforme a sua estrutura:
-        try:
-            res_ext = requests.get(f"{FIREBASE_URL}/pedidos/{provider_token}.json", timeout=5)
-            # Se preferir ler separadamente de outro endpoint, ex: /pedidos_extras/
-        except Exception:
-            pass
+        # CORREÇÃO: Aceitar também estados vazios (None ou ausentes) para garantir que novos pedidos aparecem
+        pedidos_ativos = [p for p in pedidos if p.get("estado") in ["pendente", "aprovado", None, ""]]
+        
+        # Atribuir estado "pendente" por defeito caso venham sem estado
+        for p in pedidos_ativos:
+            if not p.get("estado"):
+                p["estado"] = "pendente"
+
+        pedidos_ativos.sort(key=lambda x: x.get("timestamp", 0))
+        
+        tocando_agora = next((p for p in pedidos_ativos if p.get("estado") == "aprovado"), None)
+        if not tocando_agora and pedidos_ativos:
+            primeiro_id = pedidos_ativos[0].get('id')
+            requests.patch(f"{FIREBASE_URL}/pedidos/{provider_token}/{primeiro_id}.json", json={"estado": "aprovado"})
+            pedidos_ativos[0]["estado"] = "aprovado"
+            tocando_agora = pedidos_ativos[0]
 
         # Vamos estruturar com as duas abas tal como já tinha
         with st.container():
             aba_extras, aba_fila = st.tabs(["🎶 Pedidos Extras / Não Achados", "📋 Fila de Reprodução"])
             
             with aba_extras:
-                # Texto grande "CAIXA DE PEDIDOS..." removido conforme pedido!
-                
-                # Vamos buscar os pedidos extras do nó correspondente se existirem
                 pedidos_extras_lista = []
                 try:
                     r_ext = requests.get(f"{FIREBASE_URL}/pedidos/{provider_token}.json", timeout=5)
@@ -547,7 +561,6 @@ def renderizar_gestao_fila_prestador(provider_token):
                             st.markdown(f"🎵 **{musica_nome}**")
                             st.caption(f"Pedido de cliente - {cliente} - {timestamp_pedido}")
                             
-                            # Mostrar o Link com o emoji 🔗 integrado diretamente
                             if link_selecionado:
                                 st.markdown(f"""
                                 <div style="margin: 8px 0;">
@@ -567,7 +580,6 @@ def renderizar_gestao_fila_prestador(provider_token):
                             
                             st.markdown("<div style='height: 5px;'></div>", unsafe_allow_html=True)
                             
-                            # Botões ajustados (Removido o botão "Abrir no YouTube", mantendo apenas Procurar e Apagar)
                             col_b1, col_b2 = st.columns([2, 1])
                             
                             with col_b1:
@@ -597,16 +609,6 @@ def renderizar_gestao_fila_prestador(provider_token):
                     st.info("Nenhum pedido extra pendente no momento.")
                     
             with aba_fila:
-                pedidos_ativos = [p for p in pedidos if p.get("estado") in ["pendente", "aprovado"]]
-                pedidos_ativos.sort(key=lambda x: x.get("timestamp", 0))
-                
-                tocando_agora = next((p for p in pedidos_ativos if p.get("estado") == "aprovado"), None)
-                if not tocando_agora and pedidos_ativos:
-                    primeiro_id = pedidos_ativos[0].get('id')
-                    # atualizar_estado_pedido(provider_token, primeiro_id, 'aprovado')
-                    pedidos_ativos[0]["estado"] = "aprovado"
-                    tocando_agora = pedidos_ativos[0]
-
                 col_esq, col_dir = st.columns([1.5, 1], gap="medium")
                 
                 with col_esq:
