@@ -1308,7 +1308,7 @@ def renderizar_ecra_tv(provider_token):
                     """, unsafe_allow_html=True)
 
     except Exception as e:
-        st.error(f"Erro de sincronização na TV: {e}"
+        st.error(f"Erro de sincronização na TV: {e}")
         
 def show_client_screen():
     query_params = st.query_params
