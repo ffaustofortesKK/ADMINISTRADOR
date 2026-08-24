@@ -564,11 +564,11 @@ def renderizar_gestao_fila_prestador(provider_token):
                         link_selecionado = p.get("link_yt", "")
                         
                         with st.container(border=True):
-                            # 1. Informação do Cliente e Data em cima
+                            # 1. Informação do Cliente em cima
                             st.caption(f"Pedido de cliente - {cliente} - {timestamp_pedido}")
                             
-                            # 2. Título da música e botão de pesquisa na mesma linha (ou lado a lado)
-                            col_tit, col_pesq = st.columns([3, 1])
+                            # 2. Título da música, botão pesquisa e botão apagar na mesma linha
+                            col_tit, col_pesq, col_del = st.columns([2.5, 1, 1])
                             with col_tit:
                                 st.markdown(f"🎵 **{musica_nome}**")
                             with col_pesq:
@@ -589,32 +589,33 @@ def renderizar_gestao_fila_prestador(provider_token):
                                         st.rerun()
                                     else:
                                         st.error("Não encontrado.")
+                            with col_del:
+                                if st.button("Apagar", key=f"apagar_ext_{pedido_id}", type="primary", use_container_width=True):
+                                    requests.delete(f"{FIREBASE_URL}/pedidos/{provider_token}/{pedido_id}.json")
+                                    st.rerun()
                             
                             st.markdown("<div style='height: 2px;'></div>", unsafe_allow_html=True)
                             
-                            # 3. Links gerados e botão Apagar logo à frente (em colunas como na imagem)
+                            # 3. Links gerados (limitados a no máximo 3)
+                            links_para_mostrar = []
                             if link_selecionado:
-                                col_link, col_del = st.columns([4, 1])
-                                with col_link:
-                                    st.markdown(f"""
-                                    <div style="margin: 8px 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
-                                        🔗 <a href='{link_selecionado}' target='_blank' style='color: #FFC107; font-family: monospace; font-weight: bold; font-size: 13px; text-decoration: underline;'>{link_selecionado}</a>
-                                    </div>
-                                    """, unsafe_allow_html=True)
-                                with col_del:
-                                    if st.button("Apagar", key=f"apagar_ext_{pedido_id}", type="primary", use_container_width=True):
-                                        requests.delete(f"{FIREBASE_URL}/pedidos/{provider_token}/{pedido_id}.json")
-                                        st.rerun()
+                                links_para_mostrar.append(link_selecionado)
                             
                             if opcoes_encontradas:
                                 for opt in opcoes_encontradas:
-                                    t_opt = opt.get('titulo', 'Vídeo')
                                     u_opt = opt.get('url', '#')
-                                    st.markdown(f"""
-                                    <div style='margin: 4px 0;'>
-                                        🔗 <a href='{u_opt}' target='_blank' style='color: #FFC107; font-family: monospace; font-size: 13px; text-decoration: none; font-weight: bold;'>{t_opt}</a>
-                                    </div>
-                                    """, unsafe_allow_html=True)
+                                    if u_opt not in links_para_mostrar:
+                                        links_para_mostrar.append(u_opt)
+                            
+                            # Mantém apenas os 3 primeiros links
+                            links_para_mostrar = links_para_mostrar[:3]
+                            
+                            for link_url in links_para_mostrar:
+                                st.markdown(f"""
+                                <div style="margin: 6px 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                                    🔗 <a href='{link_url}' target='_blank' style='color: #FFC107; font-family: monospace; font-weight: bold; font-size: 13px; text-decoration: underline;'>{link_url}</a>
+                                </div>
+                                """, unsafe_allow_html=True)
                 else:
                     st.info("Nenhum pedido extra pendente no momento.")
                     
