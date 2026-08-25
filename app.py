@@ -468,6 +468,47 @@ def definir_video_fundo(provider_token, url_video):
         requests.put(url, json={"url": url_video}, timeout=5)
     except Exception:
         pass
+def processar_aprovacao_pedido(pedido_id, token_prestador, nome_linha, duracao_solicitada):
+    """
+    Função para processar a aprovação de um pedido.
+    Passa o nome da linha e a duração solicitada diretamente para o registo do prestador no Firebase.
+    """
+    url_firebase_provider = f"{FIREBASE_URL}/providers/{token_prestador}.json"
+    
+    # 1. Obter os dados atuais do prestador para atualizar de forma segura
+    try:
+        res = requests.get(url_firebase_provider, timeout=5)
+        dados_atuais = res.json() if res.status_code == 200 and res.json() else {}
+    except Exception:
+        dados_atuais = {}
+
+    # Se o registo estiver numa estrutura aninhada ou direta, garantimos a atualização dos campos chave
+    if not isinstance(dados_atuais, dict):
+        dados_atuais = {}
+
+    # Atualizar / Inserir o nome e a duração aprovada/solicitada
+    dados_atuais["nome_prestador"] = str(nome_linha).upper()
+    dados_atuais["nome"] = str(nome_linha).upper()
+    dados_atuais["prestador"] = str(nome_linha).upper()
+    dados_atuais["user"] = str(nome_linha).upper()
+    
+    dados_atuais["tempo_plano"] = str(duracao_solicitada)
+    dados_atuais["duracao"] = str(duracao_solicitada)
+    dados_atuais["contrato"] = str(duracao_solicitada)
+    dados_atuais["token"] = token_prestador
+    dados_atuais["provider_token"] = token_prestador
+
+    # 2. Gravar de volta no Firebase no nó do prestador
+    try:
+        requests.put(url_firebase_provider, json=dados_atuais, timeout=10)
+        
+        # Opcional: Marcar o pedido como aprovado na aba de pedidos
+        requests.patch(f"{FIREBASE_URL}/pedidos/{pedido_id}.json", json={"approved": 1}, timeout=10)
+        
+        st.success(f"Pedido aprovado com sucesso! Nome '{nome_linha.upper()}' e duração '{duracao_solicitada}' aplicados ao perfil do prestador.")
+    except Exception as err:
+        st.error(f"Erro ao atualizar os dados do prestador no Firebase: {err}")
+        
 
 def listar_videos_pasta_clipes():
     try:
