@@ -711,68 +711,71 @@ def show_provider_panel_custom(provider_token):
     tempo_plano = ""
     data_registo_str = None
     
-    # --- BLOCO DE DIAGNÓSTICO EM /providers ---
-    with st.expander("🔍 [DEBUG] Verificar nós em /providers", expanded=False):
-        st.write(f"Token procurado: `{provider_token}`")
+    # --- BLOCO DE DIAGNÓSTICO DETALHADO ---
+    with st.expander("🔍 [DEBUG] Conteúdo completo de /providers", expanded=True):
+        st.write(f"Token procurado na URL: `{provider_token}`")
         try:
             res_debug = requests.get(f"{FIREBASE_URL}/providers.json", timeout=5)
             if res_debug.status_code == 200:
-                st.write("Conteúdo de /providers:", res_debug.json())
+                dados_dbg = res_debug.json()
+                st.write("Dados brutos no Firebase:", dados_dbg)
             else:
-                st.write("Erro HTTP ao ler /providers:", res_debug.status_code)
+                st.write("Erro HTTP:", res_debug.status_code)
         except Exception as e:
-            st.write("Erro de ligação:", e)
-    # -----------------------------------------
+            st.write("Erro:", e)
+    # --------------------------------------
 
-    # 1. Tentar ler do nó "providers" do Firebase
+    # 1. Varredura profunda e flexível no nó "providers" do Firebase
     try:
         res_prov = requests.get(f"{FIREBASE_URL}/providers.json", timeout=5)
         if res_prov.status_code == 200 and res_prov.json():
             dados_prov = res_prov.json()
             if isinstance(dados_prov, dict):
-                # Percorrer cada registo dentro de providers
                 for k, v in dados_prov.items():
-                    # Verificamos se a chave do nó (k) ou o token guardado corresponde ao provider_token
-                    tok_val = ""
-                    if isinstance(v, dict):
-                        tok_val = str(v.get("token", v.get("provider_token", v.get("id", ""))))
+                    # Verificar se o token coincide com a chave principal (k) ou com qualquer valor interno
+                    encontrou = False
+                    if str(k).strip() == str(provider_token).strip():
+                        encontrou = True
+                    elif isinstance(v, dict):
+                        for sub_k, sub_v in v.items():
+                            if str(sub_v).strip() == str(provider_token).strip():
+                                encontrou = True
+                                break
                     
-                    if str(k) == str(provider_token) or tok_val == str(provider_token):
-                        # Se for um dicionário com os dados do prestador
-                        if isinstance(v, dict):
-                            for key_n in ['nome_prestador', 'nome', 'prestador', 'user', 'username', 'nome_usuario']:
-                                if key_n in v and v[key_n]:
-                                    val_n = str(v[key_n]).strip()
-                                    if val_n and val_n.lower() != "nan":
-                                        nome_prestador = val_n.upper()
-                                        break
-                            
-                            for key_p in ['tempo_plano', 'plano', 'duracao', 'tempo']:
-                                if key_p in v and v[key_p]:
-                                    val_p = str(v[key_p]).strip()
-                                    if val_p and val_p.lower() != "nan":
-                                        tempo_plano = val_p
-                                        break
-                                        
-                            data_registo_str = v.get("data_registo", v.get("timestamp", v.get("data", v.get("created_at"))))
+                    if encontrou and isinstance(v, dict):
+                        # Extrair o nome do prestador independentemente do nome exato da chave
+                        for key_n in ['nome_prestador', 'nome', 'prestador', 'user', 'username', 'nome_usuario', 'titulo', 'name']:
+                            if key_n in v and v[key_n]:
+                                val_n = str(v[key_n]).strip()
+                                if val_n and val_n.lower() != "nan":
+                                    nome_prestador = val_n.upper()
+                                    break
                         
-                        # Se o nó for apenas uma string (ex: o próprio nome guardado diretamente na chave)
-                        elif isinstance(v, str):
-                            nome_prestador = str(v).upper()
+                        # Se ainda não achou nome, tenta procurar qualquer campo que pareça um nome (texto longo sem ser token)
+                        if nome_prestador == "PRESTADOR NÃO IDENTIFICADO":
+                            for key_n, val_n in v.items():
+                                if isinstance(val_n, str) and len(val_n) > 2 and val_n != provider_token and not "http" in val_n.lower():
+                                    nome_prestador = val_n.upper()
+                                    break
+
+                        for key_p in ['tempo_plano', 'plano', 'duracao', 'tempo']:
+                            if key_p in v and v[key_p]:
+                                val_p = str(v[key_p]).strip()
+                                if val_p and val_p.lower() != "nan":
+                                    tempo_plano = val_p
+                                    break
+                                    
+                        data_registo_str = v.get("data_registo", v.get("timestamp", v.get("data", v.get("created_at"))))
                         break
     except Exception as err:
-        st.write("Erro em /providers:", err)
+        st.write("Erro na leitura:", err)
 
     # 2. Se ainda não encontrou, recorrer ao DataFrame geral `df_prov`
     if (nome_prestador == "PRESTADOR NÃO IDENTIFICADO" or not tempo_plano) and not df_prov.empty:
-        col_token_candidates = ['token', 'provider_token', 'id']
-        col_token_encontrada = next((c for c in col_token_candidates if c in df_prov.columns), None)
-        
-        if col_token_encontrada:
-            match = df_prov[df_prov[col_token_encontrada].astype(str) == str(provider_token)]
+        for col in df_prov.columns:
+            match = df_prov[df_prov[col].astype(str).str.contains(str(provider_token), na=False)]
             if not match.empty:
                 row = match.iloc[0]
-                
                 if nome_prestador == "PRESTADOR NÃO IDENTIFICADO":
                     for col_n in ['nome_prestador', 'nome', 'prestador', 'user', 'username']:
                         if col_n in df_prov.columns and pd.notna(row.get(col_n)):
@@ -780,7 +783,6 @@ def show_provider_panel_custom(provider_token):
                             if val_nome and val_nome.lower() != "nan":
                                 nome_prestador = val_nome.upper()
                                 break
-                
                 if not tempo_plano:
                     for col_p in ['tempo_plano', 'plano', 'duracao', 'tempo']:
                         if col_p in df_prov.columns and pd.notna(row.get(col_p)):
@@ -788,14 +790,7 @@ def show_provider_panel_custom(provider_token):
                             if val_plano and val_plano.lower() != "nan":
                                 tempo_plano = val_plano
                                 break
-                        
-                if not data_registo_str:
-                    for col_d in ['data_registo', 'data', 'timestamp', 'created_at']:
-                        if col_d in df_prov.columns and pd.notna(row.get(col_d)):
-                            val_data = str(row.get(col_d)).strip()
-                            if val_data and val_data.lower() != "nan":
-                                data_registo_str = val_data
-                                break
+                break
 
     # Deteção automática e rigorosa do contrato e segundos base
     segundos_base = 7200 
