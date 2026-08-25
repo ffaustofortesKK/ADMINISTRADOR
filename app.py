@@ -711,23 +711,52 @@ def show_provider_panel_custom(provider_token):
     tempo_plano = ""
     data_registo_str = None
     
-    # 1. Tentar ler diretamente dos registos aprovados do Firebase
+    # 1. Tentar ler diretamente do nó "prestadores" do Firebase
     try:
-        res_aprovados = requests.get(f"{FIREBASE_URL}/prestadores_aprovados.json", timeout=5)
-        if res_aprovados.status_code == 200 and res_aprovados.json():
-            dados_aprovados = res_aprovados.json()
-            if isinstance(dados_aprovados, dict):
-                for k, v in dados_aprovados.items():
-                    if isinstance(v, dict) and str(v.get("token")) == str(provider_token):
-                        nome_prestador = str(v.get("nome_prestador", v.get("nome", nome_prestador))).upper()
-                        tempo_plano = str(v.get("tempo_plano", v.get("plano", "")))
-                        data_registo_str = v.get("data_registo", v.get("timestamp"))
-                        break
+        res_prest = requests.get(f"{FIREBASE_URL}/prestadores.json", timeout=5)
+        if res_prest.status_code == 200 and res_prest.json():
+            dados_prest = res_prest.json()
+            if isinstance(dados_prest, dict):
+                for k, v in dados_prest.items():
+                    if isinstance(v, dict):
+                        # Verifica se corresponde pelo token ou pela própria chave do registo
+                        if str(v.get("token", k)) == str(provider_token) or str(k) == str(provider_token):
+                            val_n = str(v.get("nome_prestador", v.get("nome", v.get("prestador", "")))).strip()
+                            if val_n and val_n.lower() != "nan":
+                                nome_prestador = val_n.upper()
+                            
+                            val_p = str(v.get("tempo_plano", v.get("plano", v.get("duracao", "")))).strip()
+                            if val_p and val_p.lower() != "nan":
+                                tempo_plano = val_p
+                                
+                            data_registo_str = v.get("data_registo", v.get("timestamp", v.get("data")))
+                            break
     except Exception:
         pass
 
-    # 2. Se não encontrou, procurar na tabela geral `df_prov`
-    if (not tempo_plano or nome_prestador == "PRESTADOR NÃO IDENTIFICADO") and not df_prov.empty:
+    # 2. Se ainda não encontrou, tentar ler do nó "providers" do Firebase
+    if nome_prestador == "PRESTADOR NÃO IDENTIFICADO":
+        try:
+            res_prov = requests.get(f"{FIREBASE_URL}/providers.json", timeout=5)
+            if res_prov.status_code == 200 and res_prov.json():
+                dados_prov = res_prov.json()
+                if isinstance(dados_prov, dict):
+                    for k, v in dados_prov.items():
+                        if isinstance(v, dict):
+                            if str(v.get("token", k)) == str(provider_token) or str(k) == str(provider_token):
+                                val_n = str(v.get("nome_prestador", v.get("nome", v.get("prestador", "")))).strip()
+                                if val_n and val_n.lower() != "nan":
+                                    nome_prestador = val_n.upper()
+                                if not tempo_plano:
+                                    tempo_plano = str(v.get("tempo_plano", v.get("plano", "")))
+                                if not data_registo_str:
+                                    data_registo_str = v.get("data_registo", v.get("timestamp"))
+                                break
+        except Exception:
+            pass
+
+    # 3. Se ainda não encontrou, recorrer ao DataFrame geral `df_prov`
+    if (nome_prestador == "PRESTADOR NÃO IDENTIFICADO" or not tempo_plano) and not df_prov.empty:
         col_token_candidates = ['token', 'provider_token', 'id']
         col_token_encontrada = next((c for c in col_token_candidates if c in df_prov.columns), None)
         
@@ -736,45 +765,29 @@ def show_provider_panel_custom(provider_token):
             if not match.empty:
                 row = match.iloc[0]
                 
-                for col_n in ['nome_prestador', 'nome', 'prestador', 'user']:
-                    if col_n in df_prov.columns and pd.notna(row.get(col_n)):
-                        val_nome = str(row.get(col_n)).strip()
-                        if val_nome and val_nome.lower() != "nan":
-                            nome_prestador = val_nome.upper()
-                            break
+                if nome_prestador == "PRESTADOR NÃO IDENTIFICADO":
+                    for col_n in ['nome_prestador', 'nome', 'prestador', 'user']:
+                        if col_n in df_prov.columns and pd.notna(row.get(col_n)):
+                            val_nome = str(row.get(col_n)).strip()
+                            if val_nome and val_nome.lower() != "nan":
+                                nome_prestador = val_nome.upper()
+                                break
                 
-                for col_p in ['tempo_plano', 'plano', 'duracao', 'tempo']:
-                    if col_p in df_prov.columns and pd.notna(row.get(col_p)):
-                        val_plano = str(row.get(col_p)).strip()
-                        if val_plano and val_plano.lower() != "nan":
-                            tempo_plano = val_plano
-                            break
+                if not tempo_plano:
+                    for col_p in ['tempo_plano', 'plano', 'duracao', 'tempo']:
+                        if col_p in df_prov.columns and pd.notna(row.get(col_p)):
+                            val_plano = str(row.get(col_p)).strip()
+                            if val_plano and val_plano.lower() != "nan":
+                                tempo_plano = val_plano
+                                break
                         
-                for col_d in ['data_registo', 'data', 'timestamp', 'created_at']:
-                    if col_d in df_prov.columns and pd.notna(row.get(col_d)):
-                        val_data = str(row.get(col_d)).strip()
-                        if val_data and val_data.lower() != "nan":
-                            data_registo_str = val_data
-                            break
-
-    # 3. Se ainda estiver vazio, verificar em prestadores_pendentes
-    if not tempo_plano or nome_prestador == "PRESTADOR NÃO IDENTIFICADO":
-        try:
-            res_pend = requests.get(f"{FIREBASE_URL}/prestadores_pendentes.json", timeout=5)
-            if res_pend.status_code == 200 and res_pend.json():
-                for k, v in res_pend.json().items():
-                    if isinstance(v, dict) and str(v.get("token")) == str(provider_token):
-                        if not tempo_plano:
-                            tempo_plano = str(v.get("tempo_plano", ""))
-                        if not nome_prestador or nome_prestador == "PRESTADOR NÃO IDENTIFICADO":
-                            val_nome_p = str(v.get("nome_prestador", v.get("nome", ""))).strip()
-                            if val_nome_p:
-                                nome_prestador = val_nome_p.upper()
-                        if not data_registo_str:
-                            data_registo_str = v.get("data_registo")
-                        break
-        except Exception:
-            pass
+                if not data_registo_str:
+                    for col_d in ['data_registo', 'data', 'timestamp', 'created_at']:
+                        if col_d in df_prov.columns and pd.notna(row.get(col_d)):
+                            val_data = str(row.get(col_d)).strip()
+                            if val_data and val_data.lower() != "nan":
+                                data_registo_str = val_data
+                                break
 
     # Deteção automática e rigorosa do contrato e segundos base
     segundos_base = 7200 
