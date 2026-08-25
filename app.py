@@ -710,12 +710,13 @@ def show_provider_panel_custom(provider_token):
 
     df_prov = get_all_providers()
     
-    # Valores padrão caso não encontre
+    # Valores padrão caso não encontre (substituído o "Carlos Miguel" genérico por um aviso limpo)
     nome_prestador = "PRESTADOR NÃO IDENTIFICADO"
     tempo_plano = "2 Horas - 12 Mil Kwanzas"
     data_registo_str = None
     
     if not df_prov.empty:
+        # Tenta identificar qual coluna guarda o token
         col_token_candidates = ['token', 'provider_token', 'id']
         col_token_encontrada = next((c for c in col_token_candidates if c in df_prov.columns), None)
         
@@ -724,24 +725,14 @@ def show_provider_panel_custom(provider_token):
             if not match.empty:
                 row = match.iloc[0]
                 
-                # Procura e junta Nome e Sobrenome caso existam em colunas separadas, ou usa o campo de nome direto
-                nome_val = ""
-                for col_n in ['nome', 'nome_prestador', 'prestador', 'user']:
+                # Procura dinamicamente pelas colunas de nome
+                for col_n in ['nome_prestador', 'nome', 'prestador', 'user']:
                     if col_n in df_prov.columns and pd.notna(row.get(col_n)):
-                        nome_val = str(row.get(col_n)).strip()
+                        nome_prestador = str(row.get(col_n)).upper()
                         break
                 
-                sobrenome_val = ""
-                for col_s in ['sobrenome', 'apelido']:
-                    if col_s in df_prov.columns and pd.notna(row.get(col_s)):
-                        sobrenome_val = str(row.get(col_s)).strip()
-                        break
-                
-                if nome_val:
-                    nome_prestador = f"{nome_val} {sobrenome_val}".strip().upper()
-                
-                # Procura dinamicamente pelas colunas de contrato/plano/tempo
-                for col_p in ['contrato', 'tempo_plano', 'plano', 'duracao', 'tempo']:
+                # Procura dinamicamente pelas colunas de plano/tempo
+                for col_p in ['tempo_plano', 'plano', 'duracao', 'tempo']:
                     if col_p in df_prov.columns and pd.notna(row.get(col_p)):
                         tempo_plano = str(row.get(col_p))
                         break
@@ -769,7 +760,7 @@ def show_provider_panel_custom(provider_token):
     except Exception:
         pass
 
-    # Define os segundos base com base estrita no contrato/plano escolhido
+    # Define os segundos base com base estrita no plano escolhido pelo prestador
     segundos_base = 7200
     if "3 Horas" in tempo_plano:
         segundos_base = 10800
@@ -811,7 +802,7 @@ def show_provider_panel_custom(provider_token):
             <div style="margin-top: 8px;">
                 <a href="#reforco_seccao" style="background: #FFC107; color: #000; padding: 6px 12px; border-radius: 4px; text-decoration: none; font-weight: bold; font-size: 13px;">⚡ PEDIR REFORÇO AGORA</a>
             </div>
-      </div>
+        </div>
         """
 
     st.markdown(f"""
@@ -924,7 +915,84 @@ def show_provider_panel_custom(provider_token):
     st.markdown("<hr style='border-color: #FFC107; margin: 15px 0;'>", unsafe_allow_html=True)
     st.markdown(aviso_reforço_html, unsafe_allow_html=True)
     
-    # Restante do código do painel...
+    link_cliente_rel = f"/?page=client_register&prestador={provider_token}"
+    link_tv_rel = f"/?page=client_screen&prestador={provider_token}"
+    
+    host_dominio = st.context.headers.get('Host', 'grupoffkaraoke.streamlit.app')
+    link_cliente_absoluto = f"https://{host_dominio}{link_cliente_rel}"
+    link_tv_absoluto = f"https://{host_dominio}{link_tv_rel}"
+    
+    qr_url_cliente = f"https://api.qrserver.com/v1/create-qr-code/?size=150x150&data={urllib.parse.quote(link_cliente_absoluto)}"
+
+    col_links, col_qr = st.columns([2.5, 1], gap="medium")
+    with col_links:
+        st.markdown(f"""
+            <div class="card-link">
+                <div class="link-title">🔗 LINK DO CLIENTE (REGISTO DE MÚSICA)</div>
+                <a href="{link_cliente_rel}" target="_blank" class="link-text">{link_cliente_absoluto}</a>
+            </div>
+        """, unsafe_allow_html=True)
+        
+        st.markdown(f"""
+            <div class="card-tv">
+                <div class="link-title-tv">📺 LINK DA TELA DE TV / REPRODUÇÃO</div>
+                <a href="{link_tv_rel}" target="_blank" class="link-text-tv">{link_tv_absoluto}</a>
+            </div>
+        """, unsafe_allow_html=True)
+
+    with col_qr:
+        st.markdown("<div style='font-family: monospace; color: #ffffff; font-size: 11px; font-weight: bold; margin-bottom: 3px; text-align: center;'>QR CODE CLIENTE</div>", unsafe_allow_html=True)
+        st.markdown(f"""
+            <div class="qr-box">
+                <img src="{qr_url_cliente}" width="110" style="border-radius: 4px;" />
+            </div>
+        """, unsafe_allow_html=True)
+
+    st.markdown("<hr style='border-color: #333; margin: 15px 0;'>", unsafe_allow_html=True)
+
+    st.markdown("<div id='reforco_seccao'></div>", unsafe_allow_html=True)
+    if segundos_restantes <= 1800:
+        st.markdown("### ⚡ Solicitar Reforço de Tempo")
+        with st.form("form_reforco_prestador"):
+            referencia_comprovativo = st.text_input("Referência de Pagamento / Nº de Comprovativo")
+            duracao_reforco = st.selectbox(
+                "Duração Pretendida", 
+                options=[
+                    "2 Horas - 12 Mil Kwanzas", 
+                    "3 Horas - 15 Mil Kwanzas", 
+                    "4 Horas - 20 Mil Kwanzas"
+                ]
+            )
+            btn_sub_reforco = st.form_submit_button("Submeter Pedido de Reforço")
+            if btn_sub_reforco:
+                if not referencia_comprovativo:
+                    st.error("Por favor, preencha a Referência de Pagamento / Nº de Comprovativo.")
+                else:
+                    dados_reforco = {
+                        "token": provider_token,
+                        "nome_prestador": nome_prestador,
+                        "referencia": referencia_comprovativo,
+                        "tempo_plano": duracao_reforco,
+                        "approved": 0,
+                        "data_registo": str(datetime.now())
+                    }
+                    try:
+                        import uuid
+                        ref_id = str(uuid.uuid4())[:8]
+                        requests.put(f"{FIREBASE_URL}/reforcos_pendentes/{provider_token}/{ref_id}.json", json=dados_reforco, timeout=10)
+                        st.success("Pedido de reforço submetido com sucesso! Aguarde a confirmação do Administrador.")
+                    except Exception as err:
+                        st.error(f"Erro ao enviar reforço: {err}")
+
+    st.markdown("<div style='height: 5px;'></div>", unsafe_allow_html=True)
+    renderizar_gestao_fila_prestador(provider_token) 
+    
+import streamlit as st
+import requests
+import time
+
+# (Nota: Mantenha as suas funções auxiliares originais no topo do seu ficheiro se houver mais, 
+# tais como limpar_nome_musica, obter_video_fundo, listar_videos_pasta_clipes, get_all_providers, etc.)
 
 @st.fragment(run_every=1)
 def renderizar_ecra_tv(provider_token):
