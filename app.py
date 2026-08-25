@@ -753,16 +753,12 @@ def show_provider_panel_custom(provider_token):
         pass
 
     segundos_base = 7200
-    label_contrato = "2H"
     if "3 Horas" in tempo_plano:
         segundos_base = 10800
-        label_contrato = "3H"
     elif "4 Horas" in tempo_plano:
         segundos_base = 14400
-        label_contrato = "4H"
     elif "2 Horas" in tempo_plano:
         segundos_base = 7200
-        label_contrato = "2H"
 
     segundos_totais = segundos_base + segundos_bónus
     segundos_restantes = segundos_totais
@@ -780,11 +776,18 @@ def show_provider_panel_custom(provider_token):
         except Exception:
             pass
 
-    # Formatar segundos restantes para HH:MM:SS
-    h_rest = segundos_restantes // 3600
-    m_rest = (segundos_restantes % 3600) // 60
-    s_rest = segundos_restantes % 60
-    tempo_formatado = f"{h_rest:02d}:{m_rest:02d}:{s_rest:02d}"
+    # Formatar o tempo restante em HH:MM:SS
+    hrs = segundos_restantes // 3600
+    mins = (segundos_restantes % 3600) // 60
+    segs = segundos_restantes % 60
+    tempo_formatado = f"{hrs:02d}:{mins:02d}:{segs:02d}"
+
+    # Identificar sigla ou formato do contrato para exibição (ex: 2H, 3H, 4H)
+    sigla_contrato = "2H"
+    if "3 Horas" in tempo_plano:
+        sigla_contrato = "3H"
+    elif "4 Horas" in tempo_plano:
+        sigla_contrato = "4H"
 
     aviso_reforço_html = ""
     if segundos_restantes <= 1800 and segundos_restantes > 0:
@@ -821,6 +824,14 @@ def show_provider_panel_custom(provider_token):
         0% {{ opacity: 1; transform: scale(1); }}
         50% {{ opacity: 0.7; transform: scale(1.01); }}
         100% {{ opacity: 1; transform: scale(1); }}
+    }}
+    @keyframes spinRight {{
+        0% {{ transform: rotate(0deg); }}
+        100% {{ transform: rotate(360deg); }}
+    }}
+    @keyframes spinLeft {{
+        0% {{ transform: rotate(0deg); }}
+        100% {{ transform: rotate(-360deg); }}
     }}
     .card-link, .card-tv {{
         background: #000000 !important;
@@ -862,25 +873,60 @@ def show_provider_panel_custom(provider_token):
         font-weight: bold !important;
         text-shadow: 1px 1px 3px rgba(0,0,0,0.9) !important;
     }}
-    .top-logo {{
-        width: 88px;
-        height: 88px;
-        border-radius: 50%;
-        border: 3px solid #FFC107;
-        object-fit: cover;
+    
+    /* Contentores para o topo (Contrato à esquerda e Logótipo com Anéis à direita) */
+    .top-header-container {{
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 15px;
     }}
-    .contrato-box {{
+    .contract-box {{
         background: #000000;
         border: 3px solid #FFC107;
         border-radius: 8px;
         padding: 10px 18px;
-        display: inline-block;
         font-family: monospace;
         color: #FFC107;
         font-size: 16px;
         font-weight: bold;
-        box-shadow: 0 4px 12px rgba(255, 193, 7, 0.25);
+        box-shadow: 0 0 10px rgba(255, 193, 7, 0.3);
     }}
+    .logo-wrapper {{
+        position: relative;
+        width: 110px;
+        height: 110px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }}
+    .top-logo-enlarged {{
+        width: 80px;
+        height: 80px;
+        border-radius: 50%;
+        object-fit: cover;
+        z-index: 2;
+        border: 2px solid #FFC107;
+    }}
+    .ring-yellow {{
+        position: absolute;
+        width: 104px;
+        height: 104px;
+        border: 3px dashed #FFC107;
+        border-radius: 50%;
+        animation: spinRight 12s linear infinite;
+        z-index: 1;
+    }}
+    .ring-red {{
+        position: absolute;
+        width: 114px;
+        height: 114px;
+        border: 3px dashed #ff3d00;
+        border-radius: 50%;
+        animation: spinLeft 15s linear infinite;
+        z-index: 1;
+    }}
+    
     h1, h2, h3, h4, h5, h6, p, label, span, div, .stMarkdown {{
         color: #ffffff !important;
         font-weight: bold !important;
@@ -889,36 +935,18 @@ def show_provider_panel_custom(provider_token):
     </style>
     """, unsafe_allow_html=True)
 
-    # Topo: Contrato à esquerda e Logótipo aumentado (+60%) à direita
-    col_e, col_d = st.columns([3, 1])
-    with col_e:
-        st.markdown(f"""
-            <div class="contrato-box">
-                CONTRATO : {label_contrato} &nbsp;&nbsp;( <span id="relogio_regresso">{tempo_formatado}</span> )
-            </div>
-        """, unsafe_allow_html=True)
-    with col_d:
-        st.markdown(f'<div style="text-align: right;"><img src="{url_logotipo}" class="top-logo" /></div>', unsafe_allow_html=True)
-
-    # Script JavaScript para fazer a contagem decrescente ao vivo segundo a segundo no navegador
+    # Topo com o Contrato à esquerda e o Logótipo com os anéis rotativos à direita
     st.markdown(f"""
-        <script>
-        (function() {{
-            let segundos = {segundos_restantes};
-            const elem = document.getElementById("relogio_regresso");
-            if (!elem) return;
-            if (window._timerContrato) clearInterval(window._timerContrato);
-            window._timerContrato = setInterval(() => {{
-                if (segundos > 0) {{
-                    segundos--;
-                }}
-                let h = String(Math.floor(segundos / 3600)).padStart(2, '0');
-                let m = String(Math.floor((segundos % 3600) / 60)).padStart(2, '0');
-                let s = String(segundos % 60).padStart(2, '0');
-                elem.innerText = h + ":" + m + ":" + s;
-            }}, 1000);
-        }})();
-        </script>
+    <div class="top-header-container">
+        <div class="contract-box">
+            CONTRATO : {sigla_contrato} &nbsp;&nbsp;|&nbsp;&nbsp; ( {tempo_formatado} )
+        </div>
+        <div class="logo-wrapper">
+            <div class="ring-red"></div>
+            <div class="ring-yellow"></div>
+            <img src="{url_logotipo}" class="top-logo-enlarged" />
+        </div>
+    </div>
     """, unsafe_allow_html=True)
 
     st.markdown("<hr style='border-color: #FFC107; margin: 15px 0;'>", unsafe_allow_html=True)
