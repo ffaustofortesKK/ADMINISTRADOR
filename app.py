@@ -708,10 +708,26 @@ def show_provider_panel_custom(provider_token):
     df_prov = get_all_providers()
     
     nome_prestador = "PRESTADOR NÃO IDENTIFICADO"
-    tempo_plano = "2 Horas - 12 Mil Kwanzas"
+    tempo_plano = ""
     data_registo_str = None
     
-    if not df_prov.empty:
+    # 1. Tentar ler diretamente dos registos aprovados do Firebase (onde o contrato real foi guardado)
+    try:
+        res_aprovados = requests.get(f"{FIREBASE_URL}/prestadores_aprovados.json", timeout=5)
+        if res_aprovados.status_code == 200 and res_aprovados.json():
+            dados_aprovados = res_aprovados.json()
+            if isinstance(dados_aprovados, dict):
+                for k, v in dados_aprovados.items():
+                    if isinstance(v, dict) and str(v.get("token")) == str(provider_token):
+                        nome_prestador = str(v.get("nome_prestador", v.get("nome", nome_prestador))).upper()
+                        tempo_plano = str(v.get("tempo_plano", v.get("plano", "")))
+                        data_registo_str = v.get("data_registo", v.get("timestamp"))
+                        break
+    except Exception:
+        pass
+
+    # 2. Se não encontrou no Firebase aprovado, procurar na tabela geral `df_prov`
+    if not tempo_plano and not df_prov.empty:
         col_token_candidates = ['token', 'provider_token', 'id']
         col_token_encontrada = next((c for c in col_token_candidates if c in df_prov.columns), None)
         
@@ -735,6 +751,36 @@ def show_provider_panel_custom(provider_token):
                         data_registo_str = str(row.get(col_d))
                         break
 
+    # Se ainda estiver vazio, verificar se existe nos pedidos pendentes ou outras tabelas de controlo
+    if not tempo_plano:
+        try:
+            res_pend = requests.get(f"{FIREBASE_URL}/prestadores_pendentes.json", timeout=5)
+            if res_pend.status_code == 200 and res_pend.json():
+                for k, v in res_pend.json().items():
+                    if isinstance(v, dict) and str(v.get("token")) == str(provider_token):
+                        tempo_plano = str(v.get("tempo_plano", ""))
+                        if not data_registo_str:
+                            data_registo_str = v.get("data_registo")
+                        break
+        except Exception:
+            pass
+
+    # Calcular os segundos base com base estrita no contrato escolhido/encontrado
+    segundos_base = 7200 # Padrão de segurança caso venha vazio
+    sigla_contrato = "2H"
+
+    tp_lower = tempo_plano.lower()
+    if "4 hora" in tp_lower or "4h" in tp_lower:
+        segundos_base = 14400
+        sigla_contrato = "4H"
+    elif "3 hora" in tp_lower or "3h" in tp_lower:
+        segundos_base = 10800
+        sigla_contrato = "3H"
+    elif "2 hora" in tp_lower or "2h" in tp_lower:
+        segundos_base = 7200
+        sigla_contrato = "2H"
+
+    # Adicionar segundos de reforços aprovados, se houver
     segundos_bónus = 0
     try:
         res_ref = requests.get(f"{FIREBASE_URL}/reforcos_aprovados/{provider_token}.json", timeout=5)
@@ -742,52 +788,37 @@ def show_provider_panel_custom(provider_token):
             dados_ref = res_ref.json()
             if isinstance(dados_ref, dict):
                 for r_id, r_info in dados_ref.items():
-                    t_ref = r_info.get("tempo_plano", "")
-                    if "3 Horas" in t_ref:
-                        segundos_bónus += 10800
-                    elif "4 Horas" in t_ref:
+                    t_ref = r_info.get("tempo_plano", "").lower()
+                    if "4 hora" in t_ref or "4h" in t_ref:
                         segundos_bónus += 14400
-                    elif "2 Horas" in t_ref:
+                    elif "3 hora" in t_ref or "3h" in t_ref:
+                        segundos_bónus += 10800
+                    elif "2 hora" in t_ref or "2h" in t_ref:
                         segundos_bónus += 7200
     except Exception:
         pass
-
-    segundos_base = 7200
-    if "3 Horas" in tempo_plano:
-        segundos_base = 10800
-    elif "4 Horas" in tempo_plano:
-        segundos_base = 14400
-    elif "2 Horas" in tempo_plano:
-        segundos_base = 7200
 
     segundos_totais = segundos_base + segundos_bónus
     segundos_restantes = segundos_totais
     
     if data_registo_str:
         try:
-            dt_str_clean = data_registo_str.split('.')[0]
+            dt_str_clean = str(data_registo_str).split('.')[0]
             try:
                 dt_reg = datetime.strptime(dt_str_clean, "%Y-%m-%d %H:%M:%S")
             except Exception:
-                dt_reg = datetime.fromisoformat(data_registo_str.replace('Z', '+00:00').split('+')[0])
+                dt_reg = datetime.fromisoformat(str(data_registo_str).replace('Z', '+00:00').split('+')[0])
                 
             diff = (datetime.now() - dt_reg).total_seconds()
             segundos_restantes = max(0, int(segundos_totais - diff))
         except Exception:
             pass
 
-    # Formatar o tempo restante em HH:MM:SS
+    # Formatar o tempo restante em HH:MM:SS para o cronómetro decrescente
     hrs = segundos_restantes // 3600
     mins = (segundos_restantes % 3600) // 60
     segs = segundos_restantes % 60
     tempo_formatado = f"{hrs:02d}:{mins:02d}:{segs:02d}"
-
-    # Identificar sigla ou formato do contrato para exibição (ex: 2H, 3H, 4H)
-    sigla_contrato = "2H"
-    if "3 Horas" in tempo_plano:
-        sigla_contrato = "3H"
-    elif "4 Horas" in tempo_plano:
-        sigla_contrato = "4H"
 
     aviso_reforço_html = ""
     if segundos_restantes <= 1800 and segundos_restantes > 0:
@@ -874,7 +905,6 @@ def show_provider_panel_custom(provider_token):
         text-shadow: 1px 1px 3px rgba(0,0,0,0.9) !important;
     }}
     
-    /* Contentores para o topo (Contrato à esquerda e Logótipo com Anéis à direita) */
     .top-header-container {{
         display: flex;
         justify-content: space-between;
@@ -935,7 +965,7 @@ def show_provider_panel_custom(provider_token):
     </style>
     """, unsafe_allow_html=True)
 
-    # Topo com o Contrato à esquerda e o Logótipo com os anéis rotativos à direita
+    # Exibição do Contrato e do Cronómetro Decrescente no canto superior esquerdo, e do logotipo ampliado com os anéis na direita
     st.markdown(f"""
     <div class="top-header-container">
         <div class="contract-box">
