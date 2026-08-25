@@ -711,7 +711,7 @@ def show_provider_panel_custom(provider_token):
     tempo_plano = ""
     data_registo_str = None
     
-    # 1. Tentar ler diretamente dos registos aprovados do Firebase (onde o contrato real foi guardado)
+    # 1. Tentar ler diretamente dos registos aprovados do Firebase
     try:
         res_aprovados = requests.get(f"{FIREBASE_URL}/prestadores_aprovados.json", timeout=5)
         if res_aprovados.status_code == 200 and res_aprovados.json():
@@ -726,8 +726,8 @@ def show_provider_panel_custom(provider_token):
     except Exception:
         pass
 
-    # 2. Se não encontrou no Firebase aprovado, procurar na tabela geral `df_prov`
-    if not tempo_plano and not df_prov.empty:
+    # 2. Se não encontrou, procurar na tabela geral `df_prov`
+    if (not tempo_plano or nome_prestador == "PRESTADOR NÃO IDENTIFICADO") and not df_prov.empty:
         col_token_candidates = ['token', 'provider_token', 'id']
         col_token_encontrada = next((c for c in col_token_candidates if c in df_prov.columns), None)
         
@@ -738,45 +738,56 @@ def show_provider_panel_custom(provider_token):
                 
                 for col_n in ['nome_prestador', 'nome', 'prestador', 'user']:
                     if col_n in df_prov.columns and pd.notna(row.get(col_n)):
-                        nome_prestador = str(row.get(col_n)).upper()
-                        break
+                        val_nome = str(row.get(col_n)).strip()
+                        if val_nome and val_nome.lower() != "nan":
+                            nome_prestador = val_nome.upper()
+                            break
                 
                 for col_p in ['tempo_plano', 'plano', 'duracao', 'tempo']:
                     if col_p in df_prov.columns and pd.notna(row.get(col_p)):
-                        tempo_plano = str(row.get(col_p))
-                        break
+                        val_plano = str(row.get(col_p)).strip()
+                        if val_plano and val_plano.lower() != "nan":
+                            tempo_plano = val_plano
+                            break
                         
                 for col_d in ['data_registo', 'data', 'timestamp', 'created_at']:
                     if col_d in df_prov.columns and pd.notna(row.get(col_d)):
-                        data_registo_str = str(row.get(col_d))
-                        break
+                        val_data = str(row.get(col_d)).strip()
+                        if val_data and val_data.lower() != "nan":
+                            data_registo_str = val_data
+                            break
 
-    # Se ainda estiver vazio, verificar se existe nos pedidos pendentes ou outras tabelas de controlo
-    if not tempo_plano:
+    # 3. Se ainda estiver vazio, verificar em prestadores_pendentes
+    if not tempo_plano or nome_prestador == "PRESTADOR NÃO IDENTIFICADO":
         try:
             res_pend = requests.get(f"{FIREBASE_URL}/prestadores_pendentes.json", timeout=5)
             if res_pend.status_code == 200 and res_pend.json():
                 for k, v in res_pend.json().items():
                     if isinstance(v, dict) and str(v.get("token")) == str(provider_token):
-                        tempo_plano = str(v.get("tempo_plano", ""))
+                        if not tempo_plano:
+                            tempo_plano = str(v.get("tempo_plano", ""))
+                        if not nome_prestador or nome_prestador == "PRESTADOR NÃO IDENTIFICADO":
+                            val_nome_p = str(v.get("nome_prestador", v.get("nome", ""))).strip()
+                            if val_nome_p:
+                                nome_prestador = val_nome_p.upper()
                         if not data_registo_str:
                             data_registo_str = v.get("data_registo")
                         break
         except Exception:
             pass
 
-    # Calcular os segundos base com base estrita no contrato escolhido/encontrado
-    segundos_base = 7200 # Padrão de segurança caso venha vazio
+    # Deteção automática e rigorosa do contrato e segundos base
+    segundos_base = 7200 
     sigla_contrato = "2H"
 
     tp_lower = tempo_plano.lower()
-    if "4 hora" in tp_lower or "4h" in tp_lower:
+    if "4 hora" in tp_lower or "4h" in tp_lower or "20 mil" in tp_lower:
         segundos_base = 14400
         sigla_contrato = "4H"
-    elif "3 hora" in tp_lower or "3h" in tp_lower:
+    elif "3 hora" in tp_lower or "3h" in tp_lower or "15 mil" in tp_lower:
         segundos_base = 10800
         sigla_contrato = "3H"
-    elif "2 hora" in tp_lower or "2h" in tp_lower:
+    elif "2 hora" in tp_lower or "2h" in tp_lower or "12 mil" in tp_lower:
         segundos_base = 7200
         sigla_contrato = "2H"
 
@@ -789,11 +800,11 @@ def show_provider_panel_custom(provider_token):
             if isinstance(dados_ref, dict):
                 for r_id, r_info in dados_ref.items():
                     t_ref = r_info.get("tempo_plano", "").lower()
-                    if "4 hora" in t_ref or "4h" in t_ref:
+                    if "4 hora" in t_ref or "4h" in t_ref or "20 mil" in t_ref:
                         segundos_bónus += 14400
-                    elif "3 hora" in t_ref or "3h" in t_ref:
+                    elif "3 hora" in t_ref or "3h" in t_ref or "15 mil" in t_ref:
                         segundos_bónus += 10800
-                    elif "2 hora" in t_ref or "2h" in t_ref:
+                    elif "2 hora" in t_ref or "2h" in t_ref or "12 mil" in t_ref:
                         segundos_bónus += 7200
     except Exception:
         pass
@@ -814,7 +825,7 @@ def show_provider_panel_custom(provider_token):
         except Exception:
             pass
 
-    # Formatar o tempo restante em HH:MM:SS para o cronómetro decrescente
+    # Formatar o tempo restante em HH:MM:SS
     hrs = segundos_restantes // 3600
     mins = (segundos_restantes % 3600) // 60
     segs = segundos_restantes % 60
@@ -904,7 +915,6 @@ def show_provider_panel_custom(provider_token):
         font-weight: bold !important;
         text-shadow: 1px 1px 3px rgba(0,0,0,0.9) !important;
     }}
-    
     .top-header-container {{
         display: flex;
         justify-content: space-between;
@@ -921,6 +931,20 @@ def show_provider_panel_custom(provider_token):
         font-size: 16px;
         font-weight: bold;
         box-shadow: 0 0 10px rgba(255, 193, 7, 0.3);
+    }}
+    .right-header-group {{
+        display: flex;
+        align-items: center;
+        gap: 15px;
+    }}
+    .provider-name-display {{
+        font-family: monospace;
+        color: #FFC107;
+        font-size: 18px;
+        font-weight: bold;
+        text-transform: uppercase;
+        text-shadow: 2px 2px 4px rgba(0,0,0,0.9);
+        letter-spacing: 1px;
     }}
     .logo-wrapper {{
         position: relative;
@@ -956,7 +980,6 @@ def show_provider_panel_custom(provider_token):
         animation: spinLeft 15s linear infinite;
         z-index: 1;
     }}
-    
     h1, h2, h3, h4, h5, h6, p, label, span, div, .stMarkdown {{
         color: #ffffff !important;
         font-weight: bold !important;
@@ -965,16 +988,19 @@ def show_provider_panel_custom(provider_token):
     </style>
     """, unsafe_allow_html=True)
 
-    # Exibição do Contrato e do Cronómetro Decrescente no canto superior esquerdo, e do logotipo ampliado com os anéis na direita
+    # Exibição do Contrato, Cronómetro e Nome do Prestador no Topo
     st.markdown(f"""
     <div class="top-header-container">
         <div class="contract-box">
             CONTRATO : {sigla_contrato} &nbsp;&nbsp;|&nbsp;&nbsp; ( {tempo_formatado} )
         </div>
-        <div class="logo-wrapper">
-            <div class="ring-red"></div>
-            <div class="ring-yellow"></div>
-            <img src="{url_logotipo}" class="top-logo-enlarged" />
+        <div class="right-header-group">
+            <div class="provider-name-display">{nome_prestador}</div>
+            <div class="logo-wrapper">
+                <div class="ring-red"></div>
+                <div class="ring-yellow"></div>
+                <img src="{url_logotipo}" class="top-logo-enlarged" />
+            </div>
         </div>
     </div>
     """, unsafe_allow_html=True)
