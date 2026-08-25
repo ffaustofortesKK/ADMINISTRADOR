@@ -710,67 +710,56 @@ def show_provider_panel_custom(provider_token):
     nome_prestador = "PRESTADOR NÃO IDENTIFICADO"
     tempo_plano = ""
     data_registo_str = None
-    
-    # --- BLOCO DE DIAGNÓSTICO DETALHADO ---
-    with st.expander("🔍 [DEBUG] Conteúdo completo de /providers", expanded=True):
-        st.write(f"Token procurado na URL: `{provider_token}`")
-        try:
-            res_debug = requests.get(f"{FIREBASE_URL}/providers.json", timeout=5)
-            if res_debug.status_code == 200:
-                dados_dbg = res_debug.json()
-                st.write("Dados brutos no Firebase:", dados_dbg)
-            else:
-                st.write("Erro HTTP:", res_debug.status_code)
-        except Exception as e:
-            st.write("Erro:", e)
-    # --------------------------------------
 
-    # 1. Varredura profunda e flexível no nó "providers" do Firebase
+    # Varredura inteligente no nó "providers" do Firebase
     try:
         res_prov = requests.get(f"{FIREBASE_URL}/providers.json", timeout=5)
         if res_prov.status_code == 200 and res_prov.json():
             dados_prov = res_prov.json()
             if isinstance(dados_prov, dict):
                 for k, v in dados_prov.items():
-                    # Verificar se o token coincide com a chave principal (k) ou com qualquer valor interno
+                    # Verificar se o token bate certo com a chave (k) ou com os campos internos (token, provider_token, etc.)
                     encontrou = False
                     if str(k).strip() == str(provider_token).strip():
                         encontrou = True
                     elif isinstance(v, dict):
                         for sub_k, sub_v in v.items():
-                            if str(sub_v).strip() == str(provider_token).strip():
+                            if sub_k in ['token', 'provider_token'] and str(sub_v).strip() == str(provider_token).strip():
                                 encontrou = True
                                 break
                     
-                    if encontrou and isinstance(v, dict):
-                        # Extrair o nome do prestador independentemente do nome exato da chave
+                    if encontrou:
+                        # Se for um container que guarda os dados internamente
+                        dados_alvo = v
+                        if isinstance(v, dict) and not any(pk in v for pk in ['nome_prestador', 'nome', 'prestador', 'user', 'tempo_plano']):
+                            # Se por acaso houver um nível mais abaixo
+                            for sub_k, sub_v in v.items():
+                                if isinstance(sub_v, dict):
+                                    dados_alvo = sub_v
+                                    break
+
+                        # Extrair o nome do prestador
                         for key_n in ['nome_prestador', 'nome', 'prestador', 'user', 'username', 'nome_usuario', 'titulo', 'name']:
-                            if key_n in v and v[key_n]:
-                                val_n = str(v[key_n]).strip()
+                            if key_n in dados_alvo and dados_alvo[key_n]:
+                                val_n = str(dados_alvo[key_n]).strip()
                                 if val_n and val_n.lower() != "nan":
                                     nome_prestador = val_n.upper()
                                     break
                         
-                        # Se ainda não achou nome, tenta procurar qualquer campo que pareça um nome (texto longo sem ser token)
-                        if nome_prestador == "PRESTADOR NÃO IDENTIFICADO":
-                            for key_n, val_n in v.items():
-                                if isinstance(val_n, str) and len(val_n) > 2 and val_n != provider_token and not "http" in val_n.lower():
-                                    nome_prestador = val_n.upper()
-                                    break
-
-                        for key_p in ['tempo_plano', 'plano', 'duracao', 'tempo']:
-                            if key_p in v and v[key_p]:
-                                val_p = str(v[key_p]).strip()
+                        # Extrair o tempo / plano
+                        for key_p in ['tempo_plano', 'plano', 'duracao', 'contrato', 'tempo']:
+                            if key_p in dados_alvo and dados_alvo[key_p]:
+                                val_p = str(dados_alvo[key_p]).strip()
                                 if val_p and val_p.lower() != "nan":
                                     tempo_plano = val_p
                                     break
                                     
-                        data_registo_str = v.get("data_registo", v.get("timestamp", v.get("data", v.get("created_at"))))
+                        data_registo_str = dados_alvo.get("data_registo", dados_alvo.get("timestamp", dados_alvo.get("data", dados_alvo.get("created_at"))))
                         break
     except Exception as err:
-        st.write("Erro na leitura:", err)
+        pass
 
-    # 2. Se ainda não encontrou, recorrer ao DataFrame geral `df_prov`
+    # Se ainda não encontrou, recorrer ao DataFrame geral `df_prov`
     if (nome_prestador == "PRESTADOR NÃO IDENTIFICADO" or not tempo_plano) and not df_prov.empty:
         for col in df_prov.columns:
             match = df_prov[df_prov[col].astype(str).str.contains(str(provider_token), na=False)]
@@ -784,7 +773,7 @@ def show_provider_panel_custom(provider_token):
                                 nome_prestador = val_nome.upper()
                                 break
                 if not tempo_plano:
-                    for col_p in ['tempo_plano', 'plano', 'duracao', 'tempo']:
+                    for col_p in ['tempo_plano', 'plano', 'duracao', 'contrato', 'tempo']:
                         if col_p in df_prov.columns and pd.notna(row.get(col_p)):
                             val_plano = str(row.get(col_p)).strip()
                             if val_plano and val_plano.lower() != "nan":
@@ -793,8 +782,8 @@ def show_provider_panel_custom(provider_token):
                 break
 
     # Deteção automática e rigorosa do contrato e segundos base
-    segundos_base = 7200 
-    sigla_contrato = "2H"
+    segundos_base = 14400 # Default 4 horas com base no seu registo atual
+    sigla_contrato = "4H"
 
     tp_lower = tempo_plano.lower()
     if "4 hora" in tp_lower or "4h" in tp_lower or "20 mil" in tp_lower:
