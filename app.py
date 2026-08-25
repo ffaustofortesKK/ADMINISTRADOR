@@ -710,13 +710,12 @@ def show_provider_panel_custom(provider_token):
 
     df_prov = get_all_providers()
     
-    # Valores padrão caso não encontre (substituído o "Carlos Miguel" genérico por um aviso limpo)
+    # Valores padrão caso não encontre
     nome_prestador = "PRESTADOR NÃO IDENTIFICADO"
     tempo_plano = "2 Horas - 12 Mil Kwanzas"
     data_registo_str = None
     
     if not df_prov.empty:
-        # Tenta identificar qual coluna guarda o token
         col_token_candidates = ['token', 'provider_token', 'id']
         col_token_encontrada = next((c for c in col_token_candidates if c in df_prov.columns), None)
         
@@ -725,14 +724,20 @@ def show_provider_panel_custom(provider_token):
             if not match.empty:
                 row = match.iloc[0]
                 
-                # Procura dinamicamente pelas colunas de nome
-                for col_n in ['nome_prestador', 'nome', 'prestador', 'user']:
-                    if col_n in df_prov.columns and pd.notna(row.get(col_n)):
-                        nome_prestador = str(row.get(col_n)).upper()
-                        break
+                # Combina Nome e Sobrenome caso existam separadamente, ou busca a coluna de nome unificada
+                nome_val = row.get('nome', '') if pd.notna(row.get('nome', '')) else ''
+                sobrenome_val = row.get('sobrenome', '') if pd.notna(row.get('sobrenome', '')) else ''
                 
-                # Procura dinamicamente pelas colunas de plano/tempo
-                for col_p in ['tempo_plano', 'plano', 'duracao', 'tempo']:
+                if nome_val or sobrenome_val:
+                    nome_prestador = f"{nome_val} {sobrenome_val}".strip().upper()
+                else:
+                    for col_n in ['nome_prestador', 'prestador', 'user']:
+                        if col_n in df_prov.columns and pd.notna(row.get(col_n)):
+                            nome_prestador = str(row.get(col_n)).upper()
+                            break
+                
+                # Procura dinamicamente pelas colunas de plano/contrato/tempo escolhido no cadastro
+                for col_p in ['contrato', 'tempo_plano', 'plano', 'duracao', 'tempo']:
                     if col_p in df_prov.columns and pd.notna(row.get(col_p)):
                         tempo_plano = str(row.get(col_p))
                         break
@@ -751,21 +756,21 @@ def show_provider_panel_custom(provider_token):
             if isinstance(dados_ref, dict):
                 for r_id, r_info in dados_ref.items():
                     t_ref = r_info.get("tempo_plano", "")
-                    if "3 Horas" in t_ref:
-                        segundos_bónus += 10800
-                    elif "4 Horas" in t_ref:
+                    if "4 Horas" in t_ref:
                         segundos_bónus += 14400
+                    elif "3 Horas" in t_ref:
+                        segundos_bónus += 10800
                     elif "2 Horas" in t_ref:
                         segundos_bónus += 7200
     except Exception:
         pass
 
-    # Define os segundos base com base estrita no plano escolhido pelo prestador
+    # Define os segundos base com base estrita no contrato/plano escolhido no cadastro
     segundos_base = 7200
-    if "3 Horas" in tempo_plano:
-        segundos_base = 10800
-    elif "4 Horas" in tempo_plano:
+    if "4 Horas" in tempo_plano:
         segundos_base = 14400
+    elif "3 Horas" in tempo_plano:
+        segundos_base = 10800
     elif "2 Horas" in tempo_plano:
         segundos_base = 7200
 
@@ -802,7 +807,7 @@ def show_provider_panel_custom(provider_token):
             <div style="margin-top: 8px;">
                 <a href="#reforco_seccao" style="background: #FFC107; color: #000; padding: 6px 12px; border-radius: 4px; text-decoration: none; font-weight: bold; font-size: 13px;">⚡ PEDIR REFORÇO AGORA</a>
             </div>
-        </div>
+      </div>
         """
 
     st.markdown(f"""
@@ -862,8 +867,7 @@ def show_provider_panel_custom(provider_token):
         font-size: 13px;
         font-weight: bold !important;
         margin-bottom: 4px;
-        text-shadow: 1px 1px 3px rgba(0,0,0,0.9) !important;
-    }}
+        text-shadow: 1px 1px 3px rgba(0,0,0,0.9) !important;  }}
     .link-text, .link-text-tv {{
         font-family: monospace;
         color: #ffffff !important;
@@ -904,11 +908,11 @@ def show_provider_panel_custom(provider_token):
             <div style="display: flex; align-items: center; gap: 12px; padding-top: 5px;">
                 <span style="font-size: 28px;">🎤</span>
                 <div>
-                    <h1 style="margin: 0; color: #FFC107; font-family: monospace; font-size: 20px; text-transform: uppercase; font-weight: bold;">PAINEL DO PRESTADOR: <span style="color: #FFC107;">{nome_prestador}</span></h1>
+                    <h1 style="margin: 0; color: #FFC107; font-family: monospace; font-size: 20px; text-transform: uppercase; font-weight: bold;">PAINEL DO PRESTADOR - <span style="color: #FFC107;">{nome_prestador}</span></h1>
                 </div>
             </div>
         """, unsafe_allow_html=True)
-        
+
     with col_topo_3:
         st.markdown(f'<div style="text-align: right;"><img src="{url_logotipo}" class="top-logo" /></div>', unsafe_allow_html=True)
 
@@ -985,14 +989,8 @@ def show_provider_panel_custom(provider_token):
                         st.error(f"Erro ao enviar reforço: {err}")
 
     st.markdown("<div style='height: 5px;'></div>", unsafe_allow_html=True)
-    renderizar_gestao_fila_prestador(provider_token) 
+    renderizar_gestao_fila_prestador(provider_token)
     
-import streamlit as st
-import requests
-import time
-
-# (Nota: Mantenha as suas funções auxiliares originais no topo do seu ficheiro se houver mais, 
-# tais como limpar_nome_musica, obter_video_fundo, listar_videos_pasta_clipes, get_all_providers, etc.)
 
 @st.fragment(run_every=1)
 def renderizar_ecra_tv(provider_token):
