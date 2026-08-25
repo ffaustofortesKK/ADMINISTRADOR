@@ -556,7 +556,7 @@ def renderizar_gestao_fila_prestador(provider_token):
                                         pedidos_extras_lista.append(p_val)
                 except Exception:
                     pass
-
+                
                 if pedidos_extras_lista:
                     for p in pedidos_extras_lista:
                         pedido_id = p.get("id")
@@ -568,10 +568,8 @@ def renderizar_gestao_fila_prestador(provider_token):
                         link_selecionado = p.get("link_yt", "")
                         
                         with st.container(border=True):
-                            # 1. Informação do Cliente em cima
                             st.caption(f"Pedido de cliente - {cliente} - {timestamp_pedido}")
                             
-                            # 2. Título da música, botão pesquisa e botão apagar na mesma linha
                             col_tit, col_pesq, col_del = st.columns([2.5, 1, 1])
                             with col_tit:
                                 st.markdown(f"🎵 **{musica_nome}**")
@@ -600,7 +598,6 @@ def renderizar_gestao_fila_prestador(provider_token):
                             
                             st.markdown("<div style='height: 2px;'></div>", unsafe_allow_html=True)
                             
-                            # 3. Links gerados (limitados a no máximo 3)
                             links_para_mostrar = []
                             if link_selecionado:
                                 links_para_mostrar.append(link_selecionado)
@@ -611,7 +608,6 @@ def renderizar_gestao_fila_prestador(provider_token):
                                     if u_opt not in links_para_mostrar:
                                         links_para_mostrar.append(u_opt)
                             
-                            # Mantém apenas os 3 primeiros links
                             links_para_mostrar = links_para_mostrar[:3]
                             
                             for link_url in links_para_mostrar:
@@ -629,7 +625,7 @@ def renderizar_gestao_fila_prestador(provider_token):
                 with col_esq:
                     st.markdown("### 📋 Estado da Fila e Controlo de Reprodução")
 
-                    if pedidos_ativos:
+                    if pedidos_ativos: 
                         for idx, p in enumerate(pedidos_ativos, start=1):
                             titulo_musica = p.get("musica", "")
                             cliente_nome = p.get("cliente", "Convidado").upper()
@@ -710,7 +706,11 @@ def show_provider_panel_custom(provider_token):
 
     df_prov = get_all_providers()
     
-         if not df_prov.empty:
+    nome_prestador = "PRESTADOR NÃO IDENTIFICADO"
+    tempo_plano = "2 Horas - 12 Mil Kwanzas"
+    data_registo_str = None
+    
+    if not df_prov.empty:
         col_token_candidates = ['token', 'provider_token', 'id']
         col_token_encontrada = next((c for c in col_token_candidates if c in df_prov.columns), None)
         
@@ -719,25 +719,16 @@ def show_provider_panel_custom(provider_token):
             if not match.empty:
                 row = match.iloc[0]
                 
-                # Combina Nome e Sobrenome caso existam separadamente, ou busca a coluna de nome unificada
-                nome_val = row.get('nome', '') if pd.notna(row.get('nome', '')) else ''
-                sobrenome_val = row.get('sobrenome', '') if pd.notna(row.get('sobrenome', '')) else ''
+                for col_n in ['nome_prestador', 'nome', 'prestador', 'user']:
+                    if col_n in df_prov.columns and pd.notna(row.get(col_n)):
+                        nome_prestador = str(row.get(col_n)).upper()
+                        break
                 
-                if nome_val or sobrenome_val:
-                    nome_prestador = f"{nome_val} {sobrenome_val}".strip().upper()
-                else:
-                    for col_n in ['nome_prestador', 'prestador', 'user']:
-                        if col_n in df_prov.columns and pd.notna(row.get(col_n)):
-                            nome_prestador = str(row.get(col_n)).upper()
-                            break
-                
-                # Procura dinamicamente pelas colunas de plano/contrato/tempo escolhido no cadastro
-                for col_p in ['contrato', 'tempo_plano', 'plano', 'duracao', 'tempo']:
+                for col_p in ['tempo_plano', 'plano', 'duracao', 'tempo']:
                     if col_p in df_prov.columns and pd.notna(row.get(col_p)):
                         tempo_plano = str(row.get(col_p))
                         break
                         
-                # Procura dinamicamente pela data de registo
                 for col_d in ['data_registo', 'data', 'timestamp', 'created_at']:
                     if col_d in df_prov.columns and pd.notna(row.get(col_d)):
                         data_registo_str = str(row.get(col_d))
@@ -751,21 +742,20 @@ def show_provider_panel_custom(provider_token):
             if isinstance(dados_ref, dict):
                 for r_id, r_info in dados_ref.items():
                     t_ref = r_info.get("tempo_plano", "")
-                    if "4 Horas" in t_ref:
-                        segundos_bónus += 14400
-                    elif "3 Horas" in t_ref:
+                    if "3 Horas" in t_ref:
                         segundos_bónus += 10800
+                    elif "4 Horas" in t_ref:
+                        segundos_bónus += 14400
                     elif "2 Horas" in t_ref:
                         segundos_bónus += 7200
     except Exception:
         pass
 
-    # Define os segundos base com base estrita no contrato/plano escolhido no cadastro
     segundos_base = 7200
-    if "4 Horas" in tempo_plano:
-        segundos_base = 14400
-    elif "3 Horas" in tempo_plano:
+    if "3 Horas" in tempo_plano:
         segundos_base = 10800
+    elif "4 Horas" in tempo_plano:
+        segundos_base = 14400
     elif "2 Horas" in tempo_plano:
         segundos_base = 7200
 
@@ -785,11 +775,6 @@ def show_provider_panel_custom(provider_token):
         except Exception:
             pass
 
-    horas_restantes = segundos_restantes // 3600
-    min_restantes = (segundos_restantes % 3600) // 60
-    seg_restantes = segundos_restantes % 60
-    tempo_formatado = f"{int(horas_restantes):02d}:{int(min_restantes):02d}:{int(seg_restantes):02d}"
-    
     aviso_reforço_html = ""
     classe_piscar = ""
     if segundos_restantes <= 1800 and segundos_restantes > 0:
@@ -862,7 +847,8 @@ def show_provider_panel_custom(provider_token):
         font-size: 13px;
         font-weight: bold !important;
         margin-bottom: 4px;
-        text-shadow: 1px 1px 3px rgba(0,0,0,0.9) !important;  }}
+        text-shadow: 1px 1px 3px rgba(0,0,0,0.9) !important; 
+    }}
     .link-text, .link-text-tv {{
         font-family: monospace;
         color: #ffffff !important;
@@ -887,29 +873,9 @@ def show_provider_panel_custom(provider_token):
     </style>
     """, unsafe_allow_html=True)
 
-    col_topo_1, col_topo_2, col_topo_3 = st.columns([1.2, 3, 0.8])
-    
-    with col_topo_1:
-        st.markdown(f"""
-            <div style="background: #000000; border: 2px solid #FFC107; border-radius: 6px; padding: 8px; text-align: center;">
-                <div style="font-family: monospace; color: #ffffff; font-size: 9px; text-transform: uppercase; letter-spacing: 1px;">TEMPO / PLANO ESCOLHIDO</div>
-                <div style="font-family: monospace; color: #FFC107; font-size: 18px; font-weight: bold; {classe_piscar} margin: 2px 0;">⏱️ {tempo_formatado}</div>
-                <div style="font-family: monospace; color: #fff; font-size: 10px;">({tempo_plano})</div>
-            </div>
-        """, unsafe_allow_html=True)
-        
-    with col_topo_2:
-        st.markdown(f"""
-            <div style="display: flex; align-items: center; gap: 12px; padding-top: 5px;">
-                <span style="font-size: 28px;">🎤</span>
-                <div>
-                    <h1 style="margin: 0; color: #FFC107; font-family: monospace; font-size: 20px; text-transform: uppercase; font-weight: bold;">PAINEL DO PRESTADOR - <span style="color: #FFC107;">{nome_prestador}</span></h1>
-                </div>
-            </div>
-        """, unsafe_allow_html=True)
-
-    with col_topo_3:
-        st.markdown(f'<div style="text-align: right;"><img src="{url_logotipo}" class="top-logo" /></div>', unsafe_allow_html=True)
+    # Removido col_topo_1 e col_topo_2 (Tempo/Plano e Nome/Microfone do Prestador).
+    # Mantém-se apenas o logótipo no topo direito caso desejado, ou a linha divisória.
+    st.markdown(f'<div style="text-align: right;"><img src="{url_logotipo}" class="top-logo" /></div>', unsafe_allow_html=True)
 
     st.markdown("<hr style='border-color: #FFC107; margin: 15px 0;'>", unsafe_allow_html=True)
     st.markdown(aviso_reforço_html, unsafe_allow_html=True)
