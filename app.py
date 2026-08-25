@@ -710,12 +710,7 @@ def show_provider_panel_custom(provider_token):
 
     df_prov = get_all_providers()
     
-    # Valores padrão caso não encontre
-    nome_prestador = "PRESTADOR NÃO IDENTIFICADO"
-    tempo_plano = "2 Horas - 12 Mil Kwanzas"
-    data_registo_str = None
-    
-    if not df_prov.empty:
+         if not df_prov.empty:
         col_token_candidates = ['token', 'provider_token', 'id']
         col_token_encontrada = next((c for c in col_token_candidates if c in df_prov.columns), None)
         
