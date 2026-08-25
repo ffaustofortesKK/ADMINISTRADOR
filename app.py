@@ -716,7 +716,6 @@ def show_provider_panel_custom(provider_token):
     data_registo_str = None
     
     if not df_prov.empty:
-        # Tenta identificar qual coluna guarda o token
         col_token_candidates = ['token', 'provider_token', 'id']
         col_token_encontrada = next((c for c in col_token_candidates if c in df_prov.columns), None)
         
@@ -725,30 +724,24 @@ def show_provider_panel_custom(provider_token):
             if not match.empty:
                 row = match.iloc[0]
                 
-                # Captura e junta o Nome e Sobrenome se existirem colunas separadas
-                p_nome = ""
-                p_sobrenome = ""
-                for col_n in ['nome', 'Nome', 'prestador', 'user']:
+                # Procura e junta Nome e Sobrenome caso existam em colunas separadas, ou usa o campo de nome direto
+                nome_val = ""
+                for col_n in ['nome', 'nome_prestador', 'prestador', 'user']:
                     if col_n in df_prov.columns and pd.notna(row.get(col_n)):
-                        p_nome = str(row.get(col_n)).strip()
+                        nome_val = str(row.get(col_n)).strip()
                         break
                 
-                for col_s in ['sobrenome', 'Sobrenome', 'ultimo_nome']:
+                sobrenome_val = ""
+                for col_s in ['sobrenome', 'apelido']:
                     if col_s in df_prov.columns and pd.notna(row.get(col_s)):
-                        p_sobrenome = str(row.get(col_s)).strip()
+                        sobrenome_val = str(row.get(col_s)).strip()
                         break
                 
-                if p_nome or p_sobrenome:
-                    nome_prestador = f"{p_nome} {p_sobrenome}".strip().upper()
-                else:
-                    # Fallback para coluna genérica de nome único se houver
-                    for col_n in ['nome_prestador', 'nome', 'prestador']:
-                        if col_n in df_prov.columns and pd.notna(row.get(col_n)):
-                            nome_prestador = str(row.get(col_n)).upper()
-                            break
+                if nome_val:
+                    nome_prestador = f"{nome_val} {sobrenome_val}".strip().upper()
                 
-                # Procura dinamicamente pelas colunas de plano/contrato/tempo
-                for col_p in ['contrato', 'Contrato', 'tempo_plano', 'plano', 'duracao', 'tempo']:
+                # Procura dinamicamente pelas colunas de contrato/plano/tempo
+                for col_p in ['contrato', 'tempo_plano', 'plano', 'duracao', 'tempo']:
                     if col_p in df_prov.columns and pd.notna(row.get(col_p)):
                         tempo_plano = str(row.get(col_p))
                         break
@@ -776,7 +769,7 @@ def show_provider_panel_custom(provider_token):
     except Exception:
         pass
 
-    # Define os segundos base com base estrita no contrato/plano escolhido pelo prestador
+    # Define os segundos base com base estrita no contrato/plano escolhido
     segundos_base = 7200
     if "3 Horas" in tempo_plano:
         segundos_base = 10800
@@ -920,7 +913,7 @@ def show_provider_panel_custom(provider_token):
             <div style="display: flex; align-items: center; gap: 12px; padding-top: 5px;">
                 <span style="font-size: 28px;">🎤</span>
                 <div>
-                    <h1 style="margin: 0; color: #FFC107; font-family: monospace; font-size: 20px; text-transform: uppercase; font-weight: bold;">PAINEL DO PRESTADOR - <span style="color: #FFC107;">{nome_prestador}</span></h1>
+                    <h1 style="margin: 0; color: #FFC107; font-family: monospace; font-size: 20px; text-transform: uppercase; font-weight: bold;">PAINEL DO PRESTADOR: <span style="color: #FFC107;">{nome_prestador}</span></h1>
                 </div>
             </div>
         """, unsafe_allow_html=True)
@@ -931,7 +924,7 @@ def show_provider_panel_custom(provider_token):
     st.markdown("<hr style='border-color: #FFC107; margin: 15px 0;'>", unsafe_allow_html=True)
     st.markdown(aviso_reforço_html, unsafe_allow_html=True)
     
-    # ... Restante do código permanece igual ...
+    # Restante do código do painel...
 
 @st.fragment(run_every=1)
 def renderizar_ecra_tv(provider_token):
