@@ -699,7 +699,8 @@ def renderizar_gestao_fila_prestador(provider_token):
           
     except Exception as e:
         st.error(f"Erro ao carregar os pedidos do Firebase: {e}")
-        
+
+
 def show_provider_panel_custom(provider_token):
     url_logotipo = "https://cdn.phototourl.com/free/2026-08-03-8b13edf5-0257-491d-ab78-f0d5329ffc15.jpg"
     url_fundo_painel = "https://cdn.phototourl.com/free/2026-08-03-694a4a2e-9914-4da8-93b2-87538a4805ab.png"
@@ -752,12 +753,16 @@ def show_provider_panel_custom(provider_token):
         pass
 
     segundos_base = 7200
+    label_contrato = "2H"
     if "3 Horas" in tempo_plano:
         segundos_base = 10800
+        label_contrato = "3H"
     elif "4 Horas" in tempo_plano:
         segundos_base = 14400
+        label_contrato = "4H"
     elif "2 Horas" in tempo_plano:
         segundos_base = 7200
+        label_contrato = "2H"
 
     segundos_totais = segundos_base + segundos_bónus
     segundos_restantes = segundos_totais
@@ -775,10 +780,14 @@ def show_provider_panel_custom(provider_token):
         except Exception:
             pass
 
+    # Formatar segundos restantes para HH:MM:SS
+    h_rest = segundos_restantes // 3600
+    m_rest = (segundos_restantes % 3600) // 60
+    s_rest = segundos_restantes % 60
+    tempo_formatado = f"{h_rest:02d}:{m_rest:02d}:{s_rest:02d}"
+
     aviso_reforço_html = ""
-    classe_piscar = ""
     if segundos_restantes <= 1800 and segundos_restantes > 0:
-        classe_piscar = "animation: piscarRelogio 1s infinite;"
         aviso_reforço_html = """
         <div style="background: rgba(255,0,0,0.85); border: 3px solid #ffeb3b; padding: 10px; border-radius: 6px; margin-bottom: 15px; text-align: center; animation: pulseAviso 1s infinite;">
             <span style="color: #ffffff; font-size: 14px; font-weight: bold; text-shadow: 1px 1px 3px rgba(0,0,0,0.9);">
@@ -812,11 +821,6 @@ def show_provider_panel_custom(provider_token):
         0% {{ opacity: 1; transform: scale(1); }}
         50% {{ opacity: 0.7; transform: scale(1.01); }}
         100% {{ opacity: 1; transform: scale(1); }}
-    }}
-    @keyframes piscarRelogio {{
-        0% {{ opacity: 1; color: #FFC107; }}
-        50% {{ opacity: 0.3; color: #ff5252; }}
-        100% {{ opacity: 1; color: #FFC107; }}
     }}
     .card-link, .card-tv {{
         background: #000000 !important;
@@ -859,11 +863,23 @@ def show_provider_panel_custom(provider_token):
         text-shadow: 1px 1px 3px rgba(0,0,0,0.9) !important;
     }}
     .top-logo {{
-        width: 55px;
-        height: 55px;
+        width: 88px;
+        height: 88px;
         border-radius: 50%;
         border: 3px solid #FFC107;
         object-fit: cover;
+    }}
+    .contrato-box {{
+        background: #000000;
+        border: 3px solid #FFC107;
+        border-radius: 8px;
+        padding: 10px 18px;
+        display: inline-block;
+        font-family: monospace;
+        color: #FFC107;
+        font-size: 16px;
+        font-weight: bold;
+        box-shadow: 0 4px 12px rgba(255, 193, 7, 0.25);
     }}
     h1, h2, h3, h4, h5, h6, p, label, span, div, .stMarkdown {{
         color: #ffffff !important;
@@ -873,9 +889,37 @@ def show_provider_panel_custom(provider_token):
     </style>
     """, unsafe_allow_html=True)
 
-    # Removido col_topo_1 e col_topo_2 (Tempo/Plano e Nome/Microfone do Prestador).
-    # Mantém-se apenas o logótipo no topo direito caso desejado, ou a linha divisória.
-    st.markdown(f'<div style="text-align: right;"><img src="{url_logotipo}" class="top-logo" /></div>', unsafe_allow_html=True)
+    # Topo: Contrato à esquerda e Logótipo aumentado (+60%) à direita
+    col_e, col_d = st.columns([3, 1])
+    with col_e:
+        st.markdown(f"""
+            <div class="contrato-box">
+                CONTRATO : {label_contrato} &nbsp;&nbsp;( <span id="relogio_regresso">{tempo_formatado}</span> )
+            </div>
+        """, unsafe_allow_html=True)
+    with col_d:
+        st.markdown(f'<div style="text-align: right;"><img src="{url_logotipo}" class="top-logo" /></div>', unsafe_allow_html=True)
+
+    # Script JavaScript para fazer a contagem decrescente ao vivo segundo a segundo no navegador
+    st.markdown(f"""
+        <script>
+        (function() {{
+            let segundos = {segundos_restantes};
+            const elem = document.getElementById("relogio_regresso");
+            if (!elem) return;
+            if (window._timerContrato) clearInterval(window._timerContrato);
+            window._timerContrato = setInterval(() => {{
+                if (segundos > 0) {{
+                    segundos--;
+                }}
+                let h = String(Math.floor(segundos / 3600)).padStart(2, '0');
+                let m = String(Math.floor((segundos % 3600) / 60)).padStart(2, '0');
+                let s = String(segundos % 60).padStart(2, '0');
+                elem.innerText = h + ":" + m + ":" + s;
+            }}, 1000);
+        }})();
+        </script>
+    """, unsafe_allow_html=True)
 
     st.markdown("<hr style='border-color: #FFC107; margin: 15px 0;'>", unsafe_allow_html=True)
     st.markdown(aviso_reforço_html, unsafe_allow_html=True)
