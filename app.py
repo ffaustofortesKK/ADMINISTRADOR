@@ -866,9 +866,9 @@ def show_provider_panel_custom(provider_token):
         font-weight: bold !important;
         text-shadow: 1px 1px 3px rgba(0,0,0,0.9) !important;
     }}
-    /* Logótipo retangular (sem círculo/borda amarela circular), aumentado mais 40% (105px * 1.4 ≈ 147px) */
+    /* Logótipo retangular sem círculo amarelo, dimensionado conforme solicitado */
     .top-logo-rect {{
-        width: 250px;
+        width: 290px;
         height: auto;
         border-radius: 0px;
         border: none;
@@ -1156,17 +1156,31 @@ def renderizar_gestao_fila_prestador(provider_token):
                     st.markdown("<div style='height: 5px;'></div>", unsafe_allow_html=True)
                     with st.form(key="form_video_fundo_pos"):
                         st.markdown("<div style='font-family: monospace; color: #ffffff; font-size: 13px; font-weight: bold; margin-bottom: 5px;'>Vídeo Clipe de Fundo</div>", unsafe_allow_html=True)
-                        escolha_video = st.selectbox("Vídeo Clipe", options=["Nenhum (Ecrã Preto)"], label_visibility="collapsed")
+                        # Opção configurada com o link fornecido por ti
+                        url_musica_fundo_padrao = "https://youtu.be/JY-M7vKrs7c"
+                        escolha_video = st.selectbox("Vídeo Clipe", options=["Nenhum (Ecrã Preto)", f"Música de Fundo Padrão ({url_musica_fundo_padrao})"], label_visibility="collapsed")
                         st.markdown("<div style='height: 10px;'></div>", unsafe_allow_html=True)
                         
                         col_btn_play, col_btn_stop = st.columns(2)
                         with col_btn_play:
-                            st.form_submit_button("▶️ Play", use_container_width=True)
+                            btn_fundo_play = st.form_submit_button("▶️ Play", use_container_width=True)
                         with col_btn_stop:
-                            st.form_submit_button("⏹️ Stop", use_container_width=True)
+                            btn_fundo_stop = st.form_submit_button("⏹️ Stop", use_container_width=True)
+                            
+                        if btn_fundo_play:
+                            # Guarda no Firebase que este prestador tem a música de fundo ativa
+                            requests.patch(f"{FIREBASE_URL}/prestadores_config/{provider_token}.json", json={"video_fundo": url_musica_fundo_padrao, "estado_fundo": "ativo"})
+                            st.success("Música de fundo ativada na tela!")
+                            st.rerun()
+                        elif btn_fundo_stop:
+                            requests.patch(f"{FIREBASE_URL}/prestadores_config/{provider_token}.json", json={"video_fundo": "", "estado_fundo": "parado"})
+                            st.success("Música de fundo parada.")
+                            st.rerun()
           
     except Exception as e:
         st.error(f"Erro ao carregar os pedidos do Firebase: {e}")
+
+        
 def renderizar_ecra_tv(provider_token):
     try:
         url_firebase = f"{FIREBASE_URL}/pedidos/{provider_token}.json?_t={time.time()}"
