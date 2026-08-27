@@ -76,11 +76,10 @@ st.set_page_config(
 )
 
 # --- FUNÇÃO SEGURA PARA OBTER VÍDEO DE FUNDO ---
+# --- FUNÇÃO SEGURA PARA OBTER VÍDEO DE FUNDO (APENAS LINKS / YOUTUBE) ---
 def obter_video_fundo(provider_token):
     """
-    Vai buscar o vídeo de fundo primeiro ao Firebase. 
-    Se não houver nenhum configurado, vai buscar automaticamente 
-    um vídeo aleatório à pasta 'clipes' do Cloudinary.
+    Vai buscar o vídeo de fundo exclusivamente ao Firebase (links diretos ou YouTube).
     """
     try:
         # 1. Tenta verificar se o prestador definiu um vídeo específico no Firebase
@@ -96,25 +95,12 @@ def obter_video_fundo(provider_token):
                 if url_interna and str(url_interna).startswith("http"):
                     return url_interna
 
-        # 2. Se o Firebase estiver vazio ou sem URL válido, vai buscar à pasta 'clipes' do Cloudinary
-        resultado_cloudinary = cloudinary.api.resources(
-            type="upload",
-            prefix="clipes/",  # Nome exato da pasta no Cloudinary
-            resource_type="video",
-            max_results=50
-        )
-        
-        recursos = resultado_cloudinary.get("resources", [])
-        if recursos:
-            # Escolhe um clipe aleatório da pasta 'clipes' para servir de fundo
-            clipe_escolhido = random.choice(recursos)
-            return clipe_escolhido.get("secure_url")
-
     except Exception as e:
-        print(f"Aviso: Não foi possível carregar o vídeo de fundo: {e}")
+        print(f"Aviso ao carregar o vídeo de fundo do Firebase: {e}")
     
-    return None
-        
+    # 2. FALLBACK: Se o Firebase estiver vazio para este provider, retorna o primeiro link padrão
+    return "https://youtu.be/s5YJkqvnDuE"
+              
 # --- BLOQUEIO TOTAL E RADICAL DO BOTÃO GERENCIAR APLICATIVO E ELEMENTOS CLOUD ---
 st.markdown("""
     <style>
