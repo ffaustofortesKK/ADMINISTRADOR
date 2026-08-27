@@ -795,7 +795,7 @@ def show_provider_panel_custom(provider_token):
         aviso_reforço_html = """
         <div style="background: rgba(255,0,0,0.85); border: 3px solid #ffeb3b; padding: 10px; border-radius: 6px; margin-bottom: 15px; text-align: center; animation: pulseAviso 1s infinite;">
             <span style="color: #ffffff; font-size: 14px; font-weight: bold; text-shadow: 1px 1px 3px rgba(0,0,0,0.9);">
-                O SEU TEMPO ESTA TERMINANDO. PARA QUE NÃO PERCAS OS SEUS REGISTOS PEÇA REFORÇO DE TEMPO.
+                O SEU TEMPO ESTA TERMINANDO. PARA THAT NÃO PERCAS OS SEUS REGISTOS PEÇA REFORÇO DE TEMPO.
             </span>
             <div style="margin-top: 8px;">
                 <a href="#reforco_seccao" style="background: #FFC107; color: #000; padding: 6px 12px; border-radius: 4px; text-decoration: none; font-weight: bold; font-size: 13px;">⚡ PEDIR REFORÇO AGORA</a>
@@ -866,7 +866,6 @@ def show_provider_panel_custom(provider_token):
         font-weight: bold !important;
         text-shadow: 1px 1px 3px rgba(0,0,0,0.9) !important;
     }}
-    /* Logótipo retangular sem círculo amarelo, dimensionado conforme solicitado */
     .top-logo-rect {{
         width: 290px;
         height: auto;
@@ -1154,28 +1153,94 @@ def renderizar_gestao_fila_prestador(provider_token):
 
                 with col_dir:
                     st.markdown("<div style='height: 5px;'></div>", unsafe_allow_html=True)
-                    with st.form(key="form_video_fundo_pos"):
-                        st.markdown("<div style='font-family: monospace; color: #ffffff; font-size: 13px; font-weight: bold; margin-bottom: 5px;'>Vídeo Clipe de Fundo</div>", unsafe_allow_html=True)
-                        # Opção configurada com o link fornecido por ti
-                        url_musica_fundo_padrao = "https://youtu.be/JY-M7vKrs7c"
-                        escolha_video = st.selectbox("Vídeo Clipe", options=["Nenhum (Ecrã Preto)", f"Música de Fundo Padrão ({url_musica_fundo_padrao})"], label_visibility="collapsed")
-                        st.markdown("<div style='height: 10px;'></div>", unsafe_allow_html=True)
+                    st.markdown("### 📁 Pasta de Vídeos de Fundo (YouTube)")
+                    
+                    # Buscar lista de vídeos guardados no Firebase para este prestador
+                    links_guardados = []
+                    try:
+                        res_config = requests.get(f"{FIREBASE_URL}/prestadores_config/{provider_token}.json", timeout=5)
+                        if res_config.status_code == 200 and res_config.json():
+                            conf_data = res_config.json()
+                            if isinstance(conf_data, dict) and "pasta_videos" in conf_data:
+                                links_guardados = conf_data["pasta_videos"]
+                    except Exception:
+                        pass
+                    
+                    # Se estiver vazio, inicializar com alguns exemplos padrão (incluindo os teus links)
+                    if not links_guardados:
+                        links_guardados = [
+                            {"nome": "Vídeo 1", "url": "https://youtu.be/s5YJkqvnDuE"},
+                            {"nome": "Vídeo 2", "url": "https://youtu.be/sGGlQ9yJQNg"},
+                            {"nome": "Vídeo 3", "url": "https://youtu.be/H_aniWehIYY"},
+                            {"nome": "Padrão Original", "url": "https://youtu.be/JY-M7vKrs7c"}
+                        ]
+                        # Guardar no Firebase a lista inicial
+                        requests.patch(f"{FIREBASE_URL}/prestadores_config/{provider_token}.json", json={"pasta_videos": links_guardados})
+
+                    with st.form(key="form_adicionar_video_pasta"):
+                        novo_nome_video = st.text_input("Nome/Título do Vídeo")
+                        novo_url_video = st.text_input("Link do YouTube (ex: https://youtu.be/...)")
+                        btn_add_video = st.form_submit_button("➕ Adicionar à Pasta", use_container_width=True)
                         
-                        col_btn_play, col_btn_stop = st.columns(2)
-                        with col_btn_play:
-                            btn_fundo_play = st.form_submit_button("▶️ Play", use_container_width=True)
-                        with col_btn_stop:
-                            btn_fundo_stop = st.form_submit_button("⏹️ Stop", use_container_width=True)
+                        if btn_add_video:
+                            if novo_nome_video and novo_url_video:
+                                links_guardados.append({"nome": novo_nome_video, "url": novo_url_video})
+                                requests.patch(f"{FIREBASE_URL}/prestadores_config/{provider_token}.json", json={"pasta_videos": links_guardados})
+                                st.success("Vídeo adicionado à pasta com sucesso!")
+                                st.rerun()
+                            else:
+                                st.error("Preencha o nome e o link do vídeo.")
+
+                    st.markdown("<div style='height: 5px;'></div>", unsafe_allow_html=True)
+                    st.markdown("#### Selecionar Vídeo de Fundo")
+                    
+                    opcoes_nomes = [v["nome"] for v in links_guardados] + ["🔀 Modo Aleatório (Shuffle)"]
+                    escolha_pasta = st.selectbox("Escolher da Pasta", options=opcoes_nomes, label_visibility="collapsed")
+                    
+                    c_play_f, c_stop_f = st.columns(2)
+                    with c_play_f:
+                        btn_fundo_play = st.button("▶️ Tocar Fundo", use_container_width=True)
+                    with c_stop_f:
+                        btn_fundo_stop = st.button("⏹️ Parar Fundo", use_container_width=True)
+                        
+                    if btn_fundo_play:
+                        if escolha_pasta == "🔀 Modo Aleatório (Shuffle)":
+                            video_escolhido = random.choice(links_guardados)["url"]
+                            modo = "aleatorio"
+                        else:
+                            match_v = next((v for v in links_guardados if v["nome"] == escolha_pasta), None)
+                            video_escolhido = match_v["url"] if match_v else "https://youtu.be/JY-M7vKrs7c"
+                            modo = "manual"
                             
-                        if btn_fundo_play:
-                            # Guarda no Firebase que este prestador tem a música de fundo ativa
-                            requests.patch(f"{FIREBASE_URL}/prestadores_config/{provider_token}.json", json={"video_fundo": url_musica_fundo_padrao, "estado_fundo": "ativo"})
-                            st.success("Música de fundo ativada na tela!")
-                            st.rerun()
-                        elif btn_fundo_stop:
-                            requests.patch(f"{FIREBASE_URL}/prestadores_config/{provider_token}.json", json={"video_fundo": "", "estado_fundo": "parado"})
-                            st.success("Música de fundo parada.")
-                            st.rerun()
+                        requests.patch(f"{FIREBASE_URL}/prestadores_config/{provider_token}.json", json={
+                            "video_fundo": video_escolhido, 
+                            "estado_fundo": "ativo",
+                            "modo_fundo": modo,
+                            "pasta_videos": links_guardados
+                        })
+                        st.success(f"Vídeo de fundo iniciado: {escolha_pasta}")
+                        st.rerun()
+                        
+                    elif btn_fundo_stop:
+                        requests.patch(f"{FIREBASE_URL}/prestadores_config/{provider_token}.json", json={
+                            "video_fundo": "", 
+                            "estado_fundo": "parado"
+                        })
+                        st.success("Música/Vídeo de fundo parado.")
+                        st.rerun()
+                        
+                    # Mostrar os vídeos atualmente na pasta com opção de apagar
+                    with st.expander("Gerir / Apagar Vídeos da Pasta"):
+                        for idx_v, item_v in enumerate(links_guardados):
+                            cols_v = [3, 1]
+                            col_info_v, col_del_v = st.columns(cols_v)
+                            with col_info_v:
+                                st.markdown(f"<span style='font-size:11px;'>**{item_v['nome']}**<br>{item_v['url']}</span>", unsafe_allow_html=True)
+                            with col_del_v:
+                                if st.button("🗑️", key=f"del_v_pasta_{idx_v}"):
+                                    links_guardados.pop(idx_v)
+                                    requests.patch(f"{FIREBASE_URL}/prestadores_config/{provider_token}.json", json={"pasta_videos": links_guardados})
+                                    st.rerun()
           
     except Exception as e:
         st.error(f"Erro ao carregar os pedidos do Firebase: {e}")
