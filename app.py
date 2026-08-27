@@ -716,7 +716,6 @@ def show_provider_panel_custom(provider_token):
 
     df_prov = get_all_providers()
     
-    # Valores padrão caso não encontre
     nome_prestador = "PRESTADOR NÃO IDENTIFICADO"
     tempo_plano = "2 Horas - 12 Mil Kwanzas"
     data_registo_str = None
@@ -789,12 +788,9 @@ def show_provider_panel_custom(provider_token):
     horas_restantes = segundos_restantes // 3600
     min_restantes = (segundos_restantes % 3600) // 60
     seg_restantes = segundos_restantes % 60
-    tempo_formatado = f"{int(horas_restantes):02d}:{int(min_restantes):02d}:{int(seg_restantes):02d}"
     
     aviso_reforço_html = ""
-    classe_piscar = ""
     if segundos_restantes <= 1800 and segundos_restantes > 0:
-        classe_piscar = "animation: piscarRelogio 1s infinite;"
         aviso_reforço_html = """
         <div style="background: rgba(255,0,0,0.85); border: 3px solid #ffeb3b; padding: 10px; border-radius: 6px; margin-bottom: 15px; text-align: center; animation: pulseAviso 1s infinite;">
             <span style="color: #ffffff; font-size: 14px; font-weight: bold; text-shadow: 1px 1px 3px rgba(0,0,0,0.9);">
@@ -828,11 +824,6 @@ def show_provider_panel_custom(provider_token):
         0% {{ opacity: 1; transform: scale(1); }}
         50% {{ opacity: 0.7; transform: scale(1.01); }}
         100% {{ opacity: 1; transform: scale(1); }}
-    }}
-    @keyframes piscarRelogio {{
-        0% {{ opacity: 1; color: #FFC107; }}
-        50% {{ opacity: 0.3; color: #ff5252; }}
-        100% {{ opacity: 1; color: #FFC107; }}
     }}
     .card-link, .card-tv {{
         background: #000000 !important;
@@ -874,9 +865,10 @@ def show_provider_panel_custom(provider_token):
         font-weight: bold !important;
         text-shadow: 1px 1px 3px rgba(0,0,0,0.9) !important;
     }}
+    /* Logótipo aumentado em +70% (passou de ~55px para cerca de 95px) */
     .top-logo {{
-        width: 55px;
-        height: 55px;
+        width: 95px;
+        height: 95px;
         border-radius: 50%;
         border: 3px solid #FFC107;
         object-fit: cover;
@@ -889,15 +881,15 @@ def show_provider_panel_custom(provider_token):
     </style>
     """, unsafe_allow_html=True)
 
-    # Removida a coluna do relógio/plano e ajustado para apenas o Título e o Logótipo
-    col_topo_titulo, col_topo_logo = st.columns([4, 0.8])
+    # Topo limpo apenas com o título principal e o logótipo ampliado à direita
+    col_topo_titulo, col_topo_logo = st.columns([4, 1])
         
     with col_topo_titulo:
         st.markdown(f"""
-            <div style="display: flex; align-items: center; gap: 12px; padding-top: 5px;">
-                <span style="font-size: 28px;">🎤</span>
+            <div style="display: flex; align-items: center; gap: 12px; padding-top: 10px;">
+                <span style="font-size: 32px;">🎤</span>
                 <div>
-                    <h1 style="margin: 0; color: #FFC107; font-family: monospace; font-size: 20px; text-transform: uppercase; font-weight: bold;">PAINEL DO PRESTADOR: <span style="color: #FFC107;">{nome_prestador}</span></h1>
+                    <h1 style="margin: 0; color: #FFC107; font-family: monospace; font-size: 22px; text-transform: uppercase; font-weight: bold;">PAINEL DO PRESTADOR: <span style="color: #FFC107;">{nome_prestador}</span></h1>
                 </div>
             </div>
         """, unsafe_allow_html=True)
@@ -978,7 +970,8 @@ def show_provider_panel_custom(provider_token):
                         st.error(f"Erro ao enviar reforço: {err}")
 
     st.markdown("<div style='height: 5px;'></div>", unsafe_allow_html=True)
-    renderizar_gestao_fila_prestador(provider_token)
+    renderizar_gestao_fila_prestador(provider_token) 
+
 
 @st.fragment(run_every=1)
 def renderizar_gestao_fila_prestador(provider_token):
