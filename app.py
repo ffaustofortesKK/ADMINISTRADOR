@@ -789,12 +789,9 @@ def show_provider_panel_custom(provider_token):
     horas_restantes = segundos_restantes // 3600
     min_restantes = (segundos_restantes % 3600) // 60
     seg_restantes = segundos_restantes % 60
-    tempo_formatado = f"{int(horas_restantes):02d}:{int(min_restantes):02d}:{int(seg_restantes):02d}"
     
     aviso_reforço_html = ""
-    classe_piscar = ""
     if segundos_restantes <= 1800 and segundos_restantes > 0:
-        classe_piscar = "animation: piscarRelogio 1s infinite;"
         aviso_reforço_html = """
         <div style="background: rgba(255,0,0,0.85); border: 3px solid #ffeb3b; padding: 10px; border-radius: 6px; margin-bottom: 15px; text-align: center; animation: pulseAviso 1s infinite;">
             <span style="color: #ffffff; font-size: 14px; font-weight: bold; text-shadow: 1px 1px 3px rgba(0,0,0,0.9);">
@@ -828,11 +825,6 @@ def show_provider_panel_custom(provider_token):
         0% {{ opacity: 1; transform: scale(1); }}
         50% {{ opacity: 0.7; transform: scale(1.01); }}
         100% {{ opacity: 1; transform: scale(1); }}
-    }}
-    @keyframes piscarRelogio {{
-        0% {{ opacity: 1; color: #FFC107; }}
-        50% {{ opacity: 0.3; color: #ff5252; }}
-        100% {{ opacity: 1; color: #FFC107; }}
     }}
     .card-link, .card-tv {{
         background: #000000 !important;
@@ -874,13 +866,13 @@ def show_provider_panel_custom(provider_token):
         font-weight: bold !important;
         text-shadow: 1px 1px 3px rgba(0,0,0,0.9) !important;
     }}
-    /* Logótipo aumentado em cerca de 90% (55px * 1.9 ≈ 105px) */
-    .top-logo {{
-        width: 105px;
-        height: 105px;
-        border-radius: 50%;
-        border: 3px solid #FFC107;
-        object-fit: cover;
+    /* Logótipo retangular (sem círculo/borda amarela circular), aumentado mais 40% (105px * 1.4 ≈ 147px) */
+    .top-logo-rect {{
+        width: 250px;
+        height: auto;
+        border-radius: 0px;
+        border: none;
+        object-fit: contain;
     }}
     h1, h2, h3, h4, h5, h6, p, label, span, div, .stMarkdown {{
         color: #ffffff !important;
@@ -890,14 +882,13 @@ def show_provider_panel_custom(provider_token):
     </style>
     """, unsafe_allow_html=True)
 
-    # Removido totalmente o título/texto da esquerda e mantido apenas o logotipo ampliado à direita
-    col_vazia, col_topo_logo = st.columns([4, 1])
+    col_vazia, col_topo_logo = st.columns([2.5, 2.5])
         
     with col_vazia:
         st.markdown("")
         
     with col_topo_logo:
-        st.markdown(f'<div style="text-align: right;"><img src="{url_logotipo}" class="top-logo" /></div>', unsafe_allow_html=True)
+        st.markdown(f'<div style="text-align: right;"><img src="{url_logotipo}" class="top-logo-rect" /></div>', unsafe_allow_html=True)
 
     st.markdown("<hr style='border-color: #FFC107; margin: 15px 0;'>", unsafe_allow_html=True)
     st.markdown(aviso_reforço_html, unsafe_allow_html=True)
@@ -1176,7 +1167,6 @@ def renderizar_gestao_fila_prestador(provider_token):
           
     except Exception as e:
         st.error(f"Erro ao carregar os pedidos do Firebase: {e}")
-
 def renderizar_ecra_tv(provider_token):
     try:
         url_firebase = f"{FIREBASE_URL}/pedidos/{provider_token}.json?_t={time.time()}"
