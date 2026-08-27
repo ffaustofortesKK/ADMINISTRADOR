@@ -1317,11 +1317,9 @@ def renderizar_ecra_tv(provider_token):
             </div>
         """
 
-        # Capturamos o estado inicial para comparação no script de sincronização global
         url_atual_fundo = obter_video_fundo(provider_token) or ""
         id_atual_tocando = tocando_agora.get('id') if tocando_agora else "none"
 
-        # Script global melhorado para vigiar tanto o karaoke quanto o vídeo de fundo (Stop)
         script_sincronizacao_global = f"""
             <script>
                 const providerToken = "{provider_token}";
@@ -1333,7 +1331,6 @@ def renderizar_ecra_tv(provider_token):
 
                 setInterval(async () => {{
                     try {{
-                        // 1. Verifica alterações na fila de pedidos / karaoke
                         let responsePedidos = await fetch(firebaseBaseUrl);
                         let dataPedidos = await responsePedidos.json();
                         let novoIdTocando = "none";
@@ -1347,7 +1344,6 @@ def renderizar_ecra_tv(provider_token):
                             }}
                         }}
                         
-                        // 2. Verifica alterações no vídeo de fundo (incluindo o Stop que limpa a URL)
                         let responseVideo = await fetch(firebaseVideoUrl);
                         let dataVideo = await responseVideo.json();
                         let novaUrlFundo = "";
@@ -1359,7 +1355,6 @@ def renderizar_ecra_tv(provider_token):
                             }}
                         }}
                         
-                        // 3. Se houver mudança em qualquer um dos dois, recarrega imediatamente a tela
                         if (novoIdTocando !== idAtualConhecido || novaUrlFundo !== urlFundoConhecida) {{
                             window.location.reload();
                         }}
@@ -1466,7 +1461,6 @@ def renderizar_ecra_tv(provider_token):
                     var pedidoId = "{tocando_agora.get('id')}";
                     var token = "{provider_token}";
                     var firebaseURL = "{FIREBASE_URL}/pedidos/" + token + "/" + pedidoId + "/estado.json";
-                    
                     fetch(firebaseURL, {{
                         method: 'PUT',
                         body: JSON.stringify('terminado'),
@@ -1521,40 +1515,63 @@ def renderizar_ecra_tv(provider_token):
                     c_item = p_item.get("cliente", "Convidado")
                     texto_caixa = f"<b>{idx}.</b> {c_item}"
                     html_caixas += f'<div style="background: rgba(0,0,0,0.95); border: 4px solid #FFC107; border-radius: 8px; padding: 12px; color: #ffffff; font-family: monospace; font-size: 16px; font-weight: bold; text-shadow: 1px 1px 3px rgba(0,0,0,0.9);">{texto_caixa}</div>'
-                
                 html_caixas += '</div>'
                 st.markdown(html_caixas, unsafe_allow_html=True) 
                 
             with col_dir:
                 if url_clipe_fundo:
-                    video_fundo_html = f"""
-                    <div style="display: flex; justify-content: center; background: rgba(0,0,0,0.95); border: 4px solid #FFC107; border-radius: 10px; padding: 5px; width: 100%; position: relative; margin-top: 5px; margin-bottom: 40px;">
-                        <video id="fundo-player" width="100%" height="450px" autoplay loop playsinline controlslist="nodownload noremoteplayback" disablepictureinpicture style="object-fit: contain; background: black; border-radius: 8px;">
-                            <source src="{url_clipe_fundo}" type="video/mp4">
-                            O seu navegador não suporta vídeo.
-                        </video>
-                        <div id="fundo-audio-warning" style="display: none; position: absolute; bottom: 15px; right: 15px; background: rgba(0,0,0,0.8); border: 2px solid #FFC107; padding: 6px 10px; border-radius: 5px; cursor: pointer;" onclick="unmuteFundo()">
-                            <span style="font-size: 18px;" title="Ativar Som">🔊</span>
+                    is_youtube = "youtube.com" in url_clipe_fundo or "youtu.be" in url_clipe_fundo
+                    
+                    if is_youtube:
+                        if "watch?v=" in url_clipe_fundo:
+                            yt_id = url_clipe_fundo.split("watch?v=")[1].split("&")[0]
+                        elif "youtu.be/" in url_clipe_fundo:
+                            yt_id = url_clipe_fundo.split("youtu.be/")[1].split("?")[0]
+                        else:
+                            yt_id = url_clipe_fundo
+
+                        embed_url = f"https://www.youtube.com/embed/{yt_id}?autoplay=1&mute=0&controls=1&loop=1&playlist={yt_id}"
+                        
+                        video_fundo_html = f"""
+                        <div style="display: flex; justify-content: center; background: rgba(0,0,0,0.95); border: 4px solid #FFC107; border-radius: 10px; padding: 5px; width: 100%; position: relative; margin-top: 5px; margin-bottom: 40px;">
+                            <iframe width="100%" height="450px" src="{embed_url}" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen style="border-radius: 8px; background: black;"></iframe>
                         </div>
-                    </div>
-                    <script>
-                        var fundoVideo = document.getElementById('fundo-player');
-                        fundoVideo.muted = false;
-                        var fundoPromise = fundoVideo.play();
-                        if (fundoPromise !== undefined) {{
-                            fundoPromise.then(_ => {{}}).catch(error => {{
-                                fundoVideo.muted = true;
-                                fundoVideo.play();
-                                document.getElementById('fundo-audio-warning').style.display = 'block';
-                            }});
-                        }}
-                        function unmuteFundo() {{
-                            fundoVideo.muted = false;
-                            fundoVideo.play();
-                            document.getElementById('fundo-audio-warning').style.display = 'none';
-                        }}
-                    </script>
-                    """
+                        """
+                    else:
+                        video_fundo_html = f"""
+                        <div style="display: flex; justify-content: center; background: rgba(0,0,0,0.95); border: 4px solid #FFC107; border-radius: 10px; padding: 5px; width: 100%; position: relative; margin-top: 5px; margin-bottom: 40px;">
+                            <video id="fundo-player" width="100%" height="450px" autoplay loop playsinline controlslist="nodownload noremoteplayback" disablepictureinpicture style="object-fit: contain; background: black; border-radius: 8px;">
+                                <source src="{url_clipe_fundo}" type="video/mp4">
+                                O seu navegador não suporta vídeo.
+                            </video>
+                            <div id="fundo-audio-warning" style="display: none; position: absolute; bottom: 15px; right: 15px; background: rgba(0,0,0,0.8); border: 2px solid #FFC107; padding: 6px 10px; border-radius: 5px; cursor: pointer;" onclick="unmuteFundo()">
+                                <span style="font-size: 18px;" title="Ativar Som">🔊</span>
+                            </div>
+                        </div>
+                        <script>
+                            var fundoVideo = document.getElementById('fundo-player');
+                            if (fundoVideo) {{
+                                fundoVideo.muted = false;
+                                var fundoPromise = fundoVideo.play();
+                                if (fundoPromise !== undefined) {{
+                                    fundoPromise.then(_ => {{}}).catch(error => {{
+                                        fundoVideo.muted = true;
+                                        fundoVideo.play();
+                                        var warning = document.getElementById('fundo-audio-warning');
+                                        if (warning) warning.style.display = 'block';
+                                    }});
+                                }}
+                            }}
+                            function unmuteFundo() {{
+                                if (fundoVideo) {{
+                                    fundoVideo.muted = false;
+                                    fundoVideo.play();
+                                    var warning = document.getElementById('fundo-audio-warning');
+                                    if (warning) warning.style.display = 'none';
+                                }}
+                            }}
+                        </script>
+                        """
                     components.html(video_fundo_html, height=480)
                 else:
                     st.markdown("""
