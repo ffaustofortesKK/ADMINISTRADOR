@@ -79,39 +79,27 @@ st.set_page_config(
 # --- FUNÇÃO SEGURA PARA OBTER VÍDEO DE FUNDO (APENAS LINKS / YOUTUBE) ---
 def obter_video_fundo(provider_token):
     """
-    Vai buscar o vídeo de fundo ao Firebase. 
-    Se o estado for 'parado' ou o link estiver vazio, retorna None para limpar o ecrã.
+    Vai buscar o vídeo de fundo exclusivamente ao Firebase (links diretos ou YouTube).
     """
     try:
-        # Lê do mesmo caminho que os botões vão atualizar
+        # 1. Tenta verificar se o prestador definiu um vídeo específico no Firebase
         url_fb = f"{FIREBASE_URL}/video_fundo/{provider_token}.json"
         response = requests.get(url_fb, timeout=5)
         
         if response.status_code == 200 and response.json():
             dados = response.json()
-            
-            # Se for dicionário (ex: {"url": "...", "estado": "..."})
-            if isinstance(dados, dict):
-                estado = dados.get("estado", "ativo")
-                if estado == "parado":
-                    return None
-                url_interna = dados.get("url", "")
-                if url_interna == "":
-                    return None
+            if isinstance(dados, str) and dados.startswith("http"):
+                return dados
+            elif isinstance(dados, dict):
+                url_interna = dados.get("url")
                 if url_interna and str(url_interna).startswith("http"):
                     return url_interna
-                    
-            # Se for string direta
-            elif isinstance(dados, str):
-                if dados == "" or dados == "parado":
-                    return None
-                if dados.startswith("http"):
-                    return dados
 
     except Exception as e:
         print(f"Aviso ao carregar o vídeo de fundo do Firebase: {e}")
     
-    return None
+    # 2. FALLBACK: Se o Firebase estiver vazio para este provider, retorna o primeiro link padrão
+    return "https://youtu.be/s5YJkqvnDuE"
               
 # --- BLOQUEIO TOTAL E RADICAL DO BOTÃO GERENCIAR APLICATIVO E ELEMENTOS CLOUD ---
 st.markdown("""
@@ -1151,40 +1139,38 @@ def renderizar_gestao_fila_prestador(provider_token):
                             </div>
                         """, unsafe_allow_html=True)
 
-              with col_dir:
-            st.markdown("<div style='height: 5px;'></div>", unsafe_allow_html=True)
-            with st.form(key="form_video_fundo_pos"):
-                st.markdown("<div style='font-family: monospace; color: #ffffff; font-size: 13px; font-weight: bold; margin-bottom: 5px;'>Vídeo Clipe de Fundo (YouTube)</div>", unsafe_allow_html=True)
-                
-                opcoes_videos_fundo = {
-                    "Nenhum (Ecrã Preto)": "",
-                    "🔀 Rotação Aleatória (Alternar entre todos)": "aleatorio",
-                    "Vídeo 1 (s5YJkqvnDuE)": "https://youtu.be/s5YJkqvnDuE",
-                    "Vídeo 2 (sGGlQ9yJQNg)": "https://youtu.be/sGGlQ9yJQNg",
-                    "Vídeo 3 (H_aniWehIYY)": "https://youtu.be/H_aniWehIYY"
-                }
-                
-                escolha_video_label = st.selectbox("Escolher Vídeo de Fundo", options=list(opcoes_videos_fundo.keys()), label_visibility="collapsed")
-                st.markdown("<div style='height: 10px;'></div>", unsafe_allow_html=True)
-                
-                col_btn_play, col_btn_stop = st.columns(2)
-                with col_btn_play:
-                    btn_fundo_play = st.form_submit_button("▶️ Play", use_container_width=True)
-                with col_btn_stop:
-                    btn_fundo_stop = st.form_submit_button("⏹️ Stop", use_container_width=True)
-                    
-                if btn_fundo_play:
-                    url_escolhida = opcoes_videos_fundo[escolha_video_label]
-                    payload = {"url": url_escolhida, "estado": "ativo"}
-                    requests.put(f"{FIREBASE_URL}/video_fundo/{provider_token}.json", json=payload)
-                    st.success("Vídeo de fundo ativado na tela!")
-                    st.rerun()
-                elif btn_fundo_stop:
-                    payload = {"url": "", "estado": "parado"}
-                    requests.put(f"{FIREBASE_URL}/video_fundo/{provider_token}.json", json=payload)
-                    st.success("Vídeo de fundo parado.")
-                    st.rerun()
-        
+                with col_dir:
+                    st.markdown("<div style='height: 5px;'></div>", unsafe_allow_html=True)
+                    with st.form(key="form_video_fundo_pos"):
+                        st.markdown("<div style='font-family: monospace; color: #ffffff; font-size: 13px; font-weight: bold; margin-bottom: 5px;'>Vídeo Clipe de Fundo (YouTube)</div>", unsafe_allow_html=True)
+                        
+                        opcoes_videos_fundo = {
+                            "Nenhum (Ecrã Preto)": "",
+                            "🔀 Rotação Aleatória (Alternar entre todos)": "aleatorio",
+                            "Vídeo 1 (s5YJkqvnDuE)": "https://youtu.be/s5YJkqvnDuE",
+                            "Vídeo 2 (sGGlQ9yJQNg)": "https://youtu.be/sGGlQ9yJQNg",
+                            "Vídeo 3 (H_aniWehIYY)": "https://youtu.be/H_aniWehIYY"
+                        }
+                        
+                        escolha_video_label = st.selectbox("Escolher Vídeo de Fundo", options=list(opcoes_videos_fundo.keys()), label_visibility="collapsed")
+                        st.markdown("<div style='height: 10px;'></div>", unsafe_allow_html=True)
+                        
+                        col_btn_play, col_btn_stop = st.columns(2)
+                        with col_btn_play:
+                            btn_fundo_play = st.form_submit_button("▶️ Play", use_container_width=True)
+                        with col_btn_stop:
+                            btn_fundo_stop = st.form_submit_button("⏹️ Stop", use_container_width=True)
+                            
+                        if btn_fundo_play:
+                            url_escolhida = opcoes_videos_fundo[escolha_video_label]
+                            requests.patch(f"{FIREBASE_URL}/prestadores_config/{provider_token}.json", json={"video_fundo": url_escolhida, "estado_fundo": "ativo"})
+                            st.success("Vídeo de fundo ativado na tela!")
+                            st.rerun()
+                        elif btn_fundo_stop:
+                            requests.patch(f"{FIREBASE_URL}/prestadores_config/{provider_token}.json", json={"video_fundo": "", "estado_fundo": "parado"})
+                            st.success("Vídeo de fundo parado.")
+                            st.rerun()
+          
     except Exception as e:
         st.error(f"Erro ao carregar os pedidos do Firebase: {e}")
 
