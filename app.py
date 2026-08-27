@@ -79,7 +79,7 @@ st.set_page_config(
 def obter_video_fundo(provider_token):
     """
     Vai buscar o vídeo de fundo primeiro ao Firebase. 
-    Se não houver nenhum configurado, vai buscar automaticamente 
+    Se estiver vazio, vai buscar automaticamente 
     um vídeo aleatório à pasta 'clipes' do Cloudinary.
     """
     try:
@@ -91,8 +91,29 @@ def obter_video_fundo(provider_token):
             dados = response.json()
             if isinstance(dados, str) and dados.startswith("http"):
                 return dados
-            elif isinstance(dados, dict) and dados.get("url"):
-                return dados.get("url")
+            elif isinstance(dados, dict):
+                url_interna = dados.get("url")
+                if url_interna and str(url_interna).startswith("http"):
+                    return url_interna
+
+        # 2. Se o Firebase estiver vazio ou sem URL válido, vai buscar à pasta 'clipes' do Cloudinary
+        resultado_cloudinary = cloudinary.api.resources(
+            type="upload",
+            prefix="clipes/",  # Nome exato da pasta no Cloudinary
+            resource_type="video",
+            max_results=50
+        )
+        
+        recursos = resultado_cloudinary.get("resources", [])
+        if recursos:
+            # Escolhe um clipe aleatório da pasta 'clipes' para servir de fundo
+            clipe_escolhido = random.choice(recursos)
+            return clipe_escolhido.get("secure_url")
+
+    except Exception as e:
+        print(f"Aviso: Não foi possível carregar o vídeo de fundo: {e}")
+    
+    return None
 
         # 2. Se o Firebase estiver vazio, vai buscar à pasta 'clipes' do Cloudinary (conforme a sua imagem)
         resultado_cloudinary = cloudinary.api.resources(
