@@ -79,27 +79,39 @@ st.set_page_config(
 # --- FUNÇÃO SEGURA PARA OBTER VÍDEO DE FUNDO (APENAS LINKS / YOUTUBE) ---
 def obter_video_fundo(provider_token):
     """
-    Vai buscar o vídeo de fundo exclusivamente ao Firebase (links diretos ou YouTube).
+    Vai buscar o vídeo de fundo ao Firebase. 
+    Se o estado for 'parado' ou o link estiver vazio, retorna None para limpar o ecrã.
     """
     try:
-        # 1. Tenta verificar se o prestador definiu um vídeo específico no Firebase
+        # Lê do mesmo caminho que os botões vão atualizar
         url_fb = f"{FIREBASE_URL}/video_fundo/{provider_token}.json"
         response = requests.get(url_fb, timeout=5)
         
         if response.status_code == 200 and response.json():
             dados = response.json()
-            if isinstance(dados, str) and dados.startswith("http"):
-                return dados
-            elif isinstance(dados, dict):
-                url_interna = dados.get("url")
+            
+            # Se for dicionário (ex: {"url": "...", "estado": "..."})
+            if isinstance(dados, dict):
+                estado = dados.get("estado", "ativo")
+                if estado == "parado":
+                    return None
+                url_interna = dados.get("url", "")
+                if url_interna == "":
+                    return None
                 if url_interna and str(url_interna).startswith("http"):
                     return url_interna
+                    
+            # Se for string direta
+            elif isinstance(dados, str):
+                if dados == "" or dados == "parado":
+                    return None
+                if dados.startswith("http"):
+                    return dados
 
     except Exception as e:
         print(f"Aviso ao carregar o vídeo de fundo do Firebase: {e}")
     
-    # 2. FALLBACK: Se o Firebase estiver vazio para este provider, retorna o primeiro link padrão
-    return "https://youtu.be/s5YJkqvnDuE"
+    return None
               
 # --- BLOQUEIO TOTAL E RADICAL DO BOTÃO GERENCIAR APLICATIVO E ELEMENTOS CLOUD ---
 st.markdown("""
@@ -1163,11 +1175,15 @@ def renderizar_gestao_fila_prestador(provider_token):
                             
                         if btn_fundo_play:
                             url_escolhida = opcoes_videos_fundo[escolha_video_label]
-                            requests.patch(f"{FIREBASE_URL}/prestadores_config/{provider_token}.json", json={"video_fundo": url_escolhida, "estado_fundo": "ativo"})
+                            # Grava na rota unificada /video_fundo/{provider_token}
+                            payload = {"url": url_escolhida, "estado": "ativo"}
+                            requests.put(f"{FIREBASE_URL}/video_fundo/{provider_token}.json", json=payload)
                             st.success("Vídeo de fundo ativado na tela!")
                             st.rerun()
                         elif btn_fundo_stop:
-                            requests.patch(f"{FIREBASE_URL}/prestadores_config/{provider_token}.json", json={"video_fundo": "", "estado_fundo": "parado"})
+                            # Define o estado como parado e limpa a URL para o ecrã ficar preto/parar imediatamente
+                            payload = {"url": "", "estado": "parado"}
+                            requests.put(f"{FIREBASE_URL}/video_fundo/{provider_token}.json", json=payload)
                             st.success("Vídeo de fundo parado.")
                             st.rerun()
           
