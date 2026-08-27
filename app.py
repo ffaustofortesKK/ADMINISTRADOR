@@ -1151,7 +1151,7 @@ def renderizar_gestao_fila_prestador(provider_token):
                             </div>
                         """, unsafe_allow_html=True)
 
-                with col_dir:
+              with col_dir:
                     st.markdown("<div style='height: 5px;'></div>", unsafe_allow_html=True)
                     with st.form(key="form_video_fundo_pos"):
                         st.markdown("<div style='font-family: monospace; color: #ffffff; font-size: 13px; font-weight: bold; margin-bottom: 5px;'>Vídeo Clipe de Fundo (YouTube)</div>", unsafe_allow_html=True)
