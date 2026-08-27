@@ -889,18 +889,10 @@ def show_provider_panel_custom(provider_token):
     </style>
     """, unsafe_allow_html=True)
 
-    col_topo_1, col_topo_2, col_topo_3 = st.columns([1.2, 3, 0.8])
-    
-    with col_topo_1:
-        st.markdown(f"""
-            <div style="background: #000000; border: 2px solid #FFC107; border-radius: 6px; padding: 8px; text-align: center;">
-                <div style="font-family: monospace; color: #ffffff; font-size: 9px; text-transform: uppercase; letter-spacing: 1px;">TEMPO / PLANO ESCOLHIDO</div>
-                <div style="font-family: monospace; color: #FFC107; font-size: 18px; font-weight: bold; {classe_piscar} margin: 2px 0;">⏱️ {tempo_formatado}</div>
-                <div style="font-family: monospace; color: #fff; font-size: 10px;">({tempo_plano})</div>
-            </div>
-        """, unsafe_allow_html=True)
+    # Removida a coluna do relógio/plano e ajustado para apenas o Título e o Logótipo
+    col_topo_titulo, col_topo_logo = st.columns([4, 0.8])
         
-    with col_topo_2:
+    with col_topo_titulo:
         st.markdown(f"""
             <div style="display: flex; align-items: center; gap: 12px; padding-top: 5px;">
                 <span style="font-size: 28px;">🎤</span>
@@ -910,7 +902,7 @@ def show_provider_panel_custom(provider_token):
             </div>
         """, unsafe_allow_html=True)
         
-    with col_topo_3:
+    with col_topo_logo:
         st.markdown(f'<div style="text-align: right;"><img src="{url_logotipo}" class="top-logo" /></div>', unsafe_allow_html=True)
 
     st.markdown("<hr style='border-color: #FFC107; margin: 15px 0;'>", unsafe_allow_html=True)
@@ -986,8 +978,7 @@ def show_provider_panel_custom(provider_token):
                         st.error(f"Erro ao enviar reforço: {err}")
 
     st.markdown("<div style='height: 5px;'></div>", unsafe_allow_html=True)
-    renderizar_gestao_fila_prestador(provider_token) 
-
+    renderizar_gestao_fila_prestador(provider_token)
 
 @st.fragment(run_every=1)
 def renderizar_gestao_fila_prestador(provider_token):
