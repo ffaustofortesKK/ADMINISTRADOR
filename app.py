@@ -711,7 +711,6 @@ import urllib.parse
 from datetime import datetime
 
 def show_provider_panel_custom(provider_token):
-    url_logotipo = "https://cdn.phototourl.com/free/2026-08-03-8b13edf5-0257-491d-ab78-f0d5329ffc15.jpg"
     url_fundo_painel = "https://cdn.phototourl.com/free/2026-08-03-694a4a2e-9914-4da8-93b2-87538a4805ab.png"
 
     df_prov = get_all_providers()
@@ -785,10 +784,6 @@ def show_provider_panel_custom(provider_token):
         except Exception:
             pass
 
-    horas_restantes = segundos_restantes // 3600
-    min_restantes = (segundos_restantes % 3600) // 60
-    seg_restantes = segundos_restantes % 60
-    
     aviso_reforço_html = ""
     if segundos_restantes <= 1800 and segundos_restantes > 0:
         aviso_reforço_html = """
@@ -865,14 +860,6 @@ def show_provider_panel_custom(provider_token):
         font-weight: bold !important;
         text-shadow: 1px 1px 3px rgba(0,0,0,0.9) !important;
     }}
-    /* Logótipo aumentado em +70% (passou de ~55px para cerca de 95px) */
-    .top-logo {{
-        width: 95px;
-        height: 95px;
-        border-radius: 50%;
-        border: 3px solid #FFC107;
-        object-fit: cover;
-    }}
     h1, h2, h3, h4, h5, h6, p, label, span, div, .stMarkdown {{
         color: #ffffff !important;
         font-weight: bold !important;
@@ -881,22 +868,13 @@ def show_provider_panel_custom(provider_token):
     </style>
     """, unsafe_allow_html=True)
 
-    # Topo limpo apenas com o título principal e o logótipo ampliado à direita
-    col_topo_titulo, col_topo_logo = st.columns([4, 1])
+    # Título ampliado em ~90% (de ~20px para ~38px) e sem o emoji de microfone
+    st.markdown(f"""
+        <div style="padding-top: 5px; text-align: left;">
+            <h1 style="margin: 0; color: #FFC107; font-family: monospace; font-size: 38px; text-transform: uppercase; font-weight: bold;">PAINEL DO PRESTADOR: <span style="color: #FFC107;">{nome_prestador}</span></h1>
+        </div>
+    """, unsafe_allow_html=True)
         
-    with col_topo_titulo:
-        st.markdown(f"""
-            <div style="display: flex; align-items: center; gap: 12px; padding-top: 10px;">
-                <span style="font-size: 32px;">🎤</span>
-                <div>
-                    <h1 style="margin: 0; color: #FFC107; font-family: monospace; font-size: 22px; text-transform: uppercase; font-weight: bold;">PAINEL DO PRESTADOR: <span style="color: #FFC107;">{nome_prestador}</span></h1>
-                </div>
-            </div>
-        """, unsafe_allow_html=True)
-        
-    with col_topo_logo:
-        st.markdown(f'<div style="text-align: right;"><img src="{url_logotipo}" class="top-logo" /></div>', unsafe_allow_html=True)
-
     st.markdown("<hr style='border-color: #FFC107; margin: 15px 0;'>", unsafe_allow_html=True)
     st.markdown(aviso_reforço_html, unsafe_allow_html=True)
     
