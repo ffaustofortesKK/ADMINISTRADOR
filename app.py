@@ -1184,7 +1184,7 @@ def renderizar_gestao_fila_prestador(provider_token):
                             requests.put(f"{FIREBASE_URL}/video_fundo/{provider_token}.json", json=payload)
                             st.success("Vídeo de fundo parado.")
                             st.rerun()
-          
+        
     except Exception as e:
         st.error(f"Erro ao carregar os pedidos do Firebase: {e}")
 
