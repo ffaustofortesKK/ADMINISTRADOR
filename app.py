@@ -1175,13 +1175,11 @@ def renderizar_gestao_fila_prestador(provider_token):
                             
                         if btn_fundo_play:
                             url_escolhida = opcoes_videos_fundo[escolha_video_label]
-                            # Grava na rota unificada /video_fundo/{provider_token}
                             payload = {"url": url_escolhida, "estado": "ativo"}
                             requests.put(f"{FIREBASE_URL}/video_fundo/{provider_token}.json", json=payload)
                             st.success("Vídeo de fundo ativado na tela!")
                             st.rerun()
                         elif btn_fundo_stop:
-                            # Define o estado como parado e limpa a URL para o ecrã ficar preto/parar imediatamente
                             payload = {"url": "", "estado": "parado"}
                             requests.put(f"{FIREBASE_URL}/video_fundo/{provider_token}.json", json=payload)
                             st.success("Vídeo de fundo parado.")
