@@ -77,29 +77,37 @@ st.set_page_config(
 
 # --- FUNÇÃO SEGURA PARA OBTER VÍDEO DE FUNDO ---
 # --- FUNÇÃO SEGURA PARA OBTER VÍDEO DE FUNDO (APENAS LINKS / YOUTUBE) ---
-def obter_video_fundo(provider_token):
+def pesquisar_videos_youtube(termo_pesquisa, max_resultados=5):
     """
-    Vai buscar o vídeo de fundo exclusivamente ao Firebase (links diretos ou YouTube).
+    Pesquisa vídeos no YouTube com base num termo e retorna uma lista de dicionários com título e url.
     """
-    try:
-        # 1. Tenta verificar se o prestador definiu um vídeo específico no Firebase
-        url_fb = f"{FIREBASE_URL}/video_fundo/{provider_token}.json"
-        response = requests.get(url_fb, timeout=5)
-        
-        if response.status_code == 200 and response.json():
-            dados = response.json()
-            if isinstance(dados, str) and dados.startswith("http"):
-                return dados
-            elif isinstance(dados, dict):
-                url_interna = dados.get("url")
-                if url_interna and str(url_interna).startswith("http"):
-                    return url_interna
-
-    except Exception as e:
-        print(f"Aviso ao carregar o vídeo de fundo do Firebase: {e}")
+    if not termo_pesquisa:
+        return []
     
-    # 2. FALLBACK: Se o Firebase estiver vazio para este provider, retorna o primeiro link padrão
-    return "https://youtu.be/s5YJkqvnDuE"
+    ydl_opts = {
+        'extract_flat': True,
+        'skip_download': True,
+        'quiet': True,
+    }
+    
+    resultados = []
+    try:
+        # Pesquisa direta no YouTube usando ytsearch
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            query = f"ytsearch{max_resultados}:{termo_pesquisa}"
+            info = ydl.extract_info(query, download=False)
+            
+            if 'entries' in info:
+                for entry in info['entries']:
+                    if entry:
+                        titulo = entry.get('title', 'Sem Título')
+                        video_id = entry.get('id', '')
+                        url = f"https://www.youtube.com/watch?v={video_id}"
+                        resultados.append({"titulo": titulo, "url": url})
+    except Exception as e:
+        print(f"Erro ao pesquisar no YouTube: {e}")
+        
+    return resultados
               
 # --- BLOQUEIO TOTAL E RADICAL DO BOTÃO GERENCIAR APLICATIVO E ELEMENTOS CLOUD ---
 st.markdown("""
@@ -153,7 +161,36 @@ try:
     init_db()
 except Exception:
     pass
+st.subheader("🔍 Pesquisar Vídeo de Fundo no YouTube")
 
+termo_busca = st.text_input("Escreve o nome da música ou artista para o fundo:", key="input_busca_yt")
+
+if st.button("Pesquisar no YouTube"):
+    if termo_busca:
+        with st.spinner("A pesquisar no YouTube..."):
+            videos_encontrados = pesquisar_videos_youtube(termo_busca, max_resultados=5)
+            st.session_state['videos_pesquisa'] = videos_encontrados
+    else:
+        st.warning("Por favor, escreve algum termo para pesquisar.")
+
+# Mostra os resultados em formato de seleção interativa
+if 'videos_pesquisa' in st.session_state and st.session_state['videos_pesquisa']:
+    st.markdown("### Resultados Encontrados:")
+    
+    for i, vid in enumerate(st.session_state['videos_pesquisa']):
+        col_info, col_btn = st.columns([4, 1])
+        
+        with col_info:
+            st.markdown(f"**{i+1}.** {vid['titulo']}")
+            st.caption(vid['url'])
+            
+        with col_btn:
+            # Botão para definir este vídeo imediatamente como fundo via Firebase
+            if st.button("Definir", key=f"btn_escolher_vid_{i}"):
+                definir_video_fundo(provider_token, vid['url'])
+                st.success(f"Vídeo de fundo atualizado para: {vid['titulo']}")
+                st.rerun()
+                
 def custom_show_register_page():
     url_fundo_painel = "https://cdn.phototourl.com/free/2026-08-03-694a4a2e-9914-4da8-93b2-87538a4805ab.png"
     url_logotipo = "https://cdn.phototourl.com/free/2026-08-03-8b13edf5-0257-491d-ab78-f0d5329ffc15.jpg"
